@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.auth.router import router as auth_router
 from app.api.v1.admin.router import router as admin_router
+from app.api.v1.geo.router import router as geo_router
 from app.api.v1.referentiel.router import router as referentiel_router
 from app.api.v1.reseau.router import router as reseau_router
 from app.api.v1.interruptions.distribution.router import router as distrib_router
@@ -15,6 +16,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(admin_router, prefix="/admin", tags=["admin"])
+api_router.include_router(geo_router, prefix="/geo", tags=["geo"])
 api_router.include_router(referentiel_router, prefix="/referentiel", tags=["referentiel"])
 api_router.include_router(reseau_router, prefix="/reseau", tags=["reseau"])
 api_router.include_router(distrib_router, prefix="/interruptions/distribution", tags=["interruptions-distribution"])

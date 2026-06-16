@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Validation Workflow - SIR Senelec</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #dce3ec;
+            border-radius: 10px;
+        }
+        .transition-fab {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "background": "#f6f9ff",
+                      "secondary-fixed-dim": "#c5c7c8",
+                      "on-tertiary-container": "#ffb88c",
+                      "on-error": "#ffffff",
+                      "tertiary": "#642d00",
+                      "on-primary-fixed-variant": "#004881",
+                      "on-tertiary-fixed-variant": "#743500",
+                      "on-secondary-fixed-variant": "#454748",
+                      "on-tertiary": "#ffffff",
+                      "error": "#ba1a1a",
+                      "outline": "#727781",
+                      "primary-fixed": "#d3e4ff",
+                      "on-primary-container": "#a4caff",
+                      "primary": "#003e6f",
+                      "inverse-primary": "#a2c9ff",
+                      "secondary-fixed": "#e1e3e4",
+                      "on-surface": "#151c22",
+                      "tertiary-container": "#873f01",
+                      "primary-fixed-dim": "#a2c9ff",
+                      "on-secondary-fixed": "#191c1d",
+                      "inverse-surface": "#2a3138",
+                      "surface-variant": "#dce3ec",
+                      "surface-dim": "#d4dbe3",
+                      "outline-variant": "#c1c7d2",
+                      "on-background": "#151c22",
+                      "on-surface-variant": "#414750",
+                      "inverse-on-surface": "#ebf1fa",
+                      "on-secondary": "#ffffff",
+                      "error-container": "#ffdad6",
+                      "tertiary-fixed-dim": "#ffb68a",
+                      "surface-bright": "#f6f9ff",
+                      "tertiary-fixed": "#ffdbc8",
+                      "surface": "#f6f9ff",
+                      "on-tertiary-fixed": "#321300",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-high": "#e2e9f1",
+                      "surface-tint": "#1b60a2",
+                      "secondary": "#5c5f60",
+                      "on-secondary-container": "#626566",
+                      "surface-container-highest": "#dce3ec",
+                      "primary-container": "#005596",
+                      "surface-container": "#e8eef7",
+                      "surface-container-low": "#eef4fd",
+                      "secondary-container": "#e1e3e4",
+                      "on-error-container": "#93000a",
+                      "on-primary-fixed": "#001c38",
+                      "on-primary": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "stack-sm": "0.5rem",
+                      "container-padding": "1.5rem",
+                      "stack-lg": "1.5rem",
+                      "stack-md": "1rem",
+                      "gutter-grid": "1rem"
+              },
+              "fontFamily": {
+                      "headline-md": ["Inter"],
+                      "body-md": ["Inter"],
+                      "headline-sm": ["Inter"],
+                      "label-md": ["Inter"],
+                      "display-sm": ["Inter"],
+                      "code-sm": ["Inter"],
+                      "body-sm": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                      "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                      "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                      "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                      "display-sm": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                      "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                      "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md overflow-hidden h-screen flex">
+<!-- SideNavBar Anchor -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant dark:border-outline flex flex-col py-stack-lg z-50">
+<div class="px-container-padding mb-stack-lg">
+<h1 class="font-display-sm text-display-sm font-bold text-primary dark:text-inverse-primary">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Gestion du Réseau</p>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="px-4 py-2 flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 font-label-md text-label-md">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</div>
+<div class="px-4 py-2 flex items-center gap-3 border-l-4 border-primary bg-primary/10 text-primary font-bold cursor-pointer active:scale-95 font-label-md text-label-md">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+<span>Interruptions</span>
+</div>
+<div class="px-4 py-2 flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 font-label-md text-label-md">
+<span class="material-symbols-outlined" data-icon="assignment">assignment</span>
+<span>Workflow</span>
+</div>
+<div class="px-4 py-2 flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 font-label-md text-label-md">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span>Rapports</span>
+</div>
+<div class="px-4 py-2 flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 font-label-md text-label-md">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span>Admin</span>
+</div>
+<div class="px-4 py-2 flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 font-label-md text-label-md">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>Utilisateurs</span>
+</div>
+</nav>
+<div class="mt-auto px-container-padding pt-stack-lg border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-white font-bold">JD</div>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md text-on-surface truncate">Jean Dupont</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Superviseur</p>
+</div>
+</div>
+</div>
+</aside>
+<div class="flex-1 ml-[260px] flex flex-col relative h-full">
+<!-- TopNavBar Anchor -->
+<header class="h-16 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-container-padding z-40 sticky top-0">
+<div class="flex items-center gap-stack-md w-1/2">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-primary/20 font-body-sm text-body-sm text-on-surface" placeholder="Rechercher une interruption..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">SIR Senelec</span>
+</div>
+</header>
+<!-- Main Content Area: Split View -->
+<main class="flex-1 flex overflow-hidden">
+<!-- Left Filtering Sidebar -->
+<aside class="w-80 bg-surface-container border-r border-outline-variant flex flex-col p-container-padding overflow-y-auto custom-scrollbar">
+<h2 class="font-headline-sm text-headline-sm text-on-surface mb-stack-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="filter_list">filter_list</span>
+                    Filtres de Validation
+                </h2>
+<!-- Grouping Sections -->
+<div class="space-y-stack-lg">
+<!-- Regions -->
+<div>
+<label class="font-label-md text-label-md text-primary uppercase tracking-widest block mb-stack-sm">Régions</label>
+<div class="space-y-1">
+<div class="flex items-center justify-between p-2 rounded hover:bg-surface-container-high cursor-pointer transition-colors group">
+<span class="flex items-center gap-2">
+<input class="rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Dakar</span>
+</span>
+<span class="bg-surface-container-highest px-2 py-0.5 rounded-full text-[10px] font-bold">14</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded hover:bg-surface-container-high cursor-pointer transition-colors group">
+<span class="flex items-center gap-2">
+<input class="rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Thiès</span>
+</span>
+<span class="bg-surface-container-highest px-2 py-0.5 rounded-full text-[10px] font-bold">8</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded hover:bg-surface-container-high cursor-pointer transition-colors group">
+<span class="flex items-center gap-2">
+<input class="rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="font-body-sm text-body-sm">Saint-Louis</span>
+</span>
+<span class="bg-surface-container-highest px-2 py-0.5 rounded-full text-[10px] font-bold">5</span>
+</div>
+</div>
+</div>
+<!-- Domain -->
+<div>
+<label class="font-label-md text-label-md text-primary uppercase tracking-widest block mb-stack-sm">Domaine</label>
+<div class="grid grid-cols-1 gap-2">
+<button class="flex items-center gap-3 px-4 py-3 bg-white border border-outline-variant rounded-lg hover:border-primary transition-colors text-left group">
+<div class="w-8 h-8 rounded bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="font-bold text-[10px]">HT</span>
+</div>
+<div>
+<p class="font-label-md text-label-md">Haute Tension</p>
+<p class="text-[10px] text-on-surface-variant">3 en attente</p>
+</div>
+</button>
+<button class="flex items-center gap-3 px-4 py-3 bg-white border border-outline-variant rounded-lg hover:border-primary transition-colors text-left group">
+<div class="w-8 h-8 rounded bg-tertiary-container/10 flex items-center justify-center text-tertiary">
+<span class="font-bold text-[10px]">MT</span>
+</div>
+<div>
+<p class="font-label-md text-label-md">Moyenne Tension</p>
+<p class="text-[10px] text-on-surface-variant">12 en attente</p>
+</div>
+</button>
+<button class="flex items-center gap-3 px-4 py-3 bg-white border border-outline-variant rounded-lg hover:border-primary transition-colors text-left group">
+<div class="w-8 h-8 rounded bg-secondary-container flex items-center justify-center text-secondary">
+<span class="font-bold text-[10px]">BT</span>
+</div>
+<div>
+<p class="font-label-md text-label-md">Basse Tension</p>
+<p class="text-[10px] text-on-surface-variant">27 en attente</p>
+</div>
+</button>
+</div>
+</div>
+<!-- Priority -->
+<div>
+<label class="font-label-md text-label-md text-primary uppercase tracking-widest block mb-stack-sm">Priorité</label>
+<div class="space-y-2">
+<div class="flex items-center gap-2 p-2 rounded-lg bg-error/10 border border-error/20">
+<span class="material-symbols-outlined text-error text-[18px]" data-icon="priority_high">priority_high</span>
+<span class="font-label-md text-label-md text-error">Critique</span>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-tertiary-fixed/30 border border-tertiary/20">
+<span class="material-symbols-outlined text-tertiary text-[18px]" data-icon="adjust">adjust</span>
+<span class="font-label-md text-label-md text-tertiary">Elevée</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main List Area -->
+<div class="flex-1 p-container-padding overflow-y-auto custom-scrollbar relative">
+<div class="flex justify-between items-center mb-stack-lg">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">File d'attente de validation</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">42 interruptions nécessitent votre attention immédiate.</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 border border-outline-variant rounded-lg flex items-center gap-2 font-label-md text-label-md hover:bg-white transition-colors">
+<span class="material-symbols-outlined" data-icon="sort">sort</span>
+                            Trier par Date
+                        </button>
+<button class="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2 font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+                            Exporter CSV
+                        </button>
+</div>
+</div>
+<!-- Table Header -->
+<div class="grid grid-cols-12 gap-4 px-4 py-3 bg-surface-container-highest border-b border-outline-variant font-label-md text-label-md text-on-surface-variant">
+<div class="col-span-1 flex items-center">
+<input class="rounded border-outline text-primary focus:ring-primary h-4 w-4" id="master-checkbox" type="checkbox"/>
+</div>
+<div class="col-span-1">ID</div>
+<div class="col-span-1 text-center">Dom.</div>
+<div class="col-span-3">Localisation</div>
+<div class="col-span-2">Date de début</div>
+<div class="col-span-2 text-center">Priorité</div>
+<div class="col-span-2 text-right">Statut</div>
+</div>
+<!-- List Items -->
+<div class="divide-y divide-outline-variant bg-white border border-outline-variant rounded-b-xl overflow-hidden mb-20">
+<!-- Row 1 -->
+<div class="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-background transition-colors items-center group cursor-pointer">
+<div class="col-span-1 flex items-center">
+<input class="item-checkbox rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</div>
+<div class="col-span-1 font-code-sm text-code-sm text-primary font-bold">#9281</div>
+<div class="col-span-1 text-center">
+<span class="px-2 py-0.5 bg-primary-container/10 text-primary font-bold text-[10px] rounded uppercase">HT</span>
+</div>
+<div class="col-span-3">
+<p class="font-label-md text-label-md">Poste Dakar Plateau</p>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="location_on">location_on</span> Dakar, Région Centre
+                            </p>
+</div>
+<div class="col-span-2 font-body-sm text-body-sm">
+                            24 Oct 2023 <br/> <span class="text-[11px] text-on-surface-variant">08:45 AM</span>
+</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-2 py-1 bg-error-container text-on-error-container font-label-md text-[10px] rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span> Critique
+                            </span>
+</div>
+<div class="col-span-2 text-right">
+<span class="text-[11px] font-bold text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded">Validation requise</span>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-background transition-colors items-center group cursor-pointer">
+<div class="col-span-1 flex items-center">
+<input class="item-checkbox rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</div>
+<div class="col-span-1 font-code-sm text-code-sm text-primary font-bold">#9284</div>
+<div class="col-span-1 text-center">
+<span class="px-2 py-0.5 bg-tertiary-container/10 text-tertiary font-bold text-[10px] rounded uppercase">MT</span>
+</div>
+<div class="col-span-3">
+<p class="font-label-md text-label-md">Quartier Escale, Thiès</p>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="location_on">location_on</span> Thiès, Zone Nord
+                            </p>
+</div>
+<div class="col-span-2 font-body-sm text-body-sm">
+                            24 Oct 2023 <br/> <span class="text-[11px] text-on-surface-variant">10:15 AM</span>
+</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed font-label-md text-[10px] rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Élevée
+                            </span>
+</div>
+<div class="col-span-2 text-right">
+<span class="text-[11px] font-bold text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded">Validation requise</span>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-background transition-colors items-center group cursor-pointer">
+<div class="col-span-1 flex items-center">
+<input class="item-checkbox rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</div>
+<div class="col-span-1 font-code-sm text-code-sm text-primary font-bold">#9289</div>
+<div class="col-span-1 text-center">
+<span class="px-2 py-0.5 bg-secondary-container text-secondary font-bold text-[10px] rounded uppercase">BT</span>
+</div>
+<div class="col-span-3">
+<p class="font-label-md text-label-md">Village Artisanal</p>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="location_on">location_on</span> Saint-Louis, Zone Delta
+                            </p>
+</div>
+<div class="col-span-2 font-body-sm text-body-sm">
+                            24 Oct 2023 <br/> <span class="text-[11px] text-on-surface-variant">11:30 AM</span>
+</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-2 py-1 bg-surface-container-highest text-on-surface-variant font-label-md text-[10px] rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Normale
+                            </span>
+</div>
+<div class="col-span-2 text-right">
+<span class="text-[11px] font-bold text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded">Validation requise</span>
+</div>
+</div>
+<!-- Row 4 -->
+<div class="grid grid-cols-12 gap-4 px-4 py-4 hover:bg-background transition-colors items-center group cursor-pointer">
+<div class="col-span-1 flex items-center">
+<input class="item-checkbox rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</div>
+<div class="col-span-1 font-code-sm text-code-sm text-primary font-bold">#9292</div>
+<div class="col-span-1 text-center">
+<span class="px-2 py-0.5 bg-tertiary-container/10 text-tertiary font-bold text-[10px] rounded uppercase">MT</span>
+</div>
+<div class="col-span-3">
+<p class="font-label-md text-label-md">Ligne Rufisque - Bargny</p>
+<p class="text-[10px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="location_on">location_on</span> Dakar, Région Est
+                            </p>
+</div>
+<div class="col-span-2 font-body-sm text-body-sm">
+                            24 Oct 2023 <br/> <span class="text-[11px] text-on-surface-variant">12:00 PM</span>
+</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed font-label-md text-[10px] rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Élevée
+                            </span>
+</div>
+<div class="col-span-2 text-right">
+<span class="text-[11px] font-bold text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded">Validation requise</span>
+</div>
+</div>
+</div>
+<!-- Floating Action Bar (Contextual) -->
+<div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-6 py-4 rounded-full shadow-2xl flex items-center gap-6 z-[60] transition-fab opacity-0 scale-90 pointer-events-none translate-y-10" id="floating-action-bar">
+<div class="flex items-center gap-3 pr-6 border-r border-outline/30">
+<span class="bg-primary px-2 py-1 rounded-md font-bold text-white text-[12px]" id="selected-count">0</span>
+<span class="font-label-md text-label-md">Éléments sélectionnés</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-4 py-2 rounded-full border border-outline-variant/30 hover:bg-white/10 flex items-center gap-2 font-label-md text-label-md transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+                            Demander une modification
+                        </button>
+<button class="px-4 py-2 rounded-full bg-error text-white hover:bg-error/90 flex items-center gap-2 font-label-md text-label-md transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                            Rejeter
+                        </button>
+<button class="px-6 py-2 rounded-full bg-primary text-white hover:bg-primary-container flex items-center gap-2 font-label-md text-label-md transition-colors shadow-lg">
+<span class="material-symbols-outlined text-[18px]" data-icon="done_all" data-weight="fill" style="font-variation-settings: 'FILL' 1;">done_all</span>
+                            Tout Valider
+                        </button>
+</div>
+<button class="p-2 text-outline-variant hover:text-white transition-colors" id="cancel-selection">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+<script>
+        // Micro-interactions for Selection & Floating Action Bar
+        const fab = document.getElementById('floating-action-bar');
+        const countBadge = document.getElementById('selected-count');
+        const masterCheckbox = document.getElementById('master-checkbox');
+        const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+        const cancelButton = document.getElementById('cancel-selection');
+
+        function updateFAB() {
+            const selectedCount = Array.from(itemCheckboxes).filter(cb => cb.checked).length;
+            countBadge.textContent = selectedCount;
+
+            if (selectedCount > 0) {
+                fab.classList.remove('opacity-0', 'scale-90', 'pointer-events-none', 'translate-y-10');
+                fab.classList.add('opacity-100', 'scale-100', 'translate-y-0');
+            } else {
+                fab.classList.add('opacity-0', 'scale-90', 'pointer-events-none', 'translate-y-10');
+                fab.classList.remove('opacity-100', 'scale-100', 'translate-y-0');
+            }
+        }
+
+        masterCheckbox.addEventListener('change', (e) => {
+            itemCheckboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+                cb.closest('.grid').classList.toggle('bg-primary/5', e.target.checked);
+            });
+            updateFAB();
+        });
+
+        itemCheckboxes.forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                cb.closest('.grid').classList.toggle('bg-primary/5', e.target.checked);
+                updateFAB();
+                
+                // Update master state
+                const allChecked = Array.from(itemCheckboxes).every(i => i.checked);
+                masterCheckbox.checked = allChecked;
+                masterCheckbox.indeterminate = !allChecked && Array.from(itemCheckboxes).some(i => i.checked);
+            });
+        });
+
+        cancelButton.addEventListener('click', () => {
+            itemCheckboxes.forEach(cb => {
+                cb.checked = false;
+                cb.closest('.grid').classList.remove('bg-primary/5');
+            });
+            masterCheckbox.checked = false;
+            masterCheckbox.indeterminate = false;
+            updateFAB();
+        });
+    </script>
+</body></html>

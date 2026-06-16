@@ -4,6 +4,7 @@ from sqlalchemy import DECIMAL, Boolean, DateTime, ForeignKey, Integer, UniqueCo
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.defaults import MSSQL_NOW
 
 
 class EnergieNd(Base):
@@ -26,7 +27,7 @@ class EnergieNd(Base):
         index=True,
     )
     type_end_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("types_end.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("types_end.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     valeur_mwh: Mapped[float] = mapped_column(DECIMAL(18, 4), nullable=False)
     puissance_coupee_mw: Mapped[float] = mapped_column(DECIMAL(18, 4), nullable=False)
@@ -34,7 +35,7 @@ class EnergieNd(Base):
     # If True, this END is excluded from the imputable total
     est_force_majeure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     calculated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
 
     # Relationships
@@ -54,7 +55,7 @@ class SaifiSaidi(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     service_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("services.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("services.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     annee: Mapped[int] = mapped_column(Integer, nullable=False)
     mois: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-12
@@ -63,7 +64,7 @@ class SaifiSaidi(Base):
     nombre_interruptions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_clients_reference: Mapped[int] = mapped_column(Integer, nullable=False)
     calculated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
 
     __table_args__ = (
@@ -85,13 +86,13 @@ class NombreClientMois(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     service_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("services.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("services.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     annee: Mapped[int] = mapped_column(Integer, nullable=False)
     mois: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-12
     nombre_clients: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
 
     __table_args__ = (

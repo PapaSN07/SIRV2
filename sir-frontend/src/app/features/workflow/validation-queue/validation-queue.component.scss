@@ -1,0 +1,442 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.validation-queue {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - #{$header-height} - 2rem);
+  max-width: 1600px;
+  margin: 0 auto;
+
+  &__header {
+    margin-bottom: 1rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: $primary;
+  }
+
+  &__subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 13px;
+    color: $on-surface-variant;
+  }
+
+  &__layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+    border: 1px solid $outline-variant;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  &__error {
+    margin: 0 0 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    background: #ffdad6;
+    color: #93000a;
+    font-size: 13px;
+
+    &--floating {
+      position: fixed;
+      bottom: 5rem;
+      right: 1.5rem;
+      z-index: 60;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  &__toast {
+    position: fixed;
+    bottom: 5rem;
+    right: 1.5rem;
+    z-index: 60;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    background: $on-surface;
+    color: #fff;
+    font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  &__spinner {
+    animation: vq-spin 1s linear infinite;
+  }
+}
+
+.validation-filters {
+  width: 260px;
+  flex-shrink: 0;
+  padding: 1.25rem;
+  background: $surface-container-low;
+  border-right: 1px solid $outline-variant;
+  overflow-y: auto;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem;
+    font-size: 14px;
+    font-weight: 600;
+    color: $primary;
+
+    .material-symbols-outlined {
+      font-size: 20px;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__select {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    background: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    color: $on-surface;
+    outline: none;
+
+    &:focus {
+      border-color: $primary;
+      box-shadow: 0 0 0 1px $primary;
+    }
+  }
+}
+
+.validation-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  overflow: hidden;
+
+  &--with-panel {
+    border-right: 1px solid $outline-variant;
+  }
+}
+
+.validation-table-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.validation-table {
+  &__head,
+  &__row {
+    display: grid;
+    grid-template-columns: 40px 80px 56px 1fr 140px 100px 120px;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+  }
+
+  &__head {
+    background: $surface-container-high;
+    border-bottom: 1px solid $outline-variant;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $on-surface-variant;
+  }
+
+  &__row {
+    border-bottom: 1px solid $outline-variant;
+    cursor: pointer;
+    outline: none;
+
+    &:hover {
+      background: rgba($primary, 0.04);
+    }
+
+    &--selected {
+      background: rgba($primary, 0.08);
+    }
+
+    &--focused {
+      background: rgba($primary, 0.12);
+      box-shadow: inset 3px 0 0 $primary;
+    }
+  }
+
+  &__check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__num {
+    font-weight: 700;
+    color: $primary;
+    font-size: 12px;
+  }
+
+  &__domain {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 0.25rem;
+    background: rgba($primary, 0.1);
+    color: $primary;
+  }
+
+  &__loc {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__date {
+    font-size: 12px;
+    color: $on-surface-variant;
+  }
+
+  &__loading,
+  &__empty {
+    padding: 3rem;
+    text-align: center;
+    color: $on-surface-variant;
+    font-size: 14px;
+  }
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+
+  &--critique {
+    background: #ffdad6;
+    color: #93000a;
+  }
+
+  &--elevee {
+    background: #ffdbc8;
+    color: $tertiary-container;
+  }
+
+  &--normale {
+    background: $surface-container;
+    color: $on-surface-variant;
+  }
+}
+
+.pending-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 0.25rem;
+  font-size: 10px;
+  font-weight: 700;
+  background: #ffdbc8;
+  color: $tertiary-container;
+}
+
+.validation-detail {
+  width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: $surface-container-low;
+  overflow: hidden;
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid $outline-variant;
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+    color: $on-surface-variant;
+
+    &:hover {
+      background: $surface-container-high;
+      color: $on-surface;
+    }
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+
+  &__loading {
+    padding: 3rem;
+    text-align: center;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  &__num {
+    font-size: 18px;
+    font-weight: 700;
+    color: $primary;
+  }
+
+  &__dl {
+    margin: 0 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 13px;
+
+    div {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    dt {
+      margin: 0;
+      color: $on-surface-variant;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    dd {
+      margin: 0;
+      text-align: right;
+      font-weight: 500;
+    }
+  }
+
+  &__obs {
+    margin: 0 0 1rem;
+    padding: 0.75rem;
+    border-radius: 0.25rem;
+    background: #fff;
+    border: 1px solid $outline-variant;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.validation-fab {
+  position: fixed;
+  bottom: 1.5rem;
+  left: calc(#{$sidebar-width} + 50%);
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  background: $on-surface;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  &__count {
+    font-size: 13px;
+    font-weight: 600;
+    padding-right: 1rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+}
+
+@keyframes vq-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1024px) {
+  .validation-queue__layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .validation-filters {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid $outline-variant;
+  }
+
+  .validation-detail {
+    width: 100%;
+    max-height: 400px;
+  }
+
+  .validation-fab {
+    left: 50%;
+    width: calc(100% - 2rem);
+    transform: translateX(-50%);
+    flex-direction: column;
+    border-radius: 0.5rem;
+  }
+}

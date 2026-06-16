@@ -1,0 +1,112 @@
+<section class="rapports-hub">
+  <sir-page-header
+    title="Rapports CRSE"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Rapports' },
+    ]"
+  />
+
+  <sir-analytics-nav />
+
+  <div class="rapports-layout">
+    <aside class="rapports-types">
+      <h2>Type de rapport</h2>
+      @if (canDistributionReports()) {
+        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'journalier'" (click)="setKind('journalier')">
+          Journalier
+        </button>
+        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_dist'" (click)="setKind('mensuel_dist')">
+          Mensuel distribution
+        </button>
+      }
+      @if (canTransportReports()) {
+        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_trans'" (click)="setKind('mensuel_trans')">
+          Mensuel transport
+        </button>
+      }
+      <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'annuel'" (click)="setKind('annuel')">
+        Annuel
+      </button>
+    </aside>
+
+    <div class="rapports-form">
+      <h2>Paramètres</h2>
+
+      <div class="field">
+        <label class="field__label" for="format">Format</label>
+        <select id="format" class="field__select" [value]="format()" (change)="format.set($any($event.target).value)">
+          <option value="pdf">PDF</option>
+          <option value="xlsx">Excel (XLSX)</option>
+        </select>
+      </div>
+
+      @if (kind() === 'journalier') {
+        <div class="field">
+          <label class="field__label" for="date">Date</label>
+          <input id="date" class="field__select" type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
+        </div>
+      } @else {
+        <div class="form-row">
+          <div class="field">
+            <label class="field__label" for="annee">Année</label>
+            <input id="annee" class="field__select" type="number" min="2000" max="2100" [value]="annee()" (change)="annee.set(+$any($event.target).value)" />
+          </div>
+          @if (kind() !== 'annuel') {
+            <div class="field">
+              <label class="field__label" for="mois">Mois</label>
+              <input id="mois" class="field__select" type="number" min="1" max="12" [value]="mois()" (change)="mois.set(+$any($event.target).value)" />
+            </div>
+          }
+        </div>
+      }
+
+      @if (kind() === 'annuel') {
+        <div class="field">
+          <label class="field__label" for="direction">Direction</label>
+          <select id="direction" class="field__select" [value]="direction()" (change)="direction.set($any($event.target).value)">
+            @if (canDistributionReports()) {
+              <option value="distribution">Distribution</option>
+            }
+            @if (canTransportReports()) {
+              <option value="transport">Transport</option>
+            }
+            @if (canConsolide()) {
+              <option value="consolide">Consolidé</option>
+            }
+          </select>
+        </div>
+      }
+
+      <button type="button" class="sir-btn sir-btn--primary" [disabled]="generating()" (click)="generate()">
+        @if (generating()) {
+          <span class="material-symbols-outlined rapports-hub__spinner" aria-hidden="true">progress_activity</span>
+          Génération…
+        } @else {
+          Générer le rapport
+        }
+      </button>
+
+      @if (error()) {
+        <p class="rapports-hub__error" role="alert">{{ error() }}</p>
+      }
+
+      @if (status(); as s) {
+        <article class="rapports-status">
+          <h3>Statut de génération</h3>
+          <p><strong>État :</strong> {{ statutLabel(s.statut) }}</p>
+          <p><strong>Type :</strong> {{ s.type_rapport }}</p>
+          @if (s.error_message) {
+            <p class="rapports-hub__error">{{ s.error_message }}</p>
+          }
+          @if (s.statut === 'success') {
+            <button type="button" class="sir-btn sir-btn--primary" (click)="download()">
+              <span class="material-symbols-outlined" aria-hidden="true">download</span>
+              Télécharger {{ s.file_name ?? s.format }}
+            </button>
+          }
+        </article>
+      }
+    </div>
+  </div>
+</section>

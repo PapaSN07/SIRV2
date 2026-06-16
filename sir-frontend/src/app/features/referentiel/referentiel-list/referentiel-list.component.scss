@@ -1,0 +1,162 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.admin-page {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid $outline-variant;
+  padding-bottom: 0.5rem;
+
+  &__btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: $on-surface-variant;
+    cursor: pointer;
+    border-radius: 0.25rem 0.25rem 0 0;
+
+    &--active {
+      color: $primary;
+      background: $surface-container-low;
+    }
+  }
+}
+
+.filters-panel {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &--full {
+    grid-column: 1 / -1;
+  }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__input,
+  &__select {
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 14px;
+    background: $surface-container-low;
+  }
+}
+
+.form-panel {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+
+  &__title {
+    margin: 0 0 1rem;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+
+  &--error {
+    background: #ffdad6;
+    color: #93000a;
+  }
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: $on-surface-variant;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid $outline-variant;
+  }
+
+  th {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+    background: $surface-container-low;
+  }
+}
+
+.col-actions {
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 12px;
+  background: $surface-container-high;
+  color: $on-surface-variant;
+
+  &--active {
+    background: #d3e4ff;
+    color: $primary;
+  }
+}
+
+.sir-btn.danger {
+  color: #ba1a1a;
+}

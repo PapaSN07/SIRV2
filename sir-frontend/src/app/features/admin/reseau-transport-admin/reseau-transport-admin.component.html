@@ -1,0 +1,183 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Réseau transport"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Administration' },
+      { label: 'Réseau transport' },
+    ]"
+  >
+    @if (canWrite()) {
+      <div actions>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouvel élément
+        </button>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-admin-nav />
+
+  <div class="tabs">
+    <button
+      type="button"
+      class="tabs__btn"
+      [class.tabs__btn--active]="activeTab() === 'equipements'"
+      (click)="onTabChange('equipements')"
+    >
+      Équipements
+    </button>
+    <button
+      type="button"
+      class="tabs__btn"
+      [class.tabs__btn--active]="activeTab() === 'sources'"
+      (click)="onTabChange('sources')"
+    >
+      Sources
+    </button>
+  </div>
+
+  @if (formOpen()) {
+    <div class="form-panel">
+      <h2 class="form-panel__title">
+        {{ editingId() === null ? 'Créer' : 'Modifier' }}
+        {{ activeTab() === 'equipements' ? 'un équipement' : 'une source' }}
+      </h2>
+      @if (activeTab() === 'equipements') {
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label">Code</label>
+            <input class="field__input" [ngModel]="equipementForm().code" (ngModelChange)="patchEquipementForm('code', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Libellé</label>
+            <input class="field__input" [ngModel]="equipementForm().libelle" (ngModelChange)="patchEquipementForm('libelle', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Type équipement</label>
+            <input class="field__input" [ngModel]="equipementForm().type_equipement" (ngModelChange)="patchEquipementForm('type_equipement', $event)" />
+          </div>
+          @if (editingId() !== null) {
+            <div class="field">
+              <label class="field__label">
+                <input type="checkbox" [ngModel]="equipementForm().is_active" (ngModelChange)="patchEquipementForm('is_active', $event)" />
+                Actif
+              </label>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label">Code</label>
+            <input class="field__input" [ngModel]="sourceForm().code" (ngModelChange)="patchSourceForm('code', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Libellé</label>
+            <input class="field__input" [ngModel]="sourceForm().libelle" (ngModelChange)="patchSourceForm('libelle', $event)" />
+          </div>
+          @if (editingId() !== null) {
+            <div class="field">
+              <label class="field__label">
+                <input type="checkbox" [ngModel]="sourceForm().is_active" (ngModelChange)="patchSourceForm('is_active', $event)" />
+                Actif
+              </label>
+            </div>
+          }
+        </div>
+      }
+      <div class="form-panel__actions">
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="saveForm()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else if (activeTab() === 'equipements') {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Libellé</th>
+            <th>Type</th>
+            <th>Actif</th>
+            @if (canWrite()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of equipements(); track row.id) {
+            <tr>
+              <td>{{ row.code }}</td>
+              <td>{{ row.libelle }}</td>
+              <td>{{ row.type_equipement }}</td>
+              <td>{{ row.is_active ? 'Oui' : 'Non' }}</td>
+              @if (canWrite()) {
+                <td>
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEditEquipement(row)">Modifier</button>
+                  @if (row.is_active) {
+                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivateEquipement(row)">Désactiver</button>
+                  }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun équipement.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Libellé</th>
+            <th>Actif</th>
+            @if (canWrite()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of sources(); track row.id) {
+            <tr>
+              <td>{{ row.code }}</td>
+              <td>{{ row.libelle }}</td>
+              <td>{{ row.is_active ? 'Oui' : 'Non' }}</td>
+              @if (canWrite()) {
+                <td>
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEditSource(row)">Modifier</button>
+                  @if (row.is_active) {
+                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivateSource(row)">Désactiver</button>
+                  }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="canWrite() ? 4 : 3">Aucune source.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <sir-paginator
+    [total]="total()"
+    [page]="page()"
+    [pageSize]="pageSize"
+    (pageChange)="onPageChange($event)"
+  />
+</section>

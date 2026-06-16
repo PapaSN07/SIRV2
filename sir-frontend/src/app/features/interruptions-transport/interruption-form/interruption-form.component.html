@@ -1,0 +1,183 @@
+<section class="interruption-form-page">
+  <sir-page-header
+    [title]="isEditMode() ? 'Modifier l\'interruption transport' : 'Nouvelle interruption (réseau transport)'"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions>
+      <a class="sir-btn sir-btn--outline-primary" routerLink="/interruptions/transport">Annuler</a>
+      <button type="button" class="sir-btn sir-btn--primary" [disabled]="form.invalid || saving()" (click)="submit()">
+        @if (saving()) {
+          <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
+        } @else {
+          <span class="material-symbols-outlined" aria-hidden="true">send</span>
+        }
+        {{ isEditMode() ? 'Enregistrer' : 'Soumettre' }}
+      </button>
+    </div>
+  </sir-page-header>
+
+  <sir-interruptions-nav />
+
+  @if (loadingRef()) {
+    <div class="form-page__loading">
+      <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
+      <p>Chargement…</p>
+    </div>
+  } @else {
+    <form class="form-bento" [formGroup]="form" (ngSubmit)="submit()">
+      <section class="form-card form-card--half">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+          <h2>Bloc transport HTB</h2>
+        </header>
+        <div class="form-card__body">
+          <div class="field">
+            <span class="field__label">Type de direction</span>
+            <div class="radio-group">
+              @for (t of typeDirections; track t) {
+                <label class="radio-group__item">
+                  <input type="radio" formControlName="type_direction" [value]="t" [disabled]="isEditMode()" />
+                  {{ t === 'omvg' ? 'OMVG' : 'Transport HTB' }}
+                </label>
+              }
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="equipement">Équipement</label>
+            <select id="equipement" class="field__select" formControlName="equipement_transport_id" [disabled]="isEditMode()">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (e of equipements(); track e.id) {
+                <option [ngValue]="e.id">{{ e.libelle }} ({{ e.type_equipement }})</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="source">Source transport</label>
+            <select id="source" class="field__select" formControlName="source_transport_id">
+              <option [ngValue]="0">—</option>
+              @for (s of sources(); track s.id) {
+                <option [ngValue]="s.id">{{ s.libelle }}</option>
+              }
+            </select>
+          </div>
+          @if (!isEditMode()) {
+            <div class="field">
+              <label class="field__label" for="poste-ligne">Poste-ligne</label>
+              <select id="poste-ligne" class="field__select" formControlName="poste_ligne_id">
+                <option [ngValue]="0">—</option>
+                @for (p of postesLignes(); track p.id) {
+                  <option [ngValue]="p.id">{{ posteLigneLabel(p) }}</option>
+                }
+              </select>
+            </div>
+          }
+          <div class="field">
+            <label class="field__label" for="tension">Tension (kV)</label>
+            <input id="tension" class="field__select" type="number" min="0" step="0.1" formControlName="tension_kv" />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--half">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+          <h2>Chronologie</h2>
+        </header>
+        <div class="form-card__body">
+          <div class="field">
+            <label class="field__label" for="date-apparition">Apparition</label>
+            <input id="date-apparition" class="field__select" type="datetime-local" formControlName="date_apparition" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="localisation">Localisation / poste-ligne</label>
+            <input id="localisation" class="field__select" type="text" formControlName="localisation" />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--wide">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">category</span>
+          <h2>Classification</h2>
+        </header>
+        <div class="form-card__body form-card__body--grid">
+          <div class="field">
+            <label class="field__label" for="cause">Cause</label>
+            <select id="cause" class="field__select" formControlName="cause_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (c of causes(); track c.id) {
+                <option [ngValue]="c.id">{{ c.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="nature">Nature</label>
+            <select id="nature" class="field__select" formControlName="nature_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (n of natures(); track n.id) {
+                <option [ngValue]="n.id">{{ n.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="siege">Siège</label>
+            <select id="siege" class="field__select" formControlName="siege_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (s of sieges(); track s.id) {
+                <option [ngValue]="s.id">{{ s.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="signalisation">Signalisation</label>
+            <select id="signalisation" class="field__select" formControlName="signalisation_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (s of signalisations(); track s.id) {
+                <option [ngValue]="s.id">{{ s.libelle }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--impact">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
+          <h2>Impact &amp; coûts</h2>
+        </header>
+        <div class="form-card__body">
+          <div class="form-row">
+            <div class="field">
+              <label class="field__label" for="transit">Puissance transit (MW)</label>
+              <input id="transit" class="field__select" type="number" min="0" step="0.1" formControlName="puissance_transit_mw" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="puissance">Puissance coupée (MW)</label>
+              <input id="puissance" class="field__select" type="number" min="0" step="0.1" formControlName="puissance_coupee_mw" />
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-row__item">
+              <input type="checkbox" formControlName="is_force_majeure" /> Force majeure
+            </label>
+            <label class="checkbox-row__item">
+              <input type="checkbox" formControlName="is_fugitive" /> Fugitive
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--full">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">notes</span>
+          <h2>Observations</h2>
+        </header>
+        <textarea class="form-textarea" rows="5" formControlName="observations" placeholder="Circonstances, actions entreprises…"></textarea>
+      </section>
+
+      @if (error()) {
+        <p class="form-page__error" role="alert">{{ error() }}</p>
+      }
+    </form>
+  }
+</section>

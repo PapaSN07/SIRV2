@@ -1,0 +1,42 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.access-denied {
+  max-width: 480px;
+  margin: 4rem auto;
+  padding: 2rem;
+  text-align: center;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  &__icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+
+    .material-symbols-outlined {
+      font-size: 3rem;
+      color: $error;
+    }
+  }
+
+  h1 {
+    margin: 0 0 0.5rem;
+    font-size: 24px;
+    color: $primary;
+  }
+
+  p {
+    margin: 0 0 1.5rem;
+    font-size: 14px;
+    color: $on-surface-variant;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+}

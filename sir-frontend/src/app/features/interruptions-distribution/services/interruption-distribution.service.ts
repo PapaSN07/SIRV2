@@ -1,0 +1,92 @@
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import { ApiResponse, PaginatedResponse } from '../../../shared/models/api.models';
+import {
+  InterruptionClotureRequest,
+  InterruptionDistribution,
+  InterruptionDistributionCreate,
+  InterruptionDistributionDetail,
+  InterruptionDistributionUpdate,
+  InterruptionListParams,
+  PosteImpacte,
+  PosteInterruptionCreate,
+} from '../../../shared/models/interruption.models';
+
+@Injectable({ providedIn: 'root' })
+export class InterruptionDistributionService {
+  private readonly apiUrl = `${environment.apiUrl}/interruptions/distribution`;
+
+  constructor(private readonly http: HttpClient) {}
+
+  list(params: InterruptionListParams = {}): Observable<PaginatedResponse<InterruptionDistribution>> {
+    let httpParams = new HttpParams();
+    if (params.page) httpParams = httpParams.set('page', params.page);
+    if (params.page_size) httpParams = httpParams.set('page_size', params.page_size);
+    if (params.region_id) httpParams = httpParams.set('region_id', params.region_id);
+    if (params.feeder_id) httpParams = httpParams.set('feeder_id', params.feeder_id);
+    if (params.statut) httpParams = httpParams.set('statut', params.statut);
+    if (params.date_debut) httpParams = httpParams.set('date_debut', params.date_debut);
+    if (params.date_fin) httpParams = httpParams.set('date_fin', params.date_fin);
+
+    return this.http
+      .get<ApiResponse<PaginatedResponse<InterruptionDistribution>>>(this.apiUrl, {
+        params: httpParams,
+      })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  get(id: number): Observable<InterruptionDistributionDetail> {
+    return this.http
+      .get<ApiResponse<InterruptionDistributionDetail>>(`${this.apiUrl}/${id}`)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  create(body: InterruptionDistributionCreate): Observable<InterruptionDistribution> {
+    return this.http
+      .post<ApiResponse<InterruptionDistribution>>(this.apiUrl, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  update(id: number, body: InterruptionDistributionUpdate): Observable<InterruptionDistribution> {
+    return this.http
+      .put<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  cloturer(id: number, body: InterruptionClotureRequest): Observable<InterruptionDistribution> {
+    return this.http
+      .patch<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}/cloturer`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  valider(id: number): Observable<InterruptionDistribution> {
+    return this.http
+      .patch<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}/valider`, {})
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  listPostes(id: number): Observable<PosteImpacte[]> {
+    return this.http
+      .get<ApiResponse<PosteImpacte[]>>(`${this.apiUrl}/${id}/postes`)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  addPoste(id: number, body: PosteInterruptionCreate): Observable<PosteImpacte> {
+    return this.http
+      .post<ApiResponse<PosteImpacte>>(`${this.apiUrl}/${id}/postes`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  removePoste(id: number, posteId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}/postes/${posteId}`);
+  }
+
+  private unwrap<T>(res: ApiResponse<T>): T {
+    if (res.status === 'error' || res.data === null) {
+      throw new Error(res.error ?? 'Erreur API');
+    }
+    return res.data;
+  }
+}

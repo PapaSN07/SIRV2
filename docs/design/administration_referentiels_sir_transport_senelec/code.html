@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIR Senelec - Gestion du Référentiel Réseau</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#f6f9ff",
+                    "secondary-fixed-dim": "#c5c7c8",
+                    "on-tertiary-container": "#ffb88c",
+                    "on-error": "#ffffff",
+                    "tertiary": "#642d00",
+                    "on-primary-fixed-variant": "#004881",
+                    "on-tertiary-fixed-variant": "#743500",
+                    "on-secondary-fixed-variant": "#454748",
+                    "on-tertiary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "outline": "#727781",
+                    "primary-fixed": "#d3e4ff",
+                    "on-primary-container": "#a4caff",
+                    "primary": "#003e6f",
+                    "inverse-primary": "#a2c9ff",
+                    "secondary-fixed": "#e1e3e4",
+                    "on-surface": "#151c22",
+                    "tertiary-container": "#873f01",
+                    "primary-fixed-dim": "#a2c9ff",
+                    "on-secondary-fixed": "#191c1d",
+                    "inverse-surface": "#2a3138",
+                    "surface-variant": "#dce3ec",
+                    "surface-dim": "#d4dbe3",
+                    "outline-variant": "#c1c7d2",
+                    "on-background": "#151c22",
+                    "on-surface-variant": "#414750",
+                    "inverse-on-surface": "#ebf1fa",
+                    "on-secondary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#ffb68a",
+                    "surface-bright": "#f6f9ff",
+                    "tertiary-fixed": "#ffdbc8",
+                    "surface": "#f6f9ff",
+                    "on-tertiary-fixed": "#321300",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#e2e9f1",
+                    "surface-tint": "#1b60a2",
+                    "secondary": "#5c5f60",
+                    "on-secondary-container": "#626566",
+                    "surface-container-highest": "#dce3ec",
+                    "primary-container": "#005596",
+                    "surface-container": "#e8eef7",
+                    "surface-container-low": "#eef4fd",
+                    "secondary-container": "#e1e3e4",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed": "#001c38",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "stack-sm": "0.5rem",
+                    "container-padding": "1.5rem",
+                    "stack-lg": "1.5rem",
+                    "stack-md": "1rem",
+                    "gutter-grid": "1rem"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "display-sm": ["Inter"],
+                    "code-sm": ["Inter"],
+                    "body-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                    "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                    "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                    "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                    "display-sm": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                    "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                    "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { @apply border-b-2 border-primary text-primary; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c7d2; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- Side Navigation Shell (from JSON) -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant dark:border-outline flex flex-col py-stack-lg z-50">
+<div class="px-stack-lg mb-8">
+<h1 class="font-display-sm text-display-sm font-bold text-primary dark:text-inverse-primary tracking-tight">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Network Management</p>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<!-- Navigation Items Mapping -->
+<div class="flex items-center gap-stack-md px-4 py-3 cursor-pointer active:scale-95 transition-colors duration-200 text-on-surface-variant hover:bg-surface-container-high rounded-sm">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</div>
+<div class="flex items-center gap-stack-md px-4 py-3 cursor-pointer active:scale-95 transition-colors duration-200 border-l-4 border-primary bg-primary/10 text-primary font-bold">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</div>
+<div class="flex items-center gap-stack-md px-4 py-3 cursor-pointer active:scale-95 transition-colors duration-200 text-on-surface-variant hover:bg-surface-container-high rounded-sm">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</div>
+<div class="flex items-center gap-stack-md px-4 py-3 cursor-pointer active:scale-95 transition-colors duration-200 text-on-surface-variant hover:bg-surface-container-high rounded-sm">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</div>
+<div class="flex items-center gap-stack-md px-4 py-3 cursor-pointer active:scale-95 transition-colors duration-200 text-on-surface-variant hover:bg-surface-container-high rounded-sm">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</div>
+<div class="flex items-center gap-stack-md px-4 py-3 cursor-pointer active:scale-95 transition-colors duration-200 text-on-surface-variant hover:bg-surface-container-high rounded-sm">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</div>
+</nav>
+<div class="px-stack-lg pt-stack-lg border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAc6Y3w64oe6MpX8Ql-6Fb0I_GKBC2QI22TkBwi2zwd5rhoFh91HBN1QagoNxip6X4shXH-F-dc4rcA_V9xgwKzcoDJYW-dM8SYQaZEuN6LbAwk0MmjO6teGE1FMYNQNrMlgYZO_XrVK3SN2bdqditzw8eLoqgih1j_gz3gxxr4KZnSC8XjcCDAiZu_uPUDWF8zaChTN0VeTtva18wvtLfBKbyuY06IBY_qrvfTOhzZM316xF03YuZE722vcH6q5hWZ1egRa2zLrJ-g"/>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md text-on-surface truncate">M. Diallo</p>
+<p class="text-[10px] text-on-surface-variant truncate">Ingénieur Réseau</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] min-h-screen flex flex-col">
+<!-- Top Navigation Bar (from JSON) -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline z-40 flex justify-between items-center px-container-padding">
+<div class="flex items-center gap-6 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container border-none rounded-sm font-body-md text-body-md focus:ring-1 focus:ring-primary" placeholder="Rechercher un départ, poste ou région..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 hover:text-primary transition-opacity duration-150 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<span class="font-headline-sm text-headline-sm text-primary font-bold">Référentiel Réseau</span>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="mt-16 p-container-padding flex-1">
+<!-- Context Header & Actions -->
+<div class="flex justify-between items-end mb-stack-lg">
+<div>
+<nav class="flex text-on-surface-variant mb-2 gap-2 font-label-md text-label-md">
+<span>Admin</span>
+<span>/</span>
+<span class="text-primary">Référentiel</span>
+</nav>
+<h2 class="font-display-sm text-display-sm text-on-surface">Gestion des Entités</h2>
+</div>
+<div class="flex gap-stack-md">
+<button class="flex items-center gap-2 px-4 py-2 bg-white border border-outline-variant rounded-sm font-label-md text-label-md hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined">file_download</span>
+                        Exporter CSV
+                    </button>
+<button class="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-sm font-label-md text-label-md hover:bg-primary-container transition-all shadow-sm active:scale-95">
+<span class="material-symbols-outlined">add</span>
+                        Nouveau Départ
+                    </button>
+</div>
+</div>
+<!-- Bento Stats Grid -->
+<div class="grid grid-cols-12 gap-gutter-grid mb-stack-lg">
+<div class="col-span-3 bg-white border border-outline-variant p-stack-md rounded-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">Total Départs</p>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-sm text-display-sm text-primary">1,284</span>
+<span class="text-green-600 font-label-md text-label-md flex items-center">+12 <span class="material-symbols-outlined text-sm">trending_up</span></span>
+</div>
+</div>
+<div class="col-span-3 bg-white border border-outline-variant p-stack-md rounded-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">Postes Sources</p>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-sm text-display-sm text-on-surface">42</span>
+<span class="text-on-surface-variant font-label-md text-label-md italic">Opérationnels</span>
+</div>
+</div>
+<div class="col-span-3 bg-white border border-outline-variant p-stack-md rounded-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">Taux de Disponibilité</p>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-sm text-display-sm text-primary">98.2%</span>
+<div class="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden self-center ml-4">
+<div class="w-[98%] h-full bg-primary"></div>
+</div>
+</div>
+</div>
+<div class="col-span-3 bg-white border border-outline-variant p-stack-md rounded-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">Agences</p>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-sm text-display-sm text-on-surface">18</span>
+<span class="text-on-surface-variant font-label-md text-label-md">Régionalisées</span>
+</div>
+</div>
+</div>
+<!-- Tabbed Interface Container -->
+<div class="bg-white border border-outline-variant rounded-sm flex flex-col min-h-[600px]">
+<!-- Tab Headers -->
+<div class="flex border-b border-outline-variant px-4 bg-surface-container-low">
+<button class="px-6 py-4 font-label-md text-label-md tab-active text-primary">Départs (Feeders)</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Agences</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Régions</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Postes Sources</button>
+<button class="px-6 py-4 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors">Unités de Production</button>
+</div>
+<!-- Table Controls (Filters) -->
+<div class="p-4 flex gap-4 items-center border-b border-outline-variant bg-white">
+<div class="flex items-center gap-2 px-3 py-1.5 border border-outline-variant rounded-full text-on-surface-variant hover:border-primary cursor-pointer transition-colors">
+<span class="font-label-md text-label-md">Tension: Toutes</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 border border-outline-variant rounded-full text-on-surface-variant hover:border-primary cursor-pointer transition-colors">
+<span class="font-label-md text-label-md">Statut: Opérationnel</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 border border-outline-variant rounded-full text-on-surface-variant hover:border-primary cursor-pointer transition-colors">
+<span class="font-label-md text-label-md">Région: Dakar</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+<div class="ml-auto flex items-center gap-2">
+<span class="font-label-md text-label-md text-on-surface-variant">Afficher 25 par page</span>
+<span class="material-symbols-outlined text-on-surface-variant">tune</span>
+</div>
+</div>
+<!-- Data Table -->
+<div class="overflow-x-auto flex-1 custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">ID</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Nom du Départ</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Région Administrative</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tension (kV)</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Statut</th>
+<th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-3 font-code-sm text-code-sm text-on-surface-variant">DEP-DKR-012</td>
+<td class="px-6 py-3 font-body-md text-body-md text-primary font-semibold">Hann Bel-Air 30kV</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">Dakar Plateau</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">30 kV</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Opérationnel
+                                    </span>
+</td>
+<td class="px-6 py-3 text-right">
+<div class="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-primary transition-colors" title="Modifier">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+</button>
+<button class="p-1 hover:text-error transition-colors" title="Supprimer">
+<span class="material-symbols-outlined text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-3 font-code-sm text-code-sm text-on-surface-variant">DEP-DKR-045</td>
+<td class="px-6 py-3 font-body-md text-body-md text-primary font-semibold">Patte d'Oie Est</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">Dakar Banlieue</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">6.6 kV</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                        Maintenance
+                                    </span>
+</td>
+<td class="px-6 py-3 text-right">
+<div class="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-primary transition-colors" title="Modifier">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+</button>
+<button class="p-1 hover:text-error transition-colors" title="Supprimer">
+<span class="material-symbols-outlined text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-3 font-code-sm text-code-sm text-on-surface-variant">DEP-THS-008</td>
+<td class="px-6 py-3 font-body-md text-body-md text-primary font-semibold">Thiès Zone Industrielle</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">Thiès Ville</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">30 kV</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Opérationnel
+                                    </span>
+</td>
+<td class="px-6 py-3 text-right">
+<div class="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-primary transition-colors" title="Modifier">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+</button>
+<button class="p-1 hover:text-error transition-colors" title="Supprimer">
+<span class="material-symbols-outlined text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-3 font-code-sm text-code-sm text-on-surface-variant">DEP-SL-022</td>
+<td class="px-6 py-3 font-body-md text-body-md text-primary font-semibold">Saint-Louis Nord 1</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">Saint-Louis</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">30 kV</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Opérationnel
+                                    </span>
+</td>
+<td class="px-6 py-3 text-right">
+<div class="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-primary transition-colors" title="Modifier">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+</button>
+<button class="p-1 hover:text-error transition-colors" title="Supprimer">
+<span class="material-symbols-outlined text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-3 font-code-sm text-code-sm text-on-surface-variant">DEP-DKR-089</td>
+<td class="px-6 py-3 font-body-md text-body-md text-primary font-semibold">Ouakam Aéroport 1</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">Dakar Ouest</td>
+<td class="px-6 py-3 font-body-md text-body-md text-on-surface">6.6 kV</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Hors Service
+                                    </span>
+</td>
+<td class="px-6 py-3 text-right">
+<div class="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+<button class="p-1 hover:text-primary transition-colors" title="Modifier">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+</button>
+<button class="p-1 hover:text-error transition-colors" title="Supprimer">
+<span class="material-symbols-outlined text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="p-4 bg-surface-container-low border-t border-outline-variant flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Affichage de 1-5 sur 1,284 départs</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-surface-container-high text-on-surface-variant disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-sm bg-primary text-white font-label-md text-label-md">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-surface-container-high font-label-md text-label-md text-on-surface-variant">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-surface-container-high font-label-md text-label-md text-on-surface-variant">3</button>
+<span class="w-8 h-8 flex items-center justify-center text-on-surface-variant">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-surface-container-high font-label-md text-label-md text-on-surface-variant">52</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-surface-container-high text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Additional Detail View (Mockup of Asymmetric Layout) -->
+<div class="mt-stack-lg grid grid-cols-12 gap-gutter-grid">
+<div class="col-span-8 bg-white border border-outline-variant p-stack-md rounded-sm h-[400px] flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-4">Vue Cartographique des Postes</h3>
+<div class="flex-1 bg-surface-container-highest rounded-sm relative overflow-hidden">
+<div class="absolute inset-0 grayscale opacity-20" data-location="Dakar" style=""></div>
+<img alt="Carte du réseau" class="w-full h-full object-cover grayscale opacity-30" data-alt="A sophisticated grayscale map overlay of a coastal African city featuring digital network line visualizations and glowing node points. The visual style is highly technical and institutional, using thin architectural lines and soft shadows to suggest depth. The lighting is diffused, emphasizing professional utility and data visualization for an electrical infrastructure management system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDet8sY9OkBr08Wa3dFjvwqSe6rJO0v2Ixd4T3WdbicuRGmuSXbjMf1-5clz5kJjCDkUno9skGKvX9l2ukpuo6QVQvd8Ztv5Ausv-7hZkgc-wPKah5DGU8wC970pUCV42CGl13iGvVW3qUijqRThqDo8720ppbRSR8V-ZatLcBGTVCGMTXY2l1Qqr19lnH56mmEZ5nvi023RARN7EF9m7uYzJsslaYtFZQBK4yqk7KKe7k3zGKfAEmG0xC8KnfS69Ywyzm4XT0RKcvz"/>
+<!-- Map Hotspots -->
+<div class="absolute top-1/4 left-1/3 w-4 h-4 bg-primary border-2 border-white rounded-full shadow-lg animate-pulse"></div>
+<div class="absolute bottom-1/2 right-1/4 w-4 h-4 bg-primary border-2 border-white rounded-full shadow-lg"></div>
+<div class="absolute top-2/3 left-2/3 w-4 h-4 bg-error border-2 border-white rounded-full shadow-lg"></div>
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur p-3 rounded-sm border border-outline-variant shadow-lg max-w-xs">
+<p class="font-label-md text-label-md font-bold text-primary mb-1">Poste Source Hann</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">3 Départs en surcharge détectés. Intervention suggérée.</p>
+</div>
+</div>
+</div>
+<div class="col-span-4 flex flex-col gap-gutter-grid">
+<div class="bg-primary text-white p-stack-md rounded-sm flex-1 relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="font-headline-sm text-headline-sm mb-2">Maintenance Prédictive</h3>
+<p class="font-body-sm text-body-sm opacity-80 mb-6">Analyses basées sur l'historique des pannes des 12 derniers mois.</p>
+<div class="space-y-3">
+<div class="bg-white/10 p-2 rounded-sm">
+<p class="font-label-md text-label-md">Départ Thiaroye 1</p>
+<div class="w-full h-1 bg-white/20 mt-1">
+<div class="w-[85%] h-full bg-amber-400"></div>
+</div>
+<p class="text-[10px] text-right mt-1">85% Risque de panne</p>
+</div>
+<div class="bg-white/10 p-2 rounded-sm">
+<p class="font-label-md text-label-md">Départ Rufisque Nord</p>
+<div class="w-full h-1 bg-white/20 mt-1">
+<div class="w-[42%] h-full bg-white"></div>
+</div>
+<p class="text-[10px] text-right mt-1">42% Risque de panne</p>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined absolute -bottom-4 -right-4 text-9xl opacity-10">electric_bolt</span>
+</div>
+<div class="bg-white border border-outline-variant p-stack-md rounded-sm h-[140px]">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase mb-2">Dernière Mise à Jour</h3>
+<p class="font-body-md text-body-md">Données synchronisées il y a 4 minutes</p>
+<div class="mt-4 flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined">sync</span>
+<span class="font-label-md text-label-md">Rafraîchir le référentiel</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (for Home/Main Dashboard relevance) -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-2xl">support_agent</span>
+</button>
+</div>
+<script>
+        // Simple Interaction Logic
+        document.querySelectorAll('nav div, .tab-headers button').forEach(el => {
+            el.addEventListener('click', function() {
+                // Logic for visual feedback on navigation
+                console.log('Navigated to: ' + this.innerText);
+            });
+        });
+
+        // Search Input Glow Effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-primary/20');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-primary/20');
+        });
+    </script>
+</body></html>

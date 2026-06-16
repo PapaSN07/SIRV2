@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Indicators and Reports - SIR Senelec</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "outline": "#727781",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffdbc8",
+                        "error-container": "#ffdad6",
+                        "surface-container-high": "#e2e9f1",
+                        "inverse-primary": "#a2c9ff",
+                        "surface-container": "#e8eef7",
+                        "on-surface": "#151c22",
+                        "on-secondary-fixed": "#191c1d",
+                        "primary-fixed": "#d3e4ff",
+                        "surface-container-low": "#eef4fd",
+                        "primary-container": "#005596",
+                        "on-secondary-fixed-variant": "#454748",
+                        "on-tertiary-fixed": "#321300",
+                        "tertiary-container": "#873f01",
+                        "inverse-on-surface": "#ebf1fa",
+                        "secondary-fixed-dim": "#c5c7c8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#626566",
+                        "secondary-fixed": "#e1e3e4",
+                        "on-primary-fixed": "#001c38",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f6f9ff",
+                        "surface-dim": "#d4dbe3",
+                        "on-primary-container": "#a4caff",
+                        "tertiary-fixed-dim": "#ffb68a",
+                        "outline-variant": "#c1c7d2",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2a3138",
+                        "primary-fixed-dim": "#a2c9ff",
+                        "on-tertiary-fixed-variant": "#743500",
+                        "background": "#f6f9ff",
+                        "surface-variant": "#dce3ec",
+                        "on-tertiary-container": "#ffb88c",
+                        "on-primary-fixed-variant": "#004881",
+                        "primary": "#003e6f",
+                        "tertiary": "#642d00",
+                        "on-surface-variant": "#414750",
+                        "secondary-container": "#e1e3e4",
+                        "on-background": "#151c22",
+                        "secondary": "#5c5f60",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#dce3ec",
+                        "surface-tint": "#1b60a2",
+                        "surface": "#f6f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "1rem",
+                        "container-padding": "1.5rem",
+                        "gutter-grid": "1rem",
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "1.5rem",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "code-sm": ["Inter"],
+                        "display-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f6f9ff; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .striped-table tr:nth-child(even) { background-color: #f1f3f5; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes progress-loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .progress-bar-anim { animation: progress-loading 3s linear forwards; }
+    </style>
+</head>
+<body class="bg-background text-on-background">
+<!-- Sidebar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low border-r border-outline-variant flex flex-col py-stack-lg z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-sm text-display-sm font-bold text-primary">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Network Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 group">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 group">
+<span class="material-symbols-outlined mr-3">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 group">
+<span class="material-symbols-outlined mr-3">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</div>
+<div class="flex items-center px-6 py-3 border-l-4 border-primary bg-primary/10 text-primary font-bold cursor-pointer active:scale-95 group">
+<span class="material-symbols-outlined mr-3">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 group">
+<span class="material-symbols-outlined mr-3">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</div>
+<div class="flex items-center px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 group">
+<span class="material-symbols-outlined mr-3">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</div>
+</nav>
+<div class="px-6 mt-auto">
+<div class="flex items-center gap-3 p-3 bg-surface-container-high rounded-xl">
+<img alt="User Avatar" class="w-8 h-8 rounded-full bg-primary-container p-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDH_2vuHEjsjvnv1dFm2j4EOAL6xU94q-G7aeEYpkN8kQZHmSLKKnKPLywdiDvN2oXqGoI5hKtYfDfppyuzfa6yr5iLBXdzImCmAq0CQppicEQYzthGDuTCpa1zEahcdGBmM1tLhg6xsCLw6j2uacZQmYec1aCroMWSYp-Yxq6ZUfckt_niGlpvdkVPeggaqXHv5lSA8sqMNy3BUeUXs1INxO22SzOoX1WuoHAeDespM3vUQgQAC8Vz5aAGLHZNXSxPIX8DvbXbKDra"/>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md truncate">A. Diallo</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Expert Réseau</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top Navigation (Shared Component) -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md w-1/3">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-sm focus:ring-2 focus:ring-primary/20" placeholder="Rechercher un indicateur..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 hover:text-primary transition-opacity duration-150 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<span class="font-headline-md text-headline-md font-bold text-primary">SIR Senelec</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] pt-16 min-h-screen p-container-padding bg-background">
+<!-- Filter Controls Section -->
+<section class="mb-stack-lg animate-fade-in">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-md flex flex-wrap items-center gap-stack-lg shadow-sm">
+<div class="flex flex-col gap-1 min-w-[180px]">
+<label class="font-label-md text-label-md text-on-surface-variant">Période</label>
+<div class="flex items-center bg-surface-container border border-outline-variant rounded px-3 py-1.5 cursor-pointer">
+<span class="font-body-md text-body-md flex-1">Novembre 2023</span>
+<span class="material-symbols-outlined text-outline">calendar_month</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 min-w-[180px]">
+<label class="font-label-md text-label-md text-on-surface-variant">Région</label>
+<select class="bg-surface-container border border-outline-variant rounded px-3 py-1.5 text-body-md focus:ring-primary">
+<option>Toutes les régions</option>
+<option>Dakar</option>
+<option>Thiès</option>
+<option>Saint-Louis</option>
+</select>
+</div>
+<div class="flex flex-col gap-1 min-w-[180px]">
+<label class="font-label-md text-label-md text-on-surface-variant">Niveau de Tension</label>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-primary text-on-primary rounded text-label-md">HTA</button>
+<button class="px-3 py-1 bg-surface-container text-on-surface-variant rounded text-label-md hover:bg-surface-container-high">BT</button>
+<button class="px-3 py-1 bg-surface-container text-on-surface-variant rounded text-label-md hover:bg-surface-container-high">HTB</button>
+</div>
+</div>
+<div class="ml-auto flex gap-stack-sm self-end">
+<button class="px-4 py-2 border border-primary text-primary rounded font-label-md hover:bg-primary/5 transition-all">Réinitialiser</button>
+<button class="px-6 py-2 bg-primary text-on-primary rounded font-label-md hover:bg-primary-container transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">filter_alt</span>
+                        Appliquer
+                    </button>
+</div>
+</div>
+</section>
+<!-- KPI Summary row -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter-grid mb-stack-lg">
+<div class="bg-surface-container-lowest border-l-4 border-primary p-stack-md rounded-lg shadow-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">SAIDI Global</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-display-sm text-display-sm text-primary">12.4</h2>
+<span class="text-body-sm text-on-surface-variant">h/an</span>
+</div>
+<div class="flex items-center gap-1 mt-2 text-error">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="text-[11px] font-bold">+2.4% vs M-1</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border-l-4 border-primary p-stack-md rounded-lg shadow-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">SAIFI Global</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-display-sm text-display-sm text-primary">8.9</h2>
+<span class="text-body-sm text-on-surface-variant">int/an</span>
+</div>
+<div class="flex items-center gap-1 mt-2 text-primary">
+<span class="material-symbols-outlined text-[16px]">trending_down</span>
+<span class="text-[11px] font-bold">-1.2% vs M-1</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border-l-4 border-tertiary p-stack-md rounded-lg shadow-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">END (Énergie Non Distribuée)</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-display-sm text-display-sm text-tertiary">45.2</h2>
+<span class="text-body-sm text-on-surface-variant">MWh</span>
+</div>
+<div class="flex items-center gap-1 mt-2 text-error">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+<span class="text-[11px] font-bold">Dépassement du seuil</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border-l-4 border-primary p-stack-md rounded-lg shadow-sm">
+<p class="font-label-md text-label-md text-on-surface-variant">Taux de Disponibilité</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-display-sm text-display-sm text-primary">99.8</h2>
+<span class="text-body-sm text-on-surface-variant">%</span>
+</div>
+<div class="flex items-center gap-1 mt-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span class="text-[11px] font-bold">Stable</span>
+</div>
+</div>
+</div>
+<!-- Main Area: Comparison Table & Trends -->
+<div class="grid grid-cols-12 gap-gutter-grid mb-stack-lg">
+<!-- Comparisons Table -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="px-container-padding py-stack-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-headline-sm text-headline-sm text-primary">Tableau de Comparaison des Indicateurs</h3>
+<button class="p-1.5 hover:bg-surface-container rounded-full"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse striped-table">
+<thead>
+<tr class="bg-surface-container text-on-surface-variant font-label-md">
+<th class="p-stack-md font-semibold">Indicateur (Performance)</th>
+<th class="p-stack-md font-semibold text-center">Mois Actuel</th>
+<th class="p-stack-md font-semibold text-center">Mois Précédent</th>
+<th class="p-stack-md font-semibold text-center">Objectif (Cible)</th>
+<th class="p-stack-md font-semibold text-right">Écart</th>
+</tr>
+</thead>
+<tbody class="text-body-md">
+<tr>
+<td class="p-stack-md border-b border-outline-variant">
+<div class="flex flex-col">
+<span class="font-bold">SAIDI (Total)</span>
+<span class="text-[10px] text-on-surface-variant">Heures d'interruption</span>
+</div>
+</td>
+<td class="p-stack-md border-b border-outline-variant text-center font-semibold">12.4</td>
+<td class="p-stack-md border-b border-outline-variant text-center">12.1</td>
+<td class="p-stack-md border-b border-outline-variant text-center text-outline">10.0</td>
+<td class="p-stack-md border-b border-outline-variant text-right">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container rounded-full text-[11px] font-bold">+24%</span>
+</td>
+</tr>
+<tr>
+<td class="p-stack-md border-b border-outline-variant">
+<div class="flex flex-col">
+<span class="font-bold">SAIFI (Fréquence)</span>
+<span class="text-[10px] text-on-surface-variant">Nb d'interruptions</span>
+</div>
+</td>
+<td class="p-stack-md border-b border-outline-variant text-center font-semibold">8.9</td>
+<td class="p-stack-md border-b border-outline-variant text-center">9.0</td>
+<td class="p-stack-md border-b border-outline-variant text-center text-outline">8.5</td>
+<td class="p-stack-md border-b border-outline-variant text-right">
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container rounded-full text-[11px] font-bold">+4%</span>
+</td>
+</tr>
+<tr>
+<td class="p-stack-md border-b border-outline-variant">
+<div class="flex flex-col">
+<span class="font-bold">ENS / END</span>
+<span class="text-[10px] text-on-surface-variant">MWh non distribué</span>
+</div>
+</td>
+<td class="p-stack-md border-b border-outline-variant text-center font-semibold">45.2</td>
+<td class="p-stack-md border-b border-outline-variant text-center">42.8</td>
+<td class="p-stack-md border-b border-outline-variant text-center text-outline">40.0</td>
+<td class="p-stack-md border-b border-outline-variant text-right">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container rounded-full text-[11px] font-bold">+13%</span>
+</td>
+</tr>
+<tr>
+<td class="p-stack-md">
+<div class="flex flex-col">
+<span class="font-bold">MTTR (Rétablissement)</span>
+<span class="text-[10px] text-on-surface-variant">Temps moyen réparation</span>
+</div>
+</td>
+<td class="p-stack-md text-center font-semibold">0.85h</td>
+<td class="p-stack-md text-center">1.10h</td>
+<td class="p-stack-md text-center text-outline">1.00h</td>
+<td class="p-stack-md text-right">
+<span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed rounded-full text-[11px] font-bold">-15%</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- END Breakdown Chart Placeholder -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-md shadow-sm">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-stack-md">Répartition END par Cause</h3>
+<div class="aspect-square w-full relative flex items-center justify-center">
+<!-- Simple CSS Donut Chart representation -->
+<div class="w-48 h-48 rounded-full border-[12px] border-surface-container relative" style="background: conic-gradient(#003e6f 0% 45%, #642d00 45% 75%, #ba1a1a 75% 100%);">
+<div class="absolute inset-0 m-6 bg-surface-container-lowest rounded-full flex flex-col items-center justify-center">
+<span class="text-display-sm font-bold text-primary">45.2</span>
+<span class="text-label-md text-on-surface-variant">MWh Total</span>
+</div>
+</div>
+</div>
+<div class="mt-stack-md space-y-2">
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-primary rounded-full"></div>
+<span>Maintenance préventive</span>
+</div>
+<span class="font-bold">45%</span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-tertiary rounded-full"></div>
+<span>Incidents techniques</span>
+</div>
+<span class="font-bold">30%</span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-error rounded-full"></div>
+<span>Causes externes / Force majeure</span>
+</div>
+<span class="font-bold">25%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Trends Section -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter-grid mb-stack-lg">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-md shadow-sm">
+<div class="flex justify-between items-center mb-stack-md">
+<h3 class="font-headline-sm text-headline-sm text-primary">Évolution SAIFI/SAIDI (12 mois)</h3>
+<div class="flex gap-2">
+<div class="flex items-center gap-1"><div class="w-2 h-2 bg-primary rounded-full"></div><span class="text-[10px]">SAIDI</span></div>
+<div class="flex items-center gap-1"><div class="w-2 h-2 bg-tertiary rounded-full"></div><span class="text-[10px]">SAIFI</span></div>
+</div>
+</div>
+<div class="h-48 w-full bg-surface-container-low rounded flex items-end justify-between px-4 pb-2 relative">
+<!-- Bars Placeholder -->
+<div class="w-4 bg-primary/20 h-[30%] rounded-t"></div>
+<div class="w-4 bg-primary/30 h-[45%] rounded-t"></div>
+<div class="w-4 bg-primary/40 h-[40%] rounded-t"></div>
+<div class="w-4 bg-primary h-[60%] rounded-t"></div>
+<div class="w-4 bg-primary/70 h-[55%] rounded-t"></div>
+<div class="w-4 bg-primary/80 h-[50%] rounded-t"></div>
+<div class="w-4 bg-primary/90 h-[70%] rounded-t"></div>
+<div class="w-4 bg-primary h-[85%] rounded-t"></div>
+<div class="w-4 bg-primary/90 h-[75%] rounded-t"></div>
+<div class="w-4 bg-primary/80 h-[80%] rounded-t"></div>
+<div class="w-4 bg-primary h-[95%] rounded-t"></div>
+<div class="w-4 bg-primary/90 h-[88%] rounded-t relative">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-on-surface text-surface text-[10px] px-1 rounded">12.4</div>
+</div>
+</div>
+<div class="flex justify-between mt-2 px-2 text-[10px] text-on-surface-variant font-bold">
+<span>JAN</span><span>FEV</span><span>MAR</span><span>AVR</span><span>MAI</span><span>JUN</span><span>JUL</span><span>AOU</span><span>SEP</span><span>OCT</span><span>NOV</span><span>DEC</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-md shadow-sm overflow-hidden relative group">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-stack-md">Visualisation Cartographique de la Performance</h3>
+<div class="h-48 w-full rounded-lg overflow-hidden bg-surface-container relative">
+<img class="w-full h-full object-cover" data-alt="A highly detailed professional geographic information system map of the Dakar region in Senegal. The map displays a sophisticated heat map overlay in deep blues and vibrant oranges, indicating electrical network performance metrics. Professional UI elements like coordinate grids, scale bars, and data callouts are visible against a minimalist light-themed cartographic base. The atmosphere is technical, institutional, and high-fidelity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTHcRrPJ22q6D6x_fBiYFd5t9Krbv_FV7dzPpUdOQYelge3lt8qgRRaDpk5Dxhu872IDnMBfrpa3AoGo9_yEgBmAy0CzjAoZQAnSzIkpmk-SD7bU3mqGelKYxr7Sh2BSdY0WpM4bAQ1Y-fkPGRCZh18DHu-5UbD_R8HdMwT4m_iEcM0rs7Zh9kcQ2Ds9laHdLyj4qFv2g83B9QbNUUbsKPm3PRSXF343FuJxpJOje562xXwHwWanArwFeqJWWBdz0QvhNHMHbm9M8f"/>
+<div class="absolute top-2 left-2 px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-bold">Région: Dakar</div>
+<div class="absolute bottom-2 right-2 flex flex-col gap-1">
+<div class="flex items-center gap-1 bg-surface-container-lowest/80 backdrop-blur p-1 rounded"><span class="w-2 h-2 bg-error rounded-full"></span><span class="text-[9px]">Alerte Critique</span></div>
+</div>
+</div>
+<div class="mt-stack-md flex items-center justify-between">
+<p class="text-body-sm text-on-surface-variant">Les zones en rouge indiquent un dépassement des seuils SAIDI pour la période sélectionnée.</p>
+</div>
+</div>
+</div>
+<!-- Footer / Report Actions -->
+<div class="bg-surface-container-low border-t border-outline-variant mt-stack-lg -mx-container-padding p-container-padding flex justify-between items-center">
+<div class="flex items-center gap-stack-md">
+<div class="flex flex-col">
+<span class="text-label-md text-on-surface-variant">Dernière mise à jour</span>
+<span class="font-body-sm font-bold">Aujourd'hui, 09:45 (Automatique)</span>
+</div>
+</div>
+<div class="flex gap-stack-sm items-center">
+<div class="hidden items-center gap-3 bg-primary/5 px-4 py-2 rounded-lg border border-primary/20" id="loading-container">
+<span class="text-body-sm font-bold text-primary">Génération en cours...</span>
+<div class="w-32 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary progress-bar-anim"></div>
+</div>
+</div>
+<div class="flex items-center">
+<button class="px-6 py-2.5 bg-primary text-on-primary rounded font-bold text-label-md flex items-center gap-2 hover:bg-primary-container active:scale-95 transition-all" onclick="simulateReport('PDF')">
+<span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+                        Générer Rapport PDF
+                    </button>
+<div class="w-px h-8 bg-on-primary/20 mx-0"></div>
+<button class="px-3 py-2.5 bg-primary text-on-primary rounded-r font-bold text-label-md hover:bg-primary-container active:scale-95 transition-all border-l border-on-primary/20" onclick="simulateReport('Excel')">
+<span class="material-symbols-outlined text-[20px]">table_view</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Success Toast (Hidden by default) -->
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-24 opacity-0 transition-all duration-500 bg-inverse-surface text-inverse-on-surface px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-[100]" id="toast">
+<span class="material-symbols-outlined text-primary-fixed">check_circle</span>
+<span class="font-label-md">Rapport généré avec succès. Téléchargement lancé.</span>
+</div>
+<script>
+        function simulateReport(type) {
+            const loader = document.getElementById('loading-container');
+            const toast = document.getElementById('toast');
+            
+            // Show loader
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+            
+            setTimeout(() => {
+                // Hide loader
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+                
+                // Show toast
+                toast.classList.remove('translate-y-24', 'opacity-0');
+                
+                setTimeout(() => {
+                    toast.classList.add('translate-y-24', 'opacity-0');
+                }, 3000);
+            }, 3000);
+        }
+
+        // Simple Fade-in animation for numbers
+        document.addEventListener('DOMContentLoaded', () => {
+            const displays = document.querySelectorAll('.text-display-sm');
+            displays.forEach(d => {
+                d.classList.add('transition-all', 'duration-1000', 'opacity-0', 'translate-y-2');
+                setTimeout(() => {
+                    d.classList.remove('opacity-0', 'translate-y-2');
+                }, 100);
+            });
+        });
+    </script>
+</body></html>

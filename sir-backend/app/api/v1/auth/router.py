@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
 from app.core.security import decode_token
-from app.schemas.auth import LoginRequest, MeResponse, TokenResponse
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, MeResponse, TokenResponse
 from app.schemas.common import ApiResponse
 from app.services import auth_service
 
@@ -66,6 +66,41 @@ async def login(
     - Lève 403 si le compte est désactivé ou si première connexion (FORCE_PASSWORD_CHANGE).
     """
     result = await auth_service.login(db, redis, body)
+
+    _set_refresh_cookie(response, result["refresh_token"])
+
+    token_data = TokenResponse(
+        access_token=result["access_token"],
+        expires_in=result["expires_in"],
+    )
+    return ApiResponse.success(token_data)
+
+
+# ---------------------------------------------------------------------------
+# POST /change-password
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/change-password",
+    response_model=ApiResponse[TokenResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Changement de mot de passe obligatoire (première connexion)",
+)
+async def change_password(
+    body: ChangePasswordRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> ApiResponse[TokenResponse]:
+    """Change le mot de passe temporaire et retourne des tokens de session."""
+    result = await auth_service.change_password(
+        db,
+        redis,
+        body.login,
+        body.current_password,
+        body.new_password,
+    )
 
     _set_refresh_cookie(response, result["refresh_token"])
 

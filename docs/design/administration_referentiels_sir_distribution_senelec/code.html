@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIR Senelec - Référentiel</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "outline": "#727781",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffdbc8",
+                        "error-container": "#ffdad6",
+                        "surface-container-high": "#e2e9f1",
+                        "inverse-primary": "#a2c9ff",
+                        "surface-container": "#e8eef7",
+                        "on-surface": "#151c22",
+                        "on-secondary-fixed": "#191c1d",
+                        "primary-fixed": "#d3e4ff",
+                        "surface-container-low": "#eef4fd",
+                        "primary-container": "#005596",
+                        "on-secondary-fixed-variant": "#454748",
+                        "on-tertiary-fixed": "#321300",
+                        "tertiary-container": "#873f01",
+                        "inverse-on-surface": "#ebf1fa",
+                        "secondary-fixed-dim": "#c5c7c8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#626566",
+                        "secondary-fixed": "#e1e3e4",
+                        "on-primary-fixed": "#001c38",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f6f9ff",
+                        "surface-dim": "#d4dbe3",
+                        "on-primary-container": "#a4caff",
+                        "tertiary-fixed-dim": "#ffb68a",
+                        "outline-variant": "#c1c7d2",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2a3138",
+                        "primary-fixed-dim": "#a2c9ff",
+                        "on-tertiary-fixed-variant": "#743500",
+                        "background": "#f6f9ff",
+                        "surface-variant": "#dce3ec",
+                        "on-tertiary-container": "#ffb88c",
+                        "on-primary-fixed-variant": "#004881",
+                        "primary": "#003e6f",
+                        "tertiary": "#642d00",
+                        "on-surface-variant": "#414750",
+                        "secondary-container": "#e1e3e4",
+                        "on-background": "#151c22",
+                        "secondary": "#5c5f60",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#dce3ec",
+                        "surface-tint": "#1b60a2",
+                        "surface": "#f6f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "1rem",
+                        "container-padding": "1.5rem",
+                        "gutter-grid": "1rem",
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "1.5rem",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "code-sm": ["Inter"],
+                        "display-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #f6f9ff;
+            color: #151c22;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .prime-table-row:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .prime-table-row:hover {
+            background-color: #eef4fd;
+        }
+        .prime-dialog-overlay {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low border-r border-outline-variant flex flex-col py-stack-lg z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-sm text-display-sm font-bold text-primary">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Network Management</p>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</div>
+<!-- Active State for Admin/Referentiel -->
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer border-l-4 border-primary bg-primary/10 text-primary font-bold">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 cursor-pointer text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</div>
+</nav>
+<div class="mt-auto px-6 pt-4 border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm">person</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md truncate">Administrateur</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Super User</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] flex-1 flex flex-col">
+<!-- TopNavBar -->
+<header class="h-16 flex items-center justify-between px-container-padding bg-surface border-b border-outline-variant sticky top-0 z-40">
+<div class="flex items-center gap-stack-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary w-64 lg:w-96" placeholder="Rechercher un départ ou une zone..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-2 px-2 py-1 hover:bg-surface-container rounded-lg cursor-pointer">
+<img alt="User Avatar" class="w-8 h-8 rounded-full bg-primary-fixed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKejxx5dbuJdoayBCaNp0QkGBgZmevB3V2XBAEnwX4PiWvXvjXtvtBg4OhX_ZrVtMDSnXynphKDCr2JeDMZluRtOYNLvZYAnbj3iPSgocjudbPaNUokIdtZrmordHha70wQlHKTEnDNCMA852-lhOcT1iPaLPZaVyHw1z7DQJDQzuOrr-kaIN6RsDxrZDdleJ5elr-2tJbb6ShPLx2s9vW9z1WiIhd6o25z4ZEWrY56V2_-CDZUZRQLUlgHQpM9TM2m-UbpXeTkTgg"/>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<section class="p-stack-lg bg-background min-h-[calc(100vh-64px)]">
+<!-- Breadcrumbs and Header -->
+<div class="mb-stack-lg">
+<div class="flex items-center gap-2 text-label-md text-on-surface-variant mb-2">
+<span>Admin</span>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-primary">Référentiel Réseau</span>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<h2 class="font-display-sm text-display-sm text-on-surface font-bold">Référentiel des Départs (Feeders)</h2>
+<p class="font-body-md text-on-surface-variant mt-1">Gestion administrative des infrastructures du réseau électrique.</p>
+</div>
+<button class="bg-primary text-on-primary px-stack-md py-2.5 rounded-lg font-label-md flex items-center gap-2 hover:bg-primary-container transition-all active:scale-95" onclick="toggleModal(true)">
+<span class="material-symbols-outlined">add</span>
+                        Ajouter Nouveau
+                    </button>
+</div>
+</div>
+<!-- Tab Navigation for Referentiel -->
+<div class="flex items-center gap-6 border-b border-outline-variant mb-stack-lg overflow-x-auto no-scrollbar">
+<button class="px-1 py-3 border-b-2 border-primary text-primary font-bold font-label-md whitespace-nowrap">Feeders (Départs)</button>
+<button class="px-1 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary font-label-md whitespace-nowrap">Agences</button>
+<button class="px-1 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary font-label-md whitespace-nowrap">Régions</button>
+<button class="px-1 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary font-label-md whitespace-nowrap">Postes Sources</button>
+<button class="px-1 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary font-label-md whitespace-nowrap">Unités de Production</button>
+</div>
+<!-- Data Table Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<!-- Table Header Toolbar -->
+<div class="flex items-center justify-between px-container-padding py-stack-md border-b border-outline-variant bg-surface-container-low">
+<div class="flex gap-2">
+<div class="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-primary text-[11px] font-bold flex items-center gap-1">
+                            REGION: DAKAR <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</div>
+<div class="px-3 py-1 bg-secondary-container border border-outline-variant rounded-full text-on-secondary-container text-[11px] font-bold flex items-center gap-1">
+                            VOLTAGE: 30kV <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</div>
+</div>
+<div class="flex gap-stack-sm">
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">filter_list</span>
+</button>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">download</span>
+</button>
+</div>
+</div>
+<!-- Table Content (PrimeNG Style) -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="p-4 font-headline-sm text-label-md text-on-surface-variant uppercase tracking-wider w-24">ID</th>
+<th class="p-4 font-headline-sm text-label-md text-on-surface-variant uppercase tracking-wider">Nom du Départ</th>
+<th class="p-4 font-headline-sm text-label-md text-on-surface-variant uppercase tracking-wider">Région Administrative</th>
+<th class="p-4 font-headline-sm text-label-md text-on-surface-variant uppercase tracking-wider">Tension (Voltage)</th>
+<th class="p-4 font-headline-sm text-label-md text-on-surface-variant uppercase tracking-wider">Statut</th>
+<th class="p-4 font-headline-sm text-label-md text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="prime-table-row transition-colors">
+<td class="p-4 font-code-sm text-code-sm text-on-surface-variant">FD-001</td>
+<td class="p-4 font-headline-sm text-body-md font-semibold">FEEDER DAKAR PLATEAU 1</td>
+<td class="p-4 font-body-md text-body-md">Dakar Centre</td>
+<td class="p-4">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded text-on-surface-variant font-code-sm text-[11px] font-bold">30 kV</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 text-green-600 font-label-md">
+<span class="w-2 h-2 rounded-full bg-green-500"></span> Operationnel
+                                    </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors" title="Modifier">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors" title="Supprimer">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="prime-table-row transition-colors">
+<td class="p-4 font-code-sm text-code-sm text-on-surface-variant">FD-002</td>
+<td class="p-4 font-headline-sm text-body-md font-semibold">FEEDER THIES NORD 2</td>
+<td class="p-4 font-body-md text-body-md">Thiès</td>
+<td class="p-4">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded text-on-surface-variant font-code-sm text-[11px] font-bold">30 kV</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 text-green-600 font-label-md">
+<span class="w-2 h-2 rounded-full bg-green-500"></span> Operationnel
+                                    </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="prime-table-row transition-colors">
+<td class="p-4 font-code-sm text-code-sm text-on-surface-variant">FD-003</td>
+<td class="p-4 font-headline-sm text-body-md font-semibold">FEEDER SAINT-LOUIS SUD</td>
+<td class="p-4 font-body-md text-body-md">Saint-Louis</td>
+<td class="p-4">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded text-on-surface-variant font-code-sm text-[11px] font-bold">90 kV</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 text-amber-600 font-label-md">
+<span class="w-2 h-2 rounded-full bg-amber-500"></span> Maintenance
+                                    </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="prime-table-row transition-colors">
+<td class="p-4 font-code-sm text-code-sm text-on-surface-variant">FD-004</td>
+<td class="p-4 font-headline-sm text-body-md font-semibold">FEEDER KAOLACK EST</td>
+<td class="p-4 font-body-md text-body-md">Kaolack</td>
+<td class="p-4">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded text-on-surface-variant font-code-sm text-[11px] font-bold">30 kV</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 text-green-600 font-label-md">
+<span class="w-2 h-2 rounded-full bg-green-500"></span> Operationnel
+                                    </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="prime-table-row transition-colors">
+<td class="p-4 font-code-sm text-code-sm text-on-surface-variant">FD-005</td>
+<td class="p-4 font-headline-sm text-body-md font-semibold">FEEDER ZIGUINCHOR 1</td>
+<td class="p-4 font-body-md text-body-md">Ziguinchor</td>
+<td class="p-4">
+<span class="px-2 py-0.5 bg-surface-container-highest rounded text-on-surface-variant font-code-sm text-[11px] font-bold">30 kV</span>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1.5 text-error font-label-md">
+<span class="w-2 h-2 rounded-full bg-error"></span> Hors Service
+                                    </span>
+</td>
+<td class="p-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 hover:bg-error/10 rounded-lg text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer (Pagination) -->
+<div class="p-4 bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
+<span class="font-body-sm text-on-surface-variant">Affichage de 5 sur 128 départs</span>
+<div class="flex items-center gap-2">
+<button class="p-1 hover:bg-surface-container-highest rounded disabled:opacity-30">
+<span class="material-symbols-outlined text-lg">first_page</span>
+</button>
+<button class="p-1 hover:bg-surface-container-highest rounded disabled:opacity-30">
+<span class="material-symbols-outlined text-lg">chevron_left</span>
+</button>
+<div class="flex items-center gap-1 px-2">
+<button class="w-8 h-8 rounded-lg bg-primary text-on-primary font-label-md">1</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-highest font-label-md transition-colors">2</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-highest font-label-md transition-colors">3</button>
+</div>
+<button class="p-1 hover:bg-surface-container-highest rounded">
+<span class="material-symbols-outlined text-lg">chevron_right</span>
+</button>
+<button class="p-1 hover:bg-surface-container-highest rounded">
+<span class="material-symbols-outlined text-lg">last_page</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Modal Dialog (Ajouter Nouveau Feeder) -->
+<div class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4" id="crudModal">
+<!-- Backdrop -->
+<div class="absolute inset-0 prime-dialog-overlay" onclick="toggleModal(false)"></div>
+<!-- Dialog Box -->
+<div class="relative bg-surface-container-lowest w-full max-w-lg rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+<!-- Dialog Header -->
+<div class="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
+<h3 class="font-headline-md text-headline-md text-on-surface">Nouveau Feeder</h3>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors" onclick="toggleModal(false)">
+<span class="material-symbols-outlined text-on-surface-variant">close</span>
+</button>
+</div>
+<!-- Dialog Content (Form) -->
+<form class="p-6 space-y-4" id="feederForm" onsubmit="event.preventDefault(); toggleModal(false);">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">ID du Départ</label>
+<input class="w-full px-4 py-2 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-body-md transition-all" placeholder="ex: FD-006" required="" type="text"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Nom du Départ</label>
+<input class="w-full px-4 py-2 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-body-md transition-all" placeholder="ex: FEEDER DAKAR NORD" required="" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Région</label>
+<select class="w-full px-4 py-2 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-body-md transition-all appearance-none bg-surface-container-lowest">
+<option>Dakar</option>
+<option>Thiès</option>
+<option>Saint-Louis</option>
+<option>Kaolack</option>
+<option>Ziguinchor</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Tension</label>
+<div class="relative">
+<input class="w-full px-4 py-2 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-body-md transition-all pr-12" placeholder="30" type="number"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-code-sm">kV</span>
+</div>
+</div>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Description (Optionnel)</label>
+<textarea class="w-full px-4 py-2 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-body-md transition-all resize-none" placeholder="Notes supplémentaires..." rows="3"></textarea>
+</div>
+</form>
+<!-- Dialog Footer -->
+<div class="px-6 py-4 border-t border-outline-variant bg-surface-container-low flex justify-end gap-3">
+<button class="px-5 py-2 text-primary font-label-md hover:bg-primary/5 rounded-lg transition-colors" onclick="toggleModal(false)">
+                    Annuler
+                </button>
+<button class="px-6 py-2 bg-primary text-on-primary font-label-md rounded-lg hover:shadow-lg transition-all active:scale-95" form="feederForm" type="submit">
+                    Enregistrer
+                </button>
+</div>
+</div>
+</div>
+<!-- Background Pattern -->
+<div class="fixed inset-0 pointer-events-none z-[-1] opacity-[0.03]" style="background-image: radial-gradient(#003e6f 0.5px, transparent 0.5px); background-size: 24px 24px;"></div>
+<script>
+        function toggleModal(show) {
+            const modal = document.getElementById('crudModal');
+            if (show) {
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.add('hidden');
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        // Micro-interaction for table rows
+        document.querySelectorAll('.prime-table-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if(!e.target.closest('button')) {
+                    // Logic for row selection if needed
+                    console.log('Row clicked:', row.cells[0].innerText);
+                }
+            });
+        });
+    </script>
+</body></html>

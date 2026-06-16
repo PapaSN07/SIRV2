@@ -1,0 +1,153 @@
+<section class="interruption-detail">
+  @if (loading()) {
+    <div class="detail-page__loading">
+      <span class="material-symbols-outlined detail-page__spinner" aria-hidden="true">progress_activity</span>
+      <p>Chargement…</p>
+    </div>
+  } @else if (error()) {
+    <p class="detail-page__error" role="alert">{{ error() }}</p>
+  } @else {
+    @if (item(); as it) {
+      <sir-page-header
+        [title]="'Interruption transport n° ' + it.numero_interruption"
+        [breadcrumbs]="[
+          { label: 'Interruptions', route: '/interruptions/transport' },
+          { label: 'Détail' },
+        ]"
+      >
+        <div actions class="detail-header__meta">
+          <sir-status-chip [statut]="it.statut" />
+          @if (canEdit(it)) {
+            <a class="sir-btn sir-btn--primary" [routerLink]="['/interruptions/transport', it.id, 'modifier']">
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+              Modifier
+            </a>
+          }
+        </div>
+      </sir-page-header>
+
+      <sir-interruptions-nav />
+
+      <div class="workflow-steps">
+        @for (step of timelineSteps; track step.key) {
+          <div
+            class="workflow-steps__item"
+            [class.workflow-steps__item--active]="it.statut === step.key"
+            [class.workflow-steps__item--done]="stepDone(step.key, it.statut)"
+          >
+            {{ step.label }}
+          </div>
+        }
+      </div>
+
+      <div class="detail-bento">
+        <div class="detail-bento__main">
+          <div class="detail-grid">
+            <article class="detail-card">
+              <header class="detail-card__head">
+                <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+                <h2>Réseau transport HTB</h2>
+              </header>
+              <dl class="detail-dl">
+                <div class="detail-dl__row"><dt>Type</dt><dd>{{ typeLabel(it.type_direction) }}</dd></div>
+                <div class="detail-dl__row"><dt>Équipement</dt><dd>{{ it.equipement_libelle ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Source</dt><dd>{{ it.source_libelle ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Tension</dt><dd>{{ it.tension_kv != null ? it.tension_kv + ' kV' : '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Localisation</dt><dd>{{ it.localisation ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Apparition</dt><dd>{{ it.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+                <div class="detail-dl__row"><dt>Remise</dt><dd>{{ it.date_remise ? (it.date_remise | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd></div>
+                <div class="detail-dl__row detail-dl__row--highlight"><dt>Durée</dt><dd>{{ it.duree_minutes != null ? it.duree_minutes + ' min' : '—' }}</dd></div>
+              </dl>
+            </article>
+
+            <article class="detail-card">
+              <header class="detail-card__head">
+                <span class="material-symbols-outlined" aria-hidden="true">category</span>
+                <h2>Classification &amp; impact</h2>
+              </header>
+              <dl class="detail-dl">
+                <div class="detail-dl__row"><dt>Cause</dt><dd>{{ it.cause_libelle ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Nature</dt><dd>{{ it.nature_libelle ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Siège</dt><dd>{{ it.siege_libelle ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Signalisation</dt><dd>{{ it.signalisation_libelle ?? '—' }}</dd></div>
+                <div class="detail-dl__row"><dt>Transit (MW)</dt><dd>{{ it.puissance_transit_mw ?? '—' }}</dd></div>
+                <div class="detail-dl__row detail-dl__row--highlight"><dt>Puissance coupée</dt><dd>{{ it.puissance_coupee_mw ?? '—' }} MW</dd></div>
+                <div class="detail-dl__row"><dt>Énergie NF (MWh)</dt><dd>{{ it.energie_non_fournie_mwh ?? it.energie_nd?.valeur_mwh ?? '—' }}</dd></div>
+              </dl>
+            </article>
+          </div>
+
+          @if (it.observations) {
+            <article class="detail-card detail-card--full">
+              <header class="detail-card__head">
+                <span class="material-symbols-outlined" aria-hidden="true">notes</span>
+                <h2>Observations</h2>
+              </header>
+              <p class="detail-observations">{{ it.observations }}</p>
+            </article>
+          }
+
+          @if (it.statut === 'en_cours') {
+            <article class="detail-card detail-card--full detail-card--action" *sirHasRole="['DISPATCHER', 'ADMIN_DISPATCHING']">
+              <header class="detail-card__head">
+                <span class="material-symbols-outlined" aria-hidden="true">event_available</span>
+                <h2>Clôturer l'interruption</h2>
+              </header>
+              <form class="cloture-form" [formGroup]="clotureForm" (ngSubmit)="cloturer()">
+                <div class="field">
+                  <label class="field__label" for="date-remise">Date de remise</label>
+                  <input id="date-remise" class="field__select" type="datetime-local" formControlName="date_remise" />
+                </div>
+                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="clotureForm.invalid">Clôturer</button>
+              </form>
+            </article>
+          }
+
+          @if (it.statut === 'cloture') {
+            <article class="detail-card detail-card--full detail-card--action" *sirHasRole="['ADMIN_DISPATCHING', 'ADMIN_SAQS']">
+              <header class="detail-card__head">
+                <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+                <h2>Validation chef d'unité</h2>
+              </header>
+              <button type="button" class="sir-btn sir-btn--primary" (click)="valider()">Valider l'interruption</button>
+            </article>
+          }
+        </div>
+
+        <aside class="detail-bento__side">
+          <article class="detail-card detail-card--timeline">
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">history</span>
+              <h2>Historique</h2>
+            </header>
+            <ol class="history-timeline">
+              @if (it.validated_by) {
+                <li class="history-timeline__item history-timeline__item--valid">
+                  <p class="history-timeline__title">Validée par</p>
+                  <p class="history-timeline__user">{{ it.validated_by.prenom }} {{ it.validated_by.nom }}</p>
+                </li>
+              }
+              <li class="history-timeline__item">
+                <p class="history-timeline__title">Créée par</p>
+                @if (it.created_by) {
+                  <p class="history-timeline__user">{{ it.created_by.prenom }} {{ it.created_by.nom }}</p>
+                } @else {
+                  <p class="history-timeline__user">—</p>
+                }
+                <p class="history-timeline__date">{{ it.created_at | date: 'dd/MM/yyyy HH:mm' }}</p>
+              </li>
+            </ol>
+            <footer class="detail-meta">
+              <span class="detail-meta__label">Dernière mise à jour</span>
+              <span>{{ it.updated_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+            </footer>
+          </article>
+        </aside>
+      </div>
+
+      @if (actionError()) {
+        <p class="detail-page__error" role="alert">{{ actionError() }}</p>
+      }
+    }
+  }
+</section>

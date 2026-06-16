@@ -251,10 +251,10 @@ async def test_me_returns_user_profile_with_valid_token(
 # ---------------------------------------------------------------------------
 
 
-async def test_me_without_token_returns_401(client: AsyncClient) -> None:
-    """Requête sans header Authorization → 401."""
+async def test_me_without_token_returns_403(client: AsyncClient) -> None:
+    """Requête sans header Authorization → 403 (HTTPBearer)."""
     response = await client.get("/api/v1/auth/me")
-    assert response.status_code == 401
+    assert response.status_code == 403
 
 
 # ---------------------------------------------------------------------------

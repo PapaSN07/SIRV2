@@ -23,7 +23,7 @@ class Delegation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     region_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("regions.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("regions.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     code: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, unique=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)
@@ -41,7 +41,7 @@ class Agence(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     delegation_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("delegations.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("delegations.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     code: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, unique=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)
@@ -59,7 +59,7 @@ class Service(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     agence_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("agences.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("agences.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     code: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, unique=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)

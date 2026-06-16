@@ -1,0 +1,181 @@
+<section class="interruption-list">
+  <sir-page-header
+    title="Interruptions transport / OMVG"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Interruptions' },
+    ]"
+  >
+    <div actions>
+      @if (canCreate()) {
+        <a class="sir-btn sir-btn--primary" routerLink="/interruptions/transport/nouveau">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouvelle saisie
+        </a>
+      }
+    </div>
+  </sir-page-header>
+
+  <sir-interruptions-nav />
+
+  <div class="filters-panel">
+    <div class="filters-grid">
+      <div class="field">
+        <label class="field__label" for="date-debut">Période (début)</label>
+        <div class="field__input-wrap">
+          <span class="material-symbols-outlined field__icon" aria-hidden="true">calendar_today</span>
+          <input id="date-debut" class="field__input" type="date" [value]="dateDebut()" (change)="onDateDebutChange($event)" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="date-fin">Période (fin)</label>
+        <div class="field__input-wrap">
+          <span class="material-symbols-outlined field__icon" aria-hidden="true">calendar_today</span>
+          <input id="date-fin" class="field__input" type="date" [value]="dateFin()" (change)="onDateFinChange($event)" />
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="type-direction">Type</label>
+        <select id="type-direction" class="field__select" [value]="typeDirection() ?? ''" (change)="onTypeDirectionChange($any($event.target).value)">
+          <option value="">Tous</option>
+          @for (t of typeDirections; track t) {
+            <option [value]="t">{{ typeDirectionLabel(t) }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="equipement">Équipement HTB</label>
+        <select id="equipement" class="field__select" [value]="equipementId() ?? ''" (change)="onEquipementChange($any($event.target).value)">
+          <option value="">Tous</option>
+          @for (e of equipements(); track e.id) {
+            <option [value]="e.id">{{ e.libelle }} ({{ e.type_equipement }})</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="statut">Statut</label>
+        <select id="statut" class="field__select" [value]="statut() ?? ''" (change)="onStatutChange($any($event.target).value)">
+          <option value="">Tous les statuts</option>
+          @for (s of statuts; track s) {
+            <option [value]="s">{{ statutLabel(s) }}</option>
+          }
+        </select>
+      </div>
+      <div class="filters-actions">
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="resetFilters()">Réinitialiser</button>
+        <button type="button" class="sir-btn sir-btn--filter" (click)="applyFilters()">Filtrer</button>
+      </div>
+    </div>
+    @if (activeFilterChips().length > 0) {
+      <div class="filter-chips">
+        @for (chip of activeFilterChips(); track chip.key) {
+          <span class="filter-chip">
+            {{ chip.label }}
+            <button type="button" class="filter-chip__remove" (click)="removeFilter(chip.key)" aria-label="Retirer le filtre">
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </span>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="table-panel">
+    @if (loading()) {
+      <div class="table-panel__loading">
+        <span class="material-symbols-outlined table-panel__spinner" aria-hidden="true">progress_activity</span>
+        <p>Chargement…</p>
+      </div>
+    } @else if (error()) {
+      <p class="table-panel__error" role="alert">{{ error() }}</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="data-table__check">
+                <input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll($event)" aria-label="Tout sélectionner" />
+              </th>
+              <th>Numéro</th>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Tension</th>
+              <th>Localisation</th>
+              <th class="data-table__num">Durée (min)</th>
+              <th class="data-table__num">Puiss. (MW)</th>
+              <th>Statut</th>
+              <th class="data-table__actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of items(); track row.id) {
+              <tr class="data-table__row" [class.data-table__row--selected]="isSelected(row.id)" (click)="onRowClick($event, row.id)">
+                <td class="data-table__check">
+                  <input type="checkbox" [checked]="isSelected(row.id)" (click)="$event.stopPropagation()" (change)="toggleSelect(row.id, $event)" />
+                </td>
+                <td>
+                  <a class="data-table__numero" [routerLink]="['/interruptions/transport', row.id]" (click)="$event.stopPropagation()">
+                    INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}
+                  </a>
+                </td>
+                <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ typeDirectionLabel(row.type_direction) }}</td>
+                <td>{{ row.tension_kv != null ? row.tension_kv + ' kV' : '—' }}</td>
+                <td class="data-table__truncate">{{ row.localisation || '—' }}</td>
+                <td class="data-table__num">{{ row.duree_minutes ?? '—' }}</td>
+                <td class="data-table__num">{{ row.puissance_coupee_mw ?? '—' }}</td>
+                <td><sir-status-chip [statut]="row.statut" /></td>
+                <td>
+                  <div class="row-actions">
+                    <a class="row-actions__btn" [routerLink]="['/interruptions/transport', row.id]" title="Voir" (click)="$event.stopPropagation()">
+                      <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                    </a>
+                    @if (canCreate() && row.statut === 'en_cours') {
+                      <a class="row-actions__btn" [routerLink]="['/interruptions/transport', row.id, 'modifier']" title="Modifier" (click)="$event.stopPropagation()">
+                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                      </a>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="10" class="data-table__empty">Aucune interruption trouvée.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <sir-paginator [total]="total()" [page]="page()" [pageSize]="pageSize()" [pageSizeOptions]="pageSizeOptions" (pageChange)="onPageChange($event)" (pageSizeChange)="onPageSizeChange($event)" />
+    }
+  </div>
+
+  <div class="summary-grid">
+    <article class="summary-card">
+      <div class="summary-card__icon summary-card__icon--primary">
+        <span class="material-symbols-outlined" aria-hidden="true">electric_bolt</span>
+      </div>
+      <div>
+        <p class="summary-card__label">Impact (page)</p>
+        <p class="summary-card__value">{{ totalEndPage() | number: '1.2-2' : 'fr-FR' }}</p>
+      </div>
+    </article>
+    <article class="summary-card">
+      <div class="summary-card__icon summary-card__icon--error">
+        <span class="material-symbols-outlined" aria-hidden="true">timer</span>
+      </div>
+      <div>
+        <p class="summary-card__label">Durée moyenne (page)</p>
+        <p class="summary-card__value summary-card__value--error">{{ avgDurationPage() }} min</p>
+      </div>
+    </article>
+    <article class="summary-card summary-card--wide">
+      <div>
+        <p class="summary-card__label">Interruptions transport</p>
+        <div class="summary-card__legend">
+          <span class="summary-card__legend-item"><span class="summary-card__dot summary-card__dot--primary"></span> Total : {{ total() }}</span>
+          <span class="summary-card__legend-item"><span class="summary-card__dot summary-card__dot--tint"></span> En cours : {{ activeCount() }}</span>
+        </div>
+      </div>
+      <span class="summary-card__deco material-symbols-outlined" aria-hidden="true">analytics</span>
+    </article>
+  </div>
+</section>

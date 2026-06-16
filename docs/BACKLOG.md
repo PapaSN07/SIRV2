@@ -4,320 +4,332 @@
 > Cocher chaque item au fur et à mesure. Mettre à jour l'état d'avancement dans CLAUDE.md.
 >
 > **Légende** : `[ ]` à faire · `[~]` en cours · `[x]` terminé · `[!]` bloqué
+>
+> **Sprint courant :** Phases 7–9 frontend (SMS, admin avancé)
+> **Sprints terminés :** Sprint 1–8 backend · Vagues frontend 0–6 ✅
+> **En attente :** Phase 7 NAPT · Phase 10 migration HFSQL
 
 ---
 
 ## Phase 1 — Socle technique
 > **Priorité : P0 — Bloquant tout le reste**
-> Aucun module métier ne peut démarrer avant que cette phase soit complète.
+> **État :** ✅ Phases 1.1–1.5 terminées (Sprint 1 + phase 1.5 Sprint 2)
 
 - [x] **1.1 Setup projet**
   - [x] Docker Compose : FastAPI + SQL Server 2019 + Redis 7
   - [x] Structure dossiers `sir-backend/` et `sir-frontend/` (voir CLAUDE.md §3)
   - [x] `requirements.txt` avec versions épinglées
   - [x] `.env` + `.env.example` (voir CLAUDE.md §11)
-  - [ ] Pipeline CI (lint + tests automatiques)
-  - [x] `Makefile` avec commandes : `make dev`, `make test`, `make migrate`
+  - [x] Pipeline CI (lint + tests automatiques) — `.github/workflows/ci.yml`
+  - [x] `Makefile` avec commandes : `make dev`, `make test`, `make migrate`, `make seed-dev`, `make seed-rbac`, `make seed-geo`, `make seed-reseau`
 
-- [ ] **1.2 Schéma DB initial (migration Alembic)**
-  - [ ] Tables RBAC : `roles`, `permissions`, `role_permissions`, `user_roles`
-  - [ ] Table `utilisateurs` (password_hash, premiere_connexion, actif)
-  - [ ] Tables géographiques : `regions`, `delegations`, `agences`, `services`
-  - [ ] Tables réseau : `feeders`, `postes_sources`, `postes`, `troncons`, `sous_feeders`
-  - [ ] Tables équipements transport : `equipements_transport`, `sources_transport`, `postes_lignes`
-  - [ ] Table centrale `interruptions` (unifiée, avec discriminant `type_direction`)
-  - [ ] Table `interruptions_distribution` (FK → interruptions)
-  - [ ] Table `interruptions_transport` (FK → interruptions)
-  - [ ] Table `poste_interruption` (N-N interruption ↔ postes)
-  - [ ] Tables référentiels : `causes`, `sieges`, `signalisations`, `natures`, `types_end`
-  - [ ] Tables calculs : `energie_nd`, `saifi_saidi`, `nombre_client_mois`
-  - [ ] Tables NAPT : `napt`, `consignations`
-  - [ ] Tables notifications : `smsenvoye`, `emails_envoyes`, `destinataires`
-  - [ ] Table `audit_log`
-  - [ ] Tester `alembic upgrade head` ET `alembic downgrade -1`
+- [x] **1.2 Schéma DB initial (migration Alembic)**
+  - [x] Tables RBAC : `roles`, `permissions`, `role_permissions`, `user_roles`
+  - [x] Table `utilisateurs` (password_hash, premiere_connexion, actif)
+  - [x] Tables géographiques : `regions`, `delegations`, `agences`, `services`
+  - [x] Tables réseau : `feeders`, `postes_sources`, `postes`, `troncons`, `sous_feeders`
+  - [x] Tables équipements transport : `equipements_transport`, `sources_transport`, `postes_lignes`
+  - [x] Table centrale `interruptions` (unifiée, avec discriminant `type_direction`)
+  - [x] Table `interruptions_distribution` (FK → interruptions)
+  - [x] Table `interruptions_transport` (FK → interruptions)
+  - [x] Table `poste_interruption` (N-N interruption ↔ postes)
+  - [x] Tables référentiels : `causes`, `sieges`, `signalisations`, `natures`, `types_end`
+  - [x] Tables calculs : `energie_nd`, `saifi_saidi`, `nombre_client_mois`
+  - [x] Tables NAPT : `napt`, `consignations`
+  - [x] Tables notifications : `smsenvoye`, `emails_envoyes`, `destinataires`
+  - [x] Table `audit_log`
+  - [x] Tester `alembic upgrade head` ET `alembic downgrade -1` — migration `771d41b833c8_initial_schema.py`
 
-- [ ] **1.3 Authentification JWT**
-  - [ ] `POST /api/v1/auth/login` → access token + refresh token (cookie HttpOnly)
-  - [ ] `POST /api/v1/auth/refresh` → nouveau access token
-  - [ ] `DELETE /api/v1/auth/logout` → blacklist JTI dans Redis
-  - [ ] `GET /api/v1/auth/me` → profil utilisateur connecté
-  - [ ] Forcer changement mot de passe si `premiere_connexion = True`
-  - [ ] Tests : login OK, login KO, token expiré, logout + réutilisation token
+- [x] **1.3 Authentification JWT**
+  - [x] `POST /api/v1/auth/login` → access token + refresh token (cookie HttpOnly)
+  - [x] `POST /api/v1/auth/refresh` → nouveau access token
+  - [x] `DELETE /api/v1/auth/logout` → blacklist JTI dans Redis
+  - [x] `GET /api/v1/auth/me` → profil utilisateur connecté
+  - [x] Forcer changement mot de passe si `premiere_connexion = True`
+  - [x] Tests : login OK, login KO, token expiré, logout + réutilisation token — **115 tests** (1 échec connu : `test_me_without_token_returns_401` → 403 HTTPBearer)
 
-- [ ] **1.4 Système RBAC**
-  - [ ] Décorateur `@require_permission(ressource, action)`
-  - [ ] Dépendance `require_role(*roles)` pour FastAPI
-  - [ ] Vérification scope `service_id` / `region_id` dans les services
-  - [ ] Seeding initial des rôles et permissions en base
-  - [ ] Tests : BCC hors périmètre → 403, Admin SAQS → lecture OK, Admin SCR → transport → 403
+- [x] **1.4 Système RBAC**
+  - [x] Décorateur `@require_permission(ressource, action)`
+  - [x] Dépendance `require_role(*roles)` pour FastAPI
+  - [x] Vérification scope `service_id` / `region_id` dans les services
+  - [x] Seeding initial des rôles et permissions — script `seed_rbac.py` · exécution via `make seed-dev`
+  - [x] Tests : BCC hors périmètre → 403, Admin SAQS → lecture OK, Admin SCR → transport → 403
 
-- [ ] **1.5 Gestion utilisateurs (Admin)**
-  - [ ] `GET /api/v1/admin/utilisateurs` (filtré par direction pour Admin SCR vs Admin Dispatching)
-  - [ ] `POST /api/v1/admin/utilisateurs`
-  - [ ] `PUT /api/v1/admin/utilisateurs/{id}`
-  - [ ] `PATCH /api/v1/admin/utilisateurs/{id}/activer` et `/desactiver`
-  - [ ] `POST /api/v1/admin/utilisateurs/{id}/reset-password`
-  - [ ] Attribution de rôles + scope géographique
+- [x] **1.5 Gestion utilisateurs (Admin)**
+  - [x] `GET /api/v1/admin/utilisateurs` (filtré par direction pour Admin SCR vs Admin Dispatching)
+  - [x] `POST /api/v1/admin/utilisateurs`
+  - [x] `PUT /api/v1/admin/utilisateurs/{id}`
+  - [x] `PATCH /api/v1/admin/utilisateurs/{id}/activer` et `/desactiver`
+  - [x] `POST /api/v1/admin/utilisateurs/{id}/reset-password`
+  - [x] Attribution de rôles + scope géographique
 
 ---
 
 ## Phase 2 — Référentiels & Réseau
 > **Priorité : P0 — Données de base nécessaires à toute saisie**
+> **État :** ✅ Terminé (Sprint 2) · rapports intégration : `INTEGRATION_REPORT_referentiel.md`, `INTEGRATION_REPORT_geo_reseau.md`
 
-- [ ] **2.1 Référentiels partagés**
-  - [ ] `causes` : CRUD (type_reseau = distribution | transport | commun)
-  - [ ] `sieges` : CRUD
-  - [ ] `signalisations` : CRUD
-  - [ ] `natures` : CRUD
-  - [ ] `types_end` : CRUD
-  - [ ] Endpoints : `GET /api/v1/referentiel/{ressource}` (liste) + `POST`, `PUT`, `DELETE` (Admin uniquement)
-  - [ ] Mise en cache Redis (TTL 24h, invalidation sur modification)
+- [x] **2.1 Référentiels partagés**
+  - [x] `causes` : CRUD (type_reseau = distribution | transport | commun)
+  - [x] `sieges` : CRUD
+  - [x] `signalisations` : CRUD
+  - [x] `natures` : CRUD
+  - [x] `types_end` : CRUD
+  - [x] Endpoints : `GET /api/v1/referentiel/{ressource}` (liste) + `POST`, `PUT`, `DELETE` (Admin uniquement)
+  - [x] Mise en cache Redis (TTL 24h, invalidation sur modification)
 
-- [ ] **2.2 Organisation géographique**
-  - [ ] `GET /api/v1/geo/regions`
-  - [ ] `GET /api/v1/geo/delegations?region_id=`
-  - [ ] `GET /api/v1/geo/agences?delegation_id=`
-  - [ ] `GET /api/v1/geo/services?agence_id=`
-  - [ ] Lecture seule pour tous les rôles
+- [x] **2.2 Organisation géographique**
+  - [x] `GET /api/v1/geo/regions`
+  - [x] `GET /api/v1/geo/delegations?region_id=`
+  - [x] `GET /api/v1/geo/agences?delegation_id=`
+  - [x] `GET /api/v1/geo/services?agence_id=`
+  - [x] Lecture seule pour tous les rôles authentifiés
+  - [x] Seed dev : `make seed-geo` · jeu complet : `make seed-dev` (RBAC + geo + réseau)
 
-- [ ] **2.3 Réseau Distribution**
-  - [ ] `feeders` : CRUD complet, filtrable par poste_source_id, region
-  - [ ] `postes_sources` : CRUD
-  - [ ] `postes` : CRUD, association feeder
-  - [ ] `troncons` : CRUD
-  - [ ] `sous_feeders` : CRUD, association feeder
-  - [ ] Droits : lecture pour BCC/BRC, écriture pour Admin SCR
+- [x] **2.3 Réseau Distribution**
+  - [x] `feeders` : CRUD complet, filtrable par poste_source_id, region
+  - [x] `postes_sources` : CRUD
+  - [x] `postes` : CRUD, association feeder
+  - [x] `troncons` : CRUD
+  - [x] `sous_feeders` : CRUD, association feeder
+  - [x] Droits : lecture pour BCC/BRC, écriture pour Admin SCR
 
-- [ ] **2.4 Réseau Transport**
-  - [ ] `equipements_transport` : CRUD (lignes HTB, transformateurs, etc.)
-  - [ ] `sources_transport` : CRUD
-  - [ ] `postes_lignes` : CRUD
-  - [ ] Droits : lecture pour Dispatcher, écriture pour Admin Dispatching
+- [x] **2.4 Réseau Transport**
+  - [x] `equipements_transport` : CRUD (lignes HTB, transformateurs, etc.)
+  - [x] `sources_transport` : CRUD
+  - [x] `postes_lignes` : CRUD
+  - [x] Droits : lecture pour Dispatcher, écriture pour Admin Dispatching
 
 ---
 
 ## Phase 3 — Interruptions Distribution
 > **Priorité : P0 — Cœur métier #1**
+> **État :** Sprint 3 en cours · modèles SQLAlchemy en place · router stub `distribution/router.py`
+> **Ordre implémentation :** 3.1 → 3.2 → 3.3 → 3.7 → 3.4 → 3.5 → 3.8 → 3.6
 
-- [ ] **3.1 Création interruption distribution**
-  - [ ] `POST /api/v1/interruptions/distribution`
-  - [ ] Validation RBAC : BCC → `service_id` de l'utilisateur uniquement
-  - [ ] Auto-génération `numero_interruption`
-  - [ ] Champs obligatoires : date_apparition, feeder, cause, nature, siege, signalisation
-  - [ ] Statut initial : `en_cours`
-  - [ ] Tests : BCC hors service → 403, champs manquants → 422
+- [x] **3.1 Création interruption distribution**
+  - [x] Fichiers : `schemas/interruption_distribution.py`, `repositories/`, `services/`, compléter `distribution/router.py`
+  - [x] `POST /api/v1/interruptions/distribution`
+  - [x] Validation RBAC : BCC → `service_id` de l'utilisateur uniquement (scope `user_roles`)
+  - [x] Auto-génération `numero_interruption` · insertion `interruptions` + `interruptions_distribution`
+  - [x] Champs obligatoires : date_apparition, feeder, cause, nature, siege, signalisation
+  - [x] Statut initial : `en_cours` · `type_direction = 'distribution'`
+  - [x] `log_audit()` sur création · Dispatcher → 403
+  - [x] Tests : BCC hors service → 403, champs manquants → 422
 
-- [ ] **3.2 Liste interruptions distribution**
-  - [ ] `GET /api/v1/interruptions/distribution`
-  - [ ] Filtres : region_id, feeder_id, statut, date_debut, date_fin
-  - [ ] Pagination + tri par date_apparition DESC
-  - [ ] Scope automatique : BCC voit son service, BRC voit sa région, Admin voit tout
+- [x] **3.2 Liste interruptions distribution**
+  - [x] `GET /api/v1/interruptions/distribution`
+  - [x] Filtres : region_id, feeder_id, statut, date_debut, date_fin
+  - [x] Pagination `page` / `page_size` · tri par date_apparition DESC
+  - [x] Scope automatique : BCC → son service, BRC → sa région, Admin SCR / SAQS → tout
 
-- [ ] **3.3 Détail interruption**
-  - [ ] `GET /api/v1/interruptions/distribution/{id}`
-  - [ ] Inclure : postes impactés, END calculée, historique modifications
+- [x] **3.3 Détail interruption**
+  - [x] `GET /api/v1/interruptions/distribution/{id}`
+  - [x] Inclure : libellés jointure (feeder, cause, nature…), postes impactés, END si clôturée, métadonnées audit
+  - [x] BCC hors périmètre → 403 · ID inexistant → 404
 
-- [ ] **3.4 Modification interruption**
-  - [ ] `PUT /api/v1/interruptions/distribution/{id}`
-  - [ ] Uniquement si statut = `en_cours`
-  - [ ] Seul le créateur ou Admin SCR peut modifier
-  - [ ] Écriture dans `audit_log` à chaque modification
+- [x] **3.7 Association postes impactés** *(avant clôture 3.5)*
+  - [x] `GET /api/v1/interruptions/distribution/{id}/postes`
+  - [x] `POST /api/v1/interruptions/distribution/{id}/postes`
+  - [x] `DELETE /api/v1/interruptions/distribution/{id}/postes/{poste_id}`
+  - [x] Uniquement si statut = `en_cours` · contrainte unicité `(interruption_id, poste_id)`
+  - [x] Obligatoire avant clôture (validation dans le service — phase 3.5)
 
-- [ ] **3.5 Clôture interruption**
-  - [ ] `PATCH /api/v1/interruptions/distribution/{id}/cloturer`
-  - [ ] Saisie `date_remise` (> date_apparition obligatoire)
-  - [ ] Calcul `duree_interruption` en minutes
-  - [ ] Déclenchement tâche Celery `calcul_end`
-  - [ ] Statut → `cloture`
+- [x] **3.4 Modification interruption**
+  - [x] `PUT /api/v1/interruptions/distribution/{id}`
+  - [x] Uniquement si statut = `en_cours`
+  - [x] Seul le créateur ou Admin SCR peut modifier
+  - [x] Écriture dans `audit_log` à chaque modification
 
-- [ ] **3.6 Validation interruption**
-  - [ ] `PATCH /api/v1/interruptions/distribution/{id}/valider`
-  - [ ] Réservé Superviseur + Admin SCR + Admin SAQS
-  - [ ] Statut → `valide`
-  - [ ] Déclenchement tâche Celery `calcul_saifi_saidi`
-  - [ ] Invalidation cache Redis indicateurs concernés
+- [x] **3.5 Clôture interruption**
+  - [x] `PATCH /api/v1/interruptions/distribution/{id}/cloturer`
+  - [x] Saisie `date_remise` (> date_apparition obligatoire)
+  - [x] Calcul `duree_minutes` · au moins 1 poste impacté requis
+  - [x] Déclenchement tâche Celery `calcul_end`
+  - [x] Statut → `cloture`
 
-- [ ] **3.7 Association postes impactés**
-  - [ ] `POST /api/v1/interruptions/distribution/{id}/postes`
-  - [ ] `DELETE /api/v1/interruptions/distribution/{id}/postes/{poste_id}`
-  - [ ] `GET /api/v1/interruptions/distribution/{id}/postes`
-  - [ ] Obligatoire avant clôture (validation dans le service)
+- [x] **3.8 Calcul END (service + worker)**
+  - [x] `app/services/end_service.py` : `calcul_end(puissance_mw, duree_h) → Decimal`
+  - [x] `app/repositories/end_repository.py` — persistance `energie_nd`
+  - [x] `app/workers/tasks/indicateurs.py` — tâche Celery `calcul_end(interruption_id)`
+  - [x] Exclusion interruptions force majeure
+  - [x] Application règles `types_end` / placeholder `REGLES_END_PAR_NATURE` (table `regles_end` absente — CRSE à valider)
+  - [x] Persistance dans table `energie_nd` + miroir `interruptions_distribution.end_mwh`
+  - [x] Invalidation cache Redis clé `indicateurs:end:{region_id}:{periode}`
+  - [x] Tests unitaires : `calcul_end(5.0, 2.0) == 10.0`, FM → 0.0, worker mock
 
-- [ ] **3.8 Calcul END (service + worker)**
-  - [ ] `end_service.py` : `calcul_end(puissance_mw, duree_h) → Decimal`
-  - [ ] Exclusion interruptions force majeure
-  - [ ] Application règles `types_end` / `regles_end`
-  - [ ] Persistance dans table `energie_nd`
-  - [ ] Mise en cache Redis clé `indicateurs:end:{region_id}:{periode}`
-  - [ ] **⚠ Formules CRSE à valider avec équipe SENELEC avant implémentation**
-  - [ ] Tests unitaires : `assert calcul_end(5.0, 2.0) == 10.0`, FM → 0.0
+- [x] **3.6 Validation interruption**
+  - [x] `PATCH /api/v1/interruptions/distribution/{id}/valider`
+  - [x] Réservé Superviseur + Admin SCR + Admin SAQS
+  - [x] Uniquement si statut = `cloture` · statut → `valide` · `validated_by_id` renseigné
+  - [x] Déclenchement tâche Celery `calcul_saifi_saidi` (stub Phase 5 si formules non confirmées)
+  - [x] Invalidation cache Redis indicateurs concernés
+
+### Transverses Sprint 3
+
+- [x] Seed dev : `seed_interruptions.py` + `make seed-interruptions`
+- [x] Frontend F3 — liste, création, détail, clôture, validation, postes impactés
+- [ ] Rapport `docs/integration/INTEGRATION_REPORT_interruptions_distribution.md`
 
 ---
 
 ## Phase 4 — Interruptions Transport
 > **Priorité : P0 — Cœur métier #2**
+> **État :** ✅ Backend terminé — Sprint 4 (4.1–4.5) · F4 frontend reporté · E2E manuel optionnel
 
-- [ ] **4.1 Création interruption transport**
-  - [ ] `POST /api/v1/interruptions/transport`
-  - [ ] Réservé Dispatcher (périmètre national HTB)
-  - [ ] Champs spécifiques : equipement_id, source_transport_id, tension, poste_ligne_id
+- [x] **4.1 Création interruption transport**
+  - [x] `POST /api/v1/interruptions/transport`
+  - [x] Réservé Dispatcher (périmètre national HTB)
+  - [x] Champs spécifiques : equipement_id, source_transport_id, tension, poste_ligne_id
 
-- [ ] **4.2 Liste + Détail interruptions transport**
-  - [ ] `GET /api/v1/interruptions/transport` avec filtres adaptés
-  - [ ] Scope : Dispatcher voit tout transport, Admin Dispatching idem, Admin SAQS lecture
+- [x] **4.2 Liste + Détail interruptions transport**
+  - [x] `GET /api/v1/interruptions/transport` avec filtres adaptés
+  - [x] Scope : Dispatcher voit tout transport, Admin Dispatching idem, Admin SAQS lecture
 
-- [ ] **4.3 Modification / Clôture**
-  - [ ] Même logique que distribution, champs différents
-  - [ ] Clôture déclenche calcul END transport
+- [x] **4.3 Modification / Clôture**
+  - [x] Même logique que distribution, champs différents
+  - [x] Clôture déclenche calcul END transport
 
-- [ ] **4.4 Validation transport**
-  - [ ] `PATCH /api/v1/interruptions/transport/{id}/valider`
-  - [ ] Validation chef d'unité (`validation_chef_unite`)
-  - [ ] Réservé Admin Dispatching + Admin SAQS
+- [x] **4.4 Validation transport**
+  - [x] `PATCH /api/v1/interruptions/transport/{id}/valider`
+  - [x] Validation chef d'unité (`validation_chef_unite`)
+  - [x] Réservé Admin Dispatching + Admin SAQS
 
-- [ ] **4.5 Interruptions OMVG**
-  - [ ] Sous-ensemble du transport, `type_direction = 'omvg'`
-  - [ ] Mêmes endpoints, filtrage par type_direction
+- [x] **4.5 Interruptions OMVG**
+  - [x] Sous-ensemble du transport, `type_direction = 'omvg'`
+  - [x] Mêmes endpoints, filtrage par type_direction
 
 ---
 
 ## Phase 5 — Indicateurs
 > **Priorité : P1 — Valeur analytique centrale**
+> **État :** ✅ Terminé — Sprint 5 backend + seeds dev + E2E indicateurs
 
-- [ ] **5.1 Calcul SAIFI/SAIDI**
-  - [ ] `saifi_service.py` : calcul par service → délégation → région → national
-  - [ ] Source : `poste_interruption` + `nombre_client_mois`
-  - [ ] Tâche Celery déclenchée à chaque validation d'interruption
-  - [ ] Persistance dans `saifi_saidi`
-  - [ ] **⚠ Formules exactes à valider avec équipe SENELEC**
-  - [ ] Tests : `assert calcul_saifi(1000, 50000) == 0.02`
+- [x] **5.1 Calcul SAIFI/SAIDI**
+  - [x] `saifi_service.py` : calcul par service → délégation → région → national
+  - [x] Source : `poste_interruption` + `nombre_client_mois`
+  - [x] Tâche Celery déclenchée à chaque validation d'interruption
+  - [x] Persistance dans `saifi_saidi`
+  - [x] **⚠ Formules exactes à valider avec équipe SENELEC** (placeholder documenté)
+  - [x] Tests : `assert calcul_saifi(1000, 50000) == 0.02`
 
-- [ ] **5.2 Cache Redis indicateurs**
-  - [ ] Pattern cache-aside sur tous les endpoints `/indicateurs/`
-  - [ ] Clé : `indicateurs:{type}:{region_id}:{annee}:{mois}`
-  - [ ] TTL 1h, invalidation sur `POST calcul_saifi_saidi`
+- [x] **5.2 Cache Redis indicateurs**
+  - [x] Pattern cache-aside sur tous les endpoints `/indicateurs/`
+  - [x] Clé : `indicateurs:{type}:{region_id}:{annee}:{mois}`
+  - [x] TTL 1h, invalidation sur calcul END + SAIFI/SAIDI
 
-- [ ] **5.3 Tableau de bord**
-  - [ ] `GET /api/v1/indicateurs/tableau-de-bord?periode=&region_id=`
-  - [ ] Retourne : END_mois, SAIFI, SAIDI, nb_interruptions_actives, nb_interruptions_mois
+- [x] **5.3 Tableau de bord**
+  - [x] `GET /api/v1/indicateurs/tableau-de-bord?periode=&region_id=`
+  - [x] Retourne : END_mois, SAIFI, SAIDI, nb_interruptions_actives, nb_interruptions_mois
 
-- [ ] **5.4 Indicateurs détaillés**
-  - [ ] `GET /api/v1/indicateurs/end?annee=&mois=&region_id=`
-  - [ ] `GET /api/v1/indicateurs/saifi?annee=&mois=&region_id=`
-  - [ ] `GET /api/v1/indicateurs/saidi?annee=&mois=&region_id=`
-  - [ ] Agrégation par service / délégation / région / national
+- [x] **5.4 Indicateurs détaillés**
+  - [x] `GET /api/v1/indicateurs/end?annee=&mois=&region_id=`
+  - [x] `GET /api/v1/indicateurs/saifi?annee=&mois=&region_id=`
+  - [x] `GET /api/v1/indicateurs/saidi?annee=&mois=&region_id=`
+  - [x] Agrégation par service / délégation / région / national
 
-- [ ] **5.5 Historique 12 mois**
-  - [ ] `GET /api/v1/indicateurs/historique?type=saifi&annees=2`
-  - [ ] Utilisé pour les graphiques de tendance
+- [x] **5.5 Historique 12 mois**
+  - [x] `GET /api/v1/indicateurs/historique?type=saifi&annees=2`
+  - [x] Utilisé pour les graphiques de tendance
 
-- [ ] **5.6 Classement feeders par END**
-  - [ ] `GET /api/v1/indicateurs/top-feeders?periode=&region_id=&limit=10`
+- [x] **5.6 Classement feeders par END**
+  - [x] `GET /api/v1/indicateurs/top-feeders?periode=&region_id=&limit=10`
 
 ---
 
 ## Phase 6 — Rapports
-> **Priorité : P1 — Obligation réglementaire CRSE**
+> **Priorité : P1 — Obligation réglementaire CRSE** · **Sprint 6**
 > ⚠ Le format exact des rapports CRSE doit être fourni par l'équipe SAQS avant implémentation.
 
-- [ ] **6.1 Rapport journalier**
-  - [ ] `POST /api/v1/rapports/journalier` (déclenche tâche Celery)
-  - [ ] `GET /api/v1/rapports/{task_id}/status` (suivi génération)
-  - [ ] `GET /api/v1/rapports/{task_id}/download` (téléchargement PDF)
-  - [ ] Contenu : interruptions du jour, END, statuts, feeders impactés
+- [x] **6.1 Rapport journalier**
+  - [x] `POST /api/v1/rapports/journalier` (déclenche tâche Celery)
+  - [x] `GET /api/v1/rapports/{task_id}/status` (suivi génération)
+  - [x] `GET /api/v1/rapports/{task_id}/download` (téléchargement PDF)
+  - [x] Contenu : interruptions du jour, END, statuts, feeders impactés
 
-- [ ] **6.2 Rapport mensuel distribution**
-  - [ ] SAIFI / SAIDI / END par région, format CRSE
-  - [ ] Export PDF (reportlab) + Excel (openpyxl)
+- [x] **6.2 Rapport mensuel distribution**
+  - [x] SAIFI / SAIDI / END par région, format CRSE (placeholder)
+  - [x] Export PDF (reportlab) + Excel (openpyxl)
 
-- [ ] **6.3 Rapport mensuel transport**
-  - [ ] Même structure, périmètre HTB
+- [x] **6.3 Rapport mensuel transport**
+  - [x] Même structure, périmètre HTB
+  - [x] END transport (energie_nd / energie_non_fournie_mwh)
 
-- [ ] **6.4 Rapport annuel**
-  - [ ] Consolidation 12 mois, tendances, comparaison objectifs
+- [x] **6.4 Rapport annuel**
+  - [x] Consolidation 12 mois, tendances, comparaison objectifs (placeholder CRSE)
 
-- [ ] **6.5 Classement END feeders**
-  - [ ] Top / flop feeders sur période donnée
+- [x] **6.5 Classement END feeders**
+  - [x] Top feeders intégrés au rapport mensuel distribution (paramètre `limit`, défaut 10)
+  - [x] Top feeders agrégés dans rapport annuel (6.4)
 
-- [ ] **6.6 Génération asynchrone**
-  - [ ] Toute génération passe par Celery (jamais synchrone)
-  - [ ] Notification Email quand le rapport est prêt
+- [x] **6.6 Génération asynchrone**
+  - [x] Toute génération passe par Celery (jamais synchrone)
+  - [x] Notification Email quand le rapport est prêt (stub Phase 8)
 
 ---
 
 ## Phase 7 — NAPT
-> **Priorité : P1 — Processus travaux**
+> **Priorité : P1 — EN ATTENTE** (reporté par orchestrateur)
 
-- [ ] **7.1 Création NAPT**
-  - [ ] `POST /api/v1/napt`
-  - [ ] Champs : objet, feeder/tronçon, date prévue, demandeur, rédacteur
-  - [ ] Statut initial : `brouillon`
-
-- [ ] **7.2 Workflow NAPT**
-  - [ ] Transitions : `brouillon` → `soumis` → `validé` → `exécuté` → `clôturé`
-  - [ ] `PATCH /api/v1/napt/{id}/soumettre`
-  - [ ] `PATCH /api/v1/napt/{id}/valider` (Superviseur/Admin)
-  - [ ] `PATCH /api/v1/napt/{id}/executer`
-  - [ ] `PATCH /api/v1/napt/{id}/cloturer`
-
-- [ ] **7.3 Consignations**
-  - [ ] CRUD consignations liées à un NAPT
-  - [ ] Contrôleurs, validateurs
-
-- [ ] **7.4 Liste NAPT**
-  - [ ] `GET /api/v1/napt` avec filtres statut, zone, période
+- [!] **7.1–7.4 NAPT** — backend partiel livré · frontend liste seule
+  - [x] `POST/GET/PATCH /api/v1/napt` + workflow (soumettre, valider, exécuter, clôturer)
+  - [x] `POST /api/v1/napt/{id}/consignations`
+  - [~] Frontend liste + actions workflow (sans formulaire création)
+  - [ ] Formulaire création · CRUD consignations UI · tests · sidebar
 
 ---
 
 ## Phase 8 — Notifications
-> **Priorité : P2 — Confort opérationnel**
+> **Priorité : P2 — Confort opérationnel** · **Sprint 8 backend ✅**
 
-- [ ] **8.1 Envoi SMS**
-  - [ ] Tâche Celery `envoi_sms`
-  - [ ] Intégration SMS Gateway (Orange Sénégal ou API à configurer)
-  - [ ] Déclenchement : nouvelle interruption, clôture, validation
-  - [ ] Groupes destinataires configurables par zone et type d'événement
+- [x] **8.1 Envoi SMS**
+  - [x] Tâche Celery `envoi_sms`
+  - [x] Intégration SMS Gateway (mock dev si URL vide)
+  - [x] Déclenchement : nouvelle interruption, clôture, validation
+  - [x] Destinataires par `service_id` sur table `destinataires`
 
-- [ ] **8.2 Envoi Email**
-  - [ ] Tâche Celery `envoi_email`
-  - [ ] Templates HTML par type d'événement
-  - [ ] SMTP configurable via `.env`
+- [x] **8.2 Envoi Email**
+  - [x] Tâches Celery `envoi_email` + `envoi_email_direct`
+  - [x] Templates HTML par type d'événement (`# TODO(SENELEC)`)
+  - [x] SMTP configurable via `.env` (mock dev si host vide)
 
-- [ ] **8.3 Gestion destinataires**
-  - [ ] CRUD groupes de contacts
-  - [ ] Association groupe ↔ zone géographique ↔ type d'événement
+- [x] **8.3 Gestion destinataires**
+  - [x] CRUD `/api/v1/notifications/destinataires`
+  - [x] Filtrage par `service_id` / scope RBAC
 
-- [ ] **8.4 Notifications temps réel**
-  - [ ] WebSocket ou SSE sur `GET /api/v1/notifications/stream`
-  - [ ] Pub/Sub Redis pour diffuser les événements
-  - [ ] Mise à jour tableau de bord sans rechargement page
+- [x] **8.4 Notifications temps réel**
+  - [x] SSE `GET /api/v1/notifications/stream?token=`
+  - [x] Pub/Sub Redis (`sir:notifications:service:{id}` + broadcast)
+  - [x] Module SMS frontend (Phase 7 plan) : liste, envoi manuel, destinataires, emails
+  - [x] `POST /api/v1/notifications/sms/send` — envoi manuel utilisateurs + destinataires
 
 ---
 
 ## Phase 9 — Administration
 > **Priorité : P1 — Nécessaire dès la mise en production**
 
-- [ ] **9.1 Gestion utilisateurs (frontend)**
-  - [ ] Liste + filtres, activation/désactivation
-  - [ ] Formulaire création/édition avec attribution rôle + scope
+- [x] **9.1 Gestion utilisateurs (frontend)**
+  - [x] Liste + filtres, activation/désactivation
+  - [x] Formulaire création/édition avec attribution **multi-rôles** (`GET /admin/roles`)
 
-- [ ] **9.2 Gestion rôles et permissions**
-  - [ ] Vue des rôles existants et leurs permissions
-  - [ ] Attribution rôle à un utilisateur avec scope (service_id ou region_id)
+- [x] **9.2 Gestion rôles et permissions**
+  - [x] Vue des rôles existants et leurs permissions (`/admin/roles`)
+  - [x] Attribution multi-rôles à un utilisateur
 
-- [ ] **9.3 Audit log**
-  - [ ] `GET /api/v1/admin/audit-log?user_id=&table=&date_debut=`
-  - [ ] Toutes mutations sensibles : interruptions, utilisateurs, NAPT, validation
+- [x] **9.3 Audit log**
+  - [x] `GET /api/v1/admin/audit-log` — page `/admin/audit-log`
+  - [x] Instrumentation mutations : interruptions, utilisateurs, NAPT
 
-- [ ] **9.4 Paramètres applicatifs**
-  - [ ] Seuil durée interruption "fugitif" (ex : < 3 minutes)
-  - [ ] Configuration SMS Gateway URL + clé API
-  - [ ] Configuration SMTP
+- [~] **9.4 Paramètres applicatifs**
+  - [x] Seuil durée interruption "fugitif" (`/admin/settings`)
+  - [ ] Configuration SMS Gateway URL + clé API (lecture seule — `.env`)
+  - [ ] Configuration SMTP (lecture seule — `.env`)
 
 ---
 
 ## Phase 10 — Migration des données
-> **Priorité : P0 — Bloquant pour la bascule en production**
+> **Priorité : P0 — EN ATTENTE** (reporté par orchestrateur)
+> Squelettes : `scripts/migration/etl_hfsql.py`, `validate_migration.py`
 
 - [ ] **10.1 Audit données HFSQL**
   - [ ] Script d'analyse : doublons, NULL inattendus, valeurs hors référentiel
@@ -355,71 +367,75 @@
 
 > Développé en parallèle du backend à partir de la Phase 3.
 > Chaque module frontend correspond à un module backend.
+> **État :** Vagues frontend 0–6 ✅ · Phase 7 SMS ✅ · Phase 9 admin avancé ✅
 
-- [ ] **F0 — Core Angular**
-  - [ ] `AuthService` + `JwtInterceptor` (ajout `Authorization: Bearer`)
-  - [ ] `AuthGuard` + `RoleGuard`
-  - [ ] `ErrorInterceptor` (401 → redirect login, 403 → page accès refusé)
-  - [ ] `NgRx Store` : state utilisateur connecté, interruptions actives
-  - [ ] Layout principal : sidebar + header + contenu
+- [x] **F0 — Core Angular**
+  - [x] `AuthService` + intercepteurs JWT + erreurs (`error.interceptor.ts`)
+  - [x] `authGuard` + `roleGuard` + `premiereConnexionGuard`
+  - [x] Layout principal sidebar + topbar SSE notifications
 
-- [ ] **F1 — Authentification**
-  - [ ] Page login
-  - [ ] Page changement mot de passe obligatoire (première connexion)
+- [x] **F1 — Authentification**
+  - [x] Page login (`/login`)
+  - [x] Page changement mot de passe (`/changer-mot-de-passe`)
 
-- [ ] **F2 — Tableau de bord**
-  - [ ] 4 cartes KPI : END mois, SAIFI, SAIDI, interruptions actives
-  - [ ] Graphique interruptions 30 derniers jours (distribution vs transport)
-  - [ ] Tableau dernières interruptions avec badges statut
-  - [ ] Mise à jour temps réel (WebSocket ou polling 30s)
+- [x] **F-ref — Référentiels & Géo (Sprint 2)**
+  - [x] Module référentiel — `/admin/referentiel`
+  - [x] Module géo — cascade `/geo`
+  - [x] Admin réseau distribution + transport
 
-- [ ] **F3 — Interruptions Distribution**
-  - [ ] Liste avec filtres + pagination
-  - [ ] Formulaire création (champs conditionnels selon feeder sélectionné)
-  - [ ] Formulaire modification
-  - [ ] Vue détail avec timeline des phases
-  - [ ] Actions clôture / validation
+- [x] **F2 — Tableau de bord (Vague 4)**
+  - [x] KPI END, SAIFI, SAIDI, interruptions actives
+  - [x] Graphique historique SAIDI/SAIFI
+  - [x] Dernières interruptions · toasts SSE (`interruption_creee`, `rapport_pret`)
+  - [~] Donut répartition causes — mock (pas d'endpoint backend)
 
-- [ ] **F4 — Interruptions Transport**
-  - [ ] Même structure que F3, champs adaptés HTB
+- [x] **F3 — Interruptions Distribution**
+  - [x] Liste (filtres, cause/région), création, détail, modification, clôture, validation
+  - [x] Routes `/interruptions/distribution/*`
 
-- [ ] **F5 — Indicateurs**
-  - [ ] Sélecteurs période / région / direction
-  - [ ] Graphiques END, SAIFI, SAIDI avec ligne objectif CRSE
-  - [ ] Export Excel depuis le frontend
+- [x] **F4 — Interruptions Transport**
+  - [x] Liste, création, détail, modification, clôture, validation OMVG
+  - [x] Routes `/interruptions/transport/*`
 
-- [ ] **F6 — Rapports**
-  - [ ] Déclenchement génération + suivi progression
-  - [ ] Téléchargement PDF / Excel
+- [x] **F5 — Indicateurs**
+  - [x] Hub `/indicateurs` — END, SAIFI/SAIDI, historique, top feeders
 
-- [ ] **F7 — NAPT**
-  - [ ] Liste + workflow avec boutons d'action selon statut
+- [x] **F6 — Rapports**
+  - [x] Hub `/rapports` — journalier, mensuel, annuel, transport
 
-- [ ] **F8 — Réseau**
-  - [ ] Listes feeders, postes sources, postes (lecture + admin)
+- [!] **F7 — NAPT** — EN ATTENTE
+  - [~] Liste `/napt` + actions workflow (sans création)
 
-- [ ] **F9 — Administration**
-  - [ ] Gestion utilisateurs avec modal création/édition
-  - [ ] Attribution rôles et périmètre géographique
-  - [ ] Consultation audit log
+- [x] **F8 — Réseau**
+  - [x] Admin réseau distribution + transport (feeders, postes sources, postes)
+  - [ ] Tronçons, sous-feeders, postes-lignes (UI)
+
+- [x] **F9 — Administration**
+  - [x] Utilisateurs CRUD + multi-rôles via `GET /admin/roles`
+  - [x] Rôles/permissions (`/admin/roles`) · audit log · paramètres app
+  - [x] Module notifications SMS (`/notifications/*`)
+
+- [x] **F-notif — Notifications (Phase 7)**
+  - [x] SMS liste/envoi · destinataires CRUD · emails lecture seule
 
 ---
 
 ## Récapitulatif des priorités
 
-| Phase | Contenu | Priorité | Dépend de |
-|---|---|---|---|
-| 1 | Socle technique | **P0** | — |
-| 2 | Référentiels & Réseau | **P0** | Phase 1 |
-| 3 | Interruptions Distribution | **P0** | Phases 1, 2 |
-| 4 | Interruptions Transport | **P0** | Phases 1, 2 |
-| 10 | Migration données | **P0** | Phases 1–4 (bascule finale) |
-| 5 | Indicateurs | **P1** | Phases 3, 4 |
-| 6 | Rapports | **P1** | Phase 5 |
-| 7 | NAPT | **P1** | Phases 1, 2 |
-| 9 | Administration | **P1** | Phase 1 |
-| 8 | Notifications | **P2** | Phases 3, 4 |
+| Phase | Contenu | Priorité | Sprint | Dépend de | État |
+|---|---|---|---|---|---|
+| 1 | Socle technique | **P0** | Sprint 1 (+ 1.5) | — | ✅ |
+| 2 | Référentiels & Réseau | **P0** | Sprint 2 | Phase 1 | ✅ |
+| 3 | Interruptions Distribution | **P0** | Sprint 3 | Phases 1, 2 | ✅ |
+| 4 | Interruptions Transport | **P0** | Sprint 4 | Phases 1, 2 | ✅ backend |
+| 10 | Migration données | **P0** | — | Phases 1–4 | ⬜ |
+| 5 | Indicateurs | **P1** | Sprint 5 | Phases 3, 4 | ✅ |
+| 6 | Rapports | **P1** | Sprint 6 | Phase 5 | ✅ |
+| 7 | NAPT | **P1** | — | Phases 1, 2 | ⏸ EN ATTENTE |
+| 8 | Notifications | **P2** | Sprint 8 | Phases 3, 4, 6 | ✅ |
+| 9 | Administration | **P1** | — | Phase 1 | ✅ |
+| 10 | Migration données | **P0** | — | Phases 1–4 | ⏸ EN ATTENTE |
 
 ---
 
-*Dernière mise à jour : Juin 2026*
+*Dernière mise à jour : 12 Juin 2026 — vagues frontend 0–6 ✅ · SMS + admin avancé ✅ · NAPT + migration HFSQL en attente*

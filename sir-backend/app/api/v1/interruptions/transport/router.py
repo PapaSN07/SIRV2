@@ -1,3 +1,151 @@
-from fastapi import APIRouter
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.core.deps import require_permission
+from app.models.utilisateurs import Utilisateur
+from app.schemas.common import ApiResponse, PaginatedResponse
+from app.schemas.interruption_distribution import InterruptionClotureRequest
+from app.schemas.interruption_transport import (
+    InterruptionTransportCreate,
+    InterruptionTransportDetailResponse,
+    InterruptionTransportResponse,
+    InterruptionTransportUpdate,
+    StatutInterruption,
+    TypeDirectionTransport,
+)
+from app.services import interruption_transport_service
 
 router = APIRouter()
+
+
+@router.get(
+    "",
+    response_model=ApiResponse[PaginatedResponse[InterruptionTransportResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Liste paginée des interruptions transport / OMVG",
+)
+async def list_interruptions_transport(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    type_direction: TypeDirectionTransport | None = Query(default=None),
+    statut: StatutInterruption | None = Query(default=None),
+    date_debut: datetime | None = Query(default=None),
+    date_fin: datetime | None = Query(default=None),
+    equipement_transport_id: int | None = Query(default=None, ge=1),
+    source_transport_id: int | None = Query(default=None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_transport", "read")
+    ),
+) -> ApiResponse[PaginatedResponse[InterruptionTransportResponse]]:
+    result = await interruption_transport_service.list_items(
+        db,
+        current_user,
+        page=page,
+        page_size=page_size,
+        type_direction=type_direction,
+        statut=statut,
+        date_debut=date_debut,
+        date_fin=date_fin,
+        equipement_transport_id=equipement_transport_id,
+        source_transport_id=source_transport_id,
+    )
+    return ApiResponse.success(result)
+
+
+@router.post(
+    "",
+    response_model=ApiResponse[InterruptionTransportResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Créer une interruption transport ou OMVG",
+)
+async def create_interruption_transport(
+    body: InterruptionTransportCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_transport", "create")
+    ),
+) -> ApiResponse[InterruptionTransportResponse]:
+    result = await interruption_transport_service.create(db, body, current_user)
+    return ApiResponse.success(result)
+
+
+@router.put(
+    "/{interruption_id}",
+    response_model=ApiResponse[InterruptionTransportResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Modifier une interruption transport ou OMVG",
+)
+async def update_interruption_transport(
+    interruption_id: int,
+    body: InterruptionTransportUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_transport", "update")
+    ),
+) -> ApiResponse[InterruptionTransportResponse]:
+    result = await interruption_transport_service.update(
+        db, interruption_id, body, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.patch(
+    "/{interruption_id}/cloturer",
+    response_model=ApiResponse[InterruptionTransportResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Clôturer une interruption transport ou OMVG",
+)
+async def cloturer_interruption_transport(
+    interruption_id: int,
+    body: InterruptionClotureRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_transport", "update")
+    ),
+) -> ApiResponse[InterruptionTransportResponse]:
+    result = await interruption_transport_service.cloturer(
+        db, interruption_id, body, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.patch(
+    "/{interruption_id}/valider",
+    response_model=ApiResponse[InterruptionTransportResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Valider une interruption transport ou OMVG clôturée",
+)
+async def valider_interruption_transport(
+    interruption_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_transport", "validate")
+    ),
+) -> ApiResponse[InterruptionTransportResponse]:
+    result = await interruption_transport_service.valider(
+        db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/{interruption_id}",
+    response_model=ApiResponse[InterruptionTransportDetailResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Détail d'une interruption transport ou OMVG",
+)
+async def get_interruption_transport(
+    interruption_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_transport", "read")
+    ),
+) -> ApiResponse[InterruptionTransportDetailResponse]:
+    result = await interruption_transport_service.get_item(
+        db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)

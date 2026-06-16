@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIR Senelec - Interruption Detail View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ba1a1a",
+                    "outline": "#727781",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#ffdbc8",
+                    "error-container": "#ffdad6",
+                    "surface-container-high": "#e2e9f1",
+                    "inverse-primary": "#a2c9ff",
+                    "surface-container": "#e8eef7",
+                    "on-surface": "#151c22",
+                    "on-secondary-fixed": "#191c1d",
+                    "primary-fixed": "#d3e4ff",
+                    "surface-container-low": "#eef4fd",
+                    "primary-container": "#005596",
+                    "on-secondary-fixed-variant": "#454748",
+                    "on-tertiary-fixed": "#321300",
+                    "tertiary-container": "#873f01",
+                    "inverse-on-surface": "#ebf1fa",
+                    "secondary-fixed-dim": "#c5c7c8",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-container": "#626566",
+                    "secondary-fixed": "#e1e3e4",
+                    "on-primary-fixed": "#001c38",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f6f9ff",
+                    "surface-dim": "#d4dbe3",
+                    "on-primary-container": "#a4caff",
+                    "tertiary-fixed-dim": "#ffb68a",
+                    "outline-variant": "#c1c7d2",
+                    "on-error-container": "#93000a",
+                    "inverse-surface": "#2a3138",
+                    "primary-fixed-dim": "#a2c9ff",
+                    "on-tertiary-fixed-variant": "#743500",
+                    "background": "#f6f9ff",
+                    "surface-variant": "#dce3ec",
+                    "on-tertiary-container": "#ffb88c",
+                    "on-primary-fixed-variant": "#004881",
+                    "primary": "#003e6f",
+                    "tertiary": "#642d00",
+                    "on-surface-variant": "#414750",
+                    "secondary-container": "#e1e3e4",
+                    "on-background": "#151c22",
+                    "secondary": "#5c5f60",
+                    "on-error": "#ffffff",
+                    "surface-container-highest": "#dce3ec",
+                    "surface-tint": "#1b60a2",
+                    "surface": "#f6f9ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "stack-md": "1rem",
+                    "container-padding": "1.5rem",
+                    "gutter-grid": "1rem",
+                    "stack-sm": "0.5rem",
+                    "stack-lg": "1.5rem",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "headline-sm": ["Inter"],
+                    "code-sm": ["Inter"],
+                    "display-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f6f9ff;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1rem;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant dark:border-outline flex flex-col h-full py-stack-lg z-50">
+<div class="px-6 mb-10">
+<h1 class="font-display-sm text-display-sm font-bold text-primary dark:text-inverse-primary tracking-tight">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest opacity-70">Network Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 border-l-4 border-primary bg-primary/10 text-primary font-bold transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</a>
+</nav>
+<div class="px-6 pt-6 mt-auto border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold text-on-surface">Ousmane Diop</p>
+<p class="text-[10px] text-on-surface-variant">System Administrator</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container border-none rounded-lg font-body-md text-body-md w-80 focus:ring-2 focus:ring-primary" placeholder="Search interruption ID, region..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 hover:text-primary transition-opacity duration-150 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-px h-6 bg-outline-variant mx-2"></div>
+<span class="font-label-md text-label-md font-semibold text-primary">ID: INT-2023-9482</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] pt-16 p-stack-lg">
+<!-- Summary Header Section -->
+<div class="flex justify-between items-end mb-stack-lg">
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<h2 class="font-headline-md text-headline-md">Interruption Detail View</h2>
+</div>
+<div class="flex items-center gap-4 mt-2">
+<span class="font-display-sm text-display-sm text-on-surface">INT-2023-9482</span>
+<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                        Validated
+                    </span>
+<span class="text-on-surface-variant font-body-md text-body-md">Date: Oct 24, 2023 | 14:32</span>
+</div>
+</div>
+<div class="flex gap-stack-md">
+<button class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg font-label-md text-label-md hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined">download</span>
+                    Télécharger PDF
+                </button>
+<button class="flex items-center gap-2 px-6 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:brightness-110 transition-all shadow-sm">
+<span class="material-symbols-outlined">edit</span>
+                    Modifier
+                </button>
+</div>
+</div>
+<div class="bento-grid">
+<!-- Main Info Card - Spans 8 columns -->
+<div class="col-span-8 space-y-gutter-grid">
+<!-- Info Grid Sections -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Network & Chronology Section -->
+<div class="bg-white border border-outline-variant rounded-xl p-stack-md shadow-sm">
+<div class="flex items-center gap-2 mb-4 border-b border-surface-container pb-2">
+<span class="material-symbols-outlined text-primary">lan</span>
+<h3 class="font-headline-sm text-headline-sm">Network &amp; Chronology</h3>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Network ID</span>
+<span class="font-body-md text-body-md font-semibold">SN-Dakar-Center-04</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Station Name</span>
+<span class="font-body-md text-body-md">Poste 60kV Médina</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Detection Time</span>
+<span class="font-body-md text-body-md">14:15:22</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Restoration Time</span>
+<span class="font-body-md text-body-md">14:58:10</span>
+</div>
+<div class="flex justify-between border-t border-surface-container pt-2 mt-2">
+<span class="text-on-surface-variant font-label-md text-label-md">Duration</span>
+<span class="font-body-md text-body-md text-primary font-bold">42m 48s</span>
+</div>
+</div>
+</div>
+<!-- Classification & Impact -->
+<div class="bg-white border border-outline-variant rounded-xl p-stack-md shadow-sm">
+<div class="flex items-center gap-2 mb-4 border-b border-surface-container pb-2">
+<span class="material-symbols-outlined text-primary">category</span>
+<h3 class="font-headline-sm text-headline-sm">Classification &amp; Impact</h3>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Category</span>
+<span class="font-body-md text-body-md">Incidental (Unplanned)</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Cause Type</span>
+<span class="font-body-md text-body-md">Equipment Failure (Transformer)</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Voltage Level</span>
+<span class="font-body-md text-body-md">30 kV</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant font-label-md text-label-md">Clients Impacted</span>
+<span class="font-body-md text-body-md font-semibold text-error">12,450 clients</span>
+</div>
+<div class="flex justify-between border-t border-surface-container pt-2 mt-2">
+<span class="text-on-surface-variant font-label-md text-label-md">Load Shed (MW)</span>
+<span class="font-body-md text-body-md text-error font-bold">8.4 MW</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Admin Comment Area -->
+<div class="bg-white border border-outline-variant rounded-xl p-stack-md shadow-sm">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary">rate_review</span>
+<h3 class="font-headline-sm text-headline-sm">Observations SAQS</h3>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant/30 min-h-[120px]">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed italic">
+                            "L'interruption a été causée par un déclenchement intempestif du transformateur T2 à Médina. L'analyse post-incident confirme une défaillance du relais de protection Buckholz. Remplacement programmé pour le weekend prochain. Impact maîtrisé grâce au basculement de charge vers le poste Plateau."
+                        </p>
+</div>
+<div class="mt-4 flex justify-end">
+<span class="text-on-surface-variant font-label-md text-label-md">Dernière mise à jour : 25/10/2023 par Amadou Fall</span>
+</div>
+</div>
+<!-- Visual Data Placeholder (Optional Context) -->
+<div class="h-64 rounded-xl border border-outline-variant overflow-hidden relative">
+<div class="absolute inset-0 bg-surface-variant flex items-center justify-center">
+<img class="w-full h-full object-cover opacity-60 grayscale" data-alt="A detailed professional technical diagram of an electrical power grid network showing substations and distribution lines under high-tension industrial lighting. The aesthetic is clean, corporate, and functional with Senelec corporate blue and white color palette, reflecting a high-precision utility management software interface environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8I_UXZIfO0VhTBDZkj-Q7V9Zd9kVMjEYgNbGN6XQTXaJKOQd5bw758QSPvrop6iGWm4DPXab5iqIYqfjC6CVqIsbnQ8F1ehM0779GSmvh21SIPns6gjOE7ITvwTWVYGF34Rk7LjV1HpM9UXOw6-WJi54-qVmfLsFiiwfuPn3TA2MoA7HKdmW3LrbyA7rgzgz4-tZIsc_2VVZhiQ0TtFjNW4LjmAv4JX-vWNvcS6i8m6OJBlEOULgyBpG2f7wk89QEH9jgne2b1LYQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent"></div>
+<div class="absolute bottom-4 left-4 flex gap-4">
+<div class="bg-white/90 backdrop-blur-md p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">location_on</span>
+<span class="font-label-md text-label-md text-on-surface">Substation Map View: Médina District</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Side Sidebar - Spans 4 columns -->
+<div class="col-span-4 space-y-gutter-grid">
+<!-- History/Logs Timeline -->
+<div class="bg-white border border-outline-variant rounded-xl p-stack-md shadow-sm h-full flex flex-col">
+<div class="flex items-center gap-2 mb-6 border-b border-surface-container pb-3">
+<span class="material-symbols-outlined text-primary">history</span>
+<h3 class="font-headline-sm text-headline-sm">Historique de l'Interruption</h3>
+</div>
+<div class="flex-1 space-y-8 relative before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-surface-container-highest">
+<!-- Timeline Item: Validated -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-green-500 border-4 border-white flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-white text-[12px] font-bold">check</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface font-bold">Validé par</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Amadou Fall (Directeur Exploitation)</p>
+<p class="font-code-sm text-code-sm text-on-surface-variant opacity-70 mt-1">25 Oct 2023, 09:12 AM</p>
+</div>
+</div>
+<!-- Timeline Item: Modified -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-primary border-4 border-white flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-white text-[12px] font-bold">edit</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface font-bold">Modifié par</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Fatou Sow (SAQS Team Lead)</p>
+<p class="font-code-sm text-code-sm text-on-surface-variant opacity-70 mt-1">24 Oct 2023, 17:45 PM</p>
+<p class="mt-2 text-[11px] text-primary bg-primary/5 p-2 rounded border border-primary/20">Ajustement du temps de rétablissement et cause racine.</p>
+</div>
+</div>
+<!-- Timeline Item: Created -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-dim border-4 border-white flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-on-surface-variant text-[12px] font-bold">add</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface font-bold">Créé par</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Système SCADA (Automatique)</p>
+<p class="font-code-sm text-code-sm text-on-surface-variant opacity-70 mt-1">24 Oct 2023, 14:15 PM</p>
+</div>
+</div>
+</div>
+<!-- Meta details footer -->
+<div class="mt-auto pt-6 border-t border-surface-container">
+<div class="bg-surface-container p-3 rounded-lg">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">verified_user</span>
+<span class="font-label-md text-label-md text-on-surface font-bold">Security Token</span>
+</div>
+<p class="font-code-sm text-code-sm text-on-surface-variant truncate">SHA-256: 8f92j1k...902mn3l</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Micro-interaction Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Simple hover animation for timeline items
+            const timelineItems = document.querySelectorAll('.relative.pl-10');
+            timelineItems.forEach(item => {
+                item.addEventListener('mouseenter', () => {
+                    item.querySelector('div:first-child').classList.add('scale-110');
+                });
+                item.addEventListener('mouseleave', () => {
+                    item.querySelector('div:first-child').classList.remove('scale-110');
+                });
+            });
+
+            // Smooth scale for primary action buttons
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.addEventListener('mousedown', () => btn.classList.add('scale-95'));
+                btn.addEventListener('mouseup', () => btn.classList.remove('scale-95'));
+                btn.addEventListener('mouseleave', () => btn.classList.remove('scale-95'));
+            });
+        });
+    </script>
+</body></html>

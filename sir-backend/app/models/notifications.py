@@ -4,6 +4,7 @@ from sqlalchemy import NVARCHAR, Boolean, CheckConstraint, DateTime, ForeignKey,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.defaults import MSSQL_NOW
 
 CANAL_VALUES = ("sms", "email")
 STATUT_ENVOI_VALUES = ("en_attente", "envoye", "echec")
@@ -44,7 +45,7 @@ class SmsEnvoye(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     destinataire_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("destinataires.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("destinataires.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     # Reference to the triggering entity (interruption, napt…)
     entity_type: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
@@ -56,7 +57,7 @@ class SmsEnvoye(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     erreur: Mapped[str | None] = mapped_column(NVARCHAR(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
 
     __table_args__ = (
@@ -79,7 +80,7 @@ class EmailEnvoye(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     destinataire_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("destinataires.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("destinataires.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     entity_type: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
     entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -91,7 +92,7 @@ class EmailEnvoye(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     erreur: Mapped[str | None] = mapped_column(NVARCHAR(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
 
     __table_args__ = (

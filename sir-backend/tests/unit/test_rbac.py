@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.core.deps import (
     check_region_scope,
     check_service_scope,
+    require_role,
 )
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 
@@ -114,6 +115,7 @@ def fixture_bcc() -> Utilisateur:
             ("interruptions_distribution", "create"),
             ("interruptions_distribution", "read"),
             ("interruptions_distribution", "update"),
+            ("rapports", "read"),
         ],
     )
     return _make_user_with_role(role, scope_service_id=1)
@@ -129,6 +131,7 @@ def fixture_bcc_service_2() -> Utilisateur:
             ("interruptions_distribution", "create"),
             ("interruptions_distribution", "read"),
             ("interruptions_distribution", "update"),
+            ("rapports", "read"),
         ],
     )
     return _make_user_with_role(role, scope_service_id=2, user_id=2)
@@ -156,6 +159,7 @@ def fixture_brc() -> Utilisateur:
         role_id=2,
         permissions=[
             ("interruptions_distribution", "read"),
+            ("rapports", "read"),
         ],
     )
     return _make_user_with_role(role, scope_service_id=3, user_id=3)
@@ -172,6 +176,7 @@ def fixture_admin_scr() -> Utilisateur:
             ("interruptions_distribution", "read"),
             ("interruptions_distribution", "update"),
             ("interruptions_distribution", "validate"),
+            ("rapports", "read"),
         ],
     )
     return _make_user_with_role(role, scope_service_id=None, user_id=4)
@@ -218,6 +223,7 @@ def fixture_superviseur() -> Utilisateur:
             ("interruptions_distribution", "read"),
             ("interruptions_distribution", "validate"),
             ("interruptions_transport", "read"),
+            ("rapports", "read"),
         ],
     )
     return _make_user_with_role(role, scope_service_id=1, user_id=7)
@@ -330,21 +336,8 @@ async def test_require_role_bcc_avec_utilisateur_bcc_autorise(
 ) -> None:
     """require_role("BCC") avec utilisateur BCC → retourne l'utilisateur."""
     checker = require_role("BCC")
-
-    # Simuler Depends(get_current_user) en passant l'utilisateur directement
-    async def _fake_get_current_user() -> Utilisateur:
-        return fixture_bcc
-
-    # Appel direct de la closure interne avec l'utilisateur injecté
-    result = await checker.__wrapped__(fixture_bcc) if hasattr(checker, "__wrapped__") else None
-
-    # Accès direct à la fonction interne _check via __closure__
-    inner_check = checker.__closure__[0].cell_contents if checker.__closure__ else None
-
-    # Approche directe : reconstituer la logique de _check sans Depends
-    user_role_names = {ur.role.nom for ur in fixture_bcc.user_roles}
-    required_roles = ("BCC",)
-    assert user_role_names.intersection(required_roles), "BCC doit être autorisé"
+    result = await checker(current_user=fixture_bcc)
+    assert result is fixture_bcc
 
 
 @pytest.mark.asyncio
@@ -460,6 +453,17 @@ def test_brc_a_permission_distribution_read_uniquement(fixture_brc: Utilisateur)
     assert _check_permission(fixture_brc, "interruptions_distribution", "read") is True
     assert _check_permission(fixture_brc, "interruptions_distribution", "create") is False
     assert _check_permission(fixture_brc, "interruptions_distribution", "update") is False
+
+
+def test_roles_distribution_ont_permission_rapports_read(
+    fixture_bcc: Utilisateur,
+    fixture_brc: Utilisateur,
+    fixture_admin_scr: Utilisateur,
+    fixture_superviseur: Utilisateur,
+) -> None:
+    """BCC, BRC, ADMIN_SCR, SUPERVISEUR — rapports:read (aligné seed_rbac Sprint 6)."""
+    for user in (fixture_bcc, fixture_brc, fixture_admin_scr, fixture_superviseur):
+        assert _check_permission(user, "rapports", "read") is True
 
 
 # ---------------------------------------------------------------------------

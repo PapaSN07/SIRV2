@@ -48,3 +48,13 @@ async def update_premiere_connexion(db: AsyncSession, user_id: int) -> None:
         .values(premiere_connexion=False)
     )
     await db.flush()
+
+
+async def update_password(db: AsyncSession, user_id: int, password_hash: str) -> None:
+    """Met à jour le hash mot de passe et désactive le flag première connexion."""
+    await db.execute(
+        update(Utilisateur)
+        .where(Utilisateur.id == user_id)
+        .values(password_hash=password_hash, premiere_connexion=False)
+    )
+    await db.flush()

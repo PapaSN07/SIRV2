@@ -1,0 +1,95 @@
+<div class="login-page">
+  <div class="login-page__atmosphere" aria-hidden="true">
+    <div class="login-page__glow login-page__glow--top-left"></div>
+    <div class="login-page__glow login-page__glow--bottom-right"></div>
+  </div>
+
+  <div class="login-shell">
+    <header class="login-brand">
+      <img
+        class="login-brand__logo"
+        src="assets/branding/senelec-logo.png"
+        alt="SENELEC"
+        width="220"
+        height="48"
+      />
+      <h1 class="login-brand__title">SIR Senelec</h1>
+      <p class="login-brand__subtitle">Système d'Information de Réseau</p>
+    </header>
+
+    <div class="login-card">
+      <form class="login-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="field">
+          <label class="field__label" for="login">Matricule</label>
+          <div class="field__input-wrap">
+            <span class="material-symbols-outlined field__icon" aria-hidden="true">badge</span>
+            <input
+              id="login"
+              class="field__input"
+              type="text"
+              formControlName="login"
+              autocomplete="username"
+              placeholder="Ex: SNL-12345"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="password">Mot de passe</label>
+          <div class="field__input-wrap">
+            <span class="material-symbols-outlined field__icon" aria-hidden="true">lock</span>
+            <input
+              id="password"
+              class="field__input"
+              [type]="hidePassword ? 'password' : 'text'"
+              formControlName="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              class="field__toggle"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="hidePassword ? 'Afficher le mot de passe' : 'Masquer le mot de passe'"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">
+                {{ hidePassword ? 'visibility' : 'visibility_off' }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        @if (errorMessage) {
+          <p class="login-form__error" role="alert">{{ errorMessage }}</p>
+        }
+
+        <div class="login-form__actions">
+          <button class="login-form__submit" type="submit" [disabled]="form.invalid || loading">
+            @if (loading) {
+              <span class="material-symbols-outlined login-form__spinner" aria-hidden="true">
+                progress_activity
+              </span>
+              <span>Authentification…</span>
+            } @else {
+              <span>Se connecter</span>
+              <span class="material-symbols-outlined" aria-hidden="true">login</span>
+            }
+          </button>
+
+          <a class="login-form__forgot" href="#" (click)="$event.preventDefault()">
+            Mot de passe oublié ?
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <footer class="login-footer">
+      <p class="login-footer__copyright">© 2024 Senelec. Tous droits réservés.</p>
+      <div class="login-footer__links">
+        <a href="#" (click)="$event.preventDefault()">Support technique</a>
+        <span class="login-footer__dot" aria-hidden="true"></span>
+        <a href="#" (click)="$event.preventDefault()">Politique de confidentialité</a>
+      </div>
+    </footer>
+  </div>
+</div>

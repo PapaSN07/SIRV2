@@ -1,0 +1,113 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <img
+        class="sidebar__logo"
+        src="assets/branding/senelec-logo.png"
+        alt="SENELEC"
+        width="160"
+        height="36"
+      />
+      <p class="sidebar__tagline">Gestion du réseau</p>
+    </div>
+
+    <nav class="sidebar__nav">
+      @for (item of navItems(); track item.route) {
+        @if (item.enabled) {
+          <a
+            class="sidebar__link"
+            [routerLink]="item.route"
+            routerLinkActive="sidebar__link--active"
+            [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </a>
+        } @else {
+          <span class="sidebar__link sidebar__link--disabled">
+            <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </span>
+        }
+      }
+    </nav>
+
+    @if (user(); as u) {
+      <div class="sidebar__user">
+        <button type="button" class="sidebar__user-btn" (click)="logout()">
+          <span class="sidebar__avatar">{{ userInitials(u) }}</span>
+          <div class="sidebar__user-info">
+            <p class="sidebar__user-name">{{ u.prenom }} {{ u.nom }}</p>
+            <p class="sidebar__user-login">{{ u.login }}</p>
+          </div>
+        </button>
+      </div>
+    }
+  </aside>
+
+  <header class="topbar">
+    <div class="topbar__search">
+      <span class="material-symbols-outlined topbar__search-icon" aria-hidden="true">search</span>
+      <input
+        class="topbar__search-input"
+        type="search"
+        placeholder="Rechercher une interruption, un poste..."
+        aria-label="Recherche"
+      />
+    </div>
+
+    <div class="topbar__actions">
+      <div class="topbar__notifications">
+        <button
+          type="button"
+          class="topbar__icon-btn"
+          aria-label="Notifications"
+          [attr.aria-expanded]="panelOpen()"
+          (click)="toggleNotifications()"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+          @if (unreadCount() > 0) {
+            <span class="topbar__badge">{{ unreadCount() > 9 ? '9+' : unreadCount() }}</span>
+          }
+        </button>
+
+        @if (panelOpen()) {
+          <div class="notifications-panel" role="dialog" aria-label="Notifications">
+            <div class="notifications-panel__header">
+              <h2 class="notifications-panel__title">Notifications</h2>
+              <button type="button" class="notifications-panel__close" (click)="closeNotifications()">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+            </div>
+            <ul class="notifications-panel__list">
+              @for (item of notificationItems(); track item.id) {
+                <li class="notifications-panel__item" [class.notifications-panel__item--unread]="!item.read">
+                  <p class="notifications-panel__label">{{ eventLabel(item.event_type) }}</p>
+                  <p class="notifications-panel__message">{{ item.message }}</p>
+                  <p class="notifications-panel__meta">
+                    {{ item.entity_type }} #{{ item.entity_id }} · {{ relativeTime(item.created_at) }}
+                  </p>
+                </li>
+              } @empty {
+                <li class="notifications-panel__empty">Aucune notification pour le moment.</li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+      <button type="button" class="topbar__icon-btn" aria-label="Paramètres">
+        <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+      </button>
+      <span class="topbar__divider" aria-hidden="true"></span>
+      @if (user(); as u) {
+        <span class="topbar__avatar" [attr.aria-label]="u.prenom + ' ' + u.nom">
+          {{ userInitials(u) }}
+        </span>
+      }
+    </div>
+  </header>
+
+  <main class="main-content">
+    <router-outlet />
+  </main>
+</div>

@@ -49,13 +49,34 @@ test-unit:
 test-integration:
 	docker compose exec api pytest tests/integration/ -v
 
+seed-geo:
+	docker compose exec api python -m scripts.run_seed_geo
+
+seed-rbac:
+	docker compose exec api python -m scripts.run_seed_rbac
+
+seed-reseau:
+	docker compose exec api python -m scripts.run_seed_reseau
+
+seed-interruptions:
+	docker compose exec api python -m scripts.run_seed_interruptions
+
+seed-interruptions-transport:
+	docker compose exec api python -m scripts.run_seed_interruptions_transport
+
+seed-indicateurs:
+	docker compose exec api python -m scripts.run_seed_indicateurs
+
+seed-dev:
+	docker compose exec api python -m scripts.run_seed_dev
+
 # ── Utilitaires ───────────────────────────────────────────────────────────────
 
 shell-api:
 	docker compose exec api bash
 
 shell-db:
-	docker compose exec db /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$DB_SA_PASSWORD"
+	docker compose exec db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$DB_SA_PASSWORD" -C
 
 ps:
 	docker compose ps

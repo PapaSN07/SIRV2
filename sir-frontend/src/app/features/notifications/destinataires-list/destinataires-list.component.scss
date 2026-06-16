@@ -1,0 +1,97 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.notif-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  margin-bottom: 1rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  th, td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid $outline-variant;
+    text-align: left;
+  }
+  th {
+    background: $surface-container-low;
+    font-size: 12px;
+  }
+}
+
+.actions-cell {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 12px;
+  background: $surface-container-high;
+  &--ok {
+    background: #d3e4ff;
+    color: $primary;
+  }
+}
+
+.form-panel {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  padding: 1.25rem;
+  margin-top: 1rem;
+  max-width: 480px;
+  h2 {
+    margin: 0 0 1rem;
+    font-size: 1.125rem;
+  }
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+}
+
+.field {
+  margin-bottom: 0.75rem;
+  &__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  &__input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+  }
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.alert--error {
+  padding: 0.75rem;
+  background: #ffdad6;
+  color: #93000a;
+  border-radius: 0.25rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+}

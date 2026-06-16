@@ -10,6 +10,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
     verify_password,
 )
 from app.models.utilisateurs import Utilisateur
@@ -63,6 +64,37 @@ def _seconds_until_expiry(exp: int) -> int:
 # ---------------------------------------------------------------------------
 
 
+async def _issue_tokens(db: AsyncSession, redis: Redis, user: Utilisateur) -> dict:
+    """Émet access + refresh tokens pour un utilisateur actif."""
+    access_jti = str(uuid.uuid4())
+    refresh_jti = str(uuid.uuid4())
+
+    extra_claims = {
+        "role": _role_label(user),
+        "service_id": _scope_service_id(user),
+    }
+
+    access_token = create_access_token(
+        subject=str(user.id),
+        jti=access_jti,
+        extra=extra_claims,
+    )
+    refresh_token = create_refresh_token(
+        subject=str(user.id),
+        jti=refresh_jti,
+    )
+
+    refresh_ttl = settings.refresh_token_expire_days * 86400
+    await redis.setex(_refresh_key(refresh_jti), refresh_ttl, str(user.id))
+
+    return {
+        "access_token": access_token,
+        "expires_in": settings.access_token_expire_minutes * 60,
+        "refresh_token": refresh_token,
+        "user": user,
+    }
+
+
 async def login(
     db: AsyncSession,
     redis: Redis,
@@ -110,34 +142,65 @@ async def login(
             },
         )
 
-    access_jti = str(uuid.uuid4())
-    refresh_jti = str(uuid.uuid4())
+    return await _issue_tokens(db, redis, user)
 
-    extra_claims = {
-        "role": _role_label(user),
-        "service_id": _scope_service_id(user),
-    }
 
-    access_token = create_access_token(
-        subject=str(user.id),
-        jti=access_jti,
-        extra=extra_claims,
-    )
-    refresh_token = create_refresh_token(
-        subject=str(user.id),
-        jti=refresh_jti,
-    )
+async def change_password(
+    db: AsyncSession,
+    redis: Redis,
+    login: str,
+    current_password: str,
+    new_password: str,
+) -> dict:
+    """Change le mot de passe lors de la première connexion et émet de nouveaux tokens."""
+    user = await utilisateur_repository.get_by_login(db, login)
 
-    # Stocke refresh_jti → user_id pour validation ultérieure
-    refresh_ttl = settings.refresh_token_expire_days * 86400
-    await redis.setex(_refresh_key(refresh_jti), refresh_ttl, str(user.id))
+    if user is None or not verify_password(current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Identifiants invalides",
+            },
+        )
 
-    return {
-        "access_token": access_token,
-        "expires_in": settings.access_token_expire_minutes * 60,
-        "refresh_token": refresh_token,
-        "user": user,
-    }
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Compte désactivé. Contactez votre administrateur.",
+            },
+        )
+
+    if not user.premiere_connexion:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Le changement de mot de passe n'est pas requis pour ce compte.",
+            },
+        )
+
+    password_hash = hash_password(new_password)
+    await utilisateur_repository.update_password(db, user.id, password_hash)
+    await db.commit()
+
+    user = await utilisateur_repository.get_by_id(db, user.id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Erreur interne",
+            },
+        )
+
+    return await _issue_tokens(db, redis, user)
 
 
 async def refresh(

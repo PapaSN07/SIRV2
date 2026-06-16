@@ -1,0 +1,286 @@
+<section class="interruption-detail">
+  @if (loading()) {
+    <div class="detail-page__loading">
+      <span class="material-symbols-outlined detail-page__spinner" aria-hidden="true">progress_activity</span>
+      <p>Chargement…</p>
+    </div>
+  } @else if (error()) {
+    <p class="detail-page__error" role="alert">{{ error() }}</p>
+  } @else {
+    @if (item(); as it) {
+    <sir-page-header
+      [title]="'Interruption n° ' + it.numero_interruption"
+      [breadcrumbs]="[
+        { label: 'Interruptions', route: '/interruptions/distribution' },
+        { label: 'Détail' },
+      ]"
+    >
+      <div actions class="detail-header__meta">
+        <sir-status-chip [statut]="it.statut" />
+        @if (canEdit(it)) {
+          <a
+            class="sir-btn sir-btn--primary"
+            [routerLink]="['/interruptions/distribution', it.id, 'modifier']"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+            Modifier
+          </a>
+        }
+      </div>
+    </sir-page-header>
+
+    <div class="workflow-steps">
+      @for (step of timelineSteps; track step.key) {
+        <div
+          class="workflow-steps__item"
+          [class.workflow-steps__item--active]="it.statut === step.key"
+          [class.workflow-steps__item--done]="stepDone(step.key, it.statut)"
+        >
+          {{ step.label }}
+        </div>
+      }
+    </div>
+
+    <div class="detail-bento">
+      <div class="detail-bento__main">
+        <div class="detail-grid">
+          <article class="detail-card">
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">lan</span>
+              <h2>Réseau &amp; chronologie</h2>
+            </header>
+            <dl class="detail-dl">
+              <div class="detail-dl__row">
+                <dt>Feeder</dt>
+                <dd>{{ it.feeder_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Service</dt>
+                <dd>{{ it.service_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Localisation</dt>
+                <dd>{{ it.localisation ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Apparition</dt>
+                <dd>{{ it.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Remise</dt>
+                <dd>{{ it.date_remise ? (it.date_remise | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
+              </div>
+              <div class="detail-dl__row detail-dl__row--highlight">
+                <dt>Durée</dt>
+                <dd>{{ it.duree_minutes != null ? it.duree_minutes + ' min' : '—' }}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="detail-card">
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">category</span>
+              <h2>Classification &amp; impact</h2>
+            </header>
+            <dl class="detail-dl">
+              <div class="detail-dl__row">
+                <dt>Nature</dt>
+                <dd>{{ it.is_programme ? 'Programmée' : 'Accidentelle' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Cause</dt>
+                <dd>{{ it.cause_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Type nature</dt>
+                <dd>{{ it.nature_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Siège</dt>
+                <dd>{{ it.siege_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Signalisation</dt>
+                <dd>{{ it.signalisation_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row detail-dl__row--highlight">
+                <dt>Puissance coupée</dt>
+                <dd>{{ it.puissance_coupee_mw ?? '—' }} MW</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>END (MWh)</dt>
+                <dd>{{ it.end_mwh ?? it.energie_nd?.valeur_mwh ?? '—' }}</dd>
+              </div>
+              @if (it.is_force_majeure || it.is_fugitive) {
+                <div class="detail-dl__row">
+                  <dt>Indicateurs</dt>
+                  <dd>
+                    @if (it.is_force_majeure) {
+                      <span class="detail-tag">Force majeure</span>
+                    }
+                    @if (it.is_fugitive) {
+                      <span class="detail-tag">Fugitive</span>
+                    }
+                  </dd>
+                </div>
+              }
+            </dl>
+          </article>
+        </div>
+
+        @if (it.observations) {
+          <article class="detail-card detail-card--full">
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">notes</span>
+              <h2>Observations</h2>
+            </header>
+            <p class="detail-observations">{{ it.observations }}</p>
+          </article>
+        }
+
+        <article class="detail-card detail-card--full">
+          <header class="detail-card__head">
+            <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
+            <h2>Postes impactés</h2>
+          </header>
+
+          @if (it.postes_impactes.length === 0) {
+            <p class="detail-empty">Aucun poste associé.</p>
+          } @else {
+            <ul class="postes-list">
+              @for (p of it.postes_impactes; track p.poste_id) {
+                <li class="postes-list__item">
+                  <div>
+                    <strong>{{ p.poste_libelle ?? p.poste_code }}</strong>
+                    <span>{{ p.nombre_clients_touches ?? '?' }} clients touchés</span>
+                  </div>
+                  @if (it.statut === 'en_cours') {
+                    <button
+                      type="button"
+                      class="sir-btn sir-btn--outline-primary"
+                      (click)="removePoste(p.poste_id)"
+                    >
+                      Retirer
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          }
+
+          @if (it.statut === 'en_cours') {
+            <form class="poste-form" [formGroup]="posteForm" (ngSubmit)="addPoste()">
+              <div class="field">
+                <label class="field__label" for="poste">Poste</label>
+                <select id="poste" class="field__select" formControlName="poste_id">
+                  <option [ngValue]="0">Sélectionner un poste</option>
+                  @for (p of availablePostes(); track p.id) {
+                    <option [ngValue]="p.id">{{ p.libelle }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="clients">Clients touchés</label>
+                <input
+                  id="clients"
+                  class="field__select"
+                  type="number"
+                  min="0"
+                  formControlName="nombre_clients_touches"
+                />
+              </div>
+              <button
+                type="submit"
+                class="sir-btn sir-btn--primary"
+                [disabled]="posteForm.invalid"
+              >
+                Ajouter
+              </button>
+            </form>
+          }
+        </article>
+
+        @if (it.statut === 'en_cours') {
+          <article class="detail-card detail-card--full detail-card--action" *sirHasRole="['BCC', 'ADMIN_SCR']">
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">event_available</span>
+              <h2>Clôturer l'interruption</h2>
+            </header>
+            <form class="cloture-form" [formGroup]="clotureForm" (ngSubmit)="cloturer()">
+              <div class="field">
+                <label class="field__label" for="date-remise">Date de remise</label>
+                <input
+                  id="date-remise"
+                  class="field__select"
+                  type="datetime-local"
+                  formControlName="date_remise"
+                />
+              </div>
+              <button
+                type="submit"
+                class="sir-btn sir-btn--primary"
+                [disabled]="clotureForm.invalid"
+              >
+                Clôturer
+              </button>
+            </form>
+          </article>
+        }
+
+        @if (it.statut === 'cloture') {
+          <article
+            class="detail-card detail-card--full detail-card--action"
+            *sirHasRole="['SUPERVISEUR', 'ADMIN_SCR', 'ADMIN_SAQS']"
+          >
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+              <h2>Validation hiérarchique</h2>
+            </header>
+            <button type="button" class="sir-btn sir-btn--primary" (click)="valider()">
+              Valider l'interruption
+            </button>
+          </article>
+        }
+      </div>
+
+      <aside class="detail-bento__side">
+        <article class="detail-card detail-card--timeline">
+          <header class="detail-card__head">
+            <span class="material-symbols-outlined" aria-hidden="true">history</span>
+            <h2>Historique</h2>
+          </header>
+          <ol class="history-timeline">
+            @if (it.validated_by) {
+              <li class="history-timeline__item history-timeline__item--valid">
+                <p class="history-timeline__title">Validée par</p>
+                <p class="history-timeline__user">
+                  {{ it.validated_by.prenom }} {{ it.validated_by.nom }}
+                </p>
+              </li>
+            }
+            <li class="history-timeline__item">
+              <p class="history-timeline__title">Créée par</p>
+              @if (it.created_by) {
+                <p class="history-timeline__user">
+                  {{ it.created_by.prenom }} {{ it.created_by.nom }}
+                </p>
+              } @else {
+                <p class="history-timeline__user">—</p>
+              }
+              <p class="history-timeline__date">{{ it.created_at | date: 'dd/MM/yyyy HH:mm' }}</p>
+            </li>
+          </ol>
+          <footer class="detail-meta">
+            <span class="detail-meta__label">Dernière mise à jour</span>
+            <span>{{ it.updated_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </footer>
+        </article>
+      </aside>
+    </div>
+
+    @if (actionError()) {
+      <p class="detail-page__error" role="alert">{{ actionError() }}</p>
+    }
+    }
+  }
+</section>

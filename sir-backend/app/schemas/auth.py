@@ -29,3 +29,9 @@ class MeResponse(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class ChangePasswordRequest(BaseModel):
+    login: str = Field(..., min_length=1, max_length=100)
+    current_password: str = Field(..., min_length=1, max_length=255)
+    new_password: str = Field(..., min_length=8, max_length=255)

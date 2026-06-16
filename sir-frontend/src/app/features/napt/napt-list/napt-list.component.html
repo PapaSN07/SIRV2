@@ -1,0 +1,82 @@
+<section class="napt-page">
+  <sir-page-header
+    title="NAPT — Notes de travaux"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'NAPT' },
+    ]"
+  />
+
+  <div class="filters-panel">
+    <label class="field__label" for="statut-napt">Statut</label>
+    <select id="statut-napt" class="field__select" [value]="statut()" (change)="onStatutChange($any($event.target).value)">
+      <option value="">Tous</option>
+      <option value="brouillon">Brouillon</option>
+      <option value="soumis">Soumis</option>
+      <option value="approuve">Approuvé</option>
+      <option value="archive">Archivé</option>
+    </select>
+  </div>
+
+  @if (error()) {
+    <p class="alert">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Numéro</th>
+            <th>Service</th>
+            <th>Objet</th>
+            <th>Début prévu</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of items(); track row.id) {
+            <tr class="data-table__row" (click)="openDetail(row)">
+              <td>{{ row.numero_napt }}</td>
+              <td>{{ row.service_libelle ?? row.service_id }}</td>
+              <td class="col-objet">{{ row.objet_travaux }}</td>
+              <td>{{ row.date_debut_prevue | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ row.statut }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">Aucun NAPT.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <sir-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="onPageChange($event)" />
+  }
+
+  @if (selected(); as n) {
+    <div class="detail-panel">
+      <div class="detail-panel__header">
+        <h2>{{ n.numero_napt }}</h2>
+        <button type="button" class="sir-btn sir-btn--ghost" (click)="closeDetail()">Fermer</button>
+      </div>
+      <p><strong>Objet :</strong> {{ n.objet_travaux }}</p>
+      <p><strong>Statut :</strong> {{ n.statut }}</p>
+      <p><strong>Service :</strong> {{ n.service_libelle }}</p>
+      @if (n.feeder_libelle) {
+        <p><strong>Feeder :</strong> {{ n.feeder_libelle }}</p>
+      }
+      <div class="detail-panel__actions">
+        @if (canWrite() && n.statut === 'brouillon') {
+          <button type="button" class="sir-btn sir-btn--primary" (click)="runAction('soumettre', n)">Soumettre</button>
+        }
+        @if (canValidate() && n.statut === 'soumis') {
+          <button type="button" class="sir-btn sir-btn--primary" (click)="runAction('valider', n)">Valider</button>
+        }
+        @if (canWrite() && (n.statut === 'approuve' || n.statut === 'soumis')) {
+          <button type="button" class="sir-btn sir-btn--secondary" (click)="runAction('cloturer', n)">Clôturer</button>
+        }
+      </div>
+    </div>
+  }
+</section>

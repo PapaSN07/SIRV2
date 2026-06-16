@@ -1,0 +1,83 @@
+@use 'sir-tokens' as *;
+
+// Boutons réutilisables (pages dashboard, liste, formulaires)
+.sir-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.25rem;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--outline {
+    border: 1px solid $outline-variant;
+    background: #fff;
+    color: $on-surface;
+
+    &:hover:not(:disabled) {
+      background: $surface-container-low;
+    }
+  }
+
+  &--outline-primary {
+    border: 1px solid $primary;
+    background: #fff;
+    color: $primary;
+
+    &:hover:not(:disabled) {
+      background: rgba($primary, 0.05);
+    }
+  }
+
+  &--primary {
+    border: none;
+    background: $primary;
+    color: $on-primary;
+    box-shadow: 0 4px 6px -1px rgba(61, 73, 160, 0.25);
+
+    &:hover:not(:disabled) {
+      background: $primary-container;
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+  }
+
+  &--secondary {
+    border: none;
+    background: #dce3ec;
+    color: $on-surface;
+
+    &:hover:not(:disabled) {
+      background: $outline-variant;
+    }
+  }
+
+  &--filter {
+    border: none;
+    background: $primary-container;
+    color: $on-primary;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+  }
+}

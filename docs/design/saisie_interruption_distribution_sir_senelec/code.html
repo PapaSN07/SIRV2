@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIR Senelec - Interruption Input</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ba1a1a",
+                    "outline": "#727781",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#ffdbc8",
+                    "error-container": "#ffdad6",
+                    "surface-container-high": "#e2e9f1",
+                    "inverse-primary": "#a2c9ff",
+                    "surface-container": "#e8eef7",
+                    "on-surface": "#151c22",
+                    "on-secondary-fixed": "#191c1d",
+                    "primary-fixed": "#d3e4ff",
+                    "surface-container-low": "#eef4fd",
+                    "primary-container": "#005596",
+                    "on-secondary-fixed-variant": "#454748",
+                    "on-tertiary-fixed": "#321300",
+                    "tertiary-container": "#873f01",
+                    "inverse-on-surface": "#ebf1fa",
+                    "secondary-fixed-dim": "#c5c7c8",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-container": "#626566",
+                    "secondary-fixed": "#e1e3e4",
+                    "on-primary-fixed": "#001c38",
+                    "on-secondary": "#ffffff",
+                    "surface-bright": "#f6f9ff",
+                    "surface-dim": "#d4dbe3",
+                    "on-primary-container": "#a4caff",
+                    "tertiary-fixed-dim": "#ffb68a",
+                    "outline-variant": "#c1c7d2",
+                    "on-error-container": "#93000a",
+                    "inverse-surface": "#2a3138",
+                    "primary-fixed-dim": "#a2c9ff",
+                    "on-tertiary-fixed-variant": "#743500",
+                    "background": "#f6f9ff",
+                    "surface-variant": "#dce3ec",
+                    "on-tertiary-container": "#ffb88c",
+                    "on-primary-fixed-variant": "#004881",
+                    "primary": "#003e6f",
+                    "tertiary": "#642d00",
+                    "on-surface-variant": "#414750",
+                    "secondary-container": "#e1e3e4",
+                    "on-background": "#151c22",
+                    "secondary": "#5c5f60",
+                    "on-error": "#ffffff",
+                    "surface-container-highest": "#dce3ec",
+                    "surface-tint": "#1b60a2",
+                    "surface": "#f6f9ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "stack-md": "1rem",
+                    "container-padding": "1.5rem",
+                    "gutter-grid": "1rem",
+                    "stack-sm": "0.5rem",
+                    "stack-lg": "1.5rem",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "headline-sm": ["Inter"],
+                    "code-sm": ["Inter"],
+                    "display-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .prime-input-focus:focus-within {
+            border-color: #003e6f;
+            box-shadow: 0 0 0 1px #003e6f;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- SideNavBar Anchor -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant dark:border-outline flex flex-col py-stack-lg z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-sm text-display-sm font-bold text-primary dark:text-inverse-primary uppercase tracking-tighter">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Network Management</p>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 rounded-lg group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 border-l-4 border-primary bg-primary/10 text-primary font-bold cursor-pointer active:scale-95 rounded-r-lg group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 rounded-lg group" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 rounded-lg group" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 rounded-lg group" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95 rounded-lg group" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</a>
+</nav>
+<div class="px-6 mt-auto pt-6 border-t border-outline-variant/30 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold overflow-hidden">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDb8eqge8KUY9nIRNH_b6i7CEpMhaIw2nUVHHgGUV4zvRWfaBZW341z8-MyGyM85cLR-YC7ddRwjlqvJj_B0QOzseA60hy0eEv6EY8MNPjFPFd0M857-ExrrW7S_URLkeo5694KyrG6dkJHnEzWa5QHtWaRqCIgsy9BbWfyD269H1mUm3heH5KBDD27hEGWmrKOrBhVfR_1UljUCwlrd1s2rjI-FxIBoxThHTBvk2XviSIQ4AXf-C_2a8RV1sDOPQWkiK3sKD_7KRjs"/>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface font-bold">M. Diop</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Dispacheur Senior</p>
+</div>
+</div>
+</aside>
+<!-- TopNavBar Anchor -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md w-1/2">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-body-md focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Rechercher une interruption ou un poste..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-opacity duration-150 flex items-center gap-1">
+<span class="material-symbols-outlined">notifications</span>
+<span class="w-2 h-2 bg-error rounded-full self-start -ml-2 mt-1"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-6 w-px bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md text-primary font-semibold">Distribution</span>
+<span class="material-symbols-outlined text-primary">hub</span>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-[260px] pt-16 p-stack-lg min-h-screen">
+<div class="max-w-6xl mx-auto space-y-stack-lg">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-4">
+<div>
+<nav class="flex items-center gap-2 text-label-md text-on-surface-variant mb-1">
+<span>Interruptions</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary">Nouvelle Saisie</span>
+</nav>
+<h2 class="font-display-sm text-display-sm text-primary">Formulaire de Saisie d'Interruption</h2>
+</div>
+<div class="flex gap-stack-sm">
+<button class="px-4 py-2 text-primary border border-primary rounded-lg font-label-md hover:bg-primary/5 transition-colors">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                            Enregistrer Brouillon
+                        </span>
+</button>
+<button class="px-6 py-2 bg-primary text-on-primary rounded-lg font-label-md hover:bg-primary/90 transition-colors shadow-sm">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">send</span>
+                            Soumettre
+                        </span>
+</button>
+</div>
+</div>
+<!-- Form Content - Bento Grid Inspired -->
+<div class="grid grid-cols-12 gap-gutter-grid">
+<!-- Section 1: Identification Réseau -->
+<section class="col-span-12 md:col-span-6 bg-white border border-outline-variant rounded-xl p-stack-lg flex flex-col gap-stack-md">
+<div class="flex items-center gap-2 border-b border-outline-variant pb-2 mb-2">
+<span class="material-symbols-outlined text-primary">lan</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Identification Réseau</h3>
+</div>
+<div class="grid grid-cols-1 gap-4">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Région</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded px-3 py-2 text-body-md focus:border-primary focus:ring-0">
+<option value="">Sélectionner une région</option>
+<option value="dakar">Dakar</option>
+<option value="thies">Thiès</option>
+<option value="saint_louis">Saint-Louis</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Feeder</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded px-3 py-2 text-body-md focus:border-primary focus:ring-0">
+<option value="">Sélectionner</option>
+<option>B30-1</option>
+<option>B30-2</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Poste</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded px-3 py-2 text-body-md focus:border-primary focus:ring-0">
+<option value="">Sélectionner</option>
+<option>Poste A</option>
+<option>Poste B</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Chronologie -->
+<section class="col-span-12 md:col-span-6 bg-white border border-outline-variant rounded-xl p-stack-lg flex flex-col gap-stack-md">
+<div class="flex items-center gap-2 border-b border-outline-variant pb-2 mb-2">
+<span class="material-symbols-outlined text-primary">schedule</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Chronologie des Évènements</h3>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-2 gap-4 items-center">
+<label class="font-label-md text-label-md text-on-surface-variant">Apparition</label>
+<div class="flex gap-1">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-body-md" type="date"/>
+<input class="w-32 bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-body-md" type="time"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 items-center">
+<label class="font-label-md text-label-md text-on-surface-variant">Déclenchement</label>
+<div class="flex gap-1">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-body-md" type="date"/>
+<input class="w-32 bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-body-md" type="time"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 items-center">
+<label class="font-label-md text-label-md text-on-surface-variant">Remise en Service</label>
+<div class="flex gap-1">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-body-md" type="date"/>
+<input class="w-32 bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-body-md" type="time"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Classification -->
+<section class="col-span-12 md:col-span-8 bg-white border border-outline-variant rounded-xl p-stack-lg flex flex-col gap-stack-md">
+<div class="flex items-center gap-2 border-b border-outline-variant pb-2 mb-2">
+<span class="material-symbols-outlined text-primary">category</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Classification</h3>
+</div>
+<div class="grid grid-cols-2 gap-stack-lg">
+<div class="space-y-3">
+<span class="font-label-md text-label-md text-on-surface-variant block">Nature de l'interruption</span>
+<div class="flex gap-4">
+<label class="flex items-center gap-2 cursor-pointer group">
+<input checked="" class="w-4 h-4 text-primary focus:ring-primary border-outline-variant" name="nature" type="radio"/>
+<span class="font-body-md text-body-md group-hover:text-primary transition-colors">Accidentelle</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer group">
+<input class="w-4 h-4 text-primary focus:ring-primary border-outline-variant" name="nature" type="radio"/>
+<span class="font-body-md text-body-md group-hover:text-primary transition-colors">Programmée</span>
+</label>
+</div>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">Cause Probable</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded px-3 py-2 text-body-md focus:border-primary focus:ring-0">
+<option value="">Sélectionner la cause</option>
+<option>Défaut foudre</option>
+<option>Surcharge transformateur</option>
+<option>Élagage nécessaire</option>
+<option>Vandalisme</option>
+<option>Inconnu</option>
+</select>
+</div>
+</div>
+</section>
+<!-- Section 4: Impact (Calculated Fields) -->
+<section class="col-span-12 md:col-span-4 bg-primary/5 border border-primary/20 rounded-xl p-stack-lg flex flex-col gap-stack-md">
+<div class="flex items-center gap-2 border-b border-primary/20 pb-2 mb-2">
+<span class="material-symbols-outlined text-primary">calculate</span>
+<h3 class="font-headline-sm text-headline-sm text-primary">Calcul d'Impact</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-white/50 p-3 rounded-lg border border-primary/10">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider block mb-1">Puissance Coupée</label>
+<div class="flex items-baseline gap-1">
+<span class="font-display-sm text-display-sm text-primary">4.2</span>
+<span class="font-headline-sm text-on-surface-variant">MW</span>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-1 italic">Automatique basé sur le feeder</p>
+</div>
+<div class="bg-white/50 p-3 rounded-lg border border-primary/10">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider block mb-1">END estimé</label>
+<div class="flex items-baseline gap-1">
+<span class="font-display-sm text-display-sm text-tertiary">1,250</span>
+<span class="font-headline-sm text-on-surface-variant">kWh</span>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-1 italic">Énergie non distribuée</p>
+</div>
+</div>
+</section>
+<!-- Section 5: Observations -->
+<section class="col-span-12 bg-white border border-outline-variant rounded-xl p-stack-lg">
+<div class="flex items-center gap-2 border-b border-outline-variant pb-2 mb-4">
+<span class="material-symbols-outlined text-primary">notes</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Observations &amp; Commentaires</h3>
+</div>
+<textarea class="w-full h-32 bg-surface-container-low border border-outline-variant rounded-lg p-3 text-body-md focus:border-primary focus:ring-0 resize-none" placeholder="Décrire les circonstances, les actions entreprises et les particularités de l'intervention..."></textarea>
+</section>
+</div>
+<!-- Footer Meta Info -->
+<div class="flex justify-between items-center text-label-md text-on-surface-variant border-t border-outline-variant pt-4">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">person</span> Auteur: S. Fall (ID-442)</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">history</span> Dernière modification: Aujourd'hui, 10:45</span>
+</div>
+<div class="px-3 py-1 bg-surface-container-highest rounded text-primary font-bold">
+                    STATUT: BROUILLON
+                </div>
+</div>
+</div>
+</main>
+<!-- Visual Decorative Element (Abstract Grid Overlay) -->
+<div class="fixed bottom-0 right-0 w-64 h-64 opacity-[0.03] pointer-events-none">
+<svg viewbox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="10" id="grid" patternunits="userSpaceOnUse" width="10">
+<path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" stroke-width="0.5"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100" width="100"></rect>
+</svg>
+</div>
+<script>
+        // Micro-interaction: Active scaling for buttons
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mousedown', () => btn.classList.add('scale-95'));
+            btn.addEventListener('mouseup', () => btn.classList.remove('scale-95'));
+            btn.addEventListener('mouseleave', () => btn.classList.remove('scale-95'));
+        });
+
+        // Basic Auto-calculation simulation (END)
+        const dateFields = document.querySelectorAll('input[type="time"], input[type="date"]');
+        const endDisplay = document.querySelector('.text-tertiary');
+        
+        function updateMockCalculation() {
+            // Simply randomize the end value slightly to simulate activity
+            const randomEND = (Math.random() * (2000 - 800) + 800).toFixed(0);
+            endDisplay.textContent = randomEND.toLocaleString();
+        }
+
+        dateFields.forEach(field => {
+            field.addEventListener('change', updateMockCalculation);
+        });
+    </script>
+</body></html>

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User &amp; Role Management - SIR Senelec</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "outline": "#727781",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffdbc8",
+                        "error-container": "#ffdad6",
+                        "surface-container-high": "#e2e9f1",
+                        "inverse-primary": "#a2c9ff",
+                        "surface-container": "#e8eef7",
+                        "on-surface": "#151c22",
+                        "on-secondary-fixed": "#191c1d",
+                        "primary-fixed": "#d3e4ff",
+                        "surface-container-low": "#eef4fd",
+                        "primary-container": "#005596",
+                        "on-secondary-fixed-variant": "#454748",
+                        "on-tertiary-fixed": "#321300",
+                        "tertiary-container": "#873f01",
+                        "inverse-on-surface": "#ebf1fa",
+                        "secondary-fixed-dim": "#c5c7c8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#626566",
+                        "secondary-fixed": "#e1e3e4",
+                        "on-primary-fixed": "#001c38",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f6f9ff",
+                        "surface-dim": "#d4dbe3",
+                        "on-primary-container": "#a4caff",
+                        "tertiary-fixed-dim": "#ffb68a",
+                        "outline-variant": "#c1c7d2",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2a3138",
+                        "primary-fixed-dim": "#a2c9ff",
+                        "on-tertiary-fixed-variant": "#743500",
+                        "background": "#f6f9ff",
+                        "surface-variant": "#dce3ec",
+                        "on-tertiary-container": "#ffb88c",
+                        "on-primary-fixed-variant": "#004881",
+                        "primary": "#003e6f",
+                        "tertiary": "#642d00",
+                        "on-surface-variant": "#414750",
+                        "secondary-container": "#e1e3e4",
+                        "on-background": "#151c22",
+                        "secondary": "#5c5f60",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#dce3ec",
+                        "surface-tint": "#1b60a2",
+                        "surface": "#f6f9ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "1rem",
+                        "container-padding": "1.5rem",
+                        "gutter-grid": "1rem",
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "1.5rem",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "code-sm": ["Inter"],
+                        "display-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c7d2; border-radius: 10px; }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low border-r border-outline-variant flex flex-col py-stack-lg z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-sm text-display-sm font-bold text-primary">SIR Senelec</h1>
+<p class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wider">Network Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</a>
+<!-- Active Tab: User Management -->
+<a class="flex items-center gap-3 px-6 py-3 border-l-4 border-primary bg-primary/10 text-primary font-bold transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="p-4 bg-primary-container rounded-xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-white/20">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyBROuc1YVGkmu6i5hpDtepYK4oY352wCGG2n2_Nm3a_gxqSu_Io_6y4MDt4YGAp9QY-lXP7vvK59JUEHtcuEj-_QtmQldVWyiT4T8KwPns06oOPs4s1UO_clzaXtBF1bamOPTPLzF-x4Ie-3P3YcuOL0LNUz0y20ePUY4P8WhMXyHkzlecWsj59dAZ3xwbhPqvHkoDsKRymst3JAsZ6WcXUan3Z3-ADDl0e_edPaqMeXH_-2EO0Ba0CXdlYUK7MwZaNJ_rj0kpKjt"/>
+</div>
+<div>
+<p class="text-white font-label-md text-label-md truncate w-32">M. Sow</p>
+<p class="text-on-primary-container font-code-sm text-code-sm">Super Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md w-1/3">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 font-body-md text-body-md focus:ring-1 focus:ring-primary" placeholder="Search by name or matricule..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md text-on-surface">SIR Senelec</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] pt-16 p-stack-lg min-h-screen">
+<div class="max-w-7xl mx-auto space-y-stack-lg">
+<!-- Page Header Actions -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display-sm text-display-sm text-primary mb-1">User &amp; Role Management</h2>
+<p class="text-on-surface-variant font-body-md text-body-md">Configure access control and scope for Senelec network operators.</p>
+</div>
+<button class="bg-primary text-on-primary px-container-padding py-2 rounded-lg font-label-md text-label-md flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all" onclick="togglePanel('editPanel')">
+<span class="material-symbols-outlined">person_add</span>
+                    Register New User
+                </button>
+</div>
+<!-- Management Dashboard Bento -->
+<div class="grid grid-cols-12 gap-gutter-grid">
+<!-- Stats Summary -->
+<div class="col-span-12 md:col-span-3 bg-white border border-outline-variant p-stack-md rounded-xl">
+<p class="text-on-surface-variant font-label-md text-label-md">Total Active Users</p>
+<div class="flex items-end justify-between mt-2">
+<span class="font-display-sm text-display-sm text-primary">1,248</span>
+<span class="text-green-600 bg-green-50 px-2 py-0.5 rounded text-label-md font-label-md">+4%</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-3 bg-white border border-outline-variant p-stack-md rounded-xl">
+<p class="text-on-surface-variant font-label-md text-label-md">Operators in Field</p>
+<div class="flex items-end justify-between mt-2">
+<span class="font-display-sm text-display-sm text-primary">412</span>
+<span class="material-symbols-outlined text-on-surface-variant">bolt</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-6 bg-white border border-outline-variant p-stack-md rounded-xl flex items-center justify-between">
+<div>
+<p class="text-on-surface-variant font-label-md text-label-md">System Health Status</p>
+<p class="text-headline-sm font-headline-sm text-green-600 mt-1">All Roles Synced</p>
+</div>
+<div class="flex -space-x-2">
+<img alt="Team" class="w-8 h-8 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLYQv3X7yfLP07PWXIzGo4xAOYpS7SkFHF3DFOw0Q8bCov-TQgX-ZznQIJ7lTyDd7C4dEzTqxtJI1DGjjFOGmtApMve7DKUu9mQE9uFM_U4ZEjCLFPgOR7nCJRL094R10ABEZK50DhQDgEX6NJEmzEB-5sMb6NtuaGdgmiUZZg1Qix0BrgFbNtfZmWjxxwlTT6Jl6AVviBFG6NggUfL3njEkL2oGs4q1aZdHGJG73ZqWGpKshT8YySxMSOvtxM5lU5oOxmok5ZuL9i"/>
+<img alt="Team" class="w-8 h-8 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBotbRvleOox7rHMebFlWtSml64W2UOKCGEuM3kYiOvOHqvAwkYXJxzEqNoz-oYBEH4q3SCBvTQjPeCmJbKGafNIwxsU65xxz36RtwqzHzxcjzjWupz-wANqstmv3FLTideS7Gf2t5Rvf8eVcGDtjW4uk5vhAldR3HIDEDCEgeHQahnMkemg_VtSUoAuSOTP8AxPu_lly0reduSDaH-HdN8X4GZaN78c2WsiP9qEfDl8_7uUyhC1YkesCugAdj4OaLpKX1VtwtT740O"/>
+<img alt="Team" class="w-8 h-8 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAf_Tt-Kdw2fyaIcYDMjdI2DsdFXDIk21tMQUcI-bfv0bgC5n4jGG_LifGENGc9jnLYFDpnWlSv-gxmHMHr6GAxWWlqcZ21rwUTD0EofIOVGJbfI708p0UPoJf2SY5wCJSFYNfdZ3SXJXG_WrocyUBeRE7FjycMwHe2d2L-43A8ZekaI0OlVl1RT-Vg0yjR2cL3Vw-kKc0HmErGYnWQumZjmyFf3CZVdFspq_bbzgSjqs-TPGulP4253q_M50EnkpvaFQonDW6O_MVM"/>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-surface-container-high flex items-center justify-center text-[10px] font-bold">+12</div>
+</div>
+</div>
+<!-- Users Table -->
+<div class="col-span-12 bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="px-stack-md py-stack-sm border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-label-md font-label-md">All Users</button>
+<button class="px-3 py-1 hover:bg-surface-container-high rounded-full text-label-md font-label-md transition-colors">By Region</button>
+<button class="px-3 py-1 hover:bg-surface-container-high rounded-full text-label-md font-label-md transition-colors">By Role</button>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-on-surface-variant font-label-md text-label-md">Filter:</span>
+<select class="bg-transparent border-none font-label-md text-label-md focus:ring-0 cursor-pointer">
+<option>Status: Active</option>
+<option>Status: Inactive</option>
+</select>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-stack-md py-3 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">User Name</th>
+<th class="px-stack-md py-3 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">Matricule</th>
+<th class="px-stack-md py-3 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">Role</th>
+<th class="px-stack-md py-3 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">Scope (Regions)</th>
+<th class="px-stack-md py-3 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">Status</th>
+<th class="px-stack-md py-3 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- User Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<td class="px-stack-md py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-fixed-dim text-primary flex items-center justify-center font-bold text-xs">AS</div>
+<div>
+<p class="font-headline-sm text-headline-sm">Amadou Sall</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">a.sall@senelec.sn</p>
+</div>
+</div>
+</td>
+<td class="px-stack-md py-4 font-code-sm text-code-sm">SN-882910</td>
+<td class="px-stack-md py-4">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-md font-label-md text-on-surface">Network Operator</span>
+</td>
+<td class="px-stack-md py-4">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">Dakar</span>
+<span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">Thies</span>
+</div>
+</td>
+<td class="px-stack-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="text-label-md font-label-md">Active</span>
+</div>
+</td>
+<td class="px-stack-md py-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors" onclick="togglePanel('editPanel')">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+<!-- User Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<td class="px-stack-md py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-tertiary-fixed-dim text-tertiary flex items-center justify-center font-bold text-xs">MD</div>
+<div>
+<p class="font-headline-sm text-headline-sm">Mariama Diallo</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">m.diallo@senelec.sn</p>
+</div>
+</div>
+</td>
+<td class="px-stack-md py-4 font-code-sm text-code-sm">SN-125433</td>
+<td class="px-stack-md py-4">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-md font-label-md text-on-surface">Regional Manager</span>
+</td>
+<td class="px-stack-md py-4">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">Saint-Louis</span>
+</div>
+</td>
+<td class="px-stack-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="text-label-md font-label-md">Active</span>
+</div>
+</td>
+<td class="px-stack-md py-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors" onclick="togglePanel('editPanel')">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+<!-- User Row 3 -->
+<tr class="hover:bg-surface-container-lowest transition-colors cursor-pointer group">
+<td class="px-stack-md py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary-fixed-dim text-secondary flex items-center justify-center font-bold text-xs">BF</div>
+<div>
+<p class="font-headline-sm text-headline-sm">Babacar Fall</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">b.fall@senelec.sn</p>
+</div>
+</div>
+</td>
+<td class="px-stack-md py-4 font-code-sm text-code-sm">SN-443219</td>
+<td class="px-stack-md py-4">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-md font-label-md text-on-surface">Dispatcher</span>
+</td>
+<td class="px-stack-md py-4">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">Dakar</span>
+</div>
+</td>
+<td class="px-stack-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<span class="text-label-md font-label-md text-outline">Inactive</span>
+</div>
+</td>
+<td class="px-stack-md py-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors" onclick="togglePanel('editPanel')">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+<div class="px-stack-md py-stack-sm bg-surface-container-low border-t border-outline-variant flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Showing 1 to 10 of 1,248 users</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-white"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary text-on-primary text-label-md font-label-md">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-white text-label-md font-label-md">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-white text-label-md font-label-md">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-white"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Side Panel: Edit User Role & Scope -->
+<div class="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl z-[60] transform translate-x-full transition-transform duration-300 ease-in-out border-l border-outline-variant" id="editPanel">
+<div class="h-full flex flex-col">
+<!-- Header -->
+<div class="p-stack-lg border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<div>
+<h3 class="font-headline-md text-headline-md text-primary">Edit User Access</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Update roles and regional permissions</p>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors" onclick="togglePanel('editPanel')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Content -->
+<div class="flex-1 overflow-y-auto p-stack-lg space-y-stack-lg custom-scrollbar">
+<!-- Profile Section -->
+<div class="flex items-center gap-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
+<div class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">AS</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm">Amadou Sall</h4>
+<p class="text-label-md font-label-md text-on-surface-variant">Matricule: SN-882910</p>
+</div>
+</div>
+<!-- Role Selection -->
+<div class="space-y-stack-sm">
+<label class="font-label-md text-label-md text-on-surface">User Role</label>
+<select class="w-full bg-surface-container-low border-outline-variant rounded-lg p-3 font-body-md text-body-md focus:ring-primary focus:border-primary">
+<option>Network Operator</option>
+<option>Regional Manager</option>
+<option>Maintenance Engineer</option>
+<option>Billing Supervisor</option>
+<option>Security Auditor</option>
+</select>
+</div>
+<!-- Scope Multi-select (Regions) -->
+<div class="space-y-stack-sm">
+<label class="font-label-md text-label-md text-on-surface">Assigned Regions (Scope)</label>
+<div class="grid grid-cols-2 gap-2">
+<label class="flex items-center gap-2 p-2 border border-outline-variant rounded hover:bg-surface-container-low cursor-pointer transition-colors">
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-sm font-body-sm">Dakar</span>
+</label>
+<label class="flex items-center gap-2 p-2 border border-outline-variant rounded hover:bg-surface-container-low cursor-pointer transition-colors">
+<input checked="" class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-sm font-body-sm">Thies</span>
+</label>
+<label class="flex items-center gap-2 p-2 border border-outline-variant rounded hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-sm font-body-sm">Saint-Louis</span>
+</label>
+<label class="flex items-center gap-2 p-2 border border-outline-variant rounded hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-sm font-body-sm">Kaolack</span>
+</label>
+<label class="flex items-center gap-2 p-2 border border-outline-variant rounded hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-sm font-body-sm">Ziguinchor</span>
+</label>
+<label class="flex items-center gap-2 p-2 border border-outline-variant rounded hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="rounded text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-body-sm font-body-sm">Tambacounda</span>
+</label>
+</div>
+</div>
+<!-- Status Toggle -->
+<div class="p-4 bg-surface-container-lowest border border-outline-variant rounded-xl flex items-center justify-between">
+<div>
+<p class="font-label-md text-label-md text-on-surface">Account Status</p>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Allow user to log in</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Danger Zone -->
+<div class="pt-stack-lg">
+<button class="w-full text-error font-label-md text-label-md border border-error/20 hover:bg-error/5 py-3 rounded-lg flex items-center justify-center gap-2 transition-all">
+<span class="material-symbols-outlined text-sm">delete_forever</span>
+                        Delete Account Permanently
+                    </button>
+</div>
+</div>
+<!-- Actions Footer -->
+<div class="p-stack-lg border-t border-outline-variant flex gap-stack-md bg-surface-container-lowest">
+<button class="flex-1 bg-surface-container-high text-on-surface-variant py-3 rounded-lg font-label-md text-label-md hover:brightness-95" onclick="togglePanel('editPanel')">Cancel</button>
+<button class="flex-1 bg-primary text-on-primary py-3 rounded-lg font-label-md text-label-md hover:brightness-110">Save Changes</button>
+</div>
+</div>
+</div>
+<!-- Backdrop -->
+<div class="fixed inset-0 bg-black/40 z-50 hidden transition-opacity duration-300 backdrop-blur-sm" id="backdrop" onclick="togglePanel('editPanel')"></div>
+<script>
+        function togglePanel(panelId) {
+            const panel = document.getElementById(panelId);
+            const backdrop = document.getElementById('backdrop');
+            
+            if (panel.classList.contains('translate-x-full')) {
+                panel.classList.remove('translate-x-full');
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.add('opacity-100'), 10);
+            } else {
+                panel.classList.add('translate-x-full');
+                backdrop.classList.remove('opacity-100');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+
+        // Search highlight interaction
+        document.querySelector('input[type="text"]').addEventListener('focus', function() {
+            this.parentElement.classList.add('ring-2', 'ring-primary/20');
+        });
+        document.querySelector('input[type="text"]').addEventListener('blur', function() {
+            this.parentElement.classList.remove('ring-2', 'ring-primary/20');
+        });
+    </script>
+</body></html>

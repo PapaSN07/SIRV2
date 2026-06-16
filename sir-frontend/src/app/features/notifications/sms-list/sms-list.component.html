@@ -1,0 +1,96 @@
+<section class="notif-page">
+  <sir-page-header
+    title="SMS envoyés"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Notifications' },
+      { label: 'SMS' },
+    ]"
+  >
+    @if (canSend()) {
+      <div actions>
+        <a class="sir-btn sir-btn--primary" routerLink="/notifications/sms/envoyer">
+          <span class="material-symbols-outlined" aria-hidden="true">send</span>
+          Envoyer un SMS
+        </a>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-notifications-nav [showSend]="canSend()" />
+
+  <div class="filters-panel">
+    <div class="field">
+      <label class="field__label" for="statut-sms">Statut</label>
+      <select id="statut-sms" class="field__select" [value]="statut()" (change)="onStatutChange($any($event.target).value)">
+        <option value="">Tous</option>
+        <option value="en_attente">En attente</option>
+        <option value="envoye">Envoyé</option>
+        <option value="echec">Échec</option>
+      </select>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Destinataire</th>
+            <th>Téléphone</th>
+            <th>Message</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of items(); track row.id) {
+            <tr class="data-table__row" (click)="openDetail(row)">
+              <td>{{ row.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ row.destinataire_nom ?? '—' }}</td>
+              <td>{{ row.destinataire_telephone ?? '—' }}</td>
+              <td class="col-message">{{ row.contenu }}</td>
+              <td>
+                <span class="badge" [class.badge--ok]="row.statut === 'envoye'" [class.badge--err]="row.statut === 'echec'">
+                  {{ statutLabel(row.statut) }}
+                </span>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">Aucun SMS.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <sir-paginator
+      [total]="total()"
+      [page]="page()"
+      [pageSize]="pageSize"
+      (pageChange)="onPageChange($event)"
+    />
+  }
+
+  @if (selected(); as s) {
+    <div class="detail-panel">
+      <div class="detail-panel__header">
+        <h2>Détail SMS #{{ s.id }}</h2>
+        <button type="button" class="sir-btn sir-btn--ghost" (click)="closeDetail()">Fermer</button>
+      </div>
+      <p><strong>Destinataire :</strong> {{ s.destinataire_nom }}</p>
+      <p><strong>Téléphone :</strong> {{ s.destinataire_telephone }}</p>
+      <p><strong>Statut :</strong> {{ statutLabel(s.statut) }}</p>
+      @if (s.erreur) {
+        <p class="alert alert--error"><strong>Erreur :</strong> {{ s.erreur }}</p>
+      }
+      <p><strong>Message :</strong></p>
+      <pre class="detail-panel__body">{{ s.contenu }}</pre>
+    </div>
+  }
+</section>

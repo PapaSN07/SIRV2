@@ -1,0 +1,23 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ title }}</h1>
+    @if (breadcrumbs.length > 0) {
+      <nav class="breadcrumb" aria-label="Fil d'Ariane">
+        @for (item of breadcrumbs; track item.label; let last = $last) {
+          @if (!last && item.route) {
+            <a [routerLink]="item.route">{{ item.label }}</a>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+          } @else if (!last) {
+            <span>{{ item.label }}</span>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+          } @else {
+            <span class="breadcrumb__current">{{ item.label }}</span>
+          }
+        }
+      </nav>
+    }
+  </div>
+  <div class="page-header__actions">
+    <ng-content select="[actions]" />
+  </div>
+</header>

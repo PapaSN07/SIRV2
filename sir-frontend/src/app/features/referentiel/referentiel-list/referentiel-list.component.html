@@ -1,0 +1,189 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Référentiels"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Administration' },
+      { label: 'Référentiels' },
+    ]"
+  >
+    @if (canWrite()) {
+      <div actions>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouvel élément
+        </button>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-admin-nav />
+
+  <div class="tabs" role="tablist">
+    @for (tab of tabs; track tab.key; let i = $index) {
+      <button
+        type="button"
+        class="tabs__btn"
+        [class.tabs__btn--active]="activeTabIndex() === i"
+        (click)="onTabChange(i)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  @if (activeTab().filterType) {
+    <div class="filters-panel">
+      <div class="field">
+        <label class="field__label" for="type-reseau">Type réseau</label>
+        <select
+          id="type-reseau"
+          class="field__select"
+          [value]="typeReseau() ?? ''"
+          (change)="onTypeChange($any($event.target).value)"
+        >
+          <option value="">Tous</option>
+          <option value="distribution">Distribution</option>
+          <option value="transport">Transport</option>
+          <option value="commun">Commun</option>
+        </select>
+      </div>
+    </div>
+  }
+
+  @if (formOpen()) {
+    <div class="form-panel">
+      <h2 class="form-panel__title">
+        {{ editingId() === null ? 'Créer un élément' : 'Modifier l\'élément' }}
+      </h2>
+      <div class="form-grid">
+        <div class="field">
+          <label class="field__label" for="ref-code">Code</label>
+          <input
+            id="ref-code"
+            class="field__input"
+            [ngModel]="form().code"
+            (ngModelChange)="patchForm('code', $event)"
+          />
+        </div>
+        <div class="field">
+          <label class="field__label" for="ref-libelle">Libellé</label>
+          <input
+            id="ref-libelle"
+            class="field__input"
+            [ngModel]="form().libelle"
+            (ngModelChange)="patchForm('libelle', $event)"
+          />
+        </div>
+        @if (activeTab().filterType) {
+          <div class="field">
+            <label class="field__label" for="ref-type">Type réseau</label>
+            <select
+              id="ref-type"
+              class="field__select"
+              [ngModel]="form().type_reseau"
+              (ngModelChange)="patchForm('type_reseau', $event)"
+            >
+              <option value="">—</option>
+              <option value="distribution">Distribution</option>
+              <option value="transport">Transport</option>
+              <option value="commun">Commun</option>
+            </select>
+          </div>
+        }
+        <div class="field field--full">
+          <label class="field__label" for="ref-desc">Description</label>
+          <input
+            id="ref-desc"
+            class="field__input"
+            [ngModel]="form().description"
+            (ngModelChange)="patchForm('description', $event)"
+          />
+        </div>
+        @if (editingId() !== null) {
+          <div class="field">
+            <label class="field__label">
+              <input
+                type="checkbox"
+                [ngModel]="form().is_active"
+                (ngModelChange)="patchForm('is_active', $event)"
+              />
+              Actif
+            </label>
+          </div>
+        }
+      </div>
+      <div class="form-panel__actions">
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="saveForm()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Libellé</th>
+            @if (activeTab().filterType) {
+              <th>Type</th>
+            }
+            <th>Actif</th>
+            @if (canWrite()) {
+              <th class="col-actions">Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of items(); track row.id) {
+            <tr>
+              <td>{{ row.code }}</td>
+              <td>{{ row.libelle }}</td>
+              @if (activeTab().filterType) {
+                <td>{{ row.type_reseau ?? '—' }}</td>
+              }
+              <td>
+                <span class="badge" [class.badge--active]="row.is_active">
+                  {{ row.is_active ? 'Oui' : 'Non' }}
+                </span>
+              </td>
+              @if (canWrite()) {
+                <td class="col-actions">
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEdit(row)">Modifier</button>
+                  @if (row.is_active) {
+                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivate(row)">
+                      Désactiver
+                    </button>
+                  }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td [attr.colspan]="activeTab().filterType ? (canWrite() ? 5 : 4) : (canWrite() ? 4 : 3)">
+                Aucun élément.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <sir-paginator
+      [total]="total()"
+      [page]="page()"
+      [pageSize]="pageSize"
+      (pageChange)="onPageChange($event)"
+    />
+  }
+</section>

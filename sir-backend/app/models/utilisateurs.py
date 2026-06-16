@@ -4,6 +4,7 @@ from sqlalchemy import NVARCHAR, Boolean, DateTime, ForeignKey, Integer, UniqueC
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.defaults import MSSQL_NOW
 
 
 class Permission(Base):
@@ -71,12 +72,12 @@ class Utilisateur(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     premiere_connexion: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
-        server_default=func.now(),
+        server_default=MSSQL_NOW,
         onupdate=func.now(),
     )
 
@@ -97,7 +98,7 @@ class UserRole(Base):
         Integer, ForeignKey("utilisateurs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("roles.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     # Nullable: national roles (ADMIN_SCR, DISPATCHER…) have no service scope
     scope_service_id: Mapped[int | None] = mapped_column(

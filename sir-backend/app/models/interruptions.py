@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.defaults import MSSQL_NOW
 
 # Valid discriminant values
 TYPE_DIRECTION_VALUES = ("distribution", "transport", "omvg")
@@ -42,13 +43,13 @@ class Interruption(Base):
 
     # Geo / réseau scope
     service_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("services.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("services.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     feeder_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("feeders.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("feeders.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     poste_source_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("postes_sources.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("postes_sources.id", ondelete="NO ACTION"), nullable=True, index=True
     )
 
     # Temporal
@@ -63,16 +64,16 @@ class Interruption(Base):
 
     # Characterisation
     cause_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("causes.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("causes.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     siege_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("sieges.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("sieges.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     signalisation_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("signalisations.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("signalisations.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     nature_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("natures.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("natures.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     is_force_majeure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_fugitive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -87,18 +88,18 @@ class Interruption(Base):
 
     # Audit trail
     created_by_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("utilisateurs.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     validated_by_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("utilisateurs.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
-        server_default=func.now(),
+        server_default=MSSQL_NOW,
         onupdate=func.now(),
     )
 
@@ -194,13 +195,13 @@ class InterruptionTransport(Base):
     tension_kv: Mapped[float | None] = mapped_column(DECIMAL(6, 2), nullable=True)
     equipement_transport_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("equipements_transport.id", ondelete="RESTRICT"),
+        ForeignKey("equipements_transport.id", ondelete="NO ACTION"),
         nullable=True,
         index=True,
     )
     source_transport_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("sources_transport.id", ondelete="RESTRICT"),
+        ForeignKey("sources_transport.id", ondelete="NO ACTION"),
         nullable=True,
         index=True,
     )

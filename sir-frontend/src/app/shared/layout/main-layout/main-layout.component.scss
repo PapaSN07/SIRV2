@@ -1,0 +1,352 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.app-shell {
+  min-height: 100vh;
+  background: $surface;
+  color: $on-surface;
+  font-family: 'Inter', sans-serif;
+}
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: $sidebar-width;
+  height: 100%;
+  padding: 1.5rem 0;
+  background: $surface-container-low;
+  border-right: 1px solid $outline-variant;
+
+  &__brand {
+    padding: 0 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  &__logo {
+    display: inline-block;
+    max-width: 160px;
+    height: auto;
+    margin-bottom: 0.5rem;
+  }
+
+  &__tagline {
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: $on-surface-variant;
+  }
+
+  &__nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: $on-surface-variant;
+    text-decoration: none;
+    border-left: 4px solid transparent;
+    transition: background 0.2s ease, color 0.2s ease;
+
+    .material-symbols-outlined {
+      font-size: 22px;
+    }
+
+    &:hover:not(&--disabled) {
+      background: $surface-container-high;
+    }
+
+    &--active {
+      border-left-color: $primary;
+      background: rgba($primary, 0.1);
+      color: $primary;
+      font-weight: 700;
+    }
+
+    &--disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+  }
+
+  &__user {
+    padding: 1.5rem 1.5rem 0;
+    border-top: 1px solid $outline-variant;
+  }
+
+  &__user-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 0.25rem;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: $surface-container-high;
+    }
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: $primary-container;
+    color: $on-primary;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  &__user-info {
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  &__user-name {
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__user-login {
+    margin: 0;
+    font-size: 10px;
+    color: $on-surface-variant;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.topbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: calc(100% - #{$sidebar-width});
+  height: $header-height;
+  padding: 0 1.5rem;
+  background: $surface;
+  border-bottom: 1px solid $outline-variant;
+
+  &__search {
+    position: relative;
+    flex: 1;
+    max-width: 28rem;
+  }
+
+  &__search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: $on-surface-variant;
+    pointer-events: none;
+  }
+
+  &__search-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+    border: none;
+    border-radius: 0.25rem;
+    background: $surface-container-low;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 18px;
+    color: $on-surface;
+    outline: none;
+
+    &:focus {
+      box-shadow: 0 0 0 1px $primary;
+    }
+
+    &::placeholder {
+      color: rgba($outline, 0.8);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: 1rem;
+  }
+
+  &__notifications {
+    position: relative;
+  }
+
+  &__badge {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: #ba1a1a;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1rem;
+    text-align: center;
+  }
+
+  &__icon-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: none;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: $on-surface-variant;
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: $primary;
+    }
+  }
+
+  &__divider {
+    width: 1px;
+    height: 2rem;
+    background: $outline-variant;
+    margin: 0 0.5rem;
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 1px solid $outline-variant;
+    background: $primary-container;
+    color: $on-primary;
+    font-size: 11px;
+    font-weight: 700;
+  }
+}
+
+.main-content {
+  margin-left: $sidebar-width;
+  margin-top: $header-height;
+  min-height: calc(100vh - #{$header-height});
+  padding: 1.5rem;
+}
+
+.notifications-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 22rem;
+  max-height: 24rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid $outline-variant;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  &__close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: $on-surface-variant;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+  }
+
+  &__item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid $outline-variant;
+
+    &--unread {
+      background: rgba($primary, 0.06);
+    }
+  }
+
+  &__label {
+    margin: 0 0 0.25rem;
+    font-size: 12px;
+    font-weight: 700;
+    color: $primary;
+  }
+
+  &__message {
+    margin: 0 0 0.25rem;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  &__meta {
+    margin: 0;
+    font-size: 11px;
+    color: $on-surface-variant;
+  }
+
+  &__empty {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: $on-surface-variant;
+    font-size: 13px;
+  }
+}

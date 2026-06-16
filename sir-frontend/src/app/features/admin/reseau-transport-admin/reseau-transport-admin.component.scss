@@ -1,0 +1,111 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.admin-page {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid $outline-variant;
+  padding-bottom: 0.5rem;
+
+  &__btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: $on-surface-variant;
+    cursor: pointer;
+
+    &--active {
+      color: $primary;
+      background: $surface-container-low;
+    }
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__input {
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    background: $surface-container-low;
+  }
+}
+
+.form-panel {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+
+  &__title {
+    margin: 0 0 1rem;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.alert--error {
+  padding: 0.75rem 1rem;
+  background: #ffdad6;
+  color: #93000a;
+  margin-bottom: 1rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  margin-bottom: 1rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid $outline-variant;
+    text-align: left;
+  }
+
+  th {
+    background: $surface-container-low;
+    font-size: 12px;
+  }
+}
+
+.sir-btn.danger {
+  color: #ba1a1a;
+}

@@ -33,3 +33,6 @@ Thumbs.db
 
 # Docker
 *.override.env
+
+# E2E artifacts
+scripts/e2e_output/

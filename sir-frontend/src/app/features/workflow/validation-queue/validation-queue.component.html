@@ -1,0 +1,249 @@
+<section class="validation-queue">
+  <header class="validation-queue__header">
+    <div>
+      <h1 class="validation-queue__title">File d'attente de validation</h1>
+      <p class="validation-queue__subtitle">
+        @if (loading()) {
+          Chargement…
+        } @else {
+          {{ total() }} interruption(s) clôturée(s) en attente de validation.
+        }
+      </p>
+    </div>
+  </header>
+
+  <div class="validation-queue__layout">
+    <aside class="validation-filters">
+      <h2 class="validation-filters__title">
+        <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>
+        Filtres
+      </h2>
+
+      <div class="field">
+        <label class="field__label" for="vq-region">Région</label>
+        <select
+          id="vq-region"
+          class="field__select"
+          [value]="regionId() ?? ''"
+          (change)="onRegionChange($any($event.target).value)"
+        >
+          <option value="">Toutes les régions</option>
+          @for (r of regions(); track r.id) {
+            <option [value]="r.id">{{ r.libelle }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="vq-debut">Période (début)</label>
+        <input
+          id="vq-debut"
+          class="field__select"
+          type="date"
+          [value]="dateDebut()"
+          (change)="onDateDebutChange($event)"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="vq-fin">Période (fin)</label>
+        <input
+          id="vq-fin"
+          class="field__select"
+          type="date"
+          [value]="dateFin()"
+          (change)="onDateFinChange($event)"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="vq-search">Recherche</label>
+        <input
+          id="vq-search"
+          class="field__select"
+          type="search"
+          placeholder="N° ou localisation…"
+          [value]="searchQuery()"
+          (input)="onSearchChange($event)"
+        />
+      </div>
+
+      <div class="validation-filters__actions">
+        <button type="button" class="sir-btn sir-btn--primary" (click)="applyFilters()">
+          Appliquer
+        </button>
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="resetFilters()">
+          Réinitialiser
+        </button>
+      </div>
+    </aside>
+
+    <div class="validation-main" [class.validation-main--with-panel]="focusedId()">
+      @if (error()) {
+        <p class="validation-queue__error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="validation-table-wrap">
+        <div class="validation-table__head">
+          <label class="validation-table__check">
+            <input
+              type="checkbox"
+              [checked]="allSelected()"
+              (change)="toggleSelectAll($event)"
+            />
+          </label>
+          <span>N°</span>
+          <span>Tension</span>
+          <span>Localisation</span>
+          <span>Apparition</span>
+          <span>Priorité</span>
+          <span>Statut</span>
+        </div>
+
+        @if (loading()) {
+          <div class="validation-table__loading">
+            <span class="material-symbols-outlined validation-queue__spinner" aria-hidden="true">progress_activity</span>
+          </div>
+        } @else if (filteredItems().length === 0) {
+          <p class="validation-table__empty">Aucune interruption en attente de validation.</p>
+        } @else {
+          @for (item of filteredItems(); track item.id) {
+            <div
+              class="validation-table__row"
+              [class.validation-table__row--selected]="isSelected(item.id)"
+              [class.validation-table__row--focused]="focusedId() === item.id"
+              (click)="selectRow(item)"
+              (keydown.enter)="selectRow(item)"
+              tabindex="0"
+              role="button"
+            >
+              <label class="validation-table__check" (click)="$event.stopPropagation()">
+                <input
+                  type="checkbox"
+                  [checked]="isSelected(item.id)"
+                  (change)="toggleSelect(item.id, $event)"
+                />
+              </label>
+              <span class="validation-table__num">#{{ item.numero_interruption }}</span>
+              <span class="validation-table__domain">{{ tensionLabel(item.tension_kv) }}</span>
+              <span class="validation-table__loc">
+                {{ item.localisation ?? '—' }}
+              </span>
+              <span class="validation-table__date">
+                {{ item.date_apparition | date: 'dd/MM/yyyy HH:mm' }}
+              </span>
+              <span class="validation-table__priority">
+                <span class="priority-badge priority-badge--{{ priority(item) }}">
+                  {{ priorityLabel(priority(item)) }}
+                </span>
+              </span>
+              <span class="validation-table__status">
+                <span class="pending-badge">Validation requise</span>
+              </span>
+            </div>
+          }
+        }
+
+        <sir-paginator
+          [page]="page()"
+          [pageSize]="pageSize()"
+          [total]="total()"
+          [pageSizeOptions]="pageSizeOptions"
+          (pageChange)="onPageChange($event)"
+          (pageSizeChange)="onPageSizeChange($event)"
+        />
+      </div>
+    </div>
+
+    @if (focusedId(); as detailId) {
+      <aside class="validation-detail">
+        <header class="validation-detail__head">
+          <h2>Détail</h2>
+          <button type="button" class="validation-detail__close" (click)="closeDetail()" aria-label="Fermer">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </header>
+
+        @if (detailLoading()) {
+          <div class="validation-detail__loading">
+            <span class="material-symbols-outlined validation-queue__spinner" aria-hidden="true">progress_activity</span>
+          </div>
+        } @else {
+          @if (detail(); as d) {
+          <div class="validation-detail__body">
+            <div class="validation-detail__title-row">
+              <span class="validation-detail__num">#{{ d.numero_interruption }}</span>
+              <sir-status-chip [statut]="d.statut" />
+            </div>
+
+            <dl class="validation-detail__dl">
+              <div><dt>Feeder</dt><dd>{{ d.feeder_libelle ?? '—' }}</dd></div>
+              <div><dt>Cause</dt><dd>{{ d.cause_libelle ?? '—' }}</dd></div>
+              <div><dt>Apparition</dt><dd>{{ d.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+              <div><dt>Remise</dt><dd>{{ d.date_remise ? (d.date_remise | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd></div>
+              <div><dt>Durée</dt><dd>{{ d.duree_minutes ?? '—' }} min</dd></div>
+              <div><dt>END (MWh)</dt><dd>{{ d.end_mwh ?? d.energie_nd?.valeur_mwh ?? '—' }}</dd></div>
+              <div><dt>Puissance</dt><dd>{{ d.puissance_coupee_mw ?? '—' }} MW</dd></div>
+              @if (d.created_by) {
+                <div><dt>Créée par</dt><dd>{{ d.created_by.prenom }} {{ d.created_by.nom }}</dd></div>
+              }
+            </dl>
+
+            @if (d.observations) {
+              <p class="validation-detail__obs">{{ d.observations }}</p>
+            }
+
+            <div class="validation-detail__actions">
+              <a
+                class="sir-btn sir-btn--outline-primary"
+                [routerLink]="['/interruptions/distribution', detailId]"
+              >
+                Voir le détail complet
+              </a>
+              <button
+                type="button"
+                class="sir-btn sir-btn--primary"
+                [disabled]="validating()"
+                (click)="validateOne(detailId)"
+              >
+                Valider
+              </button>
+            </div>
+          </div>
+          }
+        }
+      </aside>
+    }
+  </div>
+
+  @if (actionMessage()) {
+    <p class="validation-queue__toast" role="status">{{ actionMessage() }}</p>
+  }
+  @if (actionError()) {
+    <p class="validation-queue__error validation-queue__error--floating" role="alert">{{ actionError() }}</p>
+  }
+
+  @if (showBulkBar()) {
+    <footer class="validation-fab">
+      <span class="validation-fab__count">{{ selectedCount() }} sélectionnée(s)</span>
+      <div class="validation-fab__actions">
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="clearSelection()">
+          Annuler
+        </button>
+        <button
+          type="button"
+          class="sir-btn sir-btn--primary"
+          [disabled]="validating()"
+          (click)="validateSelected()"
+        >
+          @if (validating()) {
+            <span class="material-symbols-outlined validation-queue__spinner" aria-hidden="true">progress_activity</span>
+          } @else {
+            <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
+          }
+          Valider la sélection
+        </button>
+      </div>
+    </footer>
+  }
+</section>

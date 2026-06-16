@@ -1,0 +1,110 @@
+<section class="notif-page">
+  <sir-page-header
+    title="Destinataires notifications"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Notifications' },
+      { label: 'Destinataires' },
+    ]"
+  >
+    @if (canWrite()) {
+      <div actions>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouveau destinataire
+        </button>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-notifications-nav />
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Téléphone</th>
+            <th>Email</th>
+            <th>Actif</th>
+            @if (canWrite()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of items(); track row.id) {
+            <tr>
+              <td>{{ row.nom }}</td>
+              <td>{{ row.telephone ?? '—' }}</td>
+              <td>{{ row.email ?? '—' }}</td>
+              <td>
+                <span class="badge" [class.badge--ok]="row.is_active">
+                  {{ row.is_active ? 'Oui' : 'Non' }}
+                </span>
+              </td>
+              @if (canWrite()) {
+                <td class="actions-cell">
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEdit(row)">
+                    Modifier
+                  </button>
+                  @if (row.is_active) {
+                    <button type="button" class="sir-btn sir-btn--ghost" (click)="deactivate(row)">
+                      Désactiver
+                    </button>
+                  }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun destinataire.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <sir-paginator
+      [total]="total()"
+      [page]="page()"
+      [pageSize]="pageSize"
+      (pageChange)="onPageChange($event)"
+    />
+  }
+
+  @if (formOpen()) {
+    <div class="form-panel">
+      <h2>{{ editingId() ? 'Modifier' : 'Nouveau' }} destinataire</h2>
+      <div class="field">
+        <label class="field__label" for="dest-nom">Nom</label>
+        <input id="dest-nom" class="field__input" [ngModel]="form().nom" (ngModelChange)="patchForm('nom', $event)" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="dest-tel">Téléphone</label>
+        <input id="dest-tel" class="field__input" [ngModel]="form().telephone" (ngModelChange)="patchForm('telephone', $event)" />
+      </div>
+      <div class="field">
+        <label class="field__label" for="dest-email">Email</label>
+        <input id="dest-email" class="field__input" type="email" [ngModel]="form().email" (ngModelChange)="patchForm('email', $event)" />
+      </div>
+      @if (editingId()) {
+        <label class="checkbox-row">
+          <input type="checkbox" [ngModel]="form().is_active" (ngModelChange)="patchForm('is_active', $event)" />
+          Actif
+        </label>
+      }
+      <div class="form-panel__actions">
+        <button type="button" class="sir-btn sir-btn--ghost" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="save()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  }
+</section>

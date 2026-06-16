@@ -391,7 +391,7 @@ async def test_get_permission_by_key_retourne_none_si_inexistante() -> None:
 
 @pytest.mark.asyncio
 async def test_seed_rbac_idempotent_ne_cree_pas_de_doublons() -> None:
-    """seed_rbac() exécuté deux fois ne crée aucun doublon (7 rôles, 15 permissions).
+    """seed_rbac() exécuté deux fois ne crée aucun doublon (7 rôles, 17 permissions).
 
     On vérifie que les appels upsert ne font pas de db.add() supplémentaire
     si les objets existent déjà en base.

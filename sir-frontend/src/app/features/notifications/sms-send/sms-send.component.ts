@@ -1,0 +1,133 @@
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
+import { AdminUtilisateurService } from '../../admin/services/admin-utilisateur.service';
+import { NotificationDestinataireService } from '../services/notification-destinataire.service';
+import { NotificationSmsService } from '../services/notification-sms.service';
+import { Destinataire } from '../../../shared/models/notification.models';
+import { UtilisateurAdmin } from '../../../shared/models/admin.models';
+import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
+import { NotificationsNavComponent } from '../../../shared/ui/notifications-nav/notifications-nav.component';
+
+type TargetTab = 'destinataires' | 'utilisateurs';
+
+@Component({
+  selector: 'sir-sms-send',
+  standalone: true,
+  imports: [FormsModule, RouterLink, PageHeaderComponent, NotificationsNavComponent],
+  templateUrl: './sms-send.component.html',
+  styleUrl: './sms-send.component.scss',
+})
+export class SmsSendComponent implements OnInit {
+  private readonly sms = inject(NotificationSmsService);
+  private readonly destService = inject(NotificationDestinataireService);
+  private readonly adminUsers = inject(AdminUtilisateurService);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  readonly maxLength = 160;
+  readonly message = signal('');
+  readonly tab = signal<TargetTab>('destinataires');
+  readonly destinataires = signal<Destinataire[]>([]);
+  readonly utilisateurs = signal<UtilisateurAdmin[]>([]);
+  readonly selectedDestIds = signal<Set<number>>(new Set());
+  readonly selectedUserIds = signal<Set<number>>(new Set());
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly success = signal<string | null>(null);
+
+  readonly charCount = computed(() => this.message().length);
+  readonly canSend = computed(
+    () =>
+      this.message().trim().length > 0 &&
+      (this.selectedDestIds().size > 0 || this.selectedUserIds().size > 0),
+  );
+
+  ngOnInit(): void {
+    if (!this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING', 'ADMIN_SAQS')) {
+      void this.router.navigate(['/notifications/sms']);
+      return;
+    }
+    this.loadTargets();
+  }
+
+  setTab(tab: TargetTab): void {
+    this.tab.set(tab);
+  }
+
+  onMessageInput(value: string): void {
+    this.message.set(value.slice(0, this.maxLength));
+  }
+
+  toggleDest(id: number): void {
+    const next = new Set(this.selectedDestIds());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedDestIds.set(next);
+  }
+
+  toggleUser(user: UtilisateurAdmin): void {
+    if (!user.telephone) return;
+    const next = new Set(this.selectedUserIds());
+    if (next.has(user.id)) next.delete(user.id);
+    else next.add(user.id);
+    this.selectedUserIds.set(next);
+  }
+
+  isDestSelected(id: number): boolean {
+    return this.selectedDestIds().has(id);
+  }
+
+  isUserSelected(id: number): boolean {
+    return this.selectedUserIds().has(id);
+  }
+
+  submit(): void {
+    if (!this.canSend() || this.saving()) return;
+    this.saving.set(true);
+    this.error.set(null);
+    this.success.set(null);
+
+    const destIds = [...this.selectedDestIds()];
+    const userIds = [...this.selectedUserIds()];
+
+    this.sms
+      .send({
+        message: this.message().trim(),
+        destinataire_ids: destIds.length ? destIds : undefined,
+        utilisateur_ids: userIds.length ? userIds : undefined,
+      })
+      .subscribe({
+        next: (res) => {
+          this.saving.set(false);
+          this.success.set(`${res.sent_count} SMS mis en file d'envoi.`);
+          void this.router.navigate(['/notifications/sms']);
+        },
+        error: (err: Error) => {
+          this.error.set(err.message);
+          this.saving.set(false);
+        },
+      });
+  }
+
+  private loadTargets(): void {
+    this.loading.set(true);
+    this.destService.listDestinataires(1, 200, true).subscribe({
+      next: (res) => {
+        this.destinataires.set(res.items.filter((d) => d.telephone));
+        this.loading.set(false);
+      },
+      error: (err: Error) => {
+        this.error.set(err.message);
+        this.loading.set(false);
+      },
+    });
+
+    this.adminUsers.list(1, 200).subscribe({
+      next: (res) => this.utilisateurs.set(res.items),
+      error: () => {},
+    });
+  }
+}

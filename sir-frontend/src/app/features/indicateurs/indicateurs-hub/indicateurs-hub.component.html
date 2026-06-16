@@ -1,0 +1,128 @@
+<section class="dashboard indicateurs-hub">
+  <sir-page-header
+    title="Indicateurs END / SAIFI / SAIDI"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Indicateurs' },
+    ]"
+  />
+
+  <sir-analytics-nav />
+
+  <div class="filters-panel">
+    <div class="filters-grid indicateurs-hub__filters">
+      <div class="field">
+        <label class="field__label" for="ind-periode">Période</label>
+        <select id="ind-periode" class="field__select" [value]="periode()" (change)="onPeriodeChange($any($event.target).value)">
+          @for (p of periodeOptions(); track p.value) {
+            <option [value]="p.value">{{ p.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="ind-region">Région</label>
+        <select id="ind-region" class="field__select" [value]="regionId() ?? ''" (change)="onRegionChange($any($event.target).value)">
+          <option value="">National / périmètre utilisateur</option>
+          @for (r of regions(); track r.id) {
+            <option [value]="r.id">{{ r.libelle }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="dashboard__loading">
+      <span class="material-symbols-outlined dashboard__spinner" aria-hidden="true">progress_activity</span>
+      <p>Chargement des indicateurs…</p>
+    </div>
+  } @else {
+    @if (error()) {
+      <p class="dashboard__error" role="alert">{{ error() }}</p>
+    }
+
+    <div class="kpi-grid">
+      <article class="kpi-card kpi-card--primary">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">END du mois</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">bolt</span>
+        </div>
+        <div class="kpi-card__value-row">
+          <p class="kpi-card__value">{{ formatNumber(kpi()?.end_mois) }}</p>
+          <span class="kpi-card__unit">MWh</span>
+        </div>
+      </article>
+      <article class="kpi-card kpi-card--tertiary">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">SAIFI</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">speed</span>
+        </div>
+        <p class="kpi-card__value">{{ formatNumber(kpi()?.saifi) }}</p>
+      </article>
+      <article class="kpi-card kpi-card--primary-dark">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">SAIDI</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">timer</span>
+        </div>
+        <p class="kpi-card__value">{{ formatNumber(kpi()?.saidi) }} <span class="kpi-card__unit">min</span></p>
+      </article>
+      <article class="kpi-card kpi-card--error">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">Interruptions actives</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">warning</span>
+        </div>
+        <p class="kpi-card__value">{{ kpi()?.nb_interruptions_actives ?? '—' }}</p>
+        <p class="kpi-card__hint">{{ kpi()?.nb_interruptions_mois ?? 0 }} sur la période</p>
+      </article>
+    </div>
+
+    <div class="charts-grid">
+      <section class="panel panel--chart">
+        <div class="panel__head">
+          <h2 class="panel__title">Historique END (24 mois max)</h2>
+        </div>
+        <div class="bar-chart">
+          @for (month of endChart(); track month.key) {
+            <div class="bar-chart__group">
+              <div class="bar-chart__bars">
+                <div
+                  class="bar-chart__bar bar-chart__bar--saidi"
+                  [style.height.%]="chartReady() ? month.height : 0"
+                ></div>
+              </div>
+              <p class="bar-chart__label">{{ month.label }}</p>
+            </div>
+          } @empty {
+            <p class="panel__empty">Aucune donnée historique.</p>
+          }
+        </div>
+      </section>
+
+      <section class="panel panel--table">
+        <h2 class="panel__title">Top feeders par END</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Feeder</th>
+                <th class="data-table__num">END (MWh)</th>
+                <th class="data-table__num">Nb int.</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (f of topFeeders(); track f.feeder_id) {
+                <tr>
+                  <td>{{ f.libelle }} <small>({{ f.code }})</small></td>
+                  <td class="data-table__num">{{ f.end_mwh | number: '1.2-2' : 'fr-FR' }}</td>
+                  <td class="data-table__num">{{ f.nombre_interruptions }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="3" class="data-table__empty">Aucun feeder classé.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  }
+</section>

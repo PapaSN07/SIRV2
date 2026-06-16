@@ -1,0 +1,72 @@
+<footer class="paginator">
+  <p class="paginator__info">
+    Affichage de {{ rangeStart }} à {{ rangeEnd }} sur {{ total }} entrées
+  </p>
+  <div class="paginator__controls">
+    <button
+      type="button"
+      class="paginator__nav"
+      [disabled]="page <= 1"
+      (click)="goToPage(1)"
+      aria-label="Première page"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">first_page</span>
+    </button>
+    <button
+      type="button"
+      class="paginator__nav"
+      [disabled]="page <= 1"
+      (click)="goToPage(page - 1)"
+      aria-label="Page précédente"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+    </button>
+
+    <div class="paginator__pages">
+      @for (p of visiblePages(); track $index) {
+        @if (p === -1) {
+          <span class="paginator__ellipsis">…</span>
+        } @else {
+          <button
+            type="button"
+            class="paginator__page"
+            [class.paginator__page--active]="p === page"
+            (click)="goToPage(p)"
+          >
+            {{ p }}
+          </button>
+        }
+      }
+    </div>
+
+    <button
+      type="button"
+      class="paginator__nav"
+      [disabled]="page >= totalPages"
+      (click)="goToPage(page + 1)"
+      aria-label="Page suivante"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+    </button>
+    <button
+      type="button"
+      class="paginator__nav"
+      [disabled]="page >= totalPages"
+      (click)="goToPage(totalPages)"
+      aria-label="Dernière page"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">last_page</span>
+    </button>
+
+    <select
+      class="paginator__size"
+      [value]="pageSize"
+      (change)="onPageSizeSelect($any($event.target).value)"
+      aria-label="Nombre de lignes par page"
+    >
+      @for (size of pageSizeOptions; track size) {
+        <option [value]="size">{{ size }} lignes</option>
+      }
+    </select>
+  </div>
+</footer>

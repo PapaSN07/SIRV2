@@ -1,0 +1,52 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  &__title {
+    margin: 0 0 0.25rem;
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: $primary;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: $on-surface-variant;
+
+  a {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      color: $primary;
+    }
+  }
+
+  .material-symbols-outlined {
+    font-size: 12px;
+  }
+
+  &__current {
+    color: $primary;
+    font-weight: 700;
+  }
+}

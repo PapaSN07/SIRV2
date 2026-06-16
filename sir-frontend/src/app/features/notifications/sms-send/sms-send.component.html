@@ -1,0 +1,113 @@
+<section class="notif-page">
+  <sir-page-header
+    title="Envoyer un SMS"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Notifications' },
+      { label: 'Envoyer SMS' },
+    ]"
+  >
+    <div actions>
+      <a class="sir-btn sir-btn--ghost" routerLink="/notifications/sms">Retour à la liste</a>
+    </div>
+  </sir-page-header>
+
+  <sir-notifications-nav />
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+  @if (success()) {
+    <p class="alert alert--ok">{{ success() }}</p>
+  }
+
+  <div class="send-form">
+    <div class="field">
+      <label class="field__label" for="sms-message">Message</label>
+      <textarea
+        id="sms-message"
+        class="field__textarea"
+        rows="4"
+        [ngModel]="message()"
+        (ngModelChange)="onMessageInput($event)"
+        maxlength="160"
+        placeholder="Saisissez le message SMS (160 caractères max.)"
+      ></textarea>
+      <p class="char-count" [class.char-count--warn]="charCount() >= maxLength">
+        {{ charCount() }} / {{ maxLength }}
+      </p>
+    </div>
+
+    <div class="tabs">
+      <button
+        type="button"
+        class="tabs__btn"
+        [class.tabs__btn--active]="tab() === 'destinataires'"
+        (click)="setTab('destinataires')"
+      >
+        Destinataires ({{ selectedDestIds().size }})
+      </button>
+      <button
+        type="button"
+        class="tabs__btn"
+        [class.tabs__btn--active]="tab() === 'utilisateurs'"
+        (click)="setTab('utilisateurs')"
+      >
+        Utilisateurs ({{ selectedUserIds().size }})
+      </button>
+    </div>
+
+    @if (loading()) {
+      <p class="loading">Chargement des destinataires…</p>
+    } @else if (tab() === 'destinataires') {
+      <div class="select-list">
+        @for (d of destinataires(); track d.id) {
+          <label class="select-item">
+            <input type="checkbox" [checked]="isDestSelected(d.id)" (change)="toggleDest(d.id)" />
+            <span>
+              <strong>{{ d.nom }}</strong>
+              <span class="muted">{{ d.telephone }}</span>
+            </span>
+          </label>
+        } @empty {
+          <p>Aucun destinataire actif avec téléphone.</p>
+        }
+      </div>
+    } @else {
+      <div class="select-list">
+        @for (u of utilisateurs(); track u.id) {
+          <label class="select-item" [class.select-item--disabled]="!u.telephone">
+            <input
+              type="checkbox"
+              [disabled]="!u.telephone"
+              [checked]="isUserSelected(u.id)"
+              (change)="toggleUser(u)"
+            />
+            <span>
+              <strong>{{ u.prenom }} {{ u.nom }}</strong>
+              <span class="muted">{{ u.login }}</span>
+              @if (u.telephone) {
+                <span class="muted">{{ u.telephone }}</span>
+              } @else {
+                <span class="badge badge--warn">sans n°</span>
+              }
+            </span>
+          </label>
+        } @empty {
+          <p>Aucun utilisateur.</p>
+        }
+      </div>
+    }
+
+    <div class="actions">
+      <button
+        type="button"
+        class="sir-btn sir-btn--primary"
+        [disabled]="!canSend() || saving()"
+        (click)="submit()"
+      >
+        {{ saving() ? 'Envoi…' : 'Envoyer' }}
+      </button>
+    </div>
+  </div>
+</section>

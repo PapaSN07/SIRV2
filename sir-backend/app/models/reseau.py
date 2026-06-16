@@ -32,7 +32,7 @@ class Feeder(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     poste_source_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("postes_sources.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("postes_sources.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     service_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("services.id", ondelete="SET NULL"), nullable=True, index=True
@@ -60,7 +60,7 @@ class SousFeeder(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     feeder_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("feeders.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("feeders.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     code: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, unique=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(200), nullable=False)

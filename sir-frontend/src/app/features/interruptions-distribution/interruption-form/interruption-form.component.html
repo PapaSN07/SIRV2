@@ -1,0 +1,205 @@
+<section class="interruption-form-page">
+  <sir-page-header
+    [title]="isEditMode() ? 'Modifier l\'interruption' : 'Formulaire de saisie d\'interruption'"
+    [breadcrumbs]="breadcrumbs()"
+  >
+    <div actions>
+      <a class="sir-btn sir-btn--outline-primary" routerLink="/interruptions/distribution">
+        Annuler
+      </a>
+      <button
+        type="button"
+        class="sir-btn sir-btn--primary"
+        [disabled]="form.invalid || saving()"
+        (click)="submit()"
+      >
+        @if (saving()) {
+          <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
+        } @else {
+          <span class="material-symbols-outlined" aria-hidden="true">send</span>
+        }
+        {{ isEditMode() ? 'Enregistrer' : 'Soumettre' }}
+      </button>
+    </div>
+  </sir-page-header>
+
+  @if (loadingRef()) {
+    <div class="form-page__loading">
+      <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
+      <p>Chargement…</p>
+    </div>
+  } @else {
+    <form class="form-bento" [formGroup]="form" (ngSubmit)="submit()">
+      <section class="form-card form-card--half">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">lan</span>
+          <h2>Identification réseau</h2>
+        </header>
+        <div class="form-card__body">
+          <div class="field">
+            <label class="field__label" for="region">Région</label>
+            <select
+              id="region"
+              class="field__select"
+              [value]="regionId() ?? ''"
+              (change)="onRegionChange($any($event.target).value)"
+              [disabled]="isEditMode()"
+            >
+              <option value="">Sélectionner une région</option>
+              @for (r of regions(); track r.id) {
+                <option [value]="r.id">{{ r.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field__label" for="feeder">Feeder</label>
+              <select id="feeder" class="field__select" formControlName="feeder_id" [disabled]="isEditMode()">
+                <option [ngValue]="0">Sélectionner</option>
+                @for (f of feeders(); track f.id) {
+                  <option [ngValue]="f.id">{{ f.libelle }} ({{ f.code }})</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="localisation">Localisation</label>
+              <input id="localisation" class="field__select" type="text" formControlName="localisation" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--half">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+          <h2>Chronologie</h2>
+        </header>
+        <div class="form-card__body">
+          <div class="field field--inline">
+            <label class="field__label" for="date-apparition">Apparition</label>
+            <input
+              id="date-apparition"
+              class="field__select"
+              type="datetime-local"
+              formControlName="date_apparition"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--wide">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">category</span>
+          <h2>Classification</h2>
+        </header>
+        <div class="form-card__body form-card__body--grid">
+          <div class="field">
+            <span class="field__label">Nature de l'interruption</span>
+            <div class="radio-group">
+              <label class="radio-group__item">
+                <input type="radio" formControlName="is_programme" [value]="false" />
+                Accidentelle
+              </label>
+              <label class="radio-group__item">
+                <input type="radio" formControlName="is_programme" [value]="true" />
+                Programmée
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="cause">Cause</label>
+            <select id="cause" class="field__select" formControlName="cause_id">
+              <option [ngValue]="0">Sélectionner la cause</option>
+              @for (c of causes(); track c.id) {
+                <option [ngValue]="c.id">{{ c.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="nature">Nature</label>
+            <select id="nature" class="field__select" formControlName="nature_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (n of natures(); track n.id) {
+                <option [ngValue]="n.id">{{ n.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="siege">Siège</label>
+            <select id="siege" class="field__select" formControlName="siege_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (s of sieges(); track s.id) {
+                <option [ngValue]="s.id">{{ s.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="signalisation">Signalisation</label>
+            <select id="signalisation" class="field__select" formControlName="signalisation_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (s of signalisations(); track s.id) {
+                <option [ngValue]="s.id">{{ s.libelle }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--impact">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">calculate</span>
+          <h2>Calcul d'impact</h2>
+        </header>
+        <div class="form-card__body">
+          <div class="impact-box">
+            <label class="field__label" for="puissance">Puissance coupée (MW)</label>
+            <input
+              id="puissance"
+              class="field__select"
+              type="number"
+              min="0"
+              step="0.1"
+              formControlName="puissance_coupee_mw"
+            />
+          </div>
+          <div class="impact-display">
+            <div class="impact-display__item">
+              <span class="impact-display__label">Puissance saisie</span>
+              <span class="impact-display__value">
+                {{ form.value.puissance_coupee_mw ?? '—' }}
+                <small>MW</small>
+              </span>
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-row__item">
+              <input type="checkbox" formControlName="is_force_majeure" />
+              Force majeure
+            </label>
+            <label class="checkbox-row__item">
+              <input type="checkbox" formControlName="is_fugitive" />
+              Fugitive
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-card form-card--full">
+        <header class="form-card__head">
+          <span class="material-symbols-outlined" aria-hidden="true">notes</span>
+          <h2>Observations</h2>
+        </header>
+        <textarea
+          class="form-textarea"
+          rows="5"
+          formControlName="observations"
+          placeholder="Décrire les circonstances, les actions entreprises…"
+        ></textarea>
+      </section>
+
+      @if (error()) {
+        <p class="form-page__error" role="alert">{{ error() }}</p>
+      }
+    </form>
+  }
+</section>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SIR Senelec - Interruption Transport</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "error": "#ba1a1a",
+                "outline": "#727781",
+                "on-primary": "#ffffff",
+                "tertiary-fixed": "#ffdbc8",
+                "error-container": "#ffdad6",
+                "surface-container-high": "#e2e9f1",
+                "inverse-primary": "#a2c9ff",
+                "surface-container": "#e8eef7",
+                "on-surface": "#151c22",
+                "on-secondary-fixed": "#191c1d",
+                "primary-fixed": "#d3e4ff",
+                "surface-container-low": "#eef4fd",
+                "primary-container": "#005596",
+                "on-secondary-fixed-variant": "#454748",
+                "on-tertiary-fixed": "#321300",
+                "tertiary-container": "#873f01",
+                "inverse-on-surface": "#ebf1fa",
+                "secondary-fixed-dim": "#c5c7c8",
+                "on-tertiary": "#ffffff",
+                "surface-container-lowest": "#ffffff",
+                "on-secondary-container": "#626566",
+                "secondary-fixed": "#e1e3e4",
+                "on-primary-fixed": "#001c38",
+                "on-secondary": "#ffffff",
+                "surface-bright": "#f6f9ff",
+                "surface-dim": "#d4dbe3",
+                "on-primary-container": "#a4caff",
+                "tertiary-fixed-dim": "#ffb68a",
+                "outline-variant": "#c1c7d2",
+                "on-error-container": "#93000a",
+                "inverse-surface": "#2a3138",
+                "primary-fixed-dim": "#a2c9ff",
+                "on-tertiary-fixed-variant": "#743500",
+                "background": "#f6f9ff",
+                "surface-variant": "#dce3ec",
+                "on-tertiary-container": "#ffb88c",
+                "on-primary-fixed-variant": "#004881",
+                "primary": "#003e6f",
+                "tertiary": "#642d00",
+                "on-surface-variant": "#414750",
+                "secondary-container": "#e1e3e4",
+                "on-background": "#151c22",
+                "secondary": "#5c5f60",
+                "on-error": "#ffffff",
+                "surface-container-highest": "#dce3ec",
+                "surface-tint": "#1b60a2",
+                "surface": "#f6f9ff"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "spacing": {
+                "stack-md": "1rem",
+                "container-padding": "1.5rem",
+                "gutter-grid": "1rem",
+                "stack-sm": "0.5rem",
+                "stack-lg": "1.5rem",
+                "unit": "4px"
+            },
+            "fontFamily": {
+                "headline-sm": ["Inter"],
+                "code-sm": ["Inter"],
+                "display-sm": ["Inter"],
+                "headline-md": ["Inter"],
+                "label-md": ["Inter"],
+                "body-sm": ["Inter"],
+                "body-md": ["Inter"]
+            },
+            "fontSize": {
+                "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f6f9ff; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .form-section-card { background: white; border: 1px solid #E9ECEF; border-radius: 0.25rem; }
+        .p-input-text { width: 100%; padding: 0.5rem; border: 1px solid #727781; border-radius: 0.125rem; font-size: 14px; }
+        .p-input-text:focus { outline: 2px solid #003e6f; border-color: transparent; }
+        .grid-header { background-color: #F1F3F5; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c7d2; border-radius: 10px; }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- Side Navigation Bar -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low border-r border-outline-variant flex flex-col py-stack-lg z-50">
+<div class="px-6 mb-8">
+<h1 class="font-display-sm text-display-sm font-bold text-primary">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Network Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 border-l-4 border-primary bg-primary/10 text-primary font-bold transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="flex items-center gap-3 p-3 rounded-lg hover:bg-surface-container-high transition-colors">
+<img alt="Senelec Logo" class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvLGG_E_uh9uRdjhv_sWkAET4U-hnH_NBsJZl34fYxVpixy2_vKrbvVCJ5PNmEdNOA2gA-fCqpIhu8teMA4d6eU71P8m_J4DooZv9dvwBzfsZOn9lwe-kUahWScU_uOwQ0crskro6mJ79yzJMf0a7hE5uYehkvCbIV9km35bF4j0xcqjWooRVZmNStXMa2tsZ6_kkJen9dKWtXO63eifPEOTf2b2Bcxd5KBu5f50QMxe7tz5g3GinL3KKeB6GyIzA5nsjuFbVq_Gdt"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface font-bold">Direction Transport</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Maintenance Grid</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md flex-1">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container text-body-md border-none rounded focus:ring-2 focus:ring-primary" placeholder="Rechercher une interruption ou un poste..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-opacity">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-opacity">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right">
+<p class="font-label-md text-label-md text-on-surface font-bold">Ibrahima Fall</p>
+<p class="text-[10px] text-on-surface-variant">Chef d'Unité Transport</p>
+</div>
+<img alt="User Avatar" class="w-8 h-8 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAY-uIpG-VI2jzZbomTqEdccg2Ddmc9Nmke7N9PtDkNNmAdISznxuBc_tFN3J0KAU4wmgk1mRhHTYzoOPlF6ZHabuCVLbMHk4BliSH_q_UWLBjWzurwr-tZAmlvl0tRxVKLAZVIkbJyYbintqpB-O7MeKc7XtZR-t0PqNHhcjUmsQTfguaryq3W9sHSZI57aYaGrXTyRZtC9cdlc6piZjYlgmsRgZ6lBV5fBUSvPWd4qfMY-R9iVyE8vZSzQOy2Y-rH19M22_s7jjt7"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-[260px] pt-16 min-h-screen p-container-padding">
+<!-- Breadcrumbs & Actions -->
+<div class="flex justify-between items-end mb-stack-lg">
+<div>
+<nav class="flex items-center gap-2 text-on-surface-variant font-label-md text-[11px] uppercase mb-1">
+<span>Interruptions</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span>Saisie Transport</span>
+</nav>
+<h2 class="font-display-sm text-display-sm text-primary font-bold">Nouvelle Interruption (Réseau Transport)</h2>
+</div>
+<div class="flex gap-stack-sm">
+<button class="px-stack-lg py-2 border border-primary text-primary font-label-md rounded flex items-center gap-2 hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-sm">save</span>
+                    Brouillon
+                </button>
+<button class="px-stack-lg py-2 bg-primary text-white font-label-md rounded flex items-center gap-2 hover:brightness-110 transition-all shadow-sm">
+<span class="material-symbols-outlined text-sm">send</span>
+                    Soumettre pour Validation
+                </button>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-gutter-grid pb-20">
+<!-- Left Column: Form Sections -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter-grid">
+<!-- Identification Réseau -->
+<section class="form-section-card p-stack-lg">
+<div class="flex items-center gap-2 mb-stack-md pb-2 border-b border-outline-variant/30">
+<span class="material-symbols-outlined text-primary">lan</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-wide">Identification Réseau</h3>
+</div>
+<div class="grid grid-cols-2 gap-stack-md">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Région Transport</label>
+<select class="p-input-text bg-surface-container-low border-outline-variant">
+<option>Dakar Transport</option>
+<option>Saint-Louis Transport</option>
+<option>Kaolack Transport</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Tension Nominale (kV)</label>
+<div class="flex">
+<input class="p-input-text rounded-r-none border-r-0" type="number" value="225"/>
+<span class="bg-surface-container-high border border-outline border-l-0 px-3 flex items-center font-label-md text-on-surface-variant">kV</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bloc Transport (Specific for Transport Screen) -->
+<section class="form-section-card p-stack-lg border-primary/30 bg-primary/[0.02]">
+<div class="flex items-center gap-2 mb-stack-md pb-2 border-b border-outline-variant/30">
+<span class="material-symbols-outlined text-primary">bolt</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-wide">Bloc Transport - Spécifications</h3>
+</div>
+<div class="grid grid-cols-2 gap-stack-md">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Équipement</label>
+<select class="p-input-text border-primary/40 focus:ring-primary">
+<option>Transformateur de Puissance</option>
+<option>Disjoncteur</option>
+<option>Sectionneur de Ligne</option>
+<option>Auto-Transformateur</option>
+<option>Réactance de Shunt</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Source Équipement</label>
+<input class="p-input-text border-primary/40" placeholder="Ex: Fabricant / Marque" type="text"/>
+</div>
+<div class="col-span-2 space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Poste-Ligne</label>
+<input class="p-input-text border-primary/40" placeholder="Ex: TOUBA - KAOLACK (Ligne 225kV)" type="text"/>
+</div>
+<div class="col-span-2 py-2">
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="relative">
+<input class="peer hidden" type="checkbox"/>
+<div class="w-5 h-5 border-2 border-primary rounded bg-white peer-checked:bg-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[16px] hidden peer-checked:block">check</span>
+</div>
+</div>
+<span class="font-label-md text-label-md text-primary font-bold">Défaut Ligne (Urgence Signalée)</span>
+</label>
+</div>
+</div>
+</section>
+<!-- Chronologie & Classification -->
+<div class="grid grid-cols-2 gap-gutter-grid">
+<section class="form-section-card p-stack-lg">
+<div class="flex items-center gap-2 mb-stack-md pb-2 border-b border-outline-variant/30">
+<span class="material-symbols-outlined text-primary">schedule</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-wide">Chronologie</h3>
+</div>
+<div class="space-y-stack-sm">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Heure de Début</label>
+<input class="p-input-text" type="datetime-local"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Heure de Fin (Prévue)</label>
+<input class="p-input-text" type="datetime-local"/>
+</div>
+</div>
+</section>
+<section class="form-section-card p-stack-lg">
+<div class="flex items-center gap-2 mb-stack-md pb-2 border-b border-outline-variant/30">
+<span class="material-symbols-outlined text-primary">category</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-wide">Classification</h3>
+</div>
+<div class="space-y-stack-sm">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Nature</label>
+<select class="p-input-text">
+<option>Incident Fortuit</option>
+<option>Maintenance Programmée</option>
+<option>Travaux Tiers</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Origine</label>
+<select class="p-input-text">
+<option>Interne Senelec</option>
+<option>OMVS / Manantali</option>
+<option>Producteur Indépendant (IPP)</option>
+</select>
+</div>
+</div>
+</section>
+</div>
+<!-- Impact & Coûts -->
+<section class="form-section-card p-stack-lg">
+<div class="flex items-center gap-2 mb-stack-md pb-2 border-b border-outline-variant/30">
+<span class="material-symbols-outlined text-primary">analytics</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-wide">Impact &amp; Coûts</h3>
+</div>
+<div class="grid grid-cols-2 gap-stack-md">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Puissance Coupée (MW)</label>
+<div class="flex">
+<input class="p-input-text rounded-r-none border-r-0 text-right" placeholder="0.00" type="number"/>
+<span class="bg-surface-container-high border border-outline border-l-0 px-3 flex items-center font-label-md text-on-surface-variant">MW</span>
+</div>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Énergie Non Distribuée (MWh)</label>
+<div class="flex">
+<input class="p-input-text rounded-r-none border-r-0 text-right" placeholder="0.00" type="number"/>
+<span class="bg-surface-container-high border border-outline border-l-0 px-3 flex items-center font-label-md text-on-surface-variant">MWh</span>
+</div>
+</div>
+<div class="col-span-2 space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant block">Estimation Coût Réparation (XOF)</label>
+<div class="flex">
+<input class="p-input-text rounded-r-none border-r-0 text-right" placeholder="0" type="number"/>
+<span class="bg-surface-container-high border border-outline border-l-0 px-3 flex items-center font-label-md text-on-surface-variant font-bold">XOF</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Observations -->
+<section class="form-section-card p-stack-lg">
+<div class="flex items-center gap-2 mb-stack-md pb-2 border-b border-outline-variant/30">
+<span class="material-symbols-outlined text-primary">notes</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-wide">Observations &amp; Détails</h3>
+</div>
+<textarea class="p-input-text h-32 resize-none" placeholder="Décrire les causes suspectées, les actions entreprises et les pièces remplacées..."></textarea>
+</section>
+</div>
+<!-- Right Column: Approval & Summary -->
+<div class="col-span-12 lg:col-span-4 space-y-gutter-grid">
+<!-- Validation Chef d'Unité -->
+<section class="form-section-card overflow-hidden">
+<div class="bg-primary p-stack-md text-white">
+<h3 class="font-headline-sm text-headline-sm flex items-center gap-2">
+<span class="material-symbols-outlined">verified_user</span>
+                            Validation Chef d'Unité
+                        </h3>
+</div>
+<div class="p-stack-lg space-y-stack-md">
+<p class="text-body-sm text-on-surface-variant italic">L'approbation numérique certifie l'exactitude des données de transport transmises au dispatching.</p>
+<div class="border-2 border-dashed border-outline-variant rounded-lg p-6 flex flex-col items-center justify-center bg-surface-container-lowest h-40 group hover:border-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-4xl text-outline-variant group-hover:text-primary mb-2">signature</span>
+<p class="font-label-md text-label-md text-on-surface-variant group-hover:text-primary">Signer &amp; Approuver</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-body-sm">Statut :</span>
+<span class="px-2 py-1 bg-warning/10 text-orange-700 text-[10px] font-bold rounded uppercase">En attente de signature</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm">Intervenant :</span>
+<span class="font-label-md">I. Fall</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Information Grid Density Context -->
+<section class="form-section-card p-stack-lg bg-surface-container-low/50">
+<h4 class="font-label-md text-label-md text-on-surface font-bold mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">info</span>
+                        Aide à la Saisie
+                    </h4>
+<ul class="space-y-2 text-body-sm text-on-surface-variant">
+<li class="flex gap-2">
+<span class="text-primary font-bold">•</span>
+                            Pour tout défaut ligne &gt; 90kV, joindre le rapport d'incident.
+                        </li>
+<li class="flex gap-2">
+<span class="text-primary font-bold">•</span>
+                            Les codes équipements sont synchronisés avec SAP PM.
+                        </li>
+</ul>
+<div class="mt-stack-lg border rounded overflow-hidden">
+<table class="w-full text-left text-[11px]">
+<thead class="bg-surface-container-high font-bold border-b">
+<tr>
+<th class="p-2">Indicateur</th>
+<th class="p-2 text-right">Valeur</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b">
+<td class="p-2">Dispo. Poste</td>
+<td class="p-2 text-right text-success-600 font-bold">98.2%</td>
+</tr>
+<tr>
+<td class="p-2">Alertes Ligne</td>
+<td class="p-2 text-right text-error font-bold">02 Active</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Visualization Context -->
+<div class="rounded-lg overflow-hidden border border-outline-variant/50 h-48 relative group">
+<img class="w-full h-full object-cover" data-alt="A detailed technical schematic diagram of an electrical substation network on a professional digital interface. The diagram shows various busbars, transformers, and circuit breakers interconnected with precise technical symbols. The styling is minimalist with a light-mode color palette using blues and grays, representing a sophisticated monitoring system for a utility company like Senelec." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALbz-k2AaItgZ1nmeL0vbLHtEigQ1FFGLOFZK2dOGwmZ9Myq734fy1htXOIRoLstCwaoLyuqHciEYagdJ_-PBRAOxhQxHQmIwCSW-0jl_zhTQ995zIzZJK5v-YbR_Yp7f3zGzptcl5tOsShw30K44vZ_AgV68zc0-_wYbMTxK7lWoyQCcChRycFkC9n7NNOOdlsnPyntKxVBhoJ25E71uLpjvPTowBtbsRE1kbYITWpCEeUGZgHEoOS8qYqyEnhA53PYNo-kxiNnVE"/>
+<div class="absolute inset-0 bg-primary/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-white text-primary px-4 py-2 rounded shadow font-label-md flex items-center gap-2">
+<span class="material-symbols-outlined">zoom_in</span>
+                            Voir Schéma Unifilaire
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Floating Action Button - Only for Create -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-on-primary-container rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-3xl">help_center</span>
+</button>
+<script>
+        // Micro-interactions and simulation logic
+        document.querySelectorAll('.p-input-text').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.parentElement.classList.add('border-primary/20');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.parentElement.classList.remove('border-primary/20');
+            });
+        });
+
+        // Toggle checkbox interaction
+        const checkboxWrappers = document.querySelectorAll('.cursor-pointer');
+        checkboxWrappers.forEach(wrap => {
+            wrap.addEventListener('click', () => {
+                const cb = wrap.querySelector('input[type="checkbox"]');
+                cb.checked = !cb.checked;
+            });
+        });
+    </script>
+</body></html>

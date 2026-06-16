@@ -1,0 +1,134 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.rapports-hub {
+  max-width: 960px;
+  margin: 0 auto;
+
+  &__error {
+    margin: 0.75rem 0 0;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    background: #ffdad6;
+    color: #93000a;
+    font-size: 13px;
+  }
+
+  &__spinner {
+    animation: rapports-spin 1s linear infinite;
+  }
+}
+
+.rapports-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1.5rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rapports-types {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  padding: 1rem;
+
+  h2 {
+    margin: 0 0 0.75rem;
+    font-size: 14px;
+    font-weight: 600;
+    color: $primary;
+  }
+
+  &__btn {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    background: $surface-container-low;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+
+    &--active {
+      border-color: $primary;
+      background: rgba($primary, 0.08);
+      color: $primary;
+      font-weight: 600;
+    }
+  }
+}
+
+.rapports-form {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+
+  h2 {
+    margin: 0 0 1rem;
+    font-size: 16px;
+    font-weight: 600;
+  }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__select {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    font-family: inherit;
+    font-size: 14px;
+  }
+}
+
+.rapports-status {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.25rem;
+  background: $surface-container-low;
+  border: 1px solid $outline-variant;
+
+  h3 {
+    margin: 0 0 0.75rem;
+    font-size: 14px;
+  }
+
+  p {
+    margin: 0.25rem 0;
+    font-size: 13px;
+  }
+}
+
+@keyframes rapports-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

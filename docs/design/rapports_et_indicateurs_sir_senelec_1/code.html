@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+
+<html class="light" lang="fr"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tableau de Bord des Rapports et Indicateurs - SIR Senelec</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1rem;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #E9ECEF;
+        }
+        /* Custom scrollbar for data tables */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dce3ec; border-radius: 10px; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#f6f9ff",
+                        "secondary-fixed-dim": "#c5c7c8",
+                        "on-tertiary-container": "#ffb88c",
+                        "on-error": "#ffffff",
+                        "tertiary": "#642d00",
+                        "on-primary-fixed-variant": "#004881",
+                        "on-tertiary-fixed-variant": "#743500",
+                        "on-secondary-fixed-variant": "#454748",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "outline": "#727781",
+                        "primary-fixed": "#d3e4ff",
+                        "on-primary-container": "#a4caff",
+                        "primary": "#003e6f",
+                        "inverse-primary": "#a2c9ff",
+                        "secondary-fixed": "#e1e3e4",
+                        "on-surface": "#151c22",
+                        "tertiary-container": "#873f01",
+                        "primary-fixed-dim": "#a2c9ff",
+                        "on-secondary-fixed": "#191c1d",
+                        "inverse-surface": "#2a3138",
+                        "surface-variant": "#dce3ec",
+                        "surface-dim": "#d4dbe3",
+                        "outline-variant": "#c1c7d2",
+                        "on-background": "#151c22",
+                        "on-surface-variant": "#414750",
+                        "inverse-on-surface": "#ebf1fa",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb68a",
+                        "surface-bright": "#f6f9ff",
+                        "tertiary-fixed": "#ffdbc8",
+                        "surface": "#f6f9ff",
+                        "on-tertiary-fixed": "#321300",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e2e9f1",
+                        "surface-tint": "#1b60a2",
+                        "secondary": "#5c5f60",
+                        "on-secondary-container": "#626566",
+                        "surface-container-highest": "#dce3ec",
+                        "primary-container": "#005596",
+                        "surface-container": "#e8eef7",
+                        "surface-container-low": "#eef4fd",
+                        "secondary-container": "#e1e3e4",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#001c38",
+                        "on-primary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "stack-sm": "0.5rem",
+                        "container-padding": "1.5rem",
+                        "stack-lg": "1.5rem",
+                        "stack-md": "1rem",
+                        "gutter-grid": "1rem"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-sm": ["Inter"],
+                        "code-sm": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "display-sm": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "code-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background overflow-x-hidden">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant dark:border-outline flex flex-col py-stack-lg z-50" id="sidebar">
+<div class="px-container-padding mb-stack-lg">
+<h1 class="font-display-sm text-display-sm font-bold text-primary dark:text-inverse-primary">SIR Senelec</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Network Management</p>
+</div>
+<nav class="flex-grow">
+<ul class="space-y-1">
+<li class="px-stack-md">
+<a class="flex items-center gap-stack-md p-stack-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+</li>
+<li class="px-stack-md">
+<a class="flex items-center gap-stack-md p-stack-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-label-md text-label-md">Interruptions</span>
+</a>
+</li>
+<li class="px-stack-md">
+<a class="flex items-center gap-stack-md p-stack-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">Workflow</span>
+</a>
+</li>
+<li class="px-stack-md">
+<a class="flex items-center gap-stack-md p-stack-sm rounded-lg border-l-4 border-primary bg-primary/10 text-primary font-bold transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-label-md text-label-md">Reports</span>
+</a>
+</li>
+<li class="px-stack-md">
+<a class="flex items-center gap-stack-md p-stack-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Admin</span>
+</a>
+</li>
+<li class="px-stack-md">
+<a class="flex items-center gap-stack-md p-stack-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 cursor-pointer active:scale-95" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">User Management</span>
+</a>
+</li>
+</ul>
+</nav>
+<div class="mt-auto px-container-padding">
+<div class="flex items-center gap-stack-md p-stack-sm bg-surface-container-high rounded-lg">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-white font-bold">JD</div>
+<div>
+<p class="font-label-md text-label-md font-bold text-on-surface">Jean Dupont</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Responsable Réseau</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Top Bar -->
+<header class="fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-container-padding z-40">
+<div class="flex items-center gap-stack-md">
+<div class="relative group">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-outline group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</span>
+<input class="bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 w-64 text-body-md focus:ring-2 focus:ring-primary-container" placeholder="Rechercher un rapport..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 hover:bg-surface-container-high rounded-full relative transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md hover:brightness-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+                Générer Rapport PDF
+            </button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-[260px] pt-20 p-container-padding min-h-screen">
+<!-- Dashboard Header & Filters -->
+<section class="mb-stack-lg">
+<div class="flex justify-between items-end mb-stack-md">
+<div>
+<h2 class="font-display-sm text-display-sm text-primary">Rapports et Indicateurs</h2>
+<p class="font-body-md text-on-surface-variant">Aperçu analytique de la performance du réseau électrique.</p>
+</div>
+<div class="flex items-center gap-2 text-label-md text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">schedule</span>
+                    Dernière mise à jour: Aujourd'hui, 10:45
+                </div>
+</div>
+<!-- Filter Toolbar -->
+<div class="flex flex-wrap items-center gap-stack-md p-stack-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+<div class="flex flex-col min-w-[140px]">
+<label class="font-label-md text-on-surface-variant mb-1">Période</label>
+<select class="bg-surface-container text-body-sm border-none rounded-lg p-2 focus:ring-1 focus:ring-primary">
+<option>Octobre 2023</option>
+<option>Septembre 2023</option>
+<option>Août 2023</option>
+</select>
+</div>
+<div class="flex flex-col min-w-[140px]">
+<label class="font-label-md text-on-surface-variant mb-1">Région</label>
+<select class="bg-surface-container text-body-sm border-none rounded-lg p-2 focus:ring-1 focus:ring-primary">
+<option>Toutes les Régions</option>
+<option>Dakar</option>
+<option>Thiès</option>
+<option>Saint-Louis</option>
+</select>
+</div>
+<div class="flex flex-col min-w-[140px]">
+<label class="font-label-md text-on-surface-variant mb-1">Niveau de Tension</label>
+<select class="bg-surface-container text-body-sm border-none rounded-lg p-2 focus:ring-1 focus:ring-primary">
+<option>Tous niveaux</option>
+<option>HTA</option>
+<option>BT</option>
+<option>HTB</option>
+</select>
+</div>
+<div class="flex flex-col min-w-[140px]">
+<label class="font-label-md text-on-surface-variant mb-1">Domaine</label>
+<select class="bg-surface-container text-body-sm border-none rounded-lg p-2 focus:ring-1 focus:ring-primary">
+<option>Global</option>
+<option>Exploitation</option>
+<option>Maintenance</option>
+</select>
+</div>
+<div class="flex items-center gap-2 mt-auto pb-1 ml-auto">
+<button class="px-4 py-2 text-primary font-label-md border border-primary/20 rounded-lg hover:bg-primary/5">Réinitialiser</button>
+<button class="px-4 py-2 bg-primary-container text-white font-label-md rounded-lg hover:brightness-110">Appliquer</button>
+</div>
+</div>
+</section>
+<!-- Key Metrics Bento Grid -->
+<section class="bento-grid mb-stack-lg">
+<!-- SAIDI -->
+<div class="col-span-12 md:col-span-3 glass-card p-stack-md rounded-xl border-l-4 border-primary">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-on-surface-variant">SAIDI (Durée)</span>
+<span class="material-symbols-outlined text-primary">timer</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-sm text-display-sm text-on-surface">124.5</span>
+<span class="text-label-md text-on-surface-variant">min/an</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-error">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="text-label-md">+5.2% vs cible</span>
+</div>
+</div>
+<!-- SAIFI -->
+<div class="col-span-12 md:col-span-3 glass-card p-stack-md rounded-xl border-l-4 border-tertiary-container">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-on-surface-variant">SAIFI (Fréquence)</span>
+<span class="material-symbols-outlined text-tertiary-container">analytics</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-sm text-display-sm text-on-surface">8.12</span>
+<span class="text-label-md">interr/an</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">trending_down</span>
+<span class="text-label-md">-2.1% vs cible</span>
+</div>
+</div>
+<!-- END -->
+<div class="col-span-12 md:col-span-3 glass-card p-stack-md rounded-xl border-l-4 border-error">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-on-surface-variant">END (Energie Non Dist.)</span>
+<span class="material-symbols-outlined text-error">bolt</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-sm text-display-sm text-on-surface">45.8</span>
+<span class="text-label-md">MWh</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-error">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+<span class="text-label-md">+12.4% vs cible</span>
+</div>
+</div>
+<!-- Availability Rate -->
+<div class="col-span-12 md:col-span-3 glass-card p-stack-md rounded-xl border-l-4 border-primary-fixed-dim">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-on-surface-variant">Taux de Disponibilité</span>
+<span class="material-symbols-outlined text-primary-fixed-dim">check_circle</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-sm text-display-sm text-on-surface">99.82</span>
+<span class="text-label-md">%</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="text-label-md">+0.05% vs cible</span>
+</div>
+</div>
+</section>
+<!-- Charts Section -->
+<section class="grid grid-cols-12 gap-gutter-grid mb-stack-lg">
+<!-- 12-Month Evolution -->
+<div class="col-span-12 lg:col-span-8 glass-card p-stack-md rounded-xl">
+<div class="flex justify-between items-center mb-stack-md">
+<h3 class="font-headline-sm text-headline-sm text-primary">Évolution SAIFI/SAIDI (12 mois)</h3>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded-full bg-primary"></span>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant">SAIDI</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded-full bg-tertiary-container"></span>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant">SAIFI</span>
+</div>
+</div>
+</div>
+<div class="h-[300px] w-full flex items-end justify-between gap-1 px-2 relative">
+<!-- Placeholder for Chart -->
+<div class="absolute inset-x-0 top-0 h-[1px] bg-outline-variant/30"></div>
+<div class="absolute inset-x-0 top-1/4 h-[1px] bg-outline-variant/10"></div>
+<div class="absolute inset-x-0 top-2/4 h-[1px] bg-outline-variant/10"></div>
+<div class="absolute inset-x-0 top-3/4 h-[1px] bg-outline-variant/10"></div>
+<!-- Dummy bars to represent chart -->
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[60%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[40%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Nov</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[55%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[35%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Dec</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[70%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[45%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Jan</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[50%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[30%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Fev</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[45%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[25%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Mar</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[65%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[42%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Avr</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[80%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[55%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Mai</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[55%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[35%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Juin</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[40%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[20%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Juil</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[35%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[15%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Aou</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[50%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[30%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Sep</span>
+</div>
+<div class="flex-grow flex flex-col items-center justify-end gap-1">
+<div class="w-4 bg-primary rounded-t-sm h-[65%]"></div>
+<div class="w-4 bg-tertiary-container rounded-t-sm h-[40%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Oct</span>
+</div>
+</div>
+</div>
+<!-- Performance Map -->
+<div class="col-span-12 lg:col-span-4 glass-card p-stack-md rounded-xl">
+<div class="flex justify-between items-center mb-stack-md">
+<h3 class="font-headline-sm text-headline-sm text-primary">Carte de Performance</h3>
+<span class="material-symbols-outlined text-outline">map</span>
+</div>
+<div class="h-[300px] w-full rounded-lg bg-surface-container flex items-center justify-center relative overflow-hidden group">
+<img class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="A detailed digital map of Senegal with colorful heat-map overlays indicating electrical grid performance across different administrative regions. The visualization uses a professional corporate blue aesthetic with glowing hotspots in green, yellow, and red to represent varying levels of reliability and efficiency. The lighting is crisp and clear, highlighting the geographic data with high contrast and modern data visualization techniques." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDn4ftEMG11Yv2k5gfKT8-Rk-gVEGhZM9op2gTOoRjj90FXxld7LP4dVpvAnWP5Nfr69beGHcnkyOhpp02bX4uB4sTdjBxQ3ZUx8etfQ-qAKyGuEVkpmg83nGJ2wfRr38kBYm7F60K-GdytxZYTXRDxucAgOincHSTqI3JJKJGrZDxjYmectf3RdAOdG_qpsqjCEjJbdqUMa-AuxfUlWZ1lfb6CY_O0JZ4ZBFO4NW7hRv3WdkbY-PkcC7rL7-IxewJWJsNt2qWfrCZD"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4 bg-white/90 p-3 rounded border border-outline-variant text-body-sm backdrop-blur-sm">
+<div class="flex justify-between items-center mb-2">
+<span class="font-bold">Zone la plus critique:</span>
+<span class="text-error font-bold">Dakar Sud</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-error w-3/4 h-full"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Comparative Performance Table -->
+<section class="glass-card rounded-xl overflow-hidden mb-stack-lg shadow-sm">
+<div class="p-stack-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-headline-sm text-headline-sm text-primary">Comparatif des Indicateurs de Performance</h3>
+<div class="flex gap-2">
+<button class="p-2 text-outline hover:text-primary transition-colors"><span class="material-symbols-outlined">filter_list</span></button>
+<button class="p-2 text-outline hover:text-primary transition-colors"><span class="material-symbols-outlined">file_download</span></button>
+</div>
+</div>
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-highest/30">
+<tr>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Indicateur</th>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Mois Actuel (Oct)</th>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Mois Précédent (Sep)</th>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Delta (M-1)</th>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Cible Annuelle</th>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Écart Cible</th>
+<th class="p-stack-md font-label-md text-on-surface-variant border-b border-outline-variant">Statut</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="p-stack-md font-body-md text-on-surface font-semibold">SAIDI (min)</td>
+<td class="p-stack-md font-body-md text-on-surface">10.4</td>
+<td class="p-stack-md font-body-md text-on-surface">9.8</td>
+<td class="p-stack-md font-body-md text-error flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> 6.1%
+                            </td>
+<td class="p-stack-md font-body-md text-on-surface">9.5</td>
+<td class="p-stack-md font-body-md text-error font-medium">+9.4%</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-error-container text-on-error-container uppercase tracking-wide">Critique</span>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="p-stack-md font-body-md text-on-surface font-semibold">SAIFI (freq)</td>
+<td class="p-stack-md font-body-md text-on-surface">0.68</td>
+<td class="p-stack-md font-body-md text-on-surface">0.72</td>
+<td class="p-stack-md font-body-md text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_down</span> 5.5%
+                            </td>
+<td class="p-stack-md font-body-md text-on-surface">0.70</td>
+<td class="p-stack-md font-body-md text-primary font-medium">-2.8%</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary-container text-white uppercase tracking-wide">Conforme</span>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="p-stack-md font-body-md text-on-surface font-semibold">END (MWh)</td>
+<td class="p-stack-md font-body-md text-on-surface">3.82</td>
+<td class="p-stack-md font-body-md text-on-surface">3.45</td>
+<td class="p-stack-md font-body-md text-error flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> 10.7%
+                            </td>
+<td class="p-stack-md font-body-md text-on-surface">3.50</td>
+<td class="p-stack-md font-body-md text-error font-medium">+9.1%</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-error-container text-on-error-container uppercase tracking-wide">Attention</span>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="p-stack-md font-body-md text-on-surface font-semibold">Taux Disponibilité (%)</td>
+<td class="p-stack-md font-body-md text-on-surface">99.85</td>
+<td class="p-stack-md font-body-md text-on-surface">99.82</td>
+<td class="p-stack-md font-body-md text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> 0.03%
+                            </td>
+<td class="p-stack-md font-body-md text-on-surface">99.80</td>
+<td class="p-stack-md font-body-md text-primary font-medium">+0.05%</td>
+<td class="p-stack-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary-container text-white uppercase tracking-wide">Excellent</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Regional Performance Detail (Bottom Row) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-stack-lg mb-stack-lg">
+<div class="p-stack-md border border-outline-variant rounded-xl bg-white flex flex-col">
+<span class="font-label-md text-on-surface-variant mb-4 uppercase">Top Performance Régionale</span>
+<div class="flex items-center gap-4 mb-stack-sm">
+<span class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-white font-bold text-headline-sm">1</span>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Saint-Louis</p>
+<p class="text-body-sm text-on-surface-variant">Disponibilité: 99.94%</p>
+</div>
+</div>
+<div class="mt-auto pt-stack-sm">
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[95%]"></div>
+</div>
+</div>
+</div>
+<div class="p-stack-md border border-outline-variant rounded-xl bg-white flex flex-col">
+<span class="font-label-md text-on-surface-variant mb-4 uppercase">Région en Progression</span>
+<div class="flex items-center gap-4 mb-stack-sm">
+<span class="w-10 h-10 rounded-lg bg-tertiary-container flex items-center justify-center text-white font-bold text-headline-sm">2</span>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Thiès</p>
+<p class="text-body-sm text-on-surface-variant">Amélioration SAIDI: -12%</p>
+</div>
+</div>
+<div class="mt-auto pt-stack-sm">
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-container w-[70%]"></div>
+</div>
+</div>
+</div>
+<div class="p-stack-md border border-outline-variant rounded-xl bg-white flex flex-col">
+<span class="font-label-md text-on-surface-variant mb-4 uppercase">Priorité Maintenance</span>
+<div class="flex items-center gap-4 mb-stack-sm">
+<span class="w-10 h-10 rounded-lg bg-error flex items-center justify-center text-white font-bold text-headline-sm">!</span>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Dakar Banlieue</p>
+<p class="text-body-sm text-on-surface-variant">Fréquence pannes élevée</p>
+</div>
+</div>
+<div class="mt-auto pt-stack-sm">
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-error w-[85%]"></div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Micro-interactions and simple state management
+        document.addEventListener('DOMContentLoaded', () => {
+            // Dropdown transitions
+            const dropdowns = document.querySelectorAll('select');
+            dropdowns.forEach(select => {
+                select.addEventListener('focus', () => {
+                    select.classList.add('shadow-md', 'scale-[1.01]');
+                });
+                select.addEventListener('blur', () => {
+                    select.classList.remove('shadow-md', 'scale-[1.01]');
+                });
+            });
+
+            // Report generation simulation
+            const reportBtn = document.querySelector('header button.bg-primary');
+            reportBtn.addEventListener('click', function() {
+                const originalText = this.innerHTML;
+                this.innerHTML = '<span class="material-symbols-outlined animate-spin">refresh</span> Génération...';
+                this.disabled = true;
+                this.classList.add('opacity-75');
+                
+                setTimeout(() => {
+                    this.innerHTML = '<span class="material-symbols-outlined">check</span> Terminé';
+                    this.classList.remove('bg-primary');
+                    this.classList.add('bg-green-600');
+                    
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                        this.disabled = false;
+                        this.classList.remove('opacity-75', 'bg-green-600');
+                        this.classList.add('bg-primary');
+                    }, 2000);
+                }, 1500);
+            });
+
+            // Navigation active state logic (simulated for static page)
+            const navItems = document.querySelectorAll('nav li a');
+            navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    navItems.forEach(i => {
+                        i.classList.remove('border-l-4', 'border-primary', 'bg-primary/10', 'text-primary', 'font-bold');
+                        i.classList.add('text-on-surface-variant');
+                    });
+                    item.classList.add('border-l-4', 'border-primary', 'bg-primary/10', 'text-primary', 'font-bold');
+                    item.classList.remove('text-on-surface-variant');
+                });
+            });
+        });
+    </script>
+</body></html>

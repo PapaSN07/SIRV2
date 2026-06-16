@@ -41,6 +41,7 @@ def _make_utilisateur(
     is_active: bool = True,
     premiere_connexion: bool = False,
     role_nom: str = "BCC",
+    scope_service_id: int | None = 1,
 ) -> Utilisateur:
     """Construit un Utilisateur sans session DB pour les tests unitaires."""
     role = Role()
@@ -54,7 +55,7 @@ def _make_utilisateur(
     ur.id = 1
     ur.utilisateur_id = user_id
     ur.role_id = 1
-    ur.scope_service_id = 1
+    ur.scope_service_id = scope_service_id
     ur.role = role
 
     user = Utilisateur()

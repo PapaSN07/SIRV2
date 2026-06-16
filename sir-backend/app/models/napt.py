@@ -4,6 +4,7 @@ from sqlalchemy import NVARCHAR, Boolean, CheckConstraint, DateTime, ForeignKey,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.defaults import MSSQL_NOW
 
 NAPT_STATUT_VALUES = ("brouillon", "soumis", "approuve", "rejete", "archive")
 CONSIGNATION_STATUT_VALUES = ("ouverte", "levee", "annulee")
@@ -17,10 +18,10 @@ class Napt(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     numero_napt: Mapped[str] = mapped_column(NVARCHAR(50), nullable=False, unique=True)
     service_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("services.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("services.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     feeder_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("feeders.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("feeders.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     statut: Mapped[str] = mapped_column(
         NVARCHAR(20), nullable=False, default="brouillon", index=True
@@ -45,18 +46,18 @@ class Napt(Base):
 
     # Audit trail
     created_by_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("utilisateurs.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     approved_by_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("utilisateurs.id", ondelete="RESTRICT"), nullable=True, index=True
+        Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
-        server_default=func.now(),
+        server_default=MSSQL_NOW,
         onupdate=func.now(),
     )
 
@@ -93,11 +94,11 @@ class Consignation(Base):
     date_ouverture: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     date_levee: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     agent_consignateur_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("utilisateurs.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     observations: Mapped[str | None] = mapped_column(NVARCHAR(2000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), nullable=False, server_default=func.now()
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
 
     __table_args__ = (

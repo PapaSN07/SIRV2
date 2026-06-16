@@ -1,0 +1,215 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Réseau distribution"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Administration' },
+      { label: 'Réseau distribution' },
+    ]"
+  >
+    @if (canWrite()) {
+      <div actions>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouvel élément
+        </button>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-admin-nav />
+
+  <div class="tabs">
+    <button
+      type="button"
+      class="tabs__btn"
+      [class.tabs__btn--active]="activeTab() === 'feeders'"
+      (click)="onTabChange('feeders')"
+    >
+      Feeders
+    </button>
+    <button
+      type="button"
+      class="tabs__btn"
+      [class.tabs__btn--active]="activeTab() === 'postes'"
+      (click)="onTabChange('postes')"
+    >
+      Postes
+    </button>
+  </div>
+
+  @if (formOpen()) {
+    <div class="form-panel">
+      <h2 class="form-panel__title">
+        {{ editingId() === null ? 'Créer' : 'Modifier' }}
+        {{ activeTab() === 'feeders' ? 'un feeder' : 'un poste' }}
+      </h2>
+      @if (activeTab() === 'feeders') {
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label">Code</label>
+            <input class="field__input" [ngModel]="feederForm().code" (ngModelChange)="patchFeederForm('code', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Libellé</label>
+            <input class="field__input" [ngModel]="feederForm().libelle" (ngModelChange)="patchFeederForm('libelle', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Poste source</label>
+            <select
+              class="field__select"
+              [ngModel]="feederForm().poste_source_id"
+              (ngModelChange)="patchFeederForm('poste_source_id', $event)"
+            >
+              <option value="">—</option>
+              @for (ps of postesSources(); track ps.id) {
+                <option [value]="ps.id">{{ ps.libelle }} ({{ ps.code }})</option>
+              }
+            </select>
+          </div>
+          @if (editingId() !== null) {
+            <div class="field">
+              <label class="field__label">
+                <input
+                  type="checkbox"
+                  [ngModel]="feederForm().is_active"
+                  (ngModelChange)="patchFeederForm('is_active', $event)"
+                />
+                Actif
+              </label>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label">Code</label>
+            <input class="field__input" [ngModel]="posteForm().code" (ngModelChange)="patchPosteForm('code', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Libellé</label>
+            <input class="field__input" [ngModel]="posteForm().libelle" (ngModelChange)="patchPosteForm('libelle', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label">Feeder (optionnel)</label>
+            <select
+              class="field__select"
+              [ngModel]="posteForm().feeder_id"
+              (ngModelChange)="patchPosteForm('feeder_id', $event)"
+            >
+              <option value="">—</option>
+              @for (fd of feedersOptions(); track fd.id) {
+                <option [value]="fd.id">{{ fd.libelle }} ({{ fd.code }})</option>
+              }
+            </select>
+          </div>
+          @if (editingId() !== null) {
+            <div class="field">
+              <label class="field__label">
+                <input
+                  type="checkbox"
+                  [ngModel]="posteForm().is_active"
+                  (ngModelChange)="patchPosteForm('is_active', $event)"
+                />
+                Actif
+              </label>
+            </div>
+          }
+        </div>
+      }
+      <div class="form-panel__actions">
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="saveForm()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else if (activeTab() === 'feeders') {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Libellé</th>
+            <th>Poste source</th>
+            <th>Actif</th>
+            @if (canWrite()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of feeders(); track row.id) {
+            <tr>
+              <td>{{ row.code }}</td>
+              <td>{{ row.libelle }}</td>
+              <td>{{ row.poste_source_id }}</td>
+              <td>{{ row.is_active ? 'Oui' : 'Non' }}</td>
+              @if (canWrite()) {
+                <td>
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEditFeeder(row)">Modifier</button>
+                  @if (row.is_active) {
+                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivateFeeder(row)">Désactiver</button>
+                  }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun feeder.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Libellé</th>
+            <th>Feeder</th>
+            <th>Actif</th>
+            @if (canWrite()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of postes(); track row.id) {
+            <tr>
+              <td>{{ row.code }}</td>
+              <td>{{ row.libelle }}</td>
+              <td>{{ row.feeder_id ?? '—' }}</td>
+              <td>{{ row.is_active ? 'Oui' : 'Non' }}</td>
+              @if (canWrite()) {
+                <td>
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEditPoste(row)">Modifier</button>
+                  @if (row.is_active) {
+                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivatePoste(row)">Désactiver</button>
+                  }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun poste.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <sir-paginator
+    [total]="total()"
+    [page]="page()"
+    [pageSize]="pageSize"
+    (pageChange)="onPageChange($event)"
+  />
+</section>

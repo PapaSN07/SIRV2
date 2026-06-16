@@ -1,0 +1,226 @@
+<section class="dashboard">
+  @if (toastMessage(); as msg) {
+    <div class="dashboard__toast" role="status">
+      <span>{{ msg }}</span>
+      <button type="button" class="dashboard__toast-close" (click)="dismissToast()" aria-label="Fermer">×</button>
+    </div>
+  }
+  <header class="dashboard__header">
+    <div>
+      <p class="dashboard__eyebrow">Tableau de bord</p>
+      <h1 class="dashboard__title">Aperçu du Réseau SAQS</h1>
+    </div>
+    <div class="dashboard__actions">
+      <label class="dashboard__period">
+        <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
+        <select [value]="periode()" (change)="onPeriodeChange($any($event.target).value)" aria-label="Période">
+          @for (p of periodeOptions(); track p.value) {
+            <option [value]="p.value">{{ p.label }}</option>
+          }
+        </select>
+      </label>
+      @if (canCreateInterruption()) {
+        <a class="btn btn--primary" routerLink="/interruptions/distribution/nouveau">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouvelle saisie
+        </a>
+      }
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="dashboard__loading">
+      <span class="material-symbols-outlined dashboard__spinner" aria-hidden="true">progress_activity</span>
+      <p>Chargement des indicateurs…</p>
+    </div>
+  } @else {
+    @if (loadError()) {
+      <p class="dashboard__error" role="alert">{{ loadError() }}</p>
+    }
+
+    <div class="kpi-grid">
+      <article class="kpi-card kpi-card--error">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">Interruptions en cours</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">broadcast_on_personal</span>
+        </div>
+        <div class="kpi-card__value-row">
+          <p class="kpi-card__value">{{ kpi()?.nb_interruptions_actives ?? '—' }}</p>
+          @if (kpi(); as data) {
+            <span class="kpi-card__delta kpi-card__delta--error">
+              {{ data.nb_interruptions_mois }} ce mois
+            </span>
+          }
+        </div>
+        <div class="kpi-card__progress">
+          <div class="kpi-card__progress-bar" [style.width.%]="activeProgress()"></div>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-card--primary">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">END cumulée du mois</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">bolt</span>
+        </div>
+        <div class="kpi-card__value-row">
+          <p class="kpi-card__value">{{ formatNumber(kpi()?.end_mois) }}</p>
+          <span class="kpi-card__unit">MWh</span>
+        </div>
+        <p class="kpi-card__hint">
+          <span class="material-symbols-outlined" aria-hidden="true">trending_up</span>
+          Période {{ periodLabel() }}
+        </p>
+      </article>
+
+      <article class="kpi-card kpi-card--tertiary">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">SAIFI mensuel</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">speed</span>
+        </div>
+        <div class="kpi-card__value-row">
+          <p class="kpi-card__value">{{ formatNumber(kpi()?.saifi) }}</p>
+        </div>
+        <p class="kpi-card__hint">Fréquence moyenne d'interruption</p>
+      </article>
+
+      <article class="kpi-card kpi-card--primary-dark">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">SAIDI mensuel</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">timer</span>
+        </div>
+        <div class="kpi-card__value-row">
+          <p class="kpi-card__value">{{ formatNumber(kpi()?.saidi) }}</p>
+          <span class="kpi-card__unit">min</span>
+        </div>
+        <p class="kpi-card__hint">Durée moyenne d'interruption</p>
+      </article>
+    </div>
+
+    <div class="charts-grid">
+      <section class="panel panel--chart">
+        <div class="panel__head">
+          <h2 class="panel__title">Évolution SAIDI / SAIFI (12 mois)</h2>
+          <div class="panel__legend">
+            <span class="legend-item">
+              <span class="legend-item__swatch legend-item__swatch--primary"></span>
+              SAIDI
+            </span>
+            <span class="legend-item">
+              <span class="legend-item__swatch legend-item__swatch--tertiary"></span>
+              SAIFI
+            </span>
+          </div>
+        </div>
+        <div class="bar-chart">
+          @for (month of chartMonths(); track month.key) {
+            <div class="bar-chart__group">
+              <div class="bar-chart__bars">
+                <div
+                  class="bar-chart__bar bar-chart__bar--saidi"
+                  [style.height.%]="chartReady() ? month.saidiHeight : 0"
+                ></div>
+                <div
+                  class="bar-chart__bar bar-chart__bar--saifi"
+                  [style.height.%]="chartReady() ? month.saifiHeight : 0"
+                ></div>
+              </div>
+              <p class="bar-chart__label">{{ month.label }}</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="panel panel--donut">
+        <h2 class="panel__title">Répartition par cause</h2>
+        <p class="panel__hint">Données illustratives — endpoint backend non disponible.</p>
+        <div class="donut">
+          <div
+            class="donut__ring"
+            [style.background]="causeGradient()"
+          >
+            <div class="donut__center">
+              <p class="donut__center-label">Total</p>
+              <p class="donut__center-value">{{ causeTotal() }}</p>
+            </div>
+          </div>
+        </div>
+        <ul class="donut__legend">
+          @for (item of causeRepartition; track item.label) {
+            <li class="donut__legend-row">
+              <span class="donut__legend-left">
+                <span class="donut__dot" [style.background]="item.color"></span>
+                {{ item.label }}
+              </span>
+              <span class="donut__percent">{{ item.percent }}%</span>
+            </li>
+          }
+        </ul>
+      </section>
+    </div>
+
+    <section class="panel panel--table">
+      <div class="panel__head">
+        <h2 class="panel__title">Dernières interruptions</h2>
+        <a class="panel__link" routerLink="/interruptions/distribution">Voir tout</a>
+      </div>
+
+      @if (interruptionsLoading()) {
+        <p class="dashboard__hint">Chargement des interruptions…</p>
+      } @else if (interruptionsError()) {
+        <p class="dashboard__error" role="alert">{{ interruptionsError() }}</p>
+      } @else if (recentInterruptions().length === 0) {
+        <p class="dashboard__hint">Aucune interruption récente.</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Poste / Secteur</th>
+                <th>Type</th>
+                <th>Date début</th>
+                <th>END (MWh)</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of recentInterruptions(); track row.id) {
+                <tr>
+                  <td>
+                    <a class="data-table__id" [routerLink]="['/interruptions/distribution', row.id]">
+                      INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}
+                    </a>
+                  </td>
+                  <td>
+                    <p class="data-table__primary">{{ row.localisation || '—' }}</p>
+                    <p class="data-table__secondary">
+                      Feeder #{{ row.feeder_id ?? '—' }}
+                    </p>
+                  </td>
+                  <td>{{ row.is_programme ? 'Programmé' : 'Accidentel' }}</td>
+                  <td>{{ row.date_apparition | date: 'dd/MM HH:mm' }}</td>
+                  <td class="data-table__bold">{{ row.end_mwh ?? '—' }}</td>
+                  <td>
+                    <span class="status-badge" [class]="'status-badge--' + row.statut">
+                      {{ statutLabel(row.statut) }}
+                    </span>
+                  </td>
+                  <td>
+                    <a
+                      class="data-table__action"
+                      [routerLink]="['/interruptions/distribution', row.id]"
+                      aria-label="Voir le détail"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                    </a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</section>

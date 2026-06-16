@@ -1,0 +1,181 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Gestion des utilisateurs"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Administration' },
+      { label: 'Utilisateurs' },
+    ]"
+  >
+    @if (canWrite()) {
+      <div actions>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
+          <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+          Nouvel utilisateur
+        </button>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-admin-nav [showUsers]="true" />
+
+  @if (formOpen()) {
+    <div class="form-panel">
+      <h2 class="form-panel__title">
+        {{ editingId() === null ? 'Créer un utilisateur' : 'Modifier l\'utilisateur' }}
+      </h2>
+      <div class="form-grid">
+        @if (editingId() === null) {
+          <div class="field">
+            <label class="field__label" for="user-login">Login</label>
+            <input
+              id="user-login"
+              class="field__input"
+              [ngModel]="form().login"
+              (ngModelChange)="patchForm('login', $event)"
+            />
+          </div>
+          <div class="field">
+            <label class="field__label" for="user-password">Mot de passe</label>
+            <input
+              id="user-password"
+              type="password"
+              class="field__input"
+              [ngModel]="form().password"
+              (ngModelChange)="patchForm('password', $event)"
+            />
+          </div>
+        }
+        <div class="field">
+          <label class="field__label" for="user-nom">Nom</label>
+          <input
+            id="user-nom"
+            class="field__input"
+            [ngModel]="form().nom"
+            (ngModelChange)="patchForm('nom', $event)"
+          />
+        </div>
+        <div class="field">
+          <label class="field__label" for="user-prenom">Prénom</label>
+          <input
+            id="user-prenom"
+            class="field__input"
+            [ngModel]="form().prenom"
+            (ngModelChange)="patchForm('prenom', $event)"
+          />
+        </div>
+        <div class="field">
+          <label class="field__label" for="user-email">Email</label>
+          <input
+            id="user-email"
+            type="email"
+            class="field__input"
+            [ngModel]="form().email"
+            (ngModelChange)="patchForm('email', $event)"
+          />
+        </div>
+        <div class="field">
+          <label class="field__label" for="user-tel">Téléphone</label>
+          <input
+            id="user-tel"
+            class="field__input"
+            [ngModel]="form().telephone"
+            (ngModelChange)="patchForm('telephone', $event)"
+          />
+        </div>
+        <div class="field field--full">
+          <span class="field__label">Rôles</span>
+          <div class="role-checkboxes">
+            @for (role of roleOptions(); track role.id) {
+              <label class="role-check">
+                <input
+                  type="checkbox"
+                  [checked]="isRoleSelected(role.id)"
+                  (change)="toggleRole(role.id)"
+                />
+                <span>{{ role.nom }}</span>
+              </label>
+            }
+          </div>
+        </div>
+        @if (editingId() !== null) {
+          <div class="field">
+            <label class="field__label" for="user-reset">Nouveau mot de passe (optionnel)</label>
+            <input
+              id="user-reset"
+              type="password"
+              class="field__input"
+              [ngModel]="form().reset_password"
+              (ngModelChange)="patchForm('reset_password', $event)"
+            />
+          </div>
+        }
+      </div>
+      <div class="form-panel__actions">
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="saveForm()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (error()) {
+    <p class="alert alert--error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="loading">Chargement…</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Login</th>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Rôles</th>
+            <th>Statut</th>
+            @if (canWrite()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users(); track user.id) {
+            <tr>
+              <td>{{ user.login }}</td>
+              <td>{{ user.prenom }} {{ user.nom }}</td>
+              <td>{{ user.email ?? '—' }}</td>
+              <td>{{ rolesLabel(user) }}</td>
+              <td>
+                <span class="badge" [class.badge--active]="user.is_active">
+                  {{ user.is_active ? 'Actif' : 'Inactif' }}
+                </span>
+              </td>
+              @if (canWrite()) {
+                <td>
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEdit(user)">Modifier</button>
+                  <button type="button" class="sir-btn sir-btn--ghost" (click)="toggleActive(user)">
+                    {{ user.is_active ? 'Désactiver' : 'Activer' }}
+                  </button>
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td [attr.colspan]="canWrite() ? 6 : 5">Aucun utilisateur.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <sir-paginator
+      [total]="total()"
+      [page]="page()"
+      [pageSize]="pageSize"
+      (pageChange)="onPageChange($event)"
+    />
+  }
+</section>
