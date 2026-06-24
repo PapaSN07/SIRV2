@@ -1,4 +1,4 @@
-"""Schémas Pydantic — indicateurs CRSE (Sprint 5)."""
+"""Schemas Pydantic -- indicateurs CRSE (Sprint 5)."""
 
 from datetime import datetime
 
@@ -88,6 +88,22 @@ class SaidiIndicateurResponse(BaseModel):
     services: PaginatedResponse[SaidiServiceItemResponse] | None = None
 
 
+class CauseRepartitionItemResponse(BaseModel):
+    label: str
+    nombre: int
+    percent: float
+
+
+class NatureRepartitionItemResponse(BaseModel):
+    """Repartition par nature -- format Tableau de Bord FIS."""
+
+    code: str
+    libelle: str
+    nombre: int
+    end_kwh: float
+    percent: float
+
+
 class TableauDeBordResponse(BaseModel):
     niveau: str
     scope_id: int | None = None
@@ -98,13 +114,8 @@ class TableauDeBordResponse(BaseModel):
     saidi: float
     nb_interruptions_actives: int
     nb_interruptions_mois: int
-    causes_repartition: list["CauseRepartitionItemResponse"] = Field(default_factory=list)
-
-
-class CauseRepartitionItemResponse(BaseModel):
-    label: str
-    nombre: int
-    percent: float
+    causes_repartition: list[CauseRepartitionItemResponse] = Field(default_factory=list)
+    natures_repartition: list[NatureRepartitionItemResponse] = Field(default_factory=list)
 
 
 class HistoriquePointResponse(BaseModel):

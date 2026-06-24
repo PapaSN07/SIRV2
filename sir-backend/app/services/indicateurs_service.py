@@ -27,6 +27,7 @@ from app.schemas.indicateurs import (
     TopFeederItemResponse,
     TopFeedersResponse,
     CauseRepartitionItemResponse,
+    NatureRepartitionItemResponse,
 )
 from app.services import saifi_saidi_service
 from app.services.indicateurs_cache_service import (
@@ -472,6 +473,26 @@ async def get_tableau_de_bord(
             )
             for row in cause_rows
         ]
+
+        # Répartition par nature (format Tableau de Bord FIS)
+        nature_rows = await repo.aggregate_interruptions_by_nature(
+            db,
+            service_ids=service_ids,
+            annee=resolved_annee,
+            mois=resolved_mois,
+        )
+        nature_total = sum(r.nombre for r in nature_rows) or nb_mois or 1
+        natures = [
+            NatureRepartitionItemResponse(
+                code=row.code,
+                libelle=row.libelle,
+                nombre=row.nombre,
+                end_kwh=round(row.end_mwh * 1000, 2),
+                percent=round(row.nombre * 100.0 / nature_total, 1),
+            )
+            for row in nature_rows
+        ]
+
         payload = TableauDeBordResponse(
             niveau=scope.niveau,
             scope_id=scope.scope_id,
@@ -483,6 +504,7 @@ async def get_tableau_de_bord(
             nb_interruptions_actives=nb_actives,
             nb_interruptions_mois=nb_mois,
             causes_repartition=causes,
+            natures_repartition=natures,
         )
         return payload.model_dump()
 

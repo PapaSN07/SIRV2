@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse, PaginatedResponse
+from app.schemas.fis_import import FisImportResponse, FisImportStatsResponse
 from app.schemas.interruption_distribution import (
     InterruptionDistributionCreate,
     InterruptionClotureRequest,
@@ -25,10 +26,65 @@ from app.schemas.interruption_workflow import (
     InterruptionWorkflowResponse,
     InterruptionWorkflowUpdate,
 )
+from app.services import fis_import_service
 from app.services import interruption_distribution_service
 from app.services import interruption_workflow_service
 
 router = APIRouter()
+
+
+@router.post(
+    "/import-fis",
+    response_model=ApiResponse[FisImportResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Importer un fichier FIS (BCC ou BRC) — création groupée d'interruptions",
+)
+async def import_fis(
+    file: UploadFile = File(..., description="Fichier Excel FIS (.xlsx)"),
+    skip_existing: bool = Query(
+        True,
+        description="Ignorer les numéros d'interruption déjà présents en base",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "create")
+    ),
+) -> ApiResponse[FisImportResponse]:
+    """Importe un fichier FIS Excel (BCC ou BRC) et crée les interruptions
+    distribution correspondantes en statut «valide».
+
+    - Lit la feuille «Détails interruptions»
+    - Crée les référentiels manquants (Nature, Cause, Siège) à la volée
+    - Convertit END kWh → MWh, Puissance kW → MW
+    - Ignore les doublons si `skip_existing=true`
+
+    Permissions requises : `interruptions_distribution:create`
+    (rôles : BCC, ADMIN_SCR, ADMIN_SAQS)
+    """
+    content = await file.read()
+    result = await fis_import_service.import_fis_file(
+        db,
+        content,
+        created_by_id=current_user.id,
+        skip_existing=skip_existing,
+    )
+    await db.commit()
+
+    response = FisImportResponse(
+        stats=FisImportStatsResponse(
+            total_lignes=result.stats.total_lignes,
+            importees=result.stats.importees,
+            doublons_ignores=result.stats.doublons_ignores,
+            erreurs=result.stats.erreurs,
+            end_total_kwh=result.stats.end_total_kwh,
+            end_total_mwh=result.stats.end_total_kwh / 1000.0,
+        ),
+        periode_debut=result.periode_debut,
+        periode_fin=result.periode_fin,
+        services_touches=result.services_touches,
+        erreurs_detail=result.stats.erreurs_detail[:50],
+    )
+    return ApiResponse.success(response)
 
 
 @router.get(

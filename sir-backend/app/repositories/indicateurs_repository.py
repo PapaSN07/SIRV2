@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.geo import Agence, Delegation, Service
 from app.models.indicateurs import EnergieNd, SaifiSaidi
 from app.models.interruptions import Interruption, InterruptionDistribution
-from app.models.referentiel import Cause
+from app.models.referentiel import Cause, Nature
 from app.models.reseau import Feeder
 from app.repositories import saifi_saidi_repository as saifi_repo
 
@@ -24,6 +24,15 @@ class EndServiceRow:
 class CauseRepartitionRow:
     label: str
     nombre: int
+
+
+@dataclass(frozen=True)
+class NatureRepartitionRow:
+    """Agrégat par nature — aligne sur le format Tableau de Bord FIS."""
+    code: str
+    libelle: str
+    nombre: int
+    end_mwh: float
 
 
 async def aggregate_end_by_services(
@@ -254,6 +263,55 @@ async def aggregate_interruptions_by_cause(
         CauseRepartitionRow(label=row.label, nombre=int(row.nombre))
         for row in result.all()
     ]
+
+
+async def aggregate_interruptions_by_nature(
+    db: AsyncSession,
+    *,
+    service_ids: list[int],
+    annee: int,
+    mois: int,
+) -> list[NatureRepartitionRow]:
+    """Agregation par nature -- format Tableau de Bord FIS."""
+    if not service_ids:
+        return []
+
+    result = await db.execute(
+        select(
+            func.coalesce(Nature.code, "AUTRE").label("code"),
+            func.coalesce(Nature.libelle, "Non renseignee").label("libelle"),
+            func.count(Interruption.id).label("nombre"),
+            func.coalesce(func.sum(InterruptionDistribution.end_mwh), 0).label("end_mwh"),
+        )
+        .select_from(Interruption)
+        .outerjoin(Nature, Nature.id == Interruption.nature_id)
+        .outerjoin(
+            InterruptionDistribution,
+            InterruptionDistribution.interruption_id == Interruption.id,
+        )
+        .where(
+            Interruption.type_direction == "distribution",
+            Interruption.service_id.in_(service_ids),
+            Interruption.statut.in_(("cloture", "valide")),
+            extract("year", Interruption.date_apparition) == annee,
+            extract("month", Interruption.date_apparition) == mois,
+        )
+        .group_by(Nature.code, Nature.libelle)
+        .order_by(func.count(Interruption.id).desc())
+    )
+
+    _ORDER = ["PERMANENT", "SEMI_PERM", "FUGITIF", "DELESTAGE", "COUPURE"]
+    rows = [
+        NatureRepartitionRow(
+            code=row.code,
+            libelle=row.libelle,
+            nombre=int(row.nombre),
+            end_mwh=float(row.end_mwh),
+        )
+        for row in result.all()
+    ]
+    rows.sort(key=lambda r: _ORDER.index(r.code) if r.code in _ORDER else len(_ORDER))
+    return rows
 
 
 async def count_transport_interruptions(
