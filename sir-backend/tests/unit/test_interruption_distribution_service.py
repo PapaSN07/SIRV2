@@ -79,12 +79,27 @@ def _feeder(service_id: int, feeder_id: int = 1) -> Feeder:
 def _create_body() -> InterruptionDistributionCreate:
     return InterruptionDistributionCreate(
         date_apparition=datetime(2026, 6, 12, 10, 30, 0),
+        poste_source_id=10,
         feeder_id=1,
         cause_id=1,
         nature_id=1,
         siege_id=1,
         signalisation_id=1,
     )
+
+
+def _make_brc(scope_region_id: int = 3) -> Utilisateur:
+    role = Role()
+    role.id = 2
+    role.nom = "BRC"
+    role.role_permissions = []
+    ur = UserRole()
+    ur.scope_service_id = scope_region_id
+    ur.role = role
+    user = Utilisateur()
+    user.id = 2
+    user.user_roles = [ur]
+    return user
 
 
 async def test_create_bcc_wrong_service_raises_403() -> None:
@@ -95,11 +110,114 @@ async def test_create_bcc_wrong_service_raises_403() -> None:
         "app.services.interruption_distribution_service.reseau_repo.get_feeder",
         new_callable=AsyncMock,
         return_value=_feeder(service_id=2),
+    ), patch(
+        "app.services.interruption_distribution_service.repo.service_in_region",
+        new_callable=AsyncMock,
+        return_value=False,
     ):
         with pytest.raises(HTTPException) as exc:
             await svc.create(db, _create_body(), user)
 
     assert exc.value.status_code == 403
+
+
+async def test_create_brc_service_outside_region_raises_403() -> None:
+    db = AsyncMock()
+    user = _make_brc(scope_region_id=3)
+
+    with patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_feeder",
+        new_callable=AsyncMock,
+        return_value=_feeder(service_id=99),
+    ), patch(
+        "app.services.interruption_distribution_service.repo.service_in_region",
+        new_callable=AsyncMock,
+        return_value=False,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await svc.create(db, _create_body(), user)
+
+    assert exc.value.status_code == 403
+
+
+async def test_create_brc_service_in_region_passes_scope() -> None:
+    db = AsyncMock()
+    db.commit = AsyncMock()
+    user = _make_brc(scope_region_id=3)
+    now = datetime(2026, 6, 12, 10, 30, 0)
+
+    interruption = Interruption()
+    interruption.id = 1
+    interruption.numero_interruption = 1
+    interruption.type_direction = "distribution"
+    interruption.statut = "en_cours"
+    interruption.service_id = 5
+    interruption.feeder_id = 1
+    interruption.poste_source_id = 10
+    interruption.date_apparition = now
+    interruption.cause_id = 1
+    interruption.nature_id = 1
+    interruption.siege_id = 1
+    interruption.signalisation_id = 1
+    interruption.is_force_majeure = False
+    interruption.is_fugitive = False
+    interruption.created_by_id = 2
+    interruption.created_at = now
+    interruption.updated_at = now
+
+    distribution = InterruptionDistribution()
+    distribution.is_programme = False
+    distribution.has_extension_bt = False
+
+    with patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_feeder",
+        new_callable=AsyncMock,
+        return_value=_feeder(service_id=5),
+    ), patch(
+        "app.services.interruption_distribution_service.repo.service_in_region",
+        new_callable=AsyncMock,
+        return_value=True,
+    ), patch(
+        "app.services.interruption_distribution_service.ref_repo.get_by_id",
+        new_callable=AsyncMock,
+        side_effect=[_active_cause(), _active_nature(), _active_siege(), _active_signalisation()],
+    ), patch(
+        "app.services.interruption_distribution_service.repo.next_numero_interruption",
+        new_callable=AsyncMock,
+        return_value=1,
+    ), patch(
+        "app.services.interruption_distribution_service.repo.create_interruption_distribution",
+        new_callable=AsyncMock,
+        return_value=(interruption, distribution),
+    ), patch(
+        "app.services.interruption_distribution_service.log_audit",
+        new_callable=AsyncMock,
+    ):
+        result = await svc.create(db, _create_body(), user)
+
+    assert result.statut == "en_cours"
+    assert result.service_id == 5
+    db.commit.assert_awaited_once()
+
+
+async def test_create_poste_source_mismatch_raises_422() -> None:
+    db = AsyncMock()
+    user = _make_bcc(scope_service_id=1)
+    body = _create_body().model_copy(update={"poste_source_id": 99})
+
+    with patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_feeder",
+        new_callable=AsyncMock,
+        return_value=_feeder(service_id=1),
+    ), patch(
+        "app.services.interruption_distribution_service.repo.service_in_region",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await svc.create(db, body, user)
+
+    assert exc.value.status_code == 422
 
 
 async def test_create_success_returns_en_cours() -> None:
@@ -137,6 +255,10 @@ async def test_create_success_returns_en_cours() -> None:
         "app.services.interruption_distribution_service.reseau_repo.get_feeder",
         new_callable=AsyncMock,
         return_value=_feeder(service_id=1),
+    ), patch(
+        "app.services.interruption_distribution_service.repo.service_in_region",
+        new_callable=AsyncMock,
+        return_value=True,
     ), patch(
         "app.services.interruption_distribution_service.ref_repo.get_by_id",
         new_callable=AsyncMock,
@@ -202,7 +324,7 @@ async def test_list_items_bcc_scope_passed_to_repository() -> None:
     assert result.total == 1
     assert result.items[0].service_id == 3
     mock_list.assert_awaited_once()
-    assert mock_list.await_args.kwargs["scope"].service_id == 3
+    assert mock_list.await_args.kwargs["scope"].region_id == 3
 
 
 async def test_get_item_wrong_service_raises_403() -> None:
@@ -220,6 +342,10 @@ async def test_get_item_wrong_service_raises_403() -> None:
         "app.services.interruption_distribution_service.repo.get_interruption_detail",
         new_callable=AsyncMock,
         return_value=interruption,
+    ), patch(
+        "app.services.interruption_distribution_service.repo.service_in_region",
+        new_callable=AsyncMock,
+        return_value=False,
     ):
         with pytest.raises(HTTPException) as exc:
             await svc.get_item(db, 1, user)
@@ -634,3 +760,59 @@ async def test_valider_bcc_role_raises_403() -> None:
         await svc.valider(db, 1, user)
 
     assert exc.value.status_code == 403
+
+
+def test_to_detail_response_includes_cause_libelle_from_base() -> None:
+    """cause_libelle est déjà dans la réponse liste — ne doit pas être dupliqué au détail."""
+    now = datetime(2026, 6, 12, 10, 30, 0)
+    cause = Cause()
+    cause.libelle = "Défaut matériel"
+
+    interruption = Interruption()
+    interruption.id = 59467
+    interruption.numero_interruption = 42
+    interruption.type_direction = "distribution"
+    interruption.statut = "en_cours"
+    interruption.service_id = 1
+    interruption.feeder_id = 1
+    interruption.poste_source_id = 1
+    interruption.date_apparition = now
+    interruption.cause_id = 1
+    interruption.nature_id = 1
+    interruption.siege_id = 1
+    interruption.signalisation_id = 1
+    interruption.is_force_majeure = False
+    interruption.is_fugitive = False
+    interruption.created_by_id = 1
+    interruption.created_at = now
+    interruption.updated_at = now
+    interruption.cause = cause
+    interruption.postes_interrompus = []
+
+    distribution = InterruptionDistribution()
+    distribution.is_programme = False
+    distribution.has_extension_bt = False
+
+    detail = svc._to_detail_response(interruption, distribution)
+
+    assert detail.id == 59467
+    assert detail.cause_libelle == "Défaut matériel"
+
+
+def test_region_libelle_from_service_geo_chain() -> None:
+    """region_libelle dérivée de service → agence → délégation → région."""
+    from app.models.geo import Agence, Delegation, Region, Service
+
+    region = Region()
+    region.libelle = "Dakar"
+    delegation = Delegation()
+    delegation.region = region
+    agence = Agence()
+    agence.delegation = delegation
+    service = Service()
+    service.agence = agence
+
+    interruption = Interruption()
+    interruption.service = service
+
+    assert svc._region_libelle(interruption) == "Dakar"

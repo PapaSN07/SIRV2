@@ -121,6 +121,7 @@ def _detail_response(service_id: int = 1) -> InterruptionDistributionDetailRespo
         signalisation_libelle="Signal A",
         service_code="SVC-DKR-01",
         service_libelle="Service Plateau",
+        region_libelle="Dakar",
         postes_impactes=[
             PosteImpacteResponse(
                 poste_id=1,
@@ -160,6 +161,9 @@ async def test_get_detail_existing_returns_200(
     body = response.json()
     assert body["status"] == "success"
     assert body["data"]["feeder_libelle"] == "Feeder Plateau Nord"
+    assert body["data"]["region_libelle"] == "Dakar"
+    assert body["data"]["service_libelle"] == "Service Plateau"
+    assert body["data"]["cause_libelle"] == "Defaut materiel"
     assert body["data"]["postes_impactes"][0]["poste_code"] == "PT-DKR-01"
     assert body["data"]["created_by"]["login"] == "bcc_user"
 

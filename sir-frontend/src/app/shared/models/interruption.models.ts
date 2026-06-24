@@ -1,5 +1,7 @@
 export type StatutInterruption = 'en_cours' | 'cloture' | 'valide' | 'archive';
 
+export type OuvertureInterruption = 'ouvert' | 'ferme';
+
 export interface InterruptionDistribution {
   id: number;
   numero_interruption: number;
@@ -30,7 +32,18 @@ export interface InterruptionDistribution {
   created_at: string;
   updated_at: string;
   cause_libelle?: string | null;
+  nature_libelle?: string | null;
+  siege_libelle?: string | null;
+  service_libelle?: string | null;
+  poste_source_libelle?: string | null;
+  feeder_libelle?: string | null;
   region_libelle?: string | null;
+}
+
+export interface InterruptionDistributionStats {
+  total: number;
+  non_validees: number;
+  en_cours: number;
 }
 
 export interface UtilisateurSummary {
@@ -72,6 +85,7 @@ export interface InterruptionDistributionDetail extends InterruptionDistribution
 
 export interface InterruptionDistributionCreate {
   date_apparition: string;
+  poste_source_id: number;
   feeder_id: number;
   cause_id: number;
   nature_id: number;
@@ -116,12 +130,102 @@ export interface PosteInterruptionCreate {
   nombre_clients_touches?: number | null;
 }
 
+export interface PosteImpacteBulk {
+  added_count: number;
+  skipped_count: number;
+  items: PosteImpacte[];
+}
+
+export interface PosteImpacteFromSigRequest {
+  troncon_sig_id?: number | null;
+  chain_limit?: number;
+}
+
 export interface InterruptionListParams {
   page?: number;
   page_size?: number;
   region_id?: number;
+  service_id?: number;
   feeder_id?: number;
+  nature_id?: number;
+  ouverture?: OuvertureInterruption;
   statut?: StatutInterruption;
   date_debut?: string;
   date_fin?: string;
+}
+
+export interface WorkflowStepDeclenchement {
+  date_debut: string | null;
+  date_fin: string | null;
+  duree_minutes: number | null;
+}
+
+export interface WorkflowStepInterpellation {
+  date_interpellation: string | null;
+  date_arrivee: string | null;
+  duree_minutes: number | null;
+}
+
+export interface WorkflowStepTronconnement {
+  date_debut: string | null;
+  date_fin: string | null;
+  duree_minutes: number | null;
+  troncon_id: number | null;
+  troncon_sig_id: number | null;
+  noeud_amont_libelle: string | null;
+  noeud_aval_libelle: string | null;
+  troncon_libelle?: string | null;
+  troncon_sig_libelle?: string | null;
+}
+
+export interface WorkflowStepLocalisation {
+  date_debut: string | null;
+  date_fin: string | null;
+  duree_minutes: number | null;
+}
+
+export interface WorkflowStepReparation {
+  date_debut: string | null;
+  date_fin: string | null;
+  duree_minutes: number | null;
+}
+
+export interface WorkflowStepRemise {
+  date_debut: string | null;
+  date_fin: string | null;
+  duree_minutes: number | null;
+}
+
+export interface WorkflowStepClients {
+  nombre_postes_impactes: number;
+  nombre_clients_touches: number | null;
+}
+
+export interface InterruptionWorkflow {
+  interruption_id: number;
+  declenchement: WorkflowStepDeclenchement;
+  interpellation: WorkflowStepInterpellation;
+  tronconnement: WorkflowStepTronconnement;
+  localisation: WorkflowStepLocalisation;
+  reparation: WorkflowStepReparation;
+  remise: WorkflowStepRemise;
+  clients: WorkflowStepClients;
+  responsable_matricule: number | null;
+  observations_workflow: string | null;
+}
+
+export interface InterruptionWorkflowUpdate {
+  declenchement?: Partial<Pick<WorkflowStepDeclenchement, 'date_debut' | 'date_fin'>>;
+  interpellation?: Partial<Pick<WorkflowStepInterpellation, 'date_interpellation' | 'date_arrivee'>>;
+  tronconnement?: Partial<
+    Pick<
+      WorkflowStepTronconnement,
+      'date_debut' | 'date_fin' | 'troncon_id' | 'troncon_sig_id' | 'noeud_amont_libelle' | 'noeud_aval_libelle'
+    >
+  >;
+  localisation?: Partial<Pick<WorkflowStepLocalisation, 'date_debut' | 'date_fin'>>;
+  reparation?: Partial<Pick<WorkflowStepReparation, 'date_debut' | 'date_fin'>>;
+  remise?: Partial<Pick<WorkflowStepRemise, 'date_debut' | 'date_fin'>>;
+  responsable_matricule?: number | null;
+  observations_workflow?: string | null;
 }

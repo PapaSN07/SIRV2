@@ -8,7 +8,16 @@
   <header class="dashboard__header">
     <div>
       <p class="dashboard__eyebrow">Tableau de bord</p>
-      <h1 class="dashboard__title">Aperçu du Réseau SAQS</h1>
+      <h1 class="dashboard__title">
+        @if (isBrcUser()) {
+          Supervision régionale
+        } @else {
+          Aperçu du Réseau SAQS
+        }
+      </h1>
+      @if (scopeSubtitle()) {
+        <p class="dashboard__scope">{{ scopeSubtitle() }}</p>
+      }
     </div>
     <div class="dashboard__actions">
       <label class="dashboard__period">
@@ -55,6 +64,22 @@
         <div class="kpi-card__progress">
           <div class="kpi-card__progress-bar" [style.width.%]="activeProgress()"></div>
         </div>
+      </article>
+
+      <article class="kpi-card kpi-card--warning">
+        <div class="kpi-card__head">
+          <p class="kpi-card__label">Non validées</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">pending_actions</span>
+        </div>
+        <div class="kpi-card__value-row">
+          <p class="kpi-card__value">{{ distributionStats()?.non_validees ?? '—' }}</p>
+          @if (distributionStats(); as stats) {
+            <span class="kpi-card__delta kpi-card__delta--warning">
+              {{ stats.total }} au total
+            </span>
+          }
+        </div>
+        <p class="kpi-card__hint">Interruptions clôturées en attente de validation</p>
       </article>
 
       <article class="kpi-card kpi-card--primary">
@@ -132,7 +157,9 @@
 
       <section class="panel panel--donut">
         <h2 class="panel__title">Répartition par cause</h2>
-        <p class="panel__hint">Données illustratives — endpoint backend non disponible.</p>
+        @if (!hasCauseData()) {
+          <p class="panel__hint">Aucune interruption sur la période sélectionnée.</p>
+        }
         <div class="donut">
           <div
             class="donut__ring"
@@ -145,7 +172,7 @@
           </div>
         </div>
         <ul class="donut__legend">
-          @for (item of causeRepartition; track item.label) {
+          @for (item of causeRepartition(); track item.label) {
             <li class="donut__legend-row">
               <span class="donut__legend-left">
                 <span class="donut__dot" [style.background]="item.color"></span>

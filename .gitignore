@@ -1,6 +1,10 @@
 # Secrets
 .env
+.env.senelec
+.env.migration
 !.env.example
+!.env.senelec.example
+!.env.migration.example
 
 # Python
 __pycache__/
@@ -33,6 +37,10 @@ Thumbs.db
 
 # Docker
 *.override.env
+
+# Migration HFSQL (données sensibles)
+scripts/migration/exports/
+scripts/migration/logs/
 
 # E2E artifacts
 scripts/e2e_output/

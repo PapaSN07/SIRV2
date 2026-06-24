@@ -1,0 +1,235 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.workflow-panel {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+
+    .material-symbols-outlined {
+      color: $primary;
+    }
+
+    h2 {
+      margin: 0;
+      flex: 1;
+      font-size: 16px;
+      font-weight: 600;
+    }
+  }
+
+  &__badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: $surface-container;
+    font-size: 11px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 2rem;
+    color: $on-surface-variant;
+  }
+
+  &__spinner {
+    animation: wf-spin 1s linear infinite;
+  }
+
+  &__error {
+    margin: 0.75rem 0 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    background: #ffdad6;
+    color: #93000a;
+    font-size: 13px;
+  }
+}
+
+.workflow-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    background: $surface-container-low;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+
+    .material-symbols-outlined {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: rgba($primary, 0.06);
+    }
+
+    &--active {
+      background: $primary;
+      border-color: $primary;
+      color: #fff;
+    }
+
+    &--filled:not(&--active) {
+      border-color: rgba($primary, 0.35);
+      color: $primary;
+    }
+  }
+}
+
+.workflow-step {
+  h3 {
+    margin: 0 0 1rem;
+    font-size: 14px;
+    font-weight: 600;
+    color: $on-surface;
+  }
+}
+
+.workflow-dl {
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 14px;
+  }
+
+  dt {
+    margin: 0;
+    color: $on-surface-variant;
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 500;
+  }
+
+  &--inline {
+    margin-bottom: 1rem;
+  }
+}
+
+.workflow-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &--wide {
+    grid-column: 1 / -1;
+  }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__input,
+  &__textarea {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    background: $surface-container-low;
+    font-family: inherit;
+    font-size: 14px;
+    color: $on-surface;
+    outline: none;
+
+    &:focus {
+      border-color: $primary;
+      box-shadow: 0 0 0 1px $primary;
+    }
+  }
+
+  &__textarea {
+    resize: vertical;
+    min-height: 4rem;
+  }
+}
+
+.workflow-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 12px;
+  color: $on-surface-variant;
+
+  &--actions {
+    justify-content: space-between;
+  }
+
+  .material-symbols-outlined {
+    font-size: 16px;
+  }
+}
+
+.workflow-clients-slot {
+  margin-top: 0.5rem;
+}
+
+.workflow-meta {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid $outline-variant;
+
+  &__form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+}
+
+@keyframes wf-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

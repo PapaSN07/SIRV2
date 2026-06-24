@@ -3,11 +3,12 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import check_service_scope
+from app.core.deps import check_region_scope, check_service_scope
+from app.core.rbac_helpers import is_superadmin
 from app.models.notifications import Destinataire
 from app.models.utilisateurs import Utilisateur
 from app.repositories import destinataire_repository as repo
-from app.repositories import indicateurs_repository as indicateurs_repo
+from app.repositories.geo_scope_repository import service_in_region
 from app.schemas.common import PaginatedResponse
 from app.schemas.notifications import (
     DestinataireCreate,
@@ -17,8 +18,8 @@ from app.schemas.notifications import (
 from app.utils.pagination import paginate
 
 _NATIONAL_ROLES = frozenset({"ADMIN_SCR", "ADMIN_DISPATCHING", "ADMIN_SAQS"})
-_REGION_ROLES = frozenset({"BRC"})
-_SERVICE_ROLES = frozenset({"BCC", "SUPERVISEUR"})
+_REGION_ROLES = frozenset({"BCC", "BRC"})
+_SERVICE_ROLES = frozenset({"SUPERVISEUR"})
 _ADMIN_ROLES = frozenset({"ADMIN_SCR", "ADMIN_DISPATCHING", "BCC", "BRC"})
 
 
@@ -27,6 +28,8 @@ def _user_role_names(user: Utilisateur) -> set[str]:
 
 
 def _ensure_can_admin(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(_ADMIN_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -49,7 +52,7 @@ async def _resolve_list_scope(
 ) -> tuple[int | None, list[int] | None, int | None, int | None]:
     roles = _user_role_names(user)
 
-    if roles.intersection(_NATIONAL_ROLES):
+    if is_superadmin(user) or roles.intersection(_NATIONAL_ROLES):
         return service_id, None, None, None
 
     if roles.intersection(_REGION_ROLES):
@@ -63,8 +66,11 @@ async def _resolve_list_scope(
                     "error": "Périmètre régional non configuré pour ce compte",
                 },
             )
-        if service_id is not None:
-            check_service_scope(user, service_id)
+        if service_id is not None and not await service_in_region(db, service_id, region_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"status": "error", "data": None, "error": "Hors périmètre régional"},
+            )
         return service_id, None, region_id, None
 
     if roles.intersection(_SERVICE_ROLES):
@@ -97,6 +103,8 @@ async def assert_destinataire_in_scope(
     user: Utilisateur,
     record: Destinataire,
 ) -> None:
+    if is_superadmin(user):
+        return
     if record.service_id is None:
         if _user_role_names(user).intersection(_NATIONAL_ROLES):
             return
@@ -124,8 +132,7 @@ async def assert_destinataire_in_scope(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"status": "error", "data": None, "error": "Périmètre non configuré"},
             )
-        record_region = await indicateurs_repo.get_region_id_for_service(db, record.service_id)
-        if record_region != region_id:
+        if not await service_in_region(db, record.service_id, region_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"status": "error", "data": None, "error": "Hors périmètre régional"},
@@ -140,7 +147,7 @@ async def assert_destinataire_in_scope(
 
 def _resolve_write_service_id(user: Utilisateur, service_id: int | None) -> int | None:
     roles = _user_role_names(user)
-    if roles.intersection(_NATIONAL_ROLES):
+    if is_superadmin(user) or roles.intersection(_NATIONAL_ROLES):
         return service_id
     if roles.intersection(_SERVICE_ROLES):
         user_service_id = user.user_roles[0].scope_service_id

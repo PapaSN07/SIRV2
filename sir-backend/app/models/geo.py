@@ -61,9 +61,13 @@ class Service(Base):
     agence_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("agences.id", ondelete="NO ACTION"), nullable=False, index=True
     )
+    region_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("regions.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
     code: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, unique=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Relationships
     agence: Mapped["Agence"] = relationship("Agence", back_populates="services")
+    region: Mapped["Region | None"] = relationship("Region", lazy="select")

@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.models.utilisateurs import Utilisateur
 from app.repositories import referentiel_repository as ref_repo
 from app.schemas.common import PaginatedResponse
@@ -46,6 +47,8 @@ def _ensure_can_write(
     type_reseau: str | None,
 ) -> None:
     """Admin SCR → distribution/commun · Admin Dispatching → transport/commun."""
+    if is_superadmin(user):
+        return
     roles = _user_role_names(user)
 
     if not roles.intersection({"ADMIN_SCR", "ADMIN_DISPATCHING"}):

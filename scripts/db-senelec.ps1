@@ -1,0 +1,13 @@
+# Bascule le poste sur la base SIRV2 (srv-bddomtech) — bureau SENELEC
+$env:SIR_PROFILE = "senelec"
+Write-Host "SIR_PROFILE=senelec — srv-bddomtech / SIRV2"
+Write-Host ""
+Write-Host "Migration :"
+Write-Host "  cd sir-backend"
+Write-Host "  alembic upgrade head"
+Write-Host ""
+Write-Host "Seed dev :"
+Write-Host "  python -m scripts.run_seed_dev"
+Write-Host ""
+Write-Host "Tables hors dbo (migration deja jouee) :"
+Write-Host "  sqlcmd -S srv-bddomtech -d SIRV2 -U LectSIP -P ... -i scripts\sql\move_tables_to_dbo.sql"

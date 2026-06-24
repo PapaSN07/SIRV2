@@ -32,7 +32,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         gap: 0.25rem;
         margin-bottom: 1rem;
         padding: 0.25rem;
-        background: #eef4fd;
+        background: #f3eef8;
         border-radius: 0.5rem;
         width: fit-content;
       }
@@ -41,15 +41,15 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         border-radius: 0.375rem;
         font-size: 13px;
         font-weight: 600;
-        color: #414750;
+        color: #5c4d68;
         text-decoration: none;
       }
       .analytics-nav__tab:hover {
-        color: #3d49a0;
+        color: #3c1053;
       }
       .analytics-nav__tab--active {
         background: #fff;
-        color: #3d49a0;
+        color: #3c1053;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
       }
     `,

@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard, premiereConnexionGuard, roleGuard } from './core/auth/role.guard';
 
 const DISTRIBUTION_READ_ROLES = ['BCC', 'BRC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR'];
-const DISTRIBUTION_WRITE_ROLES = ['BCC', 'ADMIN_SCR'];
+const DISTRIBUTION_WRITE_ROLES = ['BCC', 'BRC', 'ADMIN_SCR'];
 const VALIDATION_ROLES = ['SUPERVISEUR', 'ADMIN_SCR', 'ADMIN_SAQS'];
 const TRANSPORT_READ_ROLES = ['DISPATCHER', 'ADMIN_DISPATCHING', 'ADMIN_SAQS'];
 const TRANSPORT_WRITE_ROLES = ['DISPATCHER', 'ADMIN_DISPATCHING'];

@@ -84,3 +84,15 @@ async def list_services(
 
     records = await geo_repository.list_services_by_agence(db, agence_id)
     return [ServiceResponse.model_validate(r) for r in records]
+
+
+async def list_services_by_region(
+    db: AsyncSession,
+    region_id: int,
+) -> list[ServiceResponse]:
+    region = await geo_repository.get_region_by_id(db, region_id)
+    if region is None:
+        raise _region_not_found()
+
+    records = await geo_repository.list_services_by_region(db, region_id)
+    return [ServiceResponse.model_validate(r) for r in records]

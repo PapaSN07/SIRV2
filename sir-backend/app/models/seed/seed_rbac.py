@@ -8,10 +8,14 @@ Usage depuis le point d'entrée de l'application ou une commande CLI :
     await seed_rbac(db)
 """
 
+import asyncio
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
-from app.models.utilisateurs import Permission, Role, RolePermission
+from app.core.security import hash_password
+from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 
 # ---------------------------------------------------------------------------
 # Définition des rôles et de leurs permissions
@@ -45,7 +49,7 @@ _PERMISSIONS: list[tuple[str, str, str]] = [
 _ROLES: list[tuple[str, str, list[tuple[str, str]]]] = [
     (
         "BCC",
-        "Bureau de Conduite Centralisée — opérateur distribution (périmètre : son service)",
+        "Bureau Central de Conduite — saisie interruptions Dakar (SDDV, SDPG, SDRBD · périmètre régional Dakar)",
         [
             ("interruptions_distribution", "create"),
             ("interruptions_distribution", "read"),
@@ -61,9 +65,11 @@ _ROLES: list[tuple[str, str, list[tuple[str, str]]]] = [
     ),
     (
         "BRC",
-        "Bureau Régional de Conduite — opérateur régional distribution (périmètre : sa région)",
+        "Bureau Régional de Conduite — saisie interruptions région (SDRCO*, SDRCE*, SDRN*, SDRS · périmètre : sa région)",
         [
+            ("interruptions_distribution", "create"),
             ("interruptions_distribution", "read"),
+            ("interruptions_distribution", "update"),
             ("indicateurs", "read"),
             ("rapports", "read"),
             ("notifications", "read"),
@@ -149,10 +155,26 @@ _ROLES: list[tuple[str, str, list[tuple[str, str]]]] = [
     ),
 ]
 
+_SUPERADMIN_ROLE = "SUPERADMIN"
+_SUPERADMIN_LOGIN = "superadmin.dev"
+_SUPERADMIN_PASSWORD = "DevSir123!"
+
 
 # ---------------------------------------------------------------------------
 # Helpers privés
 # ---------------------------------------------------------------------------
+
+
+async def _fetch_one_or_none(result) -> object | None:
+    """Consomme le curseur ODBC (évite « connexion occupée » sur SQL Server)."""
+    try:
+        return result.scalar_one_or_none()
+    finally:
+        close = getattr(result, "close", None)
+        if close is not None:
+            closed = close()
+            if asyncio.iscoroutine(closed):
+                await closed
 
 
 async def _upsert_permission(
@@ -168,7 +190,7 @@ async def _upsert_permission(
             Permission.action == action,
         )
     )
-    permission = result.scalar_one_or_none()
+    permission = await _fetch_one_or_none(result)
     if permission is None:
         permission = Permission(
             ressource=ressource,
@@ -186,8 +208,10 @@ async def _upsert_role(
     description: str,
 ) -> Role:
     """Récupère le rôle existant ou le crée — jamais de doublon."""
-    result = await db.execute(select(Role).where(Role.nom == nom))
-    role = result.scalar_one_or_none()
+    result = await db.execute(
+        select(Role).options(noload(Role.role_permissions)).where(Role.nom == nom)
+    )
+    role = await _fetch_one_or_none(result)
     if role is None:
         role = Role(nom=nom, description=description, is_active=True)
         db.add(role)
@@ -195,20 +219,83 @@ async def _upsert_role(
     return role
 
 
-async def _upsert_role_permission(
+async def _load_role_permission_links(db: AsyncSession) -> set[tuple[int, int]]:
+    """Charge toutes les associations existantes (une seule requête ODBC)."""
+    result = await db.execute(select(RolePermission.role_id, RolePermission.permission_id))
+    try:
+        return {(int(row[0]), int(row[1])) for row in result.all()}
+    finally:
+        close = getattr(result, "close", None)
+        if close is not None:
+            closed = close()
+            if asyncio.iscoroutine(closed):
+                await closed
+
+
+def _ensure_role_permission(
+    links: set[tuple[int, int]],
     db: AsyncSession,
     role_id: int,
     permission_id: int,
 ) -> None:
+    """Crée l'association role-permission si elle n'existe pas déjà (cache mémoire)."""
+    key = (role_id, permission_id)
+    if key in links:
+        return
+    db.add(RolePermission(role_id=role_id, permission_id=permission_id))
+    links.add(key)
+
+
+async def _upsert_role_permission(
+    db: AsyncSession,
+    links: set[tuple[int, int]],
+    role_id: int,
+    permission_id: int,
+) -> None:
     """Crée l'association role-permission si elle n'existe pas déjà."""
-    result = await db.execute(
-        select(RolePermission).where(
-            RolePermission.role_id == role_id,
-            RolePermission.permission_id == permission_id,
+    _ensure_role_permission(links, db, role_id, permission_id)
+
+
+async def _seed_superadmin_role_and_user(
+    db: AsyncSession,
+    permission_map: dict[tuple[str, str], Permission],
+    links: set[tuple[int, int]],
+) -> None:
+    """Rôle et compte dev SUPERADMIN — toutes les permissions, accès total."""
+    role = await _upsert_role(
+        db,
+        _SUPERADMIN_ROLE,
+        "Dev uniquement — accès total à toutes les fonctionnalités",
+    )
+    for perm in permission_map.values():
+        await _upsert_role_permission(db, links, role.id, perm.id)
+
+    result = await db.execute(select(Utilisateur).where(Utilisateur.login == _SUPERADMIN_LOGIN))
+    user = await _fetch_one_or_none(result)
+    if user is not None:
+        return
+
+    user = Utilisateur(
+        login=_SUPERADMIN_LOGIN,
+        password_hash=hash_password(_SUPERADMIN_PASSWORD),
+        nom="Super",
+        prenom="Admin",
+        email=f"{_SUPERADMIN_LOGIN}@senelec.sn",
+        telephone=None,
+        is_active=True,
+        premiere_connexion=False,
+    )
+    db.add(user)
+    await db.flush()
+
+    db.add(
+        UserRole(
+            utilisateur_id=user.id,
+            role_id=role.id,
+            scope_service_id=None,
         )
     )
-    if result.scalar_one_or_none() is None:
-        db.add(RolePermission(role_id=role_id, permission_id=permission_id))
+    await db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -233,12 +320,15 @@ async def seed_rbac(db: AsyncSession) -> None:
         permission_map[(ressource, action)] = perm
 
     # Étape 2 — Créer ou récupérer les rôles et leurs associations de permissions
+    links = await _load_role_permission_links(db)
     for nom_role, description_role, role_perms in _ROLES:
         role = await _upsert_role(db, nom_role, description_role)
 
         for ressource, action in role_perms:
             permission = permission_map[(ressource, action)]
-            await _upsert_role_permission(db, role.id, permission.id)
+            await _upsert_role_permission(db, links, role.id, permission.id)
+
+    await _seed_superadmin_role_and_user(db, permission_map, links)
 
     # Flush final pour persister toutes les associations avant commit externe
     await db.flush()

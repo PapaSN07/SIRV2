@@ -73,3 +73,18 @@ async def list_services(
 ) -> ApiResponse[list[ServiceResponse]]:
     result = await geo_service.list_services(db, agence_id)
     return ApiResponse.success(result)
+
+
+@router.get(
+    "/services-by-region",
+    response_model=ApiResponse[list[ServiceResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Liste des services d'une région",
+)
+async def list_services_by_region(
+    region_id: int = Query(..., ge=1, description="Identifiant de la région"),
+    db: AsyncSession = Depends(get_db),
+    _current_user: Utilisateur = Depends(get_current_user),
+) -> ApiResponse[list[ServiceResponse]]:
+    result = await geo_service.list_services_by_region(db, region_id)
+    return ApiResponse.success(result)

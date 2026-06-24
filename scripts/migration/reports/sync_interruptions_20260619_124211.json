@@ -1,0 +1,36 @@
+{
+  "started_at": "2026-06-19T11:36:36.809534",
+  "dry_run": false,
+  "date_from": "2020-01-01T00:00:00",
+  "date_to": "2026-12-31T23:59:59.999999",
+  "update_existing": false,
+  "before": {
+    "distribution_count": 75855,
+    "max_date_apparition": "2022-11-02 16:58:00"
+  },
+  "extract": {
+    "skipped": true
+  },
+  "etl": {
+    "entity": "interruptions",
+    "dry_run": false,
+    "inserted": 110155,
+    "skipped": 133394,
+    "rejected": 0
+  },
+  "backfill_fks": {
+    "exit_code": 3221225477,
+    "stdout": "{\n  \"text_maps_rebuilt\": {\n    \"services_by_text\": 23,\n    \"causes_by_text\": 122,\n    \"sieges_by_text\": 55,\n    \"signalisations_by_text\": 75,\n    \"feeders_by_text\": 371\n  },\n  \"geo_services\": {\n    \"service_agences_to_update\": 0\n  },\n  \"collect\": {\n    \"rows_seen\": 256804,\n    \"mapped\": 256804,\n    \"unmapped_legacy\": 0,\n    \"interruptions_with_updates\": 193263\n  },\n  \"fk_rejected_invalid_id\": {\n    \"service_id\": 0,\n    \"feeder_id\": 0,\n    \"cause_id\": 0,\n    \"nature_id\": 0,\n    \"siege_id\": 20,\n    \"signalisation_id\": 6\n  },\n  \"fields_populated\": {\n    \"service_id\": 192416,\n    \"feeder_id\": 192385,\n    \"cause_id\": 186200,\n    \"nature_id\": 193260,\n    \"siege_id\": 31305,\n    \"signalisation_id\": 40214\n  },\n  \"applied\": {\n    \"service_id\": 192416,\n    \"feeder_id\": 192385,\n    \"cause_id\": 186200,\n    \"nature_id\": 193260,\n    \"siege_id\": 31305,\n    \"signalisation_id\": 40214\n  }\n}\n",
+    "stderr": ""
+  },
+  "backfill_residuals": {
+    "exit_code": 3221225477,
+    "stdout": "{\n  \"feeder_services\": {\n    \"feeders_to_update\": 263,\n    \"feeders_updated\": 263\n  },\n  \"derive_service_from_feeder\": {\n    \"interruptions_to_update\": 0,\n    \"interruptions_updated\": 0\n  },\n  \"hfsql_service\": {\n    \"candidates\": 0,\n    \"rejected_invalid\": 0,\n    \"interruptions_updated\": 0\n  },\n  \"default_cause\": {\n    \"interruptions_to_update\": 4237,\n    \"interruptions_updated\": 4237\n  },\n  \"remaining_nulls\": {\n    \"sans_service\": 2,\n    \"sans_feeder\": 4,\n    \"sans_cause\": 0\n  }\n}\n",
+    "stderr": ""
+  },
+  "after": {
+    "distribution_count": 186010,
+    "max_date_apparition": "2026-06-19 10:40:00"
+  },
+  "finished_at": "2026-06-19T12:42:11.147659"
+}

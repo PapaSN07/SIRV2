@@ -5,6 +5,7 @@ from typing import Any, Callable
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.models.utilisateurs import Utilisateur
 from app.repositories import reseau_transport_repository as repo
 from app.schemas.common import PaginatedResponse
@@ -42,6 +43,8 @@ def _validate_slug(slug: str) -> None:
 
 
 def _ensure_can_read(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(READ_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -54,6 +57,8 @@ def _ensure_can_read(user: Utilisateur) -> None:
 
 
 def _ensure_can_write(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if "ADMIN_DISPATCHING" not in _user_role_names(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

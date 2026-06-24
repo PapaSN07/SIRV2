@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.core.deps import (
     check_region_scope,
     check_service_scope,
+    require_permission,
     require_role,
 )
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
@@ -107,7 +108,7 @@ def _make_user_no_roles(user_id: int = 99) -> Utilisateur:
 
 @pytest.fixture
 def fixture_bcc() -> Utilisateur:
-    """BCC scope_service_id=1 — peut agir sur service 1 uniquement."""
+    """BCC scope_service_id=1 — périmètre régional Dakar (region_id=1)."""
     role = _make_role_with_permissions(
         nom="BCC",
         role_id=1,
@@ -153,12 +154,14 @@ def fixture_bcc_sans_scope() -> Utilisateur:
 
 @pytest.fixture
 def fixture_brc() -> Utilisateur:
-    """BRC avec scope (region_id) = 3 — accès lecture distribution."""
+    """BRC avec scope region_id = 3 — périmètre régional."""
     role = _make_role_with_permissions(
         nom="BRC",
         role_id=2,
         permissions=[
             ("interruptions_distribution", "read"),
+            ("interruptions_distribution", "create"),
+            ("interruptions_distribution", "update"),
             ("rapports", "read"),
         ],
     )
@@ -230,6 +233,28 @@ def fixture_superviseur() -> Utilisateur:
 
 
 @pytest.fixture
+def fixture_superadmin() -> Utilisateur:
+    """SUPERADMIN dev — toutes les permissions, bypass scope."""
+    all_perms = [
+        ("interruptions_distribution", "create"),
+        ("interruptions_distribution", "read"),
+        ("interruptions_distribution", "update"),
+        ("interruptions_distribution", "validate"),
+        ("interruptions_transport", "create"),
+        ("interruptions_transport", "read"),
+        ("interruptions_transport", "update"),
+        ("interruptions_transport", "validate"),
+        ("admin_utilisateurs", "read"),
+        ("admin_utilisateurs", "create"),
+        ("admin_utilisateurs", "update"),
+        ("rapports", "read"),
+        ("notifications", "admin"),
+    ]
+    role = _make_role_with_permissions(nom="SUPERADMIN", role_id=99, permissions=all_perms)
+    return _make_user_with_role(role, scope_service_id=None, user_id=99)
+
+
+@pytest.fixture
 def fixture_sans_role() -> Utilisateur:
     """Utilisateur sans aucun rôle assigné."""
     return _make_user_no_roles()
@@ -240,17 +265,24 @@ def fixture_sans_role() -> Utilisateur:
 # ---------------------------------------------------------------------------
 
 
-def test_bcc_acces_son_service_est_autorise(fixture_bcc: Utilisateur) -> None:
-    """BCC avec scope_service_id=1 accède à service_id=1 → aucune exception."""
-    check_service_scope(fixture_bcc, service_id=1)
+def test_bcc_acces_sa_region_est_autorise(fixture_bcc: Utilisateur) -> None:
+    """BCC avec scope=1 accède à region_id=1 → aucune exception."""
+    check_region_scope(fixture_bcc, region_id=1)
 
 
-def test_bcc_acces_autre_service_leve_403(fixture_bcc: Utilisateur) -> None:
-    """BCC avec scope_service_id=1 tente service_id=2 → HTTPException 403 Hors périmètre."""
+def test_bcc_acces_autre_region_leve_403(fixture_bcc: Utilisateur) -> None:
+    """BCC avec scope=1 tente region_id=2 → HTTPException 403 Hors périmètre."""
     with pytest.raises(HTTPException) as exc_info:
-        check_service_scope(fixture_bcc, service_id=2)
+        check_region_scope(fixture_bcc, region_id=2)
     assert exc_info.value.status_code == 403
     assert "Hors périmètre" in exc_info.value.detail["error"]
+
+
+def test_bcc_check_service_scope_leve_403(fixture_bcc: Utilisateur) -> None:
+    """BCC — périmètre régional, pas de check service direct."""
+    with pytest.raises(HTTPException) as exc_info:
+        check_service_scope(fixture_bcc, service_id=1)
+    assert exc_info.value.status_code == 403
 
 
 def test_bcc_sans_scope_leve_403_perimetre_non_configure(
@@ -258,9 +290,9 @@ def test_bcc_sans_scope_leve_403_perimetre_non_configure(
 ) -> None:
     """BCC avec scope_service_id=NULL → HTTPException 403 Périmètre non configuré."""
     with pytest.raises(HTTPException) as exc_info:
-        check_service_scope(fixture_bcc_sans_scope, service_id=1)
+        check_region_scope(fixture_bcc_sans_scope, region_id=1)
     assert exc_info.value.status_code == 403
-    assert "Périmètre de service non configuré" in exc_info.value.detail["error"]
+    assert "non configuré" in exc_info.value.detail["error"]
 
 
 def test_admin_scr_bypass_scope_service(fixture_admin_scr: Utilisateur) -> None:
@@ -303,10 +335,17 @@ def test_brc_acces_autre_region_leve_403(fixture_brc: Utilisateur) -> None:
     assert "Hors périmètre" in exc_info.value.detail["error"]
 
 
-def test_brc_sans_scope_leve_403_perimetre_non_configure(
+def test_brc_check_service_scope_leve_403(fixture_brc: Utilisateur) -> None:
+    """BRC — périmètre régional, pas de check service direct."""
+    with pytest.raises(HTTPException) as exc_info:
+        check_service_scope(fixture_brc, service_id=3)
+    assert exc_info.value.status_code == 403
+
+
+def test_bcc_sans_scope_filtre_region_leve_403(
     fixture_bcc_sans_scope: Utilisateur,
 ) -> None:
-    """Rôle non-national avec scope=None → check_region_scope lève 403."""
+    """BCC avec scope=None → check_region_scope lève 403."""
     with pytest.raises(HTTPException) as exc_info:
         check_region_scope(fixture_bcc_sans_scope, region_id=1)
     assert exc_info.value.status_code == 403
@@ -448,11 +487,11 @@ def test_superviseur_na_pas_permission_transport_validate(fixture_superviseur: U
     assert _check_permission(fixture_superviseur, "interruptions_transport", "validate") is False
 
 
-def test_brc_a_permission_distribution_read_uniquement(fixture_brc: Utilisateur) -> None:
-    """BRC ne peut lire que la distribution — pas créer ni modifier."""
+def test_brc_a_permission_distribution_read_et_ecriture(fixture_brc: Utilisateur) -> None:
+    """BRC peut lire, créer et modifier les interruptions distribution."""
     assert _check_permission(fixture_brc, "interruptions_distribution", "read") is True
-    assert _check_permission(fixture_brc, "interruptions_distribution", "create") is False
-    assert _check_permission(fixture_brc, "interruptions_distribution", "update") is False
+    assert _check_permission(fixture_brc, "interruptions_distribution", "create") is True
+    assert _check_permission(fixture_brc, "interruptions_distribution", "update") is True
 
 
 def test_roles_distribution_ont_permission_rapports_read(
@@ -513,3 +552,30 @@ def test_superviseur_scope_service_1_refuse_autre_service(fixture_superviseur: U
         check_service_scope(fixture_superviseur, service_id=2)
     assert exc_info.value.status_code == 403
     assert "Hors périmètre" in exc_info.value.detail["error"]
+
+
+# ---------------------------------------------------------------------------
+# Tests : SUPERADMIN dev
+# ---------------------------------------------------------------------------
+
+
+def test_superadmin_bypass_scope_service(fixture_superadmin: Utilisateur) -> None:
+    check_service_scope(fixture_superadmin, service_id=999)
+
+
+def test_superadmin_bypass_scope_region(fixture_superadmin: Utilisateur) -> None:
+    check_region_scope(fixture_superadmin, region_id=999)
+
+
+@pytest.mark.asyncio
+async def test_superadmin_bypass_require_role(fixture_superadmin: Utilisateur) -> None:
+    checker = require_role("BCC", "DISPATCHER")
+    result = await checker(current_user=fixture_superadmin)
+    assert result is fixture_superadmin
+
+
+@pytest.mark.asyncio
+async def test_superadmin_bypass_require_permission(fixture_superadmin: Utilisateur) -> None:
+    checker = require_permission("admin_utilisateurs", "update")
+    result = await checker(current_user=fixture_superadmin)
+    assert result is fixture_superadmin

@@ -1,0 +1,28 @@
+{
+  "table": "Troncon_SIG",
+  "source": "odbc_full",
+  "columns": [
+    "fid",
+    "objectid",
+    "ntrocon",
+    "nomfeeder",
+    "imatfeeder",
+    "ntension",
+    "sections",
+    "nomnamont",
+    "codamont",
+    "nomnaval",
+    "codaval",
+    "ss",
+    "date_d_acq",
+    "date_de_mi",
+    "shape_leng",
+    "type_condu",
+    "projet",
+    "date_maj",
+    "delegation",
+    "date_chargement",
+    "nomtroncon",
+    "id_troncon_sig"
+  ]
+}

@@ -1,0 +1,404 @@
+# Mapping HFSQL (SIR.sql) → SQL Server SIRV2 (dbo)
+# Référence : 107 tables source → 37 tables cible Alembic
+
+meta:
+  source: HFSQL Client/Serveur srv-hfsql:4900
+  target_schema: dbo
+  date_from: "2020-01-01"
+  date_to: "2026-12-31"
+  cutoff_years: 3  # repli si date_from non défini dans .env.migration
+
+# Tables P0 auditées
+audit_tables:
+  geo: [Regions, Delegation, Agences, Services]
+  referentiels:
+    - Causes
+    - CausesTransport
+    - Natures
+    - Sieges
+    - SiegesTransport
+    - Signalisations
+    - SignalisationsTransport
+    - TypesEND
+  reseau:
+    - PostesSources
+    - Feeders
+    - Postes
+    - Troncon
+    - SousFeeders
+    - EquipementsTransport
+    - PosteLigne
+  utilisateurs: [Utilisateurs, TypeUtilisateur]
+  interruptions:
+    - Interruptions
+    - Interruptions_Histo
+    - InterruptionsTransport
+    - Interruptions_OMVG
+    - PosteInterruption
+    - PosteInterruption_Histo
+  indicateurs: [EnergieND, SAIFISAIDI, NombreClientMois]
+  napt: [NAPT, consignation]
+  notifications: [Destinataire]
+
+# Ordre d'extraction / import (vagues ETL)
+waves:
+  geo:
+    order: [regions, delegations, agences, services]
+  referentiel:
+    order: [causes, sieges, signalisations, natures, types_end]
+  reseau:
+    order:
+      - postes_sources
+      - feeders
+      - postes
+      - troncons
+      - sous_feeders
+      - equipements_transport
+      - postes_lignes
+  utilisateurs:
+    order: [utilisateurs, user_roles]
+  interruptions:
+    order:
+      - interruptions
+      - interruptions_distribution
+      - interruptions_transport
+      - poste_interruptions
+      - energie_nd
+  indicateurs:
+    order: [saifi_saidi, nombre_client_mois]
+  napt:
+    order: [napt, consignations, destinataires]
+
+regions:
+  source_table: Regions
+  target_table: regions
+  legacy_id: IDRegions
+  fields:
+    code: { source: Region, transform: slug_code }
+    libelle: { source: Region }
+  dedupe_key: [code]
+
+delegations:
+  source_table: Delegation
+  target_table: delegations
+  legacy_id: IDDelegation
+  fields:
+    region_id: { lookup: regions, by_legacy: IDRegions }
+    code: { source: AbregeDelegation, fallback: CodeDelegation, transform: slug_code }
+    libelle: { source: LibelleDelegation, fallback: AbregeDelegation }
+  default_parent: regions
+
+agences:
+  source_table: Agences
+  target_table: agences
+  legacy_id: IDAgence
+  fields:
+    delegation_id: { lookup: delegations, by_legacy: IDDelegation, fallback: default_delegation }
+    code: { source: Codeagence, transform: slug_code, prefix: AG }
+    libelle: { source: Agence }
+
+services:
+  source_table: Services
+  target_table: services
+  legacy_id: IDAUTO
+  text_key: Service
+  fields:
+    agence_id: { lookup: agences, by_region: Region, fallback: default_agence }
+    code: { source: Service, transform: slug_code }
+    libelle: { source: Service }
+
+causes:
+  sources:
+    - table: Causes
+      type_reseau: distribution
+      legacy_id: IDCauses
+      libelle_field: cause
+    - table: CausesTransport
+      type_reseau: transport
+      legacy_id: IDCausesTrans
+      libelle_field: cause
+  target_table: causes
+  fields:
+    code: { transform: slug_code_from_id_or_text }
+    libelle: { source: cause }
+    type_reseau: { from_source: type_reseau }
+  dedupe_key: [code, type_reseau]
+
+sieges:
+  sources:
+    - table: Sieges
+      type_reseau: distribution
+      legacy_id: IDSieges
+      libelle_field: Sieges
+    - table: SiegesTransport
+      type_reseau: transport
+      legacy_id: IDSieges
+      libelle_field: Sieges
+  target_table: sieges
+  fields:
+    code: { source: sigles, fallback: Sieges, transform: slug_code }
+    libelle: { source: Sieges }
+    type_reseau: { from_source: type_reseau }
+
+signalisations:
+  sources:
+    - table: Signalisations
+      type_reseau: distribution
+      legacy_id: IDSignalisation
+    - table: SignalisationsTransport
+      type_reseau: transport
+      legacy_id: IDSignalisation
+  target_table: signalisations
+  fields:
+    code: { transform: slug_code_from_id_or_text }
+    libelle: { source: Signalisation }
+    type_reseau: { from_source: type_reseau }
+
+natures:
+  source_table: Natures
+  target_table: natures
+  legacy_id: IDNature
+  fields:
+    code: { source: naturepresumee, transform: slug_code }
+    libelle: { source: naturepresumee }
+
+types_end:
+  source_table: TypesEND
+  target_table: types_end
+  legacy_id: IDTypeEND
+  fields:
+    code: { source: TypeEND, transform: slug_code }
+    libelle: { source: TypeEND }
+
+postes_sources:
+  source_table: PostesSources
+  target_table: postes_sources
+  legacy_id: IDPosteSource
+  text_key: PosteSource
+  fields:
+    code: { source: PosteSource, transform: slug_code }
+    libelle: { source: PosteSource }
+    region_id: { lookup: regions, by_text: Region }
+
+feeders:
+  source_table: Feeders
+  target_table: feeders
+  legacy_id: IDFeeder
+  text_key: Feeder
+  fields:
+    code: { source: Feeder, transform: slug_code }
+    libelle: { source: Feeder }
+    poste_source_id:
+      lookup: postes_sources
+      by_legacy: IDPosteSource
+      by_text: PosteSource
+      required: true
+    service_id: { lookup: services, by_text: Service }
+    tension_kv: { source: TensionPrimaire }
+
+postes:
+  source_table: Postes
+  target_table: postes
+  legacy_id: IDPostes
+  fields:
+    code: { source: Poste, transform: slug_code }
+    libelle: { source: Poste }
+    feeder_id: { lookup: feeders, by_text: Feeder }
+    service_id: { lookup: services, by_text: Service }
+
+troncons:
+  source_table: Troncon
+  target_table: troncons
+  legacy_id: IDTroncon
+  fields:
+    code: { source: Libelle_Troncon, transform: slug_code, prefix: TR }
+    libelle: { source: Libelle_Troncon }
+    feeder_id: { lookup: feeders, by_legacy: IDFeeder }
+
+sous_feeders:
+  source_table: SousFeeders
+  target_table: sous_feeders
+  legacy_id: IDSousFeeder
+  fields:
+    code: { source: SousFeeder, transform: slug_code }
+    libelle: { source: SousFeeder }
+    feeder_id: { lookup: feeders, by_text: Feeder }
+
+equipements_transport:
+  source_table: EquipementsTransport
+  target_table: equipements_transport
+  legacy_id: IDEquipementTransport
+  fields:
+    code: { source: Equipement, transform: slug_code }
+    libelle: { source: Equipement }
+    type_equipement: { source: TypeEquipement, default: "LIGNE" }
+
+postes_lignes:
+  source_table: PosteLigne
+  target_table: postes_lignes
+  fields:
+    poste_source_id: { lookup: postes_sources, by_legacy: IDPosteSource }
+    equipement_transport_id: { lookup: equipements_transport, by_legacy: IDEquipementTransport }
+
+utilisateurs:
+  source_table: Utilisateurs
+  target_table: utilisateurs
+  legacy_id: IDUser
+  fields:
+    login: { source: Login }
+    password_hash: { source: mdp, transform: bcrypt, never_log: true }
+    nom: { source: Nom }
+    prenom: { source: Prénom, alt: Prenom }
+    email: { source: Email }
+    premiere_connexion: { constant: true }
+  rbac_flags:
+    typeuser_BCC: { role: BCC, scope: service }
+    AdminSCR: { role: ADMIN_SCR, scope: national }
+    disparcheur: { role: DISPATCHER, scope: national }
+    AdminDitpatching: { role: ADMIN_DISPATCHING, scope: national }
+    AdminSAQS: { role: ADMIN_SAQS, scope: national }
+    superviseur: { role: SUPERVISEUR, scope: service }
+
+interruptions:
+  sources:
+    - table: Interruptions
+      type_direction: distribution
+      legacy_id: NInterruption
+      filter: active_or_cutoff
+    - table: Interruptions_Histo
+      type_direction: distribution
+      legacy_id: NInterruption
+      filter: cutoff_only
+      statut_override: archive
+    - table: InterruptionsTransport
+      type_direction: transport
+      legacy_id: NInterruption
+      filter: active_or_cutoff
+    - table: Interruptions_OMVG
+      type_direction: omvg
+      legacy_id: NInterruption
+      filter: active_or_cutoff
+  target_table: interruptions
+  fields:
+    numero_interruption: { source: NumeroInterruption, fallback: NInterruption }
+    type_direction: { from_source: type_direction }
+    statut: { transform: map_statut, fields: [EtatTraitement, Validation] }
+    # Résolution cascade : legacy ID HFSQL puis texte (voir fk_resolver.resolve_*)
+    service_id: { lookup: services, by_legacy: idservice, by_text: Service }
+    feeder_id: { lookup: feeders, by_legacy: idfeeder, by_text: [Feeder, Feeder1, feeder2] }
+    poste_source_id: { lookup: postes_sources, by_text: PosteSource }
+    # DateApparition toujours NULL en base réelle — date = Creation + heureApparition
+    date_apparition: { merge: [Creation, heureApparition], fallback: [Modification, DateSaisie, Annee] }
+    date_remise: { merge: [DateRemise, heureremise], fallback: [DateFinRemise, Modification] }
+    duree_minutes: { source: DureeInterruption, compute_from_dates: true }
+    cause_id: { lookup: causes, by_legacy: idcauses, by_text: [Cause, causeeffective, causepresumees] }
+    siege_id: { lookup: sieges, by_legacy: idsieges, by_text: Sieges }
+    signalisation_id: { lookup: signalisations, by_legacy: idsignalisation, by_text: Signalisation }
+    nature_id: { lookup: natures, by_legacy: idnature, by_text: [Nature, naturepresumee] }
+    is_force_majeure: { source: casforcemajeur }
+    nombre_clients_touches: { source: Nombreclientimpacte }
+    puissance_coupee_mw: { source: PuissanceCoupee, scale: 0.001 }
+    localisation: { source: NomTroncon }
+    observations: { source: Observation }
+    created_by_id: { lookup: utilisateurs, by_text: Login, fallback: migration.system }
+
+interruptions_distribution:
+  parent: interruptions
+  type_direction: distribution
+  fields:
+    tension_kv: { source: TensionPrimaire }
+    end_mwh: { source: ENDD }
+    is_programme: { source: Délestage, alt: Delestage }
+
+interruptions_transport:
+  parent: interruptions
+  type_direction: [transport, omvg]
+  fields:
+    tension_kv: { source: TensionPrimaire }
+    energie_non_fournie_mwh: { source: ENDD }
+
+poste_interruptions:
+  sources:
+    - table: PosteInterruption
+    - table: PosteInterruption_Histo
+  fields:
+    interruption_id: { lookup: interruptions, by_legacy: NInterruption }
+    poste_id: { lookup: postes, by_text: Poste, alt: NomPoste }
+    nombre_clients_touches: { source: Nombreclientimpacte }
+
+energie_nd:
+  source_table: EnergieND
+  target_table: energie_nd
+  fields:
+    interruption_id: { lookup: interruptions, by_legacy: NInterruption }
+    type_end_id: { lookup: types_end, by_legacy: IDTypeEND }
+    valeur_mwh: { source: ENDD }
+    puissance_coupee_mw: { source: PuissanceCoupee, scale: 0.001 }
+    duree_heures: { source: dureeHeure }
+    est_force_majeure: { source: casforcemajeur }
+
+saifi_saidi:
+  source_table: SAIFISAIDI
+  target_table: saifi_saidi
+  fields:
+    service_id: { lookup: services, by_text: Service }
+    annee: { source: Annee }
+    mois: { source: Mois }
+    saifi: { source: SAIFI }
+    saidi: { source: SAIDI }
+    nombre_interruptions: { source: NombreInterruptions }
+    total_clients_reference: { source: NombreClient }
+
+nombre_client_mois:
+  source_table: NombreClientMois
+  target_table: nombre_client_mois
+  fields:
+    service_id: { lookup: services, by_text: Service }
+    annee: { source: Annee }
+    mois: { source: Mois }
+    nombre_clients: { source: NombreClient }
+
+napt:
+  source_table: NAPT
+  target_table: napt
+  legacy_id: Num
+  fields:
+    numero_napt: { source: NAPT }
+    service_id: { lookup: services, by_text: exploitation }
+    feeder_id: { lookup: feeders, by_text: Feeder }
+    objet_travaux: { source: Consistance_des_travaux }
+    date_debut_prevue: { merge: [Debut_tvx, Heure_debut] }
+    date_fin_prevue: { merge: [Fin_napt, Heure_fin] }
+    observations: { source: Observations }
+    created_by_id: { lookup: utilisateurs, by_text: SaisiePar, fallback: migration.system }
+
+consignations:
+  source_table: consignation
+  target_table: consignations
+  legacy_id: IDconsignation
+  fields:
+    napt_id: { lookup: napt, by_legacy: Num }
+    numero_consignation: { source: Num, transform: prefix_cons }
+    date_ouverture: { source: datecreation, fallback: now }
+    agent_consignateur_id: { fallback: migration.system }
+
+destinataires:
+  source_table: Destinataire
+  target_table: destinataires
+  legacy_id: IDDestinataires
+  fields:
+    nom: { source: prénomnom, alt: prenomnom }
+    telephone: { source: Telephone }
+    service_id: { lookup: services, by_text: Service }
+
+# Tables source hors périmètre v1 (107 - ~25 migrées)
+out_of_scope:
+  - Noeud_SIG
+  - FEEDERS_SIG
+  - Troncon_SIG
+  - POSTEAJOUR$
+  - POSTESANSNOEUD$
+  - CopieSMS
+  - BoiteEnvoi
+  - Rapport
+  - RapportSAIFI

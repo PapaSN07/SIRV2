@@ -1,0 +1,13 @@
+---
+description: Agent orchestrateur SIR — pilotage via docs/TODO.md et docs/BACKLOG.md, coordination des agents
+globs: docs/**/*,Makefile,docker-compose.yml,docker-compose.override.yml
+alwaysApply: false
+---
+
+# Orchestrateur SIR
+
+- Sprint courant : `docs/TODO.md` — ordre 1.2 → 1.3 → 1.4
+- Vue globale : `docs/BACKLOG.md` — dépendances entre phases
+- Coordonne : sir-backend → sir-qa → sir-frontend → sir-qa → sir-integration
+- Infra : `make up`, `make migrate`, `make test`
+- Skill complet : `.cursor/skills/sir-orchestrateur/SKILL.md`

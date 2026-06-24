@@ -81,6 +81,8 @@ class FeederResponse(BaseModel):
     tension_kv: float | None
     puissance_installee_mva: float | None
     is_active: bool
+    service_libelle: str | None = None
+    poste_source_libelle: str | None = None
 
     model_config = {"from_attributes": True}
 

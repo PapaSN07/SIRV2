@@ -1,115 +1,184 @@
-// Aligné sur le bleu du logo Senelec (échantillonné depuis senelec-logo.png)
-$primary: #3d49a0;
-$primary-container: #2d4fa7;
-$on-primary: #ffffff;
-$on-surface: #151c22;
-$on-surface-variant: #414750;
-$outline: #727781;
-$outline-variant: #c1c7d2;
-$surface-lowest: #ffffff;
-$error: #ba1a1a;
-$card-border: #e9ecef;
+@use '../../../../styles/sir-tokens' as *;
 
 .login-page {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #f6f9ff 0%, #e8eef7 100%);
-  color: $on-surface;
-  font-family: 'Inter', sans-serif;
+  flex-direction: column;
   position: relative;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: $on-surface-on-dark;
 }
 
-.login-page__atmosphere {
+.login-page__overlay {
   position: fixed;
   inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0.2;
+  z-index: 0;
+  background: linear-gradient(
+    135deg,
+    $page-bg-alt 0%,
+    $page-bg 45%,
+    $primary-dark 100%
+  );
 }
 
-.login-page__glow {
-  position: absolute;
-  width: 40%;
-  height: 40%;
-  border-radius: 50%;
-  background: rgba($primary, 0.1);
-  filter: blur(120px);
-
-  &--top-left {
-    top: -10%;
-    left: -10%;
-  }
-
-  &--bottom-right {
-    bottom: -10%;
-    right: -10%;
-  }
-}
-
-.login-shell {
-  width: 100%;
-  max-width: 440px;
+.login-layout {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 1rem;
+
+  @media (min-width: 960px) {
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 3rem;
+    padding: 3rem 2.5rem 1.5rem;
+  }
 }
 
-.login-brand {
-  text-align: center;
-  margin-bottom: 1.5rem;
-
-  &__logo {
-    display: inline-block;
-    max-width: 220px;
-    height: auto;
-    margin-bottom: 1rem;
-  }
-
+.login-hero {
   &__title {
-    margin: 0 0 0.5rem;
-    font-size: 20px;
-    line-height: 28px;
-    font-weight: 600;
-    color: $on-surface;
+    margin: 0 0 1rem;
+    font-size: clamp(4.75rem, 14vw, 7.25rem);
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    background: var(--gradient-brand);
+    background-size: 160% 100%;
+    background-position: 62% center;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 1.5px rgba(#ffffff, 0.35);
+    filter:
+      drop-shadow(0 0 32px rgba($secondary, 0.65))
+      drop-shadow(0 0 14px rgba($accent, 0.5))
+      drop-shadow(0 4px 10px rgba(#000, 0.55));
   }
 
-  &__subtitle {
+  &__heading {
+    margin: 0 0 0.35rem;
+    font-size: clamp(1.5rem, 3.5vw, 2rem);
+    line-height: 1.3;
+    font-weight: 700;
+    color: $on-surface-on-dark;
+  }
+
+  &__org {
+    margin: 0 0 1.25rem;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    font-weight: 500;
+    color: rgba(#ffffff, 0.88);
+  }
+
+  &__desc {
+    margin: 0 0 1.75rem;
+    max-width: 34rem;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: rgba(#ffffff, 0.85);
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
     margin: 0;
-    font-size: 14px;
-    line-height: 20px;
-    font-weight: 400;
-    color: $on-surface-variant;
+    padding: 0;
+    list-style: none;
+
+    li {
+      padding: 0.55rem 1.15rem;
+      border-radius: 999px;
+      background: rgba(#ffffff, 0.95);
+      color: $on-surface;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      box-shadow: 0 2px 8px rgba($page-bg-alt, 0.25);
+    }
+  }
+}
+
+.login-panel {
+  display: flex;
+  justify-content: center;
+
+  @media (min-width: 960px) {
+    justify-content: flex-end;
   }
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid $card-border;
-  border-radius: 0.25rem;
-  padding: 2.5rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  max-width: 440px;
+  padding: 2.5rem 2.25rem 2.25rem;
+  border-radius: 1.25rem;
+  background: rgba(#ffffff, 0.98);
+  box-shadow: 0 20px 50px rgba($page-bg-alt, 0.35);
+  color: $on-surface;
+
+  &__logo {
+    display: block;
+    max-width: 200px;
+    height: auto;
+    margin: 0 auto 1.75rem;
+  }
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 
   &__error {
-    margin: -0.5rem 0 0;
-    font-size: 13px;
-    line-height: 18px;
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.4;
     color: $error;
   }
 
-  &__actions {
+  &__row {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
     gap: 1rem;
-    padding-top: 0.5rem;
+    margin-top: -0.25rem;
+  }
+
+  &__remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: $on-surface-variant;
+    cursor: not-allowed;
+    opacity: 0.7;
+
+    input {
+      accent-color: $accent;
+    }
+  }
+
+  &__forgot {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: $accent;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
   &__submit {
@@ -118,34 +187,33 @@ $card-border: #e9ecef;
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
-    height: 48px;
+    height: 54px;
+    margin-top: 0.25rem;
     border: none;
-    border-radius: 0.25rem;
-    background: $primary;
+    border-radius: 999px;
+    background: var(--gradient-brand);
     color: $on-primary;
     font-family: inherit;
-    font-size: 16px;
-    line-height: 24px;
-    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(61, 73, 160, 0.25);
-    transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+    box-shadow: 0 8px 20px rgba($primary, 0.35);
+    transition: filter 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
 
     &:hover:not(:disabled) {
-      background: $primary-container;
+      filter: brightness(1.08);
     }
 
     &:active:not(:disabled) {
-      transform: scale(0.98);
+      transform: scale(0.99);
     }
 
     &:disabled {
-      opacity: 0.8;
+      opacity: 0.75;
       cursor: not-allowed;
-    }
-
-    .material-symbols-outlined {
-      font-size: 20px;
     }
   }
 
@@ -153,17 +221,20 @@ $card-border: #e9ecef;
     animation: login-spin 1s linear infinite;
   }
 
-  &__forgot {
+  &__support {
+    margin: 0.5rem 0 0;
     text-align: center;
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: $primary;
-    text-decoration: none;
+    font-size: 0.9375rem;
+    color: $on-surface-variant;
 
-    &:hover {
-      text-decoration: underline;
+    a {
+      color: $accent;
+      font-weight: 600;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 }
@@ -171,61 +242,83 @@ $card-border: #e9ecef;
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
 
   &__label {
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 1rem;
+    line-height: 1.3;
     font-weight: 600;
-    letter-spacing: 0.01em;
-    color: $on-surface-variant;
+    color: $on-surface;
   }
 
   &__input-wrap {
     display: flex;
     align-items: center;
-    border: 1px solid $outline-variant;
-    border-radius: 0.25rem;
-    background: $surface-lowest;
+    min-height: 52px;
+    border: 1px solid rgba($accent, 0.35);
+    border-radius: 0.5rem;
+    background: #fff;
     overflow: hidden;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
     &:focus-within {
-      border-color: $primary;
-      box-shadow: 0 0 0 1px $primary;
-      transform: translateY(-1px);
+      border-color: $accent;
+      box-shadow: 0 0 0 2px rgba($accent, 0.15);
     }
-  }
 
-  &__icon {
-    padding: 0 1rem;
-    color: $outline;
-    font-size: 24px;
-    flex-shrink: 0;
+    .field__input {
+      flex: 1;
+      min-width: 0;
+      height: 50px;
+      padding: 0 1rem;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+
+      &:focus {
+        border-color: transparent;
+        box-shadow: none;
+      }
+    }
   }
 
   &__input {
-    flex: 1;
-    min-width: 0;
-    height: 48px;
-    border: none;
-    background: transparent;
+    width: 100%;
+    height: 52px;
+    padding: 0 1rem;
+    border: 1px solid rgba($accent, 0.35);
+    border-radius: 0.5rem;
+    background: #fff;
     font-family: inherit;
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 1.0625rem;
+    line-height: 1.3;
     color: $on-surface;
     outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus {
+      border-color: $accent;
+      box-shadow: 0 0 0 2px rgba($accent, 0.15);
+    }
 
     &::placeholder {
-      color: rgba($outline, 0.6);
+      color: rgba($outline, 0.55);
     }
+  }
+
+  &__toggle-spacer {
+    flex-shrink: 0;
+    width: 3rem;
   }
 
   &__toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 1rem;
+    flex-shrink: 0;
+    width: 3rem;
+    height: 100%;
+    padding: 0;
     border: none;
     background: transparent;
     color: $outline;
@@ -233,56 +326,26 @@ $card-border: #e9ecef;
     transition: color 0.2s ease;
 
     &:hover {
-      color: $primary;
+      color: $accent;
     }
 
     .material-symbols-outlined {
-      font-size: 20px;
+      font-size: 22px;
     }
   }
 }
 
 .login-footer {
-  margin-top: 1.5rem;
+  position: relative;
+  z-index: 2;
+  padding: 1rem 1.5rem 1.5rem;
   text-align: center;
 
   &__copyright {
-    margin: 0 0 0.5rem;
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: $on-surface-variant;
-    opacity: 0.75;
-  }
-
-  &__links {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: $outline;
-
-    a {
-      color: inherit;
-      text-decoration: none;
-      transition: color 0.2s ease;
-
-      &:hover {
-        color: $primary;
-      }
-    }
-  }
-
-  &__dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: $outline-variant;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: rgba(#ffffff, 0.72);
   }
 }
 

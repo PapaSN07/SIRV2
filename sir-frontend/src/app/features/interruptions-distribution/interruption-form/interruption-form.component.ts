@@ -2,21 +2,26 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
 import { ReferentielService } from '../../referentiel/services/referentiel.service';
 import { GeoService } from '../../geo/services/geo.service';
-import { InterruptionDistributionDetail } from '../../../shared/models/interruption.models';
+import {
+  InterruptionDistributionDetail,
+  InterruptionWorkflow,
+} from '../../../shared/models/interruption.models';
 import { ReferentielItem } from '../../../shared/models/referentiel.models';
 import { Region } from '../../../shared/models/geo.models';
-import { Feeder } from '../../../shared/models/reseau.models';
+import { Feeder, PosteSource } from '../../../shared/models/reseau.models';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { BreadcrumbItem } from '../../../shared/ui/page-header/page-header.component';
 import { ReseauDistributionService } from '../services/reseau-distribution.service';
 import { InterruptionDistributionService } from '../services/interruption-distribution.service';
+import { InterruptionWorkflowPanelComponent } from '../interruption-workflow-panel/interruption-workflow-panel.component';
 
 @Component({
   selector: 'sir-interruption-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, PageHeaderComponent],
+  imports: [ReactiveFormsModule, RouterLink, PageHeaderComponent, InterruptionWorkflowPanelComponent],
   templateUrl: './interruption-form.component.html',
   styleUrl: './interruption-form.component.scss',
 })
@@ -28,13 +33,32 @@ export class InterruptionFormComponent implements OnInit {
   private readonly referentiel = inject(ReferentielService);
   private readonly reseau = inject(ReseauDistributionService);
   private readonly geo = inject(GeoService);
+  private readonly auth = inject(AuthService);
 
   readonly editId = signal<number | null>(null);
+  readonly detailFeederId = signal<number | null>(null);
+  readonly workflow = signal<InterruptionWorkflow | null>(null);
+  readonly workflowLoading = signal(false);
   readonly isEditMode = computed(() => this.editId() !== null);
+
+  /** BCC / BRC / ADMIN_SCR : saisie distribution. */
+  readonly canWrite = computed(() => this.auth.hasRole('BCC', 'BRC', 'ADMIN_SCR'));
+  readonly isBrc = computed(() => this.auth.hasRole('BRC'));
+  readonly isBcc = computed(() => this.auth.hasRole('BCC'));
+  readonly isRegionalScope = computed(() => this.isBcc() || this.isBrc());
+  readonly isReadOnly = computed(() => this.isEditMode() && !this.canWrite());
+
+  readonly pageTitle = computed(() => {
+    if (!this.isEditMode()) return 'Formulaire de saisie d\'interruption';
+    return this.isReadOnly() ? 'Fiche interruption' : 'Modifier l\'interruption';
+  });
 
   readonly regions = signal<Region[]>([]);
   readonly regionId = signal<number | null>(null);
+  readonly posteSourceId = signal<number | null>(null);
+  readonly postesSources = signal<PosteSource[]>([]);
   readonly feeders = signal<Feeder[]>([]);
+  readonly serviceLibelle = signal<string | null>(null);
 
   readonly causes = signal<ReferentielItem[]>([]);
   readonly natures = signal<ReferentielItem[]>([]);
@@ -43,6 +67,7 @@ export class InterruptionFormComponent implements OnInit {
   readonly loadingRef = signal(true);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly saveSuccess = signal(false);
 
   readonly breadcrumbs = computed<BreadcrumbItem[]>(() => {
     const items: BreadcrumbItem[] = [
@@ -50,7 +75,7 @@ export class InterruptionFormComponent implements OnInit {
     ];
     if (this.isEditMode()) {
       items.push({ label: 'Détail', route: `/interruptions/distribution/${this.editId()}` });
-      items.push({ label: 'Modifier' });
+      items.push({ label: this.isReadOnly() ? 'Fiche' : 'Modifier' });
     } else {
       items.push({ label: 'Nouvelle saisie' });
     }
@@ -59,6 +84,7 @@ export class InterruptionFormComponent implements OnInit {
 
   readonly form = this.fb.nonNullable.group({
     date_apparition: ['', Validators.required],
+    poste_source_id: [0, Validators.min(1)],
     feeder_id: [0, Validators.min(1)],
     cause_id: [0, Validators.min(1)],
     nature_id: [0, Validators.min(1)],
@@ -70,7 +96,15 @@ export class InterruptionFormComponent implements OnInit {
     is_force_majeure: [false],
     is_fugitive: [false],
     is_programme: [false],
+    tension_kv: [null as number | null],
+    nombre_clients_mt: [null as number | null],
+    nombre_clients_bt: [null as number | null],
+    has_extension_bt: [false],
   });
+
+  readonly canEditWorkflow = computed(
+    () => this.isEditMode() && this.canWrite(),
+  );
 
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('id');
@@ -91,12 +125,16 @@ export class InterruptionFormComponent implements OnInit {
 
     if (editId) {
       forkJoin({
-        feeders: this.reseau.listFeeders({ page: 1, page_size: 200 }),
+        feeders: this.reseau.listFeeders({ page: 1, page_size: 100 }),
         detail: this.interruptionService.get(editId),
+        workflow: this.interruptionService.getWorkflow(editId),
       }).subscribe({
-        next: ({ feeders, detail }) => {
+        next: ({ feeders, detail, workflow }) => {
           this.feeders.set(feeders.items);
+          this.detailFeederId.set(detail.feeder_id);
+          this.workflow.set(workflow);
           this.applyEditDetail(detail);
+          this.syncReadOnlyControls();
           this.loadingRef.set(false);
         },
         error: (err: Error) => {
@@ -105,32 +143,173 @@ export class InterruptionFormComponent implements OnInit {
         },
       });
     } else {
-      this.reseau.listFeeders({ page: 1, page_size: 200 }).subscribe({
-        next: (res) => this.feeders.set(res.items),
+      this.geo.getRegions().subscribe({
+        next: (r) => {
+          this.regions.set(r);
+          this.ensureUserThenInitCreateScope();
+        },
+        error: () => this.ensureUserThenInitCreateScope(),
       });
+      this.bindNetworkValueChanges();
+      this.syncNetworkControls();
       this.loadingRef.set(false);
     }
+  }
+
+  /** Réagit aux changements de poste source / feeder (évite (change) + ngValue). */
+  private bindNetworkValueChanges(): void {
+    this.form.controls.poste_source_id.valueChanges.subscribe((id) => {
+      if (this.isEditMode()) return;
+      this.onPosteSourceIdChanged(id);
+    });
+    this.form.controls.feeder_id.valueChanges.subscribe((id) => {
+      if (this.isEditMode()) return;
+      this.onFeederIdChanged(id);
+    });
+  }
+
+  /** BCC/BRC : attend le profil JWT puis charge postes sources du périmètre régional. */
+  private ensureUserThenInitCreateScope(): void {
+    const run = (): void => {
+      if (this.isRegionalScope()) {
+        this.initCreateScope();
+      }
+    };
+    if (this.auth.currentUser()) {
+      run();
+      return;
+    }
+    this.auth.fetchMe().subscribe({
+      next: run,
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
+  private initCreateScope(): void {
+    const regionId = this.auth.currentUser()?.service_id;
+    if (regionId === null || regionId === undefined) {
+      this.error.set(
+        'Périmètre régional non configuré — déconnectez-vous puis reconnectez-vous.',
+      );
+      return;
+    }
+    this.regionId.set(regionId);
+    this.reseau.listPostesSources({ page: 1, page_size: 100, region_id: regionId }).subscribe({
+      next: (res) => this.applyPostesSources(res.items),
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
+  private applyPostesSources(items: PosteSource[]): void {
+    this.postesSources.set(items);
+    if (this.isEditMode() || items.length !== 1) {
+      return;
+    }
+    const id = items[0].id;
+    this.posteSourceId.set(id);
+    this.form.controls.poste_source_id.setValue(id, { emitEvent: true });
+  }
+
+  private onPosteSourceIdChanged(posteSourceId: number): void {
+    this.posteSourceId.set(posteSourceId >= 1 ? posteSourceId : null);
+    this.feeders.set([]);
+    this.serviceLibelle.set(null);
+    if (posteSourceId < 1) {
+      this.form.controls.feeder_id.setValue(0, { emitEvent: false });
+      return;
+    }
+    this.loadFeedersForPosteSource(posteSourceId);
+  }
+
+  private loadFeedersForPosteSource(posteSourceId: number): void {
+    this.reseau.listFeeders({ page: 1, page_size: 100, poste_source_id: posteSourceId }).subscribe({
+      next: (res) => this.applyFeeders(res.items),
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
+  private applyFeeders(items: Feeder[]): void {
+    this.feeders.set(items);
+    if (this.isEditMode() || items.length !== 1) {
+      return;
+    }
+    const feeder = items[0];
+    this.form.controls.feeder_id.setValue(feeder.id, { emitEvent: true });
+    this.serviceLibelle.set(feeder.service_libelle ?? null);
+  }
+
+  private onFeederIdChanged(feederId: number): void {
+    if (feederId < 1) {
+      this.serviceLibelle.set(null);
+      return;
+    }
+    const feeder = this.feeders().find((f) => f.id === feederId);
+    this.serviceLibelle.set(feeder?.service_libelle ?? null);
+  }
+
+  regionSelectDisabled(): boolean {
+    return this.isEditMode() || this.isRegionalScope();
   }
 
   onRegionChange(value: string): void {
     const region = value ? Number(value) : null;
     this.regionId.set(region);
-    this.reseau
-      .listFeeders({ page: 1, page_size: 200, region_id: region ?? undefined })
-      .subscribe({
-        next: (res) => this.feeders.set(res.items),
-      });
+    this.posteSourceId.set(null);
+    this.postesSources.set([]);
+    this.feeders.set([]);
+    this.serviceLibelle.set(null);
+
     if (!this.isEditMode()) {
-      this.form.patchValue({ feeder_id: 0 });
+      this.form.patchValue({ poste_source_id: 0, feeder_id: 0 });
     }
+
+    this.syncNetworkControls();
+
+    if (region === null) {
+      return;
+    }
+
+    this.reseau.listPostesSources({ page: 1, page_size: 100, region_id: region }).subscribe({
+      next: (res) => this.applyPostesSources(res.items),
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
+  onWorkflowSaved(): void {
+    const id = this.editId();
+    if (!id) return;
+    this.workflowLoading.set(true);
+    this.interruptionService.getWorkflow(id).subscribe({
+      next: (wf) => {
+        this.workflow.set(wf);
+        this.workflowLoading.set(false);
+      },
+      error: () => this.workflowLoading.set(false),
+    });
+  }
+
+  canSubmit(): boolean {
+    if (this.saving()) return false;
+    const raw = this.form.getRawValue();
+    if (this.isEditMode()) return this.form.valid;
+    return (
+      this.form.valid &&
+      raw.poste_source_id >= 1 &&
+      raw.feeder_id >= 1 &&
+      !!raw.date_apparition
+    );
   }
 
   submit(): void {
-    if (this.form.invalid) return;
+    const raw = this.form.getRawValue();
+    const invalid =
+      this.form.invalid ||
+      (!this.isEditMode() && (raw.poste_source_id < 1 || raw.feeder_id < 1));
+    if (invalid) return;
     this.saving.set(true);
     this.error.set(null);
+    this.saveSuccess.set(false);
 
-    const raw = this.form.getRawValue();
     const dateIso = new Date(raw.date_apparition).toISOString();
     const editId = this.editId();
 
@@ -148,10 +327,18 @@ export class InterruptionFormComponent implements OnInit {
           is_force_majeure: raw.is_force_majeure,
           is_fugitive: raw.is_fugitive,
           is_programme: raw.is_programme,
+          tension_kv: raw.tension_kv,
+          nombre_clients_mt: raw.nombre_clients_mt,
+          nombre_clients_bt: raw.nombre_clients_bt,
+          has_extension_bt: raw.has_extension_bt,
         })
         .subscribe({
           next: () => {
-            void this.router.navigate(['/interruptions/distribution', editId]);
+            this.saving.set(false);
+            this.saveSuccess.set(true);
+            this.interruptionService.get(editId).subscribe({
+              next: (detail) => this.applyEditDetail(detail),
+            });
           },
           error: (err: Error) => {
             this.error.set(err.message);
@@ -164,6 +351,7 @@ export class InterruptionFormComponent implements OnInit {
     this.interruptionService
       .create({
         date_apparition: dateIso,
+        poste_source_id: raw.poste_source_id,
         feeder_id: raw.feeder_id,
         cause_id: raw.cause_id,
         nature_id: raw.nature_id,
@@ -175,6 +363,10 @@ export class InterruptionFormComponent implements OnInit {
         is_force_majeure: raw.is_force_majeure,
         is_fugitive: raw.is_fugitive,
         is_programme: raw.is_programme,
+        tension_kv: raw.tension_kv,
+        nombre_clients_mt: raw.nombre_clients_mt,
+        nombre_clients_bt: raw.nombre_clients_bt,
+        has_extension_bt: raw.has_extension_bt,
       })
       .subscribe({
         next: (created) => {
@@ -188,12 +380,15 @@ export class InterruptionFormComponent implements OnInit {
   }
 
   private applyEditDetail(detail: InterruptionDistributionDetail): void {
-    if (detail.statut !== 'en_cours') {
+    if (!this.isReadOnly() && detail.statut !== 'en_cours') {
       this.error.set('Seules les interruptions en cours peuvent être modifiées.');
       return;
     }
+    const feeder = this.feeders().find((f) => f.id === detail.feeder_id);
+    this.serviceLibelle.set(feeder?.service_libelle ?? detail.service_libelle);
     this.form.patchValue({
       date_apparition: this.toDatetimeLocal(detail.date_apparition),
+      poste_source_id: detail.poste_source_id ?? 0,
       feeder_id: detail.feeder_id ?? 0,
       cause_id: detail.cause_id ?? 0,
       nature_id: detail.nature_id ?? 0,
@@ -205,7 +400,35 @@ export class InterruptionFormComponent implements OnInit {
       is_force_majeure: detail.is_force_majeure,
       is_fugitive: detail.is_fugitive,
       is_programme: detail.is_programme,
+      tension_kv: detail.tension_kv,
+      nombre_clients_mt: detail.nombre_clients_mt,
+      nombre_clients_bt: detail.nombre_clients_bt,
+      has_extension_bt: detail.has_extension_bt,
     });
+    this.syncNetworkControls();
+    this.syncReadOnlyControls();
+  }
+
+  /** Verrouillage réseau en édition — via FormControl (pas [disabled] dans le template). */
+  private syncNetworkControls(): void {
+    const posteControl = this.form.controls.poste_source_id;
+    const feederControl = this.form.controls.feeder_id;
+
+    if (this.isEditMode()) {
+      posteControl.disable({ emitEvent: false });
+      feederControl.disable({ emitEvent: false });
+      return;
+    }
+
+    posteControl.enable({ emitEvent: false });
+    feederControl.enable({ emitEvent: false });
+  }
+
+  private syncReadOnlyControls(): void {
+    if (!this.isReadOnly()) {
+      return;
+    }
+    this.form.disable({ emitEvent: false });
   }
 
   private toDatetimeLocal(iso: string): string {

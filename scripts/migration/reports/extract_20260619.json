@@ -1,0 +1,19 @@
+{
+  "extracted_at": "2026-06-19T16:35:07.969037",
+  "date_from": "2020-01-01T00:00:00",
+  "date_to": "2026-12-31T23:59:59.999999",
+  "tables": {
+    "Noeud_SIG": {
+      "source_table": "Noeud_SIG",
+      "raw_count": 18417,
+      "exported_count": 18417,
+      "checksum": "473c4dd4cc7af9c8"
+    },
+    "Troncon_SIG": {
+      "source_table": "Troncon_SIG",
+      "raw_count": 481345,
+      "exported_count": 481345,
+      "checksum": "685492c50cb3237d"
+    }
+  }
+}

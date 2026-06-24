@@ -5,7 +5,9 @@ from typing import Any, Type
 
 from sqlalchemy import Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
+from app.repositories.geo_scope_repository import service_ids_in_region_subquery
 from app.models.geo import Agence, Delegation, Service
 from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder, Troncon
 
@@ -21,12 +23,7 @@ class ScopeFilter:
 
 
 def _service_ids_in_region_subquery(region_id: int) -> Select[Any]:
-    return (
-        select(Service.id)
-        .join(Agence, Service.agence_id == Agence.id)
-        .join(Delegation, Agence.delegation_id == Delegation.id)
-        .where(Delegation.region_id == region_id)
-    )
+    return service_ids_in_region_subquery(region_id)
 
 
 def _apply_feeder_scope(query: Select[Any], scope: ScopeFilter | None) -> Select[Any]:
@@ -105,21 +102,35 @@ async def list_feeders(
     *,
     poste_source_id: int | None = None,
     service_id: int | None = None,
+    region_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[Feeder]:
-    query = select(Feeder).where(Feeder.is_active == True).order_by(Feeder.id)
+    query = (
+        select(Feeder)
+        .options(joinedload(Feeder.service), joinedload(Feeder.poste_source))
+        .where(Feeder.is_active == True)
+        .order_by(Feeder.id)
+    )
+    if region_id is not None:
+        query = query.join(PosteSource, Feeder.poste_source_id == PosteSource.id).where(
+            PosteSource.region_id == region_id
+        )
     if poste_source_id is not None:
         query = query.where(Feeder.poste_source_id == poste_source_id)
     if service_id is not None:
         query = query.where(Feeder.service_id == service_id)
     query = _apply_feeder_scope(query, scope)
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 
 
 async def get_feeder(db: AsyncSession, item_id: int) -> Feeder | None:
-    result = await db.execute(select(Feeder).where(Feeder.id == item_id))
-    return result.scalar_one_or_none()
+    result = await db.execute(
+        select(Feeder)
+        .options(joinedload(Feeder.service), joinedload(Feeder.poste_source))
+        .where(Feeder.id == item_id)
+    )
+    return result.unique().scalar_one_or_none()
 
 
 async def get_feeder_by_code(db: AsyncSession, code: str) -> Feeder | None:

@@ -29,17 +29,89 @@
       </div>
     </sir-page-header>
 
-    <div class="workflow-steps">
-      @for (step of timelineSteps; track step.key) {
-        <div
-          class="workflow-steps__item"
-          [class.workflow-steps__item--active]="it.statut === step.key"
-          [class.workflow-steps__item--done]="stepDone(step.key, it.statut)"
-        >
-          {{ step.label }}
-        </div>
-      }
-    </div>
+    <sir-interruption-workflow-panel
+      [workflow]="workflow()"
+      [loading]="workflowLoading()"
+      [canEdit]="canEditWorkflow(it)"
+      [interruptionId]="it.id"
+      [feederId]="it.feeder_id"
+      (saved)="onWorkflowSaved()"
+    >
+      <div workflowClients>
+        @if (it.postes_impactes.length === 0) {
+          <p class="detail-empty">Aucun poste associé.</p>
+        } @else {
+          <ul class="postes-list">
+            @for (p of it.postes_impactes; track p.poste_id) {
+              <li class="postes-list__item">
+                <div>
+                  <strong>{{ p.poste_libelle ?? p.poste_code }}</strong>
+                  <span>{{ p.nombre_clients_touches ?? '?' }} clients touchés</span>
+                </div>
+                @if (canWritePostes()) {
+                  <button
+                    type="button"
+                    class="sir-btn sir-btn--outline-primary"
+                    (click)="removePoste(p.poste_id)"
+                  >
+                    Retirer
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (canWritePostes()) {
+          <div class="poste-actions">
+            <button
+              type="button"
+              class="sir-btn sir-btn--outline-primary"
+              [disabled]="postesBulkLoading()"
+              (click)="addPostesFromFeeder()"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
+              Tous les postes du feeder
+            </button>
+            <button
+              type="button"
+              class="sir-btn sir-btn--outline-primary"
+              [disabled]="postesBulkLoading() || !hasSigTroncon()"
+              [title]="hasSigTroncon() ? '' : 'Sélectionnez un tronçon SIG dans l\'onglet Tronçonnement'"
+              (click)="addPostesFromSigTroncon()"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">share_location</span>
+              Postes du tronçon SIG
+            </button>
+          </div>
+          <form class="poste-form" [formGroup]="posteForm" (ngSubmit)="addPoste()">
+            <div class="field">
+              <label class="field__label" for="poste">Poste</label>
+              <select id="poste" class="field__select" formControlName="poste_id">
+                <option [ngValue]="0">Sélectionner un poste</option>
+                @for (p of availablePostes(); track p.id) {
+                  <option [ngValue]="p.id">{{ p.libelle }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="clients">Clients touchés</label>
+              <input
+                id="clients"
+                class="field__select"
+                type="number"
+                min="0"
+                formControlName="nombre_clients_touches"
+              />
+            </div>
+            <button type="submit" class="sir-btn sir-btn--primary" [disabled]="posteForm.invalid || postesBulkLoading()">
+              <span class="material-symbols-outlined" aria-hidden="true">add</span>
+              Ajouter un poste
+            </button>
+          </form>
+        }
+      </div>
+    </sir-interruption-workflow-panel>
 
     <div class="detail-bento">
       <div class="detail-bento__main">
@@ -51,12 +123,20 @@
             </header>
             <dl class="detail-dl">
               <div class="detail-dl__row">
+                <dt>Poste source</dt>
+                <dd>{{ it.poste_source_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
                 <dt>Feeder</dt>
                 <dd>{{ it.feeder_libelle ?? '—' }}</dd>
               </div>
               <div class="detail-dl__row">
                 <dt>Service</dt>
                 <dd>{{ it.service_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Région</dt>
+                <dd>{{ it.region_libelle ?? '—' }}</dd>
               </div>
               <div class="detail-dl__row">
                 <dt>Localisation</dt>
@@ -108,10 +188,20 @@
                 <dd>{{ it.puissance_coupee_mw ?? '—' }} MW</dd>
               </div>
               <div class="detail-dl__row">
+                <dt>Tension</dt>
+                <dd>{{ it.tension_kv != null ? it.tension_kv + ' kV' : '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Clients MT / BT</dt>
+                <dd>
+                  {{ it.nombre_clients_mt ?? '—' }} / {{ it.nombre_clients_bt ?? '—' }}
+                </dd>
+              </div>
+              <div class="detail-dl__row">
                 <dt>END (MWh)</dt>
                 <dd>{{ it.end_mwh ?? it.energie_nd?.valeur_mwh ?? '—' }}</dd>
               </div>
-              @if (it.is_force_majeure || it.is_fugitive) {
+              @if (it.is_force_majeure || it.is_fugitive || it.has_extension_bt) {
                 <div class="detail-dl__row">
                   <dt>Indicateurs</dt>
                   <dd>
@@ -120,6 +210,9 @@
                     }
                     @if (it.is_fugitive) {
                       <span class="detail-tag">Fugitive</span>
+                    }
+                    @if (it.has_extension_bt) {
+                      <span class="detail-tag">Extension BT</span>
                     }
                   </dd>
                 </div>
@@ -138,70 +231,8 @@
           </article>
         }
 
-        <article class="detail-card detail-card--full">
-          <header class="detail-card__head">
-            <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
-            <h2>Postes impactés</h2>
-          </header>
-
-          @if (it.postes_impactes.length === 0) {
-            <p class="detail-empty">Aucun poste associé.</p>
-          } @else {
-            <ul class="postes-list">
-              @for (p of it.postes_impactes; track p.poste_id) {
-                <li class="postes-list__item">
-                  <div>
-                    <strong>{{ p.poste_libelle ?? p.poste_code }}</strong>
-                    <span>{{ p.nombre_clients_touches ?? '?' }} clients touchés</span>
-                  </div>
-                  @if (it.statut === 'en_cours') {
-                    <button
-                      type="button"
-                      class="sir-btn sir-btn--outline-primary"
-                      (click)="removePoste(p.poste_id)"
-                    >
-                      Retirer
-                    </button>
-                  }
-                </li>
-              }
-            </ul>
-          }
-
-          @if (it.statut === 'en_cours') {
-            <form class="poste-form" [formGroup]="posteForm" (ngSubmit)="addPoste()">
-              <div class="field">
-                <label class="field__label" for="poste">Poste</label>
-                <select id="poste" class="field__select" formControlName="poste_id">
-                  <option [ngValue]="0">Sélectionner un poste</option>
-                  @for (p of availablePostes(); track p.id) {
-                    <option [ngValue]="p.id">{{ p.libelle }}</option>
-                  }
-                </select>
-              </div>
-              <div class="field">
-                <label class="field__label" for="clients">Clients touchés</label>
-                <input
-                  id="clients"
-                  class="field__select"
-                  type="number"
-                  min="0"
-                  formControlName="nombre_clients_touches"
-                />
-              </div>
-              <button
-                type="submit"
-                class="sir-btn sir-btn--primary"
-                [disabled]="posteForm.invalid"
-              >
-                Ajouter
-              </button>
-            </form>
-          }
-        </article>
-
         @if (it.statut === 'en_cours') {
-          <article class="detail-card detail-card--full detail-card--action" *sirHasRole="['BCC', 'ADMIN_SCR']">
+          <article class="detail-card detail-card--full detail-card--action" *sirHasRole="['BCC', 'BRC', 'ADMIN_SCR']">
             <header class="detail-card__head">
               <span class="material-symbols-outlined" aria-hidden="true">event_available</span>
               <h2>Clôturer l'interruption</h2>
@@ -244,6 +275,24 @@
       </div>
 
       <aside class="detail-bento__side">
+        <article class="detail-card">
+          <header class="detail-card__head">
+            <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
+            <h2>État validation</h2>
+          </header>
+          <div class="validation-steps">
+            @for (step of validationSteps; track step.key) {
+              <div
+                class="validation-steps__item"
+                [class.validation-steps__item--active]="it.statut === step.key"
+                [class.validation-steps__item--done]="stepDone(step.key, it.statut)"
+              >
+                {{ step.label }}
+              </div>
+            }
+          </div>
+        </article>
+
         <article class="detail-card detail-card--timeline">
           <header class="detail-card__head">
             <span class="material-symbols-outlined" aria-hidden="true">history</span>

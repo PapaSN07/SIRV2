@@ -96,6 +96,7 @@ def _token(user: Utilisateur) -> str:
 def _valid_payload() -> dict[str, object]:
     return {
         "date_apparition": "2026-06-12T10:30:00",
+        "poste_source_id": 1,
         "feeder_id": 1,
         "cause_id": 1,
         "nature_id": 1,
@@ -140,6 +141,29 @@ def bcc_user() -> Utilisateur:
 @pytest.fixture
 def dispatcher() -> Utilisateur:
     return _make_user(2, "dispatcher", "DISPATCHER", 2, _TRANSPORT_CREATE_PERMS, scope_service_id=None)
+
+
+@pytest.fixture
+def brc_user() -> Utilisateur:
+    return _make_user(3, "brc_user", "BRC", 3, _DISTRIB_CREATE_PERMS, scope_service_id=3)
+
+
+async def test_brc_create_interruption_in_region_returns_201(
+    client: AsyncClient,
+    brc_user: Utilisateur,
+) -> None:
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=brc_user), patch(
+        "app.services.interruption_distribution_service.create",
+        new_callable=AsyncMock,
+        return_value=_sample_response(),
+    ):
+        response = await client.post(
+            "/api/v1/interruptions/distribution",
+            json=_valid_payload(),
+            headers=_auth_headers(_token(brc_user)),
+        )
+
+    assert response.status_code == 201
 
 
 async def test_bcc_create_interruption_own_service_returns_201(

@@ -1,0 +1,75 @@
+@if (open()) {
+  <div class="sig-modal" role="dialog" aria-modal="true" aria-labelledby="sig-modal-title" (click)="onBackdropClick($event)">
+    <div class="sig-modal__panel">
+      <header class="sig-modal__head">
+        <h3 id="sig-modal-title">Sélection topologie SIG</h3>
+        <button type="button" class="sig-modal__close" (click)="close()" aria-label="Fermer">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+      </header>
+
+      <div class="sig-modal__search">
+        <input
+          class="sig-modal__input"
+          type="search"
+          placeholder="Rechercher tronçon, nœud amont/aval…"
+          [ngModel]="search()"
+          (ngModelChange)="onSearchChange($event)"
+        />
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="load()">Actualiser</button>
+      </div>
+
+      @if (loading()) {
+        <p class="sig-modal__hint">Chargement des tronçons SIG…</p>
+      } @else if (error()) {
+        <p class="sig-modal__error" role="alert">{{ error() }}</p>
+      } @else if (items().length === 0) {
+        <p class="sig-modal__hint">
+          Aucun tronçon SIG pour ce feeder. Lancez l'import :
+          <code>python scripts/migration/import_sig_topology.py --execute</code>
+        </p>
+      } @else {
+        <div class="sig-modal__body">
+          <ul class="sig-list">
+            @for (t of items(); track t.id) {
+              <li>
+                <button
+                  type="button"
+                  class="sig-list__item"
+                  [class.sig-list__item--active]="activeId() === t.id"
+                  (click)="pick(t)"
+                >
+                  <strong>{{ t.nom_troncon || ('SIG #' + t.legacy_id) }}</strong>
+                  <span>{{ segmentLabel(t) }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+
+          <aside class="sig-preview">
+            <h4>Chaîne aval (3 traits)</h4>
+            @if (previewLoading()) {
+              <p class="sig-modal__hint">Calcul de la chaîne…</p>
+            } @else if (preview()) {
+              <ol class="sig-chain">
+                <li>{{ segmentLabel(preview()!.troncon) }}</li>
+                @for (seg of preview()!.chaine_aval; track seg.id) {
+                  <li>{{ segmentLabel(seg) }}</li>
+                }
+              </ol>
+            } @else {
+              <p class="sig-modal__hint">Sélectionnez un tronçon pour prévisualiser la chaîne aval.</p>
+            }
+          </aside>
+        </div>
+      }
+
+      <footer class="sig-modal__foot">
+        <button type="button" class="sir-btn sir-btn--secondary" (click)="close()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="!preview()" (click)="confirm()">
+          Valider la sélection
+        </button>
+      </footer>
+    </div>
+  </div>
+}

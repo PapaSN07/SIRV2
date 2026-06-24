@@ -4,6 +4,7 @@ import asyncio
 import sys
 
 from app.core.database import AsyncSessionLocal
+from app.models.seed.seed_dev_accounts import seed_dev_accounts
 from app.models.seed.seed_geo import seed_geo
 from app.models.seed.seed_rbac import seed_rbac
 from app.models.seed.seed_reseau import seed_reseau
@@ -18,6 +19,12 @@ async def main() -> None:
             await seed_geo(session)
             print("→ seed_reseau …")
             await seed_reseau(session)
+            print("→ seed_sig …")
+            from app.models.seed.seed_sig import seed_sig
+
+            await seed_sig(session)
+            print("→ seed_dev_accounts …")
+            await seed_dev_accounts(session)
             print("→ seed_interruptions …")
             from app.models.seed.seed_interruptions import seed_interruptions
 
@@ -35,7 +42,9 @@ async def main() -> None:
 
             await seed_notifications(session)
             await session.commit()
-            print("seed-dev : OK — RBAC + geo + réseau + interruptions + indicateurs + notifications chargés")
+            print("seed-dev : OK — RBAC + geo + réseau + SIG + interruptions + indicateurs + notifications chargés")
+            print("  Comptes dev : bcc.dev / brc.dev / superviseur.dev — mot de passe DevSir123!")
+            print("  Super admin : superadmin.dev — mot de passe DevSir123!")
         except Exception as exc:
             await session.rollback()
             print(f"seed-dev : ERREUR — {exc}", file=sys.stderr)

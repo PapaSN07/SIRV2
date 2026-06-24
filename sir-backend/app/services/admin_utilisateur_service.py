@@ -3,6 +3,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import SUPERADMIN_ROLE, is_superadmin
 from app.core.security import hash_password
 from app.models.utilisateurs import Utilisateur
 from app.repositories import admin_utilisateur_repository as admin_repo
@@ -18,7 +19,7 @@ from app.utils.audit import ACTION_CREATE, ACTION_UPDATE, log_audit
 
 # Rôles nationaux — scope_service_id doit être None
 _NATIONAL_ROLES: frozenset[str] = frozenset(
-    {"ADMIN_SCR", "ADMIN_DISPATCHING", "ADMIN_SAQS", "DISPATCHER"}
+    {"ADMIN_SCR", "ADMIN_DISPATCHING", "ADMIN_SAQS", "DISPATCHER", SUPERADMIN_ROLE}
 )
 
 # Rôles opérationnels — scope_service_id obligatoire
@@ -27,6 +28,8 @@ _SCOPED_ROLES: frozenset[str] = frozenset({"BCC", "BRC", "SUPERVISEUR"})
 
 def _get_admin_direction(current_user: Utilisateur) -> str:
     """Détermine la direction admin de l'utilisateur connecté."""
+    if is_superadmin(current_user):
+        return "all"
     role_names = {ur.role.nom for ur in current_user.user_roles}
     if "ADMIN_SCR" in role_names:
         return "distribution"
@@ -66,6 +69,8 @@ def _build_response(user: Utilisateur) -> UtilisateurResponse:
 
 def _ensure_user_in_direction(user: Utilisateur, direction: str) -> None:
     """Vérifie que la cible appartient au périmètre de l'admin."""
+    if direction == "all":
+        return
     if not admin_repo.user_has_direction_role(user, direction):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -83,7 +88,7 @@ async def _validate_role_assignments(
     assignments: list,
 ) -> list[tuple[int, int | None]]:
     """Valide et normalise les attributions de rôles."""
-    allowed = admin_repo.allowed_roles_for_direction(direction)
+    allowed = None if direction == "all" else admin_repo.allowed_roles_for_direction(direction)
     normalized: list[tuple[int, int | None]] = []
 
     for assignment in assignments:
@@ -98,7 +103,7 @@ async def _validate_role_assignments(
                 },
             )
 
-        if role.nom not in allowed:
+        if allowed is not None and role.nom not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -140,7 +145,10 @@ async def list_utilisateurs(
     page_size: int,
 ) -> PaginatedResponse[UtilisateurResponse]:
     direction = _get_admin_direction(current_user)
-    users, total = await admin_repo.list_by_direction(db, direction, page, page_size)
+    if direction == "all":
+        users, total = await admin_repo.list_all(db, page, page_size)
+    else:
+        users, total = await admin_repo.list_by_direction(db, direction, page, page_size)
     items = [_build_response(u) for u in users]
     return PaginatedResponse(
         items=items,

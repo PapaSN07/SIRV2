@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_permission
 from app.core.redis import get_redis
@@ -233,7 +234,7 @@ async def notification_stream(
 ) -> StreamingResponse:
     user = await auth_service.get_current_user(db, redis, token)
     role_names = {ur.role.nom for ur in user.user_roles}
-    is_national = bool(role_names.intersection(_NATIONAL_ROLES))
+    is_national = is_superadmin(user) or bool(role_names.intersection(_NATIONAL_ROLES))
     scope_service_id = user.user_roles[0].scope_service_id if user.user_roles else None
     channels = await notification_stream_service.subscribe_channels_for_user(
         scope_service_id,

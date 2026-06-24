@@ -24,10 +24,12 @@ from app.models.interruptions import (  # noqa: F401
     InterruptionTransport,
     PosteInterruption,
 )
+from app.models.interruption_workflow import InterruptionWorkflowStep  # noqa: F401
 from app.models.indicateurs import EnergieNd, NombreClientMois, SaifiSaidi  # noqa: F401
 from app.models.napt import Consignation, Napt  # noqa: F401
 from app.models.notifications import Destinataire, EmailEnvoye, SmsEnvoye  # noqa: F401
 from app.models.rapports import RapportGenere  # noqa: F401
+from app.models.sig import NoeudSig, TronconSig  # noqa: F401
 
 __all__ = [
     # Geo
@@ -63,6 +65,7 @@ __all__ = [
     "InterruptionDistribution",
     "InterruptionTransport",
     "PosteInterruption",
+    "InterruptionWorkflowStep",
     # Indicateurs
     "EnergieNd",
     "SaifiSaidi",
@@ -76,4 +79,6 @@ __all__ = [
     "EmailEnvoye",
     # Rapports
     "RapportGenere",
+    "NoeudSig",
+    "TronconSig",
 ]

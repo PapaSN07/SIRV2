@@ -1,0 +1,247 @@
+{
+  "generated_at": "2026-06-17T17:49:02.761503",
+  "tables": {
+    "Regions": {
+      "table": "Regions",
+      "count": 7,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Delegation": {
+      "table": "Delegation",
+      "count": 8,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Agences": {
+      "table": "Agences",
+      "count": 78,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Services": {
+      "table": "Services",
+      "count": 24,
+      "null_keys": {
+        "Service": 100.0
+      },
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Causes": {
+      "table": "Causes",
+      "count": 50,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "CausesTransport": {
+      "table": "CausesTransport",
+      "count": 74,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Natures": {
+      "table": "Natures",
+      "count": 6,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Sieges": {
+      "table": "Sieges",
+      "count": 33,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "SiegesTransport": {
+      "table": "SiegesTransport",
+      "count": 22,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Signalisations": {
+      "table": "Signalisations",
+      "count": 87,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "SignalisationsTransport": {
+      "table": "SignalisationsTransport",
+      "count": 1,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "TypesEND": {
+      "table": "TypesEND",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "PostesSources": {
+      "table": "PostesSources",
+      "count": 58,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Feeders": {
+      "table": "Feeders",
+      "count": 381,
+      "null_keys": {
+        "Feeder": 100.0
+      },
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Postes": {
+      "table": "Postes",
+      "count": 11103,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Troncons": {
+      "table": "Troncons",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "SousFeeders": {
+      "table": "SousFeeders",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "EquipementsTransport": {
+      "table": "EquipementsTransport",
+      "count": 658,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "PosteLigne": {
+      "table": "PosteLigne",
+      "count": 3,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Utilisateurs": {
+      "table": "Utilisateurs",
+      "count": 107,
+      "null_keys": {
+        "Login": 100.0
+      },
+      "duplicates": [],
+      "date_range": {},
+      "plaintext_passwords": 107
+    },
+    "TypeUtilisateur": {
+      "table": "TypeUtilisateur",
+      "count": 6,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Interruptions": {
+      "table": "Interruptions",
+      "count": 269874,
+      "null_keys": {
+        "NumeroInterruption": 100.0
+      },
+      "duplicates": [],
+      "date_range": {},
+      "orphan_services": []
+    },
+    "Interruptions_Histo": {
+      "table": "Interruptions_Histo",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "InterruptionsTransport": {
+      "table": "InterruptionsTransport",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Interruptions_OMVG": {
+      "table": "Interruptions_OMVG",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "PosteInterruption": {
+      "table": "PosteInterruption",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "PosteInterruption_Histo": {
+      "table": "PosteInterruption_Histo",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "EnergieND": {
+      "table": "EnergieND",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "SAIFISAIDI": {
+      "table": "SAIFISAIDI",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "NombreClientMois": {
+      "table": "NombreClientMois",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "NAPT": {
+      "table": "NAPT",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "consignation": {
+      "table": "consignation",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    },
+    "Destinataire": {
+      "table": "Destinataire",
+      "count": 0,
+      "null_keys": {},
+      "duplicates": [],
+      "date_range": {}
+    }
+  },
+  "anomalies": []
+}

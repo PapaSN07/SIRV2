@@ -12,12 +12,21 @@ from app.schemas.interruption_distribution import (
     InterruptionClotureRequest,
     InterruptionDistributionDetailResponse,
     InterruptionDistributionResponse,
+    InterruptionDistributionStatsResponse,
     InterruptionDistributionUpdate,
+    OuvertureInterruption,
+    PosteImpacteBulkResponse,
+    PosteImpacteFromSigRequest,
     PosteImpacteResponse,
     PosteInterruptionCreate,
     StatutInterruption,
 )
+from app.schemas.interruption_workflow import (
+    InterruptionWorkflowResponse,
+    InterruptionWorkflowUpdate,
+)
 from app.services import interruption_distribution_service
+from app.services import interruption_workflow_service
 
 router = APIRouter()
 
@@ -32,7 +41,10 @@ async def list_interruptions_distribution(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     region_id: int | None = Query(default=None, ge=1),
+    service_id: int | None = Query(default=None, ge=1),
     feeder_id: int | None = Query(default=None, ge=1),
+    nature_id: int | None = Query(default=None, ge=1),
+    ouverture: OuvertureInterruption | None = Query(default=None),
     statut: StatutInterruption | None = Query(default=None),
     date_debut: datetime | None = Query(default=None),
     date_fin: datetime | None = Query(default=None),
@@ -47,7 +59,45 @@ async def list_interruptions_distribution(
         page=page,
         page_size=page_size,
         region_id=region_id,
+        service_id=service_id,
         feeder_id=feeder_id,
+        nature_id=nature_id,
+        ouverture=ouverture,
+        statut=statut,
+        date_debut=date_debut,
+        date_fin=date_fin,
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/stats",
+    response_model=ApiResponse[InterruptionDistributionStatsResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Compteurs interruptions distribution (périmètre RBAC)",
+)
+async def stats_interruptions_distribution(
+    region_id: int | None = Query(default=None, ge=1),
+    service_id: int | None = Query(default=None, ge=1),
+    feeder_id: int | None = Query(default=None, ge=1),
+    nature_id: int | None = Query(default=None, ge=1),
+    ouverture: OuvertureInterruption | None = Query(default=None),
+    statut: StatutInterruption | None = Query(default=None),
+    date_debut: datetime | None = Query(default=None),
+    date_fin: datetime | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "read")
+    ),
+) -> ApiResponse[InterruptionDistributionStatsResponse]:
+    result = await interruption_distribution_service.get_stats(
+        db,
+        current_user,
+        region_id=region_id,
+        service_id=service_id,
+        feeder_id=feeder_id,
+        nature_id=nature_id,
+        ouverture=ouverture,
         statut=statut,
         date_debut=date_debut,
         date_fin=date_fin,
@@ -111,6 +161,48 @@ async def add_poste_interruption(
     return ApiResponse.success(result)
 
 
+@router.post(
+    "/{interruption_id}/postes/from-feeder",
+    response_model=ApiResponse[PosteImpacteBulkResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Associer tous les postes actifs du feeder",
+)
+async def add_postes_from_feeder(
+    interruption_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "update")
+    ),
+) -> ApiResponse[PosteImpacteBulkResponse]:
+    result = await interruption_distribution_service.add_postes_from_feeder(
+        db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.post(
+    "/{interruption_id}/postes/from-sig-troncon",
+    response_model=ApiResponse[PosteImpacteBulkResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Associer les postes liés au tronçon SIG du workflow",
+)
+async def add_postes_from_sig_troncon(
+    interruption_id: int,
+    body: PosteImpacteFromSigRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "update")
+    ),
+) -> ApiResponse[PosteImpacteBulkResponse]:
+    result = await interruption_distribution_service.add_postes_from_sig_troncon(
+        db,
+        interruption_id,
+        body or PosteImpacteFromSigRequest(),
+        current_user,
+    )
+    return ApiResponse.success(result)
+
+
 @router.delete(
     "/{interruption_id}/postes/{poste_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -128,6 +220,45 @@ async def remove_poste_interruption(
         db, interruption_id, poste_id, current_user
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{interruption_id}/workflow",
+    response_model=ApiResponse[InterruptionWorkflowResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Workflow opérationnel d'une interruption distribution",
+)
+async def get_interruption_workflow(
+    interruption_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "read")
+    ),
+) -> ApiResponse[InterruptionWorkflowResponse]:
+    result = await interruption_workflow_service.get_workflow(
+        db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.put(
+    "/{interruption_id}/workflow",
+    response_model=ApiResponse[InterruptionWorkflowResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Mettre à jour le workflow opérationnel (BCC / ADMIN_SCR)",
+)
+async def update_interruption_workflow(
+    interruption_id: int,
+    body: InterruptionWorkflowUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "update")
+    ),
+) -> ApiResponse[InterruptionWorkflowResponse]:
+    result = await interruption_workflow_service.update_workflow(
+        db, interruption_id, body, current_user
+    )
+    return ApiResponse.success(result)
 
 
 @router.put(

@@ -8,9 +8,14 @@ import {
   InterruptionDistribution,
   InterruptionDistributionCreate,
   InterruptionDistributionDetail,
+  InterruptionDistributionStats,
   InterruptionDistributionUpdate,
   InterruptionListParams,
+  InterruptionWorkflow,
+  InterruptionWorkflowUpdate,
   PosteImpacte,
+  PosteImpacteBulk,
+  PosteImpacteFromSigRequest,
   PosteInterruptionCreate,
 } from '../../../shared/models/interruption.models';
 
@@ -25,13 +30,34 @@ export class InterruptionDistributionService {
     if (params.page) httpParams = httpParams.set('page', params.page);
     if (params.page_size) httpParams = httpParams.set('page_size', params.page_size);
     if (params.region_id) httpParams = httpParams.set('region_id', params.region_id);
+    if (params.service_id) httpParams = httpParams.set('service_id', params.service_id);
     if (params.feeder_id) httpParams = httpParams.set('feeder_id', params.feeder_id);
+    if (params.nature_id) httpParams = httpParams.set('nature_id', params.nature_id);
+    if (params.ouverture) httpParams = httpParams.set('ouverture', params.ouverture);
     if (params.statut) httpParams = httpParams.set('statut', params.statut);
     if (params.date_debut) httpParams = httpParams.set('date_debut', params.date_debut);
     if (params.date_fin) httpParams = httpParams.set('date_fin', params.date_fin);
 
     return this.http
       .get<ApiResponse<PaginatedResponse<InterruptionDistribution>>>(this.apiUrl, {
+        params: httpParams,
+      })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  stats(params: InterruptionListParams = {}): Observable<InterruptionDistributionStats> {
+    let httpParams = new HttpParams();
+    if (params.region_id) httpParams = httpParams.set('region_id', params.region_id);
+    if (params.service_id) httpParams = httpParams.set('service_id', params.service_id);
+    if (params.feeder_id) httpParams = httpParams.set('feeder_id', params.feeder_id);
+    if (params.nature_id) httpParams = httpParams.set('nature_id', params.nature_id);
+    if (params.ouverture) httpParams = httpParams.set('ouverture', params.ouverture);
+    if (params.statut) httpParams = httpParams.set('statut', params.statut);
+    if (params.date_debut) httpParams = httpParams.set('date_debut', params.date_debut);
+    if (params.date_fin) httpParams = httpParams.set('date_fin', params.date_fin);
+
+    return this.http
+      .get<ApiResponse<InterruptionDistributionStats>>(`${this.apiUrl}/stats`, {
         params: httpParams,
       })
       .pipe(map((res) => this.unwrap(res)));
@@ -79,8 +105,35 @@ export class InterruptionDistributionService {
       .pipe(map((res) => this.unwrap(res)));
   }
 
+  addPostesFromFeeder(id: number): Observable<PosteImpacteBulk> {
+    return this.http
+      .post<ApiResponse<PosteImpacteBulk>>(`${this.apiUrl}/${id}/postes/from-feeder`, {})
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  addPostesFromSigTroncon(
+    id: number,
+    body: PosteImpacteFromSigRequest = {},
+  ): Observable<PosteImpacteBulk> {
+    return this.http
+      .post<ApiResponse<PosteImpacteBulk>>(`${this.apiUrl}/${id}/postes/from-sig-troncon`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
   removePoste(id: number, posteId: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}/postes/${posteId}`);
+  }
+
+  getWorkflow(id: number): Observable<InterruptionWorkflow> {
+    return this.http
+      .get<ApiResponse<InterruptionWorkflow>>(`${this.apiUrl}/${id}/workflow`)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  updateWorkflow(id: number, body: InterruptionWorkflowUpdate): Observable<InterruptionWorkflow> {
+    return this.http
+      .put<ApiResponse<InterruptionWorkflow>>(`${this.apiUrl}/${id}/workflow`, body)
+      .pipe(map((res) => this.unwrap(res)));
   }
 
   private unwrap<T>(res: ApiResponse<T>): T {

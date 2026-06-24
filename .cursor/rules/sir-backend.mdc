@@ -1,0 +1,13 @@
+---
+description: Conventions agent backend SIR — FastAPI, TODO Sprint 1, architecture en couches
+globs: sir-backend/**/*
+alwaysApply: false
+---
+
+# Backend SIR
+
+- Source de vérité tâches : `docs/TODO.md` — phases 1.2, 1.3, 1.4
+- Architecture : router → service → repository (jamais de SQL dans les routers)
+- Réponses : `ApiResponse[T]` via `app/schemas/common.py`
+- RBAC triple : `@require_permission` + scope service + `WHERE` en repository
+- Skill complet : `.cursor/skills/sir-backend/SKILL.md`

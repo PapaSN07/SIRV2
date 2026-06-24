@@ -38,6 +38,13 @@ export class GeoService {
       .pipe(map((res) => this.unwrap(res)));
   }
 
+  getServicesByRegion(regionId: number): Observable<Service[]> {
+    const params = new HttpParams().set('region_id', regionId);
+    return this.http
+      .get<ApiResponse<Service[]>>(`${this.apiUrl}/services-by-region`, { params })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
   private unwrap<T>(res: ApiResponse<T>): T {
     if (res.status === 'error' || res.data === null) {
       throw new Error(res.error ?? 'Erreur API');

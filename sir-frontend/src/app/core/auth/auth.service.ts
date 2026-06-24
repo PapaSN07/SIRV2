@@ -69,6 +69,7 @@ export class AuthService {
   hasRole(...roles: string[]): boolean {
     const user = this.currentUser();
     if (!user?.role_label) return false;
+    if (user.role_label === 'SUPERADMIN') return true;
     return roles.includes(user.role_label);
   }
 

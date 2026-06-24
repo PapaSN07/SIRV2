@@ -1,0 +1,34 @@
+detail,table,type
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Regions,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Delegation,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Agences,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Services,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Causes,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",CausesTransport,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Natures,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Sieges,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,SiegesTransport,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,Signalisations,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",SignalisationsTransport,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",TypesEND,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",PostesSources,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,Feeders,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Postes,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,Troncons,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",SousFeeders,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",EquipementsTransport,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",PosteLigne,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Utilisateurs,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",TypeUtilisateur,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",Interruptions,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,Interruptions_Histo,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,InterruptionsTransport,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,Interruptions_OMVG,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",PosteInterruption,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,PosteInterruption_Histo,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,EnergieND,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",SAIFISAIDI,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",NombreClientMois,fetch_error
+"('S1000', ""[S1000] Erreur renvoyée par le serveur <srv-hfsql:4900> :\r\nIl n'est pas possible de se connecter à la base de données <SIR> car celle-ci n'existe pas.\r\n\r\nInformations de débogage :\r\",NAPT,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,consignation,fetch_error
+<class 'pyodbc.Error'> returned a result with an exception set,Destinataire,fetch_error

@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.models.notifications import EmailEnvoye, SmsEnvoye
 from app.models.utilisateurs import Utilisateur
 from app.repositories import destinataire_repository as dest_repo
@@ -47,7 +48,7 @@ async def _destinataire_ids_in_scope(
     db: AsyncSession,
     user: Utilisateur,
 ) -> list[int] | None:
-    if _user_role_names(user).intersection(_NATIONAL_ROLES):
+    if is_superadmin(user) or _user_role_names(user).intersection(_NATIONAL_ROLES):
         return None
 
     page = await destinataire_service.list_destinataires(

@@ -1,0 +1,12 @@
+---
+description: Agent intégration SIR — cohérence backend FastAPI ↔ frontend Angular, checkpoints TODO
+globs: sir-backend/**/*,sir-frontend/**/*
+alwaysApply: false
+---
+
+# Integration SIR
+
+- Source de vérité : `docs/TODO.md` — valider après chaque phase backend (1.3 auth, 1.4 RBAC)
+- Vérifier : ApiResponse[T], schémas Pydantic ↔ interfaces TS, endpoints, RBAC, pagination
+- Rapports : `docs/integration/INTEGRATION_REPORT_{module}.md`
+- Skill complet : `.cursor/skills/sir-integration/SKILL.md`

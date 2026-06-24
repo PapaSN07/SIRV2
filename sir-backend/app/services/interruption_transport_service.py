@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.models.interruptions import Interruption, InterruptionTransport
 from app.models.utilisateurs import Utilisateur
 from app.repositories import interruption_transport_repository as repo
@@ -39,6 +40,8 @@ def _user_role_names(user: Utilisateur) -> set[str]:
 
 def _ensure_not_distribution_role(user: Utilisateur) -> None:
     """Blocage explicite des rôles distribution sur le transport HTB."""
+    if is_superadmin(user):
+        return
     if _user_role_names(user).intersection(_DISTRIBUTION_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -64,6 +67,8 @@ def _ensure_can_create(user: Utilisateur) -> None:
 
 
 def _ensure_can_read(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     _ensure_not_distribution_role(user)
     if not _user_role_names(user).intersection(READ_ROLES):
         raise HTTPException(
@@ -523,6 +528,8 @@ def _ensure_statut_cloture(interruption: Interruption) -> None:
 
 def _ensure_can_validate(user: Utilisateur) -> None:
     """Validation réservée Admin Dispatching et Admin SAQS."""
+    if is_superadmin(user):
+        return
     _ensure_not_distribution_role(user)
     if not _user_role_names(user).intersection(VALIDATE_ROLES):
         raise HTTPException(
@@ -537,6 +544,8 @@ def _ensure_can_validate(user: Utilisateur) -> None:
 
 def _ensure_can_modify(user: Utilisateur, interruption: Interruption) -> None:
     """Seul le créateur ou Admin Dispatching peut modifier une interruption transport."""
+    if is_superadmin(user):
+        return
     if "ADMIN_DISPATCHING" in _user_role_names(user):
         return
     if interruption.created_by_id == user.id:

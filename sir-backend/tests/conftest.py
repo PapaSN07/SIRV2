@@ -10,6 +10,25 @@ les variables sans se connecter à SQL Server ou Redis.
 
 import os
 import pathlib
+import sys
+
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+_repo_str = str(_REPO_ROOT)
+if _repo_str not in sys.path:
+    sys.path.insert(0, _repo_str)
+elif sys.path[0] != _repo_str:
+    sys.path.remove(_repo_str)
+    sys.path.insert(0, _repo_str)
+
+# sir-backend/scripts/ masque scripts.migration/ à la racine du dépôt
+_backend_scripts = pathlib.Path(__file__).resolve().parents[1] / "scripts"
+_scripts_mod = sys.modules.get("scripts")
+if _scripts_mod is not None:
+    _mod_file = getattr(_scripts_mod, "__file__", None)
+    if _mod_file and pathlib.Path(_mod_file).resolve().parent == _backend_scripts.resolve():
+        for _name in list(sys.modules):
+            if _name == "scripts" or _name.startswith("scripts."):
+                del sys.modules[_name]
 
 # Charger .env.test avant tout import de l'application
 _env_test_path = pathlib.Path(__file__).parent.parent / ".env.test"

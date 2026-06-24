@@ -4,6 +4,8 @@ export interface Feeder {
   libelle: string;
   poste_source_id: number;
   service_id: number | null;
+  service_libelle?: string | null;
+  poste_source_libelle?: string | null;
   tension_kv: number | null;
   puissance_installee_mva: number | null;
   is_active: boolean;
@@ -82,10 +84,21 @@ export interface PosteUpdate {
   is_active?: boolean;
 }
 
+export interface Troncon {
+  id: number;
+  code: string;
+  libelle: string;
+  feeder_id: number | null;
+  longueur_km: number | null;
+  tension_kv: number | null;
+  is_active: boolean;
+}
+
 export interface ReseauListParams {
   page?: number;
   page_size?: number;
   feeder_id?: number;
   service_id?: number;
   region_id?: number;
+  poste_source_id?: number;
 }

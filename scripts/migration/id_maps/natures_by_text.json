@@ -1,0 +1,8 @@
+{
+  "COUPURE": 1,
+  "DÉLESTAGE": 2,
+  "EFFACEMENT": 3,
+  "FUGITIF": 4,
+  "PERMANENT": 5,
+  "SEMI PERMANENT": 6
+}

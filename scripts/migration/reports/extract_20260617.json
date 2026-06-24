@@ -1,0 +1,13 @@
+{
+  "extracted_at": "2026-06-17T19:55:08.611039",
+  "cutoff": "2023-06-18T19:55:08.611039",
+  "tables": {
+    "InterruptionsTransport": {
+      "source_table": "InterruptionsTransport",
+      "raw_count": 9766,
+      "exported_count": 4651,
+      "filter": "active_or_cutoff_3y",
+      "checksum": "f1b714648f8dd8ea"
+    }
+  }
+}

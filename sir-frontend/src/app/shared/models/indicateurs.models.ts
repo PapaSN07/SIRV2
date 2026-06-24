@@ -10,6 +10,7 @@ export interface TableauDeBordResponse {
   saidi: number;
   nb_interruptions_actives: number;
   nb_interruptions_mois: number;
+  causes_repartition?: CauseRepartitionItem[];
 }
 
 export interface HistoriquePoint {
@@ -98,9 +99,10 @@ export interface IndicateursQueryParams {
   region_id?: number;
 }
 
-/** Données mock — pas d'endpoint backend répartition par cause (limitation F2). */
+/** Répartition par cause — fournie par le tableau de bord API. */
 export interface CauseRepartitionItem {
   label: string;
+  nombre: number;
   percent: number;
-  color: string;
+  color?: string;
 }

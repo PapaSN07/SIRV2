@@ -1,0 +1,13 @@
+---
+description: Agent QA SIR — tests pytest Sprint 1 (auth, RBAC), definition of done docs/TODO.md
+globs: sir-backend/tests/**/*
+alwaysApply: false
+---
+
+# QA SIR
+
+- Source de vérité cas de test : `docs/TODO.md` § Tests (phases 1.3, 1.4)
+- Exécution : `make test`, `make test-unit`, `make test-integration`
+- Assertions via enveloppe `ApiResponse[T]` — payload dans `body["data"]`
+- END/SAIFI/SAIDI : `@pytest.mark.xfail` tant que formules CRSE non confirmées
+- Skill complet : `.cursor/skills/sir-qa/SKILL.md`

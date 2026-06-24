@@ -98,6 +98,13 @@ class TableauDeBordResponse(BaseModel):
     saidi: float
     nb_interruptions_actives: int
     nb_interruptions_mois: int
+    causes_repartition: list["CauseRepartitionItemResponse"] = Field(default_factory=list)
+
+
+class CauseRepartitionItemResponse(BaseModel):
+    label: str
+    nombre: int
+    percent: float
 
 
 class HistoriquePointResponse(BaseModel):

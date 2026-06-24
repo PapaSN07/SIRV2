@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.models.napt import Consignation, Napt
 from app.models.utilisateurs import Utilisateur
 from app.repositories import napt_repository as repo
@@ -55,6 +56,8 @@ def _to_response(napt: Napt) -> NaptResponse:
 
 
 def _ensure_write(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(WRITE_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -63,6 +66,8 @@ def _ensure_write(user: Utilisateur) -> None:
 
 
 def _ensure_validate(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(VALIDATE_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

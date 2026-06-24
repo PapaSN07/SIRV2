@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import check_region_scope
+from app.core.rbac_helpers import is_superadmin
 from app.models.rapports import RapportGenere
 from app.models.utilisateurs import Utilisateur
 from app.repositories import rapport_repository as repo
@@ -39,8 +40,8 @@ from app.repositories import utilisateur_repository
 logger = logging.getLogger(__name__)
 
 _NATIONAL_ROLES = frozenset({"ADMIN_SCR", "ADMIN_SAQS", "ADMIN_DISPATCHING", "DISPATCHER"})
-_REGION_ROLES = frozenset({"BRC"})
-_SERVICE_ROLES = frozenset({"BCC", "SUPERVISEUR"})
+_REGION_ROLES = frozenset({"BCC", "BRC"})
+_SERVICE_ROLES = frozenset({"SUPERVISEUR"})
 _NATIONAL_VIEW_ROLES = _NATIONAL_ROLES
 _TRANSPORT_RAPPORT_ROLES = frozenset({"DISPATCHER", "ADMIN_DISPATCHING", "ADMIN_SAQS"})
 _DISTRIBUTION_RAPPORT_ROLES = frozenset({"ADMIN_SAQS", "ADMIN_SCR", "BRC", "BCC", "SUPERVISEUR"})
@@ -55,7 +56,7 @@ def _user_role_names(user: Utilisateur) -> set[str]:
 def _resolve_region_id(user: Utilisateur, region_id: int | None) -> int | None:
     roles = _user_role_names(user)
 
-    if roles.intersection(_NATIONAL_ROLES):
+    if is_superadmin(user) or roles.intersection(_NATIONAL_ROLES):
         return region_id
 
     if roles.intersection(_REGION_ROLES):
@@ -96,6 +97,8 @@ def _resolve_region_id(user: Utilisateur, region_id: int | None) -> int | None:
 
 
 def _assert_distribution_rapport_role(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(_DISTRIBUTION_RAPPORT_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -108,6 +111,8 @@ def _assert_distribution_rapport_role(user: Utilisateur) -> None:
 
 
 def _assert_transport_rapport_role(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(_TRANSPORT_RAPPORT_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -130,7 +135,9 @@ def _assert_annuel_direction(user: Utilisateur, direction: str) -> None:
             },
         )
     if direction == "consolide":
-        if not _user_role_names(user).intersection(_CONSOLIDE_RAPPORT_ROLES):
+        if not is_superadmin(user) and not _user_role_names(user).intersection(
+            _CONSOLIDE_RAPPORT_ROLES
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -170,7 +177,7 @@ def _to_status_response(record: RapportGenere) -> RapportStatusResponse:
 
 
 def _assert_can_access(user: Utilisateur, record: RapportGenere) -> None:
-    if _user_role_names(user).intersection(_NATIONAL_VIEW_ROLES):
+    if is_superadmin(user) or _user_role_names(user).intersection(_NATIONAL_VIEW_ROLES):
         return
     if record.user_id != user.id:
         raise HTTPException(
@@ -226,7 +233,7 @@ async def enqueue_journalier(
     service_id: int | None = None
     if roles.intersection(_SERVICE_ROLES):
         service_id = user.user_roles[0].scope_service_id
-    include_transport = "ADMIN_SAQS" in roles and region_id is None
+    include_transport = (is_superadmin(user) or "ADMIN_SAQS" in roles) and region_id is None
     task_id = str(uuid.uuid4())
     params_json = json.dumps(
         {

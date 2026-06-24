@@ -1,6 +1,26 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 @import 'styles/sir-ui';
 
+:root {
+  --senelec-purple-dark: #3c1053;
+  --senelec-purple: #5a1a72;
+  --senelec-magenta: #ad1457;
+  --senelec-red: #c62828;
+  --senelec-orange: #f4811f;
+  --senelec-orange-light: #fb8c00;
+  --senelec-page-bg: #2a0845;
+  --senelec-page-bg-alt: #1a0a2e;
+  --gradient-brand: linear-gradient(90deg, #3c1053 0%, #ad1457 48%, #f4811f 100%);
+
+  /* extensions internes SIR */
+  --senelec-primary-dark: #2a0838;
+  --senelec-orange-dark: #e65100;
+
+  --mdc-theme-primary: var(--senelec-purple-dark);
+  --mdc-theme-secondary: var(--senelec-orange);
+  --mdc-theme-error: var(--senelec-red);
+}
+
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
   font-weight: normal;
@@ -21,5 +41,19 @@ body {
   height: 100%;
   margin: 0;
   font-family: Inter, Roboto, 'Helvetica Neue', sans-serif;
-  background: #f6f9ff;
+  background: #f3eef8;
+}
+
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary {
+  --mdc-protected-button-container-color: var(--senelec-orange);
+  --mat-protected-button-state-layer-color: #ffffff;
+  --mdc-protected-button-label-text-color: #ffffff;
+}
+
+.mat-mdc-raised-button.mat-primary:not(:disabled):hover,
+.mat-mdc-unelevated-button.mat-primary:not(:disabled):hover {
+  --mdc-protected-button-container-color: var(--senelec-orange-dark);
 }

@@ -1,0 +1,122 @@
+{
+  "generated_at": "2026-06-18T16:29:44.613352",
+  "hfsql_connectivity": {
+    "connection_string_prefix": "DRIVER={HFSQL};Server Name=srv-hfsql;Server Port=4900;Database=SIR_ALHDL;UID=admin;",
+    "connected": true,
+    "server_reachable": true,
+    "tables": {
+      "Interruptions": 270002,
+      "Utilisateurs": 107,
+      "Feeders": 381
+    },
+    "error": null
+  },
+  "checks": {
+    "counts": {
+      "passed": false
+    },
+    "fk_orphans": {
+      "details": {
+        "interruptions.service_id": 0,
+        "interruptions.feeder_id": 0,
+        "interruptions.cause_id": 0,
+        "interruptions.created_by_id": 0,
+        "feeders.poste_source_id": 0,
+        "services.agence_id": 0,
+        "agences.delegation_id": 0,
+        "delegations.region_id": 0,
+        "user_roles.utilisateur_id": 0,
+        "user_roles.role_id": 0,
+        "energie_nd.interruption_id": 0,
+        "poste_interruptions.interruption_id": 0,
+        "poste_interruptions.poste_id": 0
+      },
+      "passed": true
+    },
+    "end_totals": {
+      "source_end_mwh": 3668719954.5833,
+      "target_end_mwh": 0.0,
+      "delta_pct": 100.0,
+      "within_tolerance": false
+    },
+    "saifi_saidi": {
+      "source_saifi_saidi_sum": 0.0,
+      "target_saifi_saidi_sum": 0.0,
+      "delta_pct": 0,
+      "within_tolerance": true
+    },
+    "rbac": {
+      "active_users_without_role": 107,
+      "passed": false
+    },
+    "interruption_fk_null": {
+      "total_distribution": 75855,
+      "null_counts": {
+        "sans_service": 519,
+        "sans_feeder": 74840,
+        "sans_cause": 6997,
+        "sans_nature": 0,
+        "sans_siege": 64304,
+        "sans_signalisation": 10
+      },
+      "null_pct": {
+        "sans_service": 0.68,
+        "sans_feeder": 98.66,
+        "sans_cause": 9.22,
+        "sans_nature": 0.0,
+        "sans_siege": 84.77,
+        "sans_signalisation": 0.01
+      },
+      "region_chain_broken": 0,
+      "passed": false
+    }
+  },
+  "passed": false,
+  "source_export_counts": {
+    "Agences": 78,
+    "Causes": 50,
+    "CausesTransport": 74,
+    "consignation": 0,
+    "Delegation": 8,
+    "Destinataire": 823,
+    "EnergieND": 0,
+    "EquipementsTransport": 658,
+    "Feeders": 381,
+    "Interruptions": 80156,
+    "InterruptionsTransport": 8488,
+    "Interruptions_Histo": 53358,
+    "Interruptions_OMVG": 0,
+    "NAPT": 0,
+    "Natures": 6,
+    "NombreClientMois": 5511,
+    "PosteInterruption": 16390100,
+    "PosteInterruption_Histo": 9949023,
+    "PosteLigne": 3,
+    "Postes": 11103,
+    "PostesSources": 58,
+    "Regions": 7,
+    "SAIFISAIDI": 0,
+    "Services": 24,
+    "Sieges": 33,
+    "SiegesTransport": 22,
+    "Signalisations": 87,
+    "SignalisationsTransport": 1,
+    "Troncons": 0,
+    "TypeUtilisateur": 6,
+    "Utilisateurs": 107
+  },
+  "target_counts": {
+    "regions": 7,
+    "delegations": 7,
+    "agences": 77,
+    "services": 23,
+    "causes": 78,
+    "feeders": 358,
+    "postes": 11103,
+    "utilisateurs": 108,
+    "interruptions": 83108,
+    "energie_nd": 0,
+    "saifi_saidi": 0,
+    "napt": 0
+  }
+}

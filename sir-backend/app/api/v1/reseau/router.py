@@ -117,6 +117,7 @@ async def list_feeders(
     page_size: int = Query(20, ge=1, le=100),
     poste_source_id: int | None = Query(default=None),
     service_id: int | None = Query(default=None),
+    region_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[FeederResponse]]:
@@ -128,6 +129,7 @@ async def list_feeders(
         page_size,
         poste_source_id=poste_source_id,
         service_id=service_id,
+        region_id=region_id,
     )
     return ApiResponse.success(result)
 
@@ -390,6 +392,12 @@ async def delete_sous_feeder(
 ) -> None:
     await svc.delete_resource(db, current_user, "sous-feeders", item_id)
 
+
+# ── Topologie SIG (phase C) ─────────────────────────────────────────────────
+
+from app.api.v1.reseau.sig.router import router as sig_reseau_router
+
+router.include_router(sig_reseau_router, prefix="/sig", tags=["sig"])
 
 # ── Réseau transport HTB (phase 2.4) ────────────────────────────────────────
 

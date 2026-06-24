@@ -5,6 +5,7 @@ from typing import Any, Callable
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac_helpers import is_superadmin
 from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder, Troncon
 from app.models.utilisateurs import Utilisateur
 from app.repositories import reseau_distribution_repository as repo
@@ -37,6 +38,18 @@ def _user_role_names(user: Utilisateur) -> set[str]:
     return {ur.role.nom for ur in user.user_roles}
 
 
+def _feeder_response(record: Feeder) -> FeederResponse:
+    base = FeederResponse.model_validate(record)
+    return base.model_copy(
+        update={
+            "service_libelle": record.service.libelle if record.service else None,
+            "poste_source_libelle": record.poste_source.libelle
+            if record.poste_source
+            else None,
+        }
+    )
+
+
 def _validate_slug(slug: str) -> None:
     if slug not in VALID_SLUGS:
         raise HTTPException(
@@ -50,6 +63,8 @@ def _validate_slug(slug: str) -> None:
 
 
 def _ensure_can_read(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if not _user_role_names(user).intersection(READ_ROLES):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -62,6 +77,8 @@ def _ensure_can_read(user: Utilisateur) -> None:
 
 
 def _ensure_can_write(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     if "ADMIN_SCR" not in _user_role_names(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -74,13 +91,25 @@ def _ensure_can_write(user: Utilisateur) -> None:
 
 
 def _read_scope(user: Utilisateur) -> ScopeFilter | None:
+    if is_superadmin(user):
+        return None
     roles = _user_role_names(user)
     if roles.intersection({"ADMIN_SCR", "ADMIN_SAQS"}):
         return None
-    if "BCC" in roles:
+    if roles.intersection({"BCC", "BRC"}):
+        region_id = user.user_roles[0].scope_service_id
+        if region_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Périmètre régional non configuré pour ce compte",
+                },
+            )
+        return ScopeFilter(region_id=region_id)
+    if "SUPERVISEUR" in roles:
         return ScopeFilter(service_id=user.user_roles[0].scope_service_id)
-    if "BRC" in roles:
-        return ScopeFilter(region_id=user.user_roles[0].scope_service_id)
     return None
 
 
@@ -116,6 +145,13 @@ def _check_feeder_scope(user: Utilisateur, record: Feeder) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"status": "error", "data": None, "error": "Hors périmètre service"},
         )
+    if scope.region_id is not None:
+        svc_region = record.service.region_id if record.service is not None else None
+        if svc_region != scope.region_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"status": "error", "data": None, "error": "Hors périmètre régional"},
+            )
 
 
 def _check_poste_scope(user: Utilisateur, record: Poste) -> None:
@@ -157,9 +193,10 @@ async def list_resources(
             db,
             poste_source_id=poste_source_id,
             service_id=service_id,
+            region_id=region_id,
             scope=scope,
         )
-        return _paginate_list(items, page, page_size, FeederResponse.model_validate)
+        return _paginate_list(items, page, page_size, _feeder_response)
 
     if slug == "postes":
         items = await repo.list_postes(
@@ -191,7 +228,7 @@ async def get_resource(db: AsyncSession, user: Utilisateur, slug: str, item_id: 
         if record is None:
             raise _not_found()
         _check_feeder_scope(user, record)
-        return FeederResponse.model_validate(record)
+        return _feeder_response(record)
 
     if slug == "postes":
         record = await repo.get_poste(db, item_id)

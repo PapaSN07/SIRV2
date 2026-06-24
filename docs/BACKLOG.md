@@ -7,7 +7,7 @@
 >
 > **Sprint courant :** Phases 7–9 frontend (SMS, admin avancé)
 > **Sprints terminés :** Sprint 1–8 backend · Vagues frontend 0–6 ✅
-> **En attente :** Phase 7 NAPT · Phase 10 migration HFSQL
+> **En attente :** Phase 7 NAPT · Phase 10 migration HFSQL (scripts livrés — exécution sur données réelles en attente)
 
 ---
 
@@ -328,38 +328,35 @@
 ---
 
 ## Phase 10 — Migration des données
-> **Priorité : P0 — EN ATTENTE** (reporté par orchestrateur)
-> Squelettes : `scripts/migration/etl_hfsql.py`, `validate_migration.py`
+> **Priorité : P0** — Scripts ETL livrés (`scripts/migration/`) · base HFSQL source : **SIR_ALHDL**
 
-- [ ] **10.1 Audit données HFSQL**
-  - [ ] Script d'analyse : doublons, NULL inattendus, valeurs hors référentiel
-  - [ ] Rapport d'anomalies à corriger avant migration
+- [x] **10.1 Audit données HFSQL**
+  - [x] `audit_hfsql.py` — doublons, NULL, orphelins, rapport JSON/CSV
+  - [x] `mapping.yaml` — spécification 107 tables → 37 tables dbo
 
-- [ ] **10.2 ETL interruptions**
-  - [ ] `Interruptions` + `Interruptions_Histo` + `InterruptionsTransport` + `Interruptions_OMVG`
-  - [ ] → table `interruptions` unifiée + tables de détail
-  - [ ] Résolution des textes VARCHAR → IDs FK (feeder, cause, siège, région…)
+- [x] **10.2 ETL interruptions**
+  - [x] `Interruptions` + `Interruptions_Histo` + `InterruptionsTransport` + `Interruptions_OMVG`
+  - [x] → table `interruptions` unifiée + tables de détail
+  - [x] Résolution textes VARCHAR → IDs FK (feeder, cause, siège…)
 
-- [ ] **10.3 ETL référentiels**
-  - [ ] `Causes` + `CausesTransport` → `causes` (champ `type_reseau`)
-  - [ ] `Sieges` + `SiegesTransport` → `sieges`
-  - [ ] `Signalisations` + `SignalisationsTransport` → `signalisations`
+- [x] **10.3 ETL référentiels**
+  - [x] `Causes` + `CausesTransport` → `causes` (`type_reseau`)
+  - [x] `Sieges` + `SiegesTransport` → `sieges`
+  - [x] `Signalisations` + `SignalisationsTransport` → `signalisations`
 
-- [ ] **10.4 ETL utilisateurs**
-  - [ ] Hachage bcrypt de tous les mots de passe en clair
-  - [ ] Tous les utilisateurs migrés avec `premiere_connexion = True`
-  - [ ] Mapping flags booléens (AdminSCR, disparcheur…) → table `user_roles`
+- [x] **10.4 ETL utilisateurs**
+  - [x] Hachage bcrypt (`premiere_connexion = True`)
+  - [x] Mapping flags → `user_roles` RBAC
 
-- [ ] **10.5 ETL réseau**
-  - [ ] Feeders, postes sources, postes, tronçons
-  - [ ] Organisation géographique (régions, délégations, agences, services)
-  - [ ] Données SIG (Noeud_SIG, Troncon_SIG, FEEDERS_SIG)
+- [x] **10.5 ETL réseau**
+  - [x] Feeders, postes sources, postes, tronçons, sous-feeders
+  - [x] Géographie (régions, délégations, agences, services)
+  - [ ] Données SIG — hors périmètre v1
 
-- [ ] **10.6 Validation post-migration**
-  - [ ] Comparer totaux END, SAIFI, SAIDI avant/après migration
-  - [ ] Vérifier counts : nb interruptions par mois sur 3 ans
-  - [ ] Tests de cohérence FK (aucune FK orpheline)
-  - [ ] Plan de rollback : base HFSQL en lecture seule pendant 3 mois post-bascule
+- [x] **10.6 Validation post-migration**
+  - [x] `validate_migration.py` — END, SAIFI/SAIDI, FK orphelines, RBAC
+  - [x] `runbook_cutover.md` — bascule, delta, rollback
+  - [ ] Exécution go/no-go sur dump réel
 
 ---
 

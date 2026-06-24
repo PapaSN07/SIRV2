@@ -1,0 +1,13 @@
+---
+description: Conventions agent frontend SIR — Angular 17, Material, NgRx, TODO/BACKLOG
+globs: sir-frontend/**/*
+alwaysApply: false
+---
+
+# Frontend SIR
+
+- Source de vérité tâches : `docs/TODO.md` + `docs/BACKLOG.md`
+- Sprint 1 : auth UI uniquement après backend phase 1.3 terminée
+- Architecture : route → composant → service HTTP → NgRx (pas de HttpClient dans composants)
+- Réponses API : unwrap `ApiResponse<T>` depuis `shared/models/api.models.ts`
+- Skill complet : `.cursor/skills/sir-frontend/SKILL.md`

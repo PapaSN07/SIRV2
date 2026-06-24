@@ -35,6 +35,12 @@ migrate:
 upgrade:
 	docker compose exec api alembic upgrade head
 
+upgrade-senelec:
+	cd sir-backend && set SIR_PROFILE=senelec&& alembic upgrade head
+
+upgrade-docker:
+	docker compose exec api alembic upgrade head
+
 downgrade:
 	docker compose exec api alembic downgrade -1
 
@@ -66,6 +72,9 @@ seed-interruptions-transport:
 
 seed-indicateurs:
 	docker compose exec api python -m scripts.run_seed_indicateurs
+
+seed-sig:
+	docker compose exec api python -m scripts.run_seed_sig
 
 seed-dev:
 	docker compose exec api python -m scripts.run_seed_dev

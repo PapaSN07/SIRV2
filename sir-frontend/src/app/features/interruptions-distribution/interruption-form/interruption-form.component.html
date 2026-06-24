@@ -1,25 +1,27 @@
 <section class="interruption-form-page">
   <sir-page-header
-    [title]="isEditMode() ? 'Modifier l\'interruption' : 'Formulaire de saisie d\'interruption'"
+    [title]="pageTitle()"
     [breadcrumbs]="breadcrumbs()"
   >
     <div actions>
       <a class="sir-btn sir-btn--outline-primary" routerLink="/interruptions/distribution">
-        Annuler
+        {{ isReadOnly() ? 'Retour' : 'Annuler' }}
       </a>
-      <button
-        type="button"
-        class="sir-btn sir-btn--primary"
-        [disabled]="form.invalid || saving()"
-        (click)="submit()"
-      >
-        @if (saving()) {
-          <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
-        } @else {
-          <span class="material-symbols-outlined" aria-hidden="true">send</span>
-        }
-        {{ isEditMode() ? 'Enregistrer' : 'Soumettre' }}
-      </button>
+      @if (!isReadOnly()) {
+        <button
+          type="button"
+          class="sir-btn sir-btn--primary"
+          [disabled]="!canSubmit()"
+          (click)="submit()"
+        >
+          @if (saving()) {
+            <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
+          } @else {
+            <span class="material-symbols-outlined" aria-hidden="true">send</span>
+          }
+          {{ isEditMode() ? 'Enregistrer' : 'Soumettre' }}
+        </button>
+      }
     </div>
   </sir-page-header>
 
@@ -43,23 +45,63 @@
               class="field__select"
               [value]="regionId() ?? ''"
               (change)="onRegionChange($any($event.target).value)"
-              [disabled]="isEditMode()"
+              [disabled]="regionSelectDisabled()"
             >
               <option value="">Sélectionner une région</option>
               @for (r of regions(); track r.id) {
                 <option [value]="r.id">{{ r.libelle }}</option>
               }
             </select>
+            @if (isRegionalScope() && !isEditMode()) {
+              <p class="form-field-hint">
+                @if (isBcc()) {
+                  Périmètre BCC verrouillé sur Dakar.
+                } @else {
+                  Périmètre BRC verrouillé sur votre région.
+                }
+              </p>
+            }
           </div>
           <div class="form-row">
             <div class="field">
+              <label class="field__label" for="poste-source">Poste source</label>
+              <select
+                id="poste-source"
+                class="field__select"
+                formControlName="poste_source_id"
+              >
+                <option [ngValue]="0">Sélectionner</option>
+                @for (ps of postesSources(); track ps.id) {
+                  <option [ngValue]="ps.id">{{ ps.libelle }} ({{ ps.code }})</option>
+                }
+              </select>
+            </div>
+            <div class="field">
               <label class="field__label" for="feeder">Feeder</label>
-              <select id="feeder" class="field__select" formControlName="feeder_id" [disabled]="isEditMode()">
+              <select
+                id="feeder"
+                class="field__select"
+                formControlName="feeder_id"
+              >
                 <option [ngValue]="0">Sélectionner</option>
                 @for (f of feeders(); track f.id) {
                   <option [ngValue]="f.id">{{ f.libelle }} ({{ f.code }})</option>
                 }
               </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field__label" for="service">Service</label>
+              <input
+                id="service"
+                class="field__select field__select--readonly"
+                type="text"
+                [value]="serviceLibelle() ?? ''"
+                placeholder="Renseigné automatiquement via le feeder"
+                readonly
+                tabindex="-1"
+              />
             </div>
             <div class="field">
               <label class="field__label" for="localisation">Localisation</label>
@@ -171,6 +213,39 @@
               </span>
             </div>
           </div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field__label" for="tension">Tension (kV)</label>
+              <input
+                id="tension"
+                class="field__select"
+                type="number"
+                min="0"
+                step="0.1"
+                formControlName="tension_kv"
+              />
+            </div>
+            <div class="field">
+              <label class="field__label" for="clients-mt">Clients MT</label>
+              <input
+                id="clients-mt"
+                class="field__select"
+                type="number"
+                min="0"
+                formControlName="nombre_clients_mt"
+              />
+            </div>
+            <div class="field">
+              <label class="field__label" for="clients-bt">Clients BT</label>
+              <input
+                id="clients-bt"
+                class="field__select"
+                type="number"
+                min="0"
+                formControlName="nombre_clients_bt"
+              />
+            </div>
+          </div>
           <div class="checkbox-row">
             <label class="checkbox-row__item">
               <input type="checkbox" formControlName="is_force_majeure" />
@@ -179,6 +254,10 @@
             <label class="checkbox-row__item">
               <input type="checkbox" formControlName="is_fugitive" />
               Fugitive
+            </label>
+            <label class="checkbox-row__item">
+              <input type="checkbox" formControlName="has_extension_bt" />
+              Extension BT
             </label>
           </div>
         </div>
@@ -200,6 +279,30 @@
       @if (error()) {
         <p class="form-page__error" role="alert">{{ error() }}</p>
       }
+      @if (saveSuccess()) {
+        <p class="form-page__success" role="status">
+          <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+          Modifications enregistrées — vous pouvez poursuivre le workflow ci-dessous.
+        </p>
+      }
     </form>
+
+    @if (!isEditMode()) {
+      <p class="form-hint-banner">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        Après la création, complétez le workflow opérationnel (7 onglets) et les postes impactés depuis la fiche détail.
+      </p>
+    }
+
+    @if (isEditMode() && editId(); as id) {
+      <sir-interruption-workflow-panel
+        [workflow]="workflow()"
+        [loading]="workflowLoading()"
+        [canEdit]="canEditWorkflow()"
+        [interruptionId]="id"
+        [feederId]="detailFeederId()"
+        (saved)="onWorkflowSaved()"
+      />
+    }
   }
 </section>

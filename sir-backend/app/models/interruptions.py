@@ -136,6 +136,9 @@ class Interruption(Base):
     energie_nd: Mapped["EnergieNd | None"] = relationship(  # noqa: F821
         "EnergieNd", back_populates="interruption", lazy="select", uselist=False
     )
+    workflow_step: Mapped["InterruptionWorkflowStep | None"] = relationship(
+        "InterruptionWorkflowStep", back_populates="interruption", lazy="select", uselist=False
+    )
 
 
 class InterruptionDistribution(Base):

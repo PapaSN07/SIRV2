@@ -8,6 +8,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import check_region_scope, check_service_scope
+from app.core.rbac_helpers import is_superadmin
 from app.models.utilisateurs import Utilisateur
 from app.repositories import indicateurs_repository as repo
 from app.schemas.common import PaginatedResponse
@@ -25,6 +26,7 @@ from app.schemas.indicateurs import (
     HistoriqueResponse,
     TopFeederItemResponse,
     TopFeedersResponse,
+    CauseRepartitionItemResponse,
 )
 from app.services import saifi_saidi_service
 from app.services.indicateurs_cache_service import (
@@ -35,8 +37,8 @@ from app.services.indicateurs_cache_service import (
 from app.utils.pagination import clamp_page_size
 
 _NATIONAL_ROLES = frozenset({"ADMIN_SCR", "ADMIN_SAQS"})
-_REGION_ROLES = frozenset({"BRC"})
-_SERVICE_ROLES = frozenset({"BCC", "SUPERVISEUR"})
+_REGION_ROLES = frozenset({"BCC", "BRC"})
+_SERVICE_ROLES = frozenset({"SUPERVISEUR"})
 
 
 @dataclass(frozen=True)
@@ -58,7 +60,7 @@ def _resolve_scope(
 ) -> _ScopeContext:
     roles = _user_role_names(user)
 
-    if roles.intersection(_NATIONAL_ROLES):
+    if is_superadmin(user) or roles.intersection(_NATIONAL_ROLES):
         if region_id is not None:
             return _ScopeContext(
                 niveau="region",
@@ -454,6 +456,22 @@ async def get_tableau_de_bord(
             annee=resolved_annee,
             mois=resolved_mois,
         )
+        service_ids = await _load_service_ids(db, scope)
+        cause_rows = await repo.aggregate_interruptions_by_cause(
+            db,
+            service_ids=service_ids,
+            annee=resolved_annee,
+            mois=resolved_mois,
+        )
+        cause_total = sum(r.nombre for r in cause_rows) or nb_mois or 1
+        causes = [
+            CauseRepartitionItemResponse(
+                label=row.label,
+                nombre=row.nombre,
+                percent=round(row.nombre * 100.0 / cause_total, 1),
+            )
+            for row in cause_rows
+        ]
         payload = TableauDeBordResponse(
             niveau=scope.niveau,
             scope_id=scope.scope_id,
@@ -464,6 +482,7 @@ async def get_tableau_de_bord(
             saidi=saidi.aggregate.saidi,
             nb_interruptions_actives=nb_actives,
             nb_interruptions_mois=nb_mois,
+            causes_repartition=causes,
         )
         return payload.model_dump()
 

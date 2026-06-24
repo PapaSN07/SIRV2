@@ -5,11 +5,12 @@ from pydantic import BaseModel, Field
 
 StatutInterruption = Literal["en_cours", "cloture", "valide", "archive"]
 
-CREATE_ROLES = frozenset({"BCC", "ADMIN_SCR"})
+CREATE_ROLES = frozenset({"BCC", "BRC", "ADMIN_SCR"})
 
 
 class InterruptionDistributionCreate(BaseModel):
     date_apparition: datetime
+    poste_source_id: int = Field(..., ge=1)
     feeder_id: int = Field(..., ge=1)
     cause_id: int = Field(..., ge=1)
     nature_id: int = Field(..., ge=1)
@@ -49,14 +50,26 @@ class InterruptionClotureRequest(BaseModel):
     date_remise: datetime
 
 
+OuvertureInterruption = Literal["ouvert", "ferme"]
+
+
 class InterruptionDistributionFilters(BaseModel):
     region_id: int | None = Field(default=None, ge=1)
+    service_id: int | None = Field(default=None, ge=1)
     feeder_id: int | None = Field(default=None, ge=1)
+    nature_id: int | None = Field(default=None, ge=1)
+    ouverture: OuvertureInterruption | None = None
     statut: StatutInterruption | None = None
     date_debut: datetime | None = None
     date_fin: datetime | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
+
+
+class InterruptionDistributionStatsResponse(BaseModel):
+    total: int
+    non_validees: int
+    en_cours: int
 
 
 class InterruptionDistributionResponse(BaseModel):
@@ -89,6 +102,11 @@ class InterruptionDistributionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     cause_libelle: str | None = None
+    nature_libelle: str | None = None
+    siege_libelle: str | None = None
+    service_libelle: str | None = None
+    poste_source_libelle: str | None = None
+    feeder_libelle: str | None = None
     region_libelle: str | None = None
 
     model_config = {"from_attributes": True}
@@ -104,6 +122,17 @@ class PosteImpacteResponse(BaseModel):
 class PosteInterruptionCreate(BaseModel):
     poste_id: int = Field(..., ge=1)
     nombre_clients_touches: int | None = Field(default=None, ge=0)
+
+
+class PosteImpacteFromSigRequest(BaseModel):
+    troncon_sig_id: int | None = Field(default=None, ge=1)
+    chain_limit: int = Field(default=3, ge=1, le=10)
+
+
+class PosteImpacteBulkResponse(BaseModel):
+    added_count: int
+    skipped_count: int
+    items: list[PosteImpacteResponse] = Field(default_factory=list)
 
 
 class UtilisateurSummaryResponse(BaseModel):

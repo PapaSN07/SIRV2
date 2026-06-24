@@ -5,14 +5,17 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import check_service_scope
+from app.core.rbac_helpers import is_superadmin
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
 from app.models.reseau import Poste
+from app.models.sig import TronconSig as TronconSigOrm
 from app.models.utilisateurs import Utilisateur
 from app.repositories import interruption_distribution_repository as repo
 from app.repositories import end_repository as end_repo
+from app.repositories import interruption_workflow_repository as workflow_repo
 from app.repositories import referentiel_repository as ref_repo
 from app.repositories import reseau_distribution_repository as reseau_repo
+from app.repositories import sig_repository as sig_repo
 from app.repositories.reseau_distribution_repository import ScopeFilter
 from app.schemas.common import PaginatedResponse
 from app.schemas.interruption_distribution import (
@@ -21,7 +24,10 @@ from app.schemas.interruption_distribution import (
     InterruptionDistributionDetailResponse,
     InterruptionDistributionResponse,
     InterruptionClotureRequest,
+    InterruptionDistributionStatsResponse,
     InterruptionDistributionUpdate,
+    PosteImpacteBulkResponse,
+    PosteImpacteFromSigRequest,
     PosteImpacteResponse,
     PosteInterruptionCreate,
     UtilisateurSummaryResponse,
@@ -40,6 +46,8 @@ def _user_role_names(user: Utilisateur) -> set[str]:
 
 def _ensure_not_transport_role(user: Utilisateur) -> None:
     """Blocage explicite Dispatcher / Admin Dispatching sur la distribution."""
+    if is_superadmin(user):
+        return
     if _user_role_names(user).intersection({"DISPATCHER", "ADMIN_DISPATCHING"}):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -52,6 +60,8 @@ def _ensure_not_transport_role(user: Utilisateur) -> None:
 
 
 def _ensure_can_read(user: Utilisateur) -> None:
+    if is_superadmin(user):
+        return
     _ensure_not_transport_role(user)
     if not _user_role_names(user).intersection(READ_ROLES):
         raise HTTPException(
@@ -65,23 +75,13 @@ def _ensure_can_read(user: Utilisateur) -> None:
 
 
 def _read_scope(user: Utilisateur) -> ScopeFilter | None:
-    """Scope repository : BCC/Superviseur → service · BRC → région · Admin → national."""
+    """Scope repository : BCC/BRC → région · Superviseur → service · Admin → national."""
+    if is_superadmin(user):
+        return None
     roles = _user_role_names(user)
     if roles.intersection({"ADMIN_SCR", "ADMIN_SAQS"}):
         return None
-    if "BCC" in roles or "SUPERVISEUR" in roles:
-        service_id = user.user_roles[0].scope_service_id
-        if service_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "status": "error",
-                    "data": None,
-                    "error": "Périmètre de service non configuré pour ce compte",
-                },
-            )
-        return ScopeFilter(service_id=service_id)
-    if "BRC" in roles:
+    if roles.intersection({"BCC", "BRC"}):
         region_id = user.user_roles[0].scope_service_id
         if region_id is None:
             raise HTTPException(
@@ -93,7 +93,54 @@ def _read_scope(user: Utilisateur) -> ScopeFilter | None:
                 },
             )
         return ScopeFilter(region_id=region_id)
+    if "SUPERVISEUR" in roles:
+        service_id = user.user_roles[0].scope_service_id
+        if service_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Périmètre de service non configuré pour ce compte",
+                },
+            )
+        return ScopeFilter(service_id=service_id)
     return None
+
+
+async def _ensure_service_in_write_scope(
+    db: AsyncSession,
+    user: Utilisateur,
+    service_id: int,
+) -> None:
+    """Vérifie le périmètre d'écriture : BCC/BRC → région · Superviseur → service."""
+    scope = _read_scope(user)
+    if scope is None:
+        return
+
+    if scope.service_id is not None:
+        if service_id != scope.service_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Hors périmètre : service_id non autorisé",
+                },
+            )
+        return
+
+    if scope.region_id is not None:
+        in_region = await repo.service_in_region(db, service_id, scope.region_id)
+        if not in_region:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Hors périmètre : region_id non autorisé",
+                },
+            )
 
 
 async def _ensure_interruption_in_scope(
@@ -188,15 +235,10 @@ def _to_detail_response(
 
     return InterruptionDistributionDetailResponse(
         **detail_data,
-        feeder_libelle=interruption.feeder.libelle if interruption.feeder else None,
-        cause_libelle=interruption.cause.libelle if interruption.cause else None,
-        nature_libelle=interruption.nature.libelle if interruption.nature else None,
-        siege_libelle=interruption.siege.libelle if interruption.siege else None,
         signalisation_libelle=interruption.signalisation.libelle
         if interruption.signalisation
         else None,
         service_code=interruption.service.code if interruption.service else None,
-        service_libelle=interruption.service.libelle if interruption.service else None,
         postes_impactes=postes,
         energie_nd=energie_nd_summary,
         created_by=_user_summary(interruption.created_by),
@@ -331,8 +373,33 @@ def _to_response(
         created_at=interruption.created_at,
         updated_at=interruption.updated_at,
         cause_libelle=interruption.cause.libelle if interruption.cause else None,
+        nature_libelle=interruption.nature.libelle if interruption.nature else None,
+        siege_libelle=interruption.siege.libelle if interruption.siege else None,
+        service_libelle=interruption.service.libelle if interruption.service else None,
+        poste_source_libelle=interruption.poste_source.libelle
+        if interruption.poste_source
+        else None,
+        feeder_libelle=interruption.feeder.libelle if interruption.feeder else None,
         region_libelle=_region_libelle(interruption),
     )
+
+
+async def _response_after_commit(
+    db: AsyncSession,
+    interruption_id: int,
+) -> InterruptionDistributionResponse:
+    """Recharge l'interruption après commit (évite lazy load → MissingGreenlet)."""
+    interruption = await repo.get_interruption_for_response(db, interruption_id)
+    if interruption is None or interruption.interruption_distribution is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": f"Interruption {interruption_id} introuvable après enregistrement",
+            },
+        )
+    return _to_response(interruption, interruption.interruption_distribution)
 
 
 async def create(
@@ -364,7 +431,17 @@ async def create(
             },
         )
 
-    check_service_scope(current_user, feeder.service_id)
+    if feeder.poste_source_id != body.poste_source_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Le feeder ne correspond pas au poste source sélectionné",
+            },
+        )
+
+    await _ensure_service_in_write_scope(db, current_user, feeder.service_id)
 
     await _validate_referentiel_distribution(
         db,
@@ -438,7 +515,52 @@ async def create(
         service_id=feeder.service_id,
     )
 
-    return _to_response(interruption, distribution)
+    return await _response_after_commit(db, interruption.id)
+
+
+async def _validate_list_filters(
+    db: AsyncSession,
+    current_user: Utilisateur,
+    *,
+    region_id: int | None,
+    service_id: int | None,
+) -> None:
+    """Vérifie que les filtres explicites restent dans le périmètre BCC/BRC."""
+    scope = _read_scope(current_user)
+    roles = _user_role_names(current_user)
+
+    if roles.intersection({"BCC", "BRC"}) and scope is not None and scope.region_id is not None:
+        if region_id is not None and region_id != scope.region_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Hors périmètre : région non autorisée",
+                },
+            )
+        if service_id is not None:
+            in_region = await repo.service_in_region(db, service_id, scope.region_id)
+            if not in_region:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "status": "error",
+                        "data": None,
+                        "error": "Hors périmètre : service hors région",
+                    },
+                )
+
+    if "SUPERVISEUR" in roles and scope is not None and scope.service_id is not None:
+        if service_id is not None and service_id != scope.service_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Hors périmètre : service non autorisé",
+                },
+            )
 
 
 async def list_items(
@@ -448,7 +570,10 @@ async def list_items(
     page: int = 1,
     page_size: int = 20,
     region_id: int | None = None,
+    service_id: int | None = None,
     feeder_id: int | None = None,
+    nature_id: int | None = None,
+    ouverture: str | None = None,
     statut: str | None = None,
     date_debut: datetime | None = None,
     date_fin: datetime | None = None,
@@ -456,6 +581,18 @@ async def list_items(
     """Liste paginée des interruptions distribution avec scope RBAC automatique."""
     _ensure_can_read(current_user)
     scope = _read_scope(current_user)
+
+    if ouverture is not None and ouverture not in ("ouvert", "ferme"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "ouverture doit valoir 'ouvert' ou 'ferme'",
+            },
+        )
+
+    await _validate_list_filters(db, current_user, region_id=region_id, service_id=service_id)
 
     if date_debut is not None and date_fin is not None and date_debut > date_fin:
         raise HTTPException(
@@ -473,7 +610,10 @@ async def list_items(
         page_size=page_size,
         scope=scope,
         region_id=region_id,
+        service_id=service_id,
         feeder_id=feeder_id,
+        nature_id=nature_id,
+        ouverture=ouverture,
         statut=statut,
         date_debut=date_debut,
         date_fin=date_fin,
@@ -491,6 +631,57 @@ async def list_items(
         total=result.total,
         page=result.page,
         page_size=result.page_size,
+    )
+
+
+async def get_stats(
+    db: AsyncSession,
+    current_user: Utilisateur,
+    *,
+    region_id: int | None = None,
+    service_id: int | None = None,
+    feeder_id: int | None = None,
+    nature_id: int | None = None,
+    ouverture: str | None = None,
+    statut: str | None = None,
+    date_debut: datetime | None = None,
+    date_fin: datetime | None = None,
+) -> InterruptionDistributionStatsResponse:
+    """Compteurs liste (total, non validées, en cours) dans le périmètre RBAC."""
+    _ensure_can_read(current_user)
+    scope = _read_scope(current_user)
+    await _validate_list_filters(db, current_user, region_id=region_id, service_id=service_id)
+
+    filter_kwargs = {
+        "region_id": region_id,
+        "service_id": service_id,
+        "feeder_id": feeder_id,
+        "nature_id": nature_id,
+        "ouverture": ouverture,
+        "statut": statut,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+    }
+    total = await repo.count_interruptions_scoped(db, scope=scope, **filter_kwargs)
+    non_validees = await repo.count_interruptions_scoped(
+        db, scope=scope, non_validees_only=True, **filter_kwargs
+    )
+    en_cours = await repo.count_interruptions_scoped(
+        db,
+        scope=scope,
+        ouverture="ouvert",
+        region_id=region_id,
+        service_id=service_id,
+        feeder_id=feeder_id,
+        nature_id=nature_id,
+        statut=None,
+        date_debut=date_debut,
+        date_fin=date_fin,
+    )
+    return InterruptionDistributionStatsResponse(
+        total=total,
+        non_validees=non_validees,
+        en_cours=en_cours,
     )
 
 
@@ -572,6 +763,8 @@ def _ensure_statut_cloture(interruption: Interruption) -> None:
 
 def _ensure_can_validate(user: Utilisateur) -> None:
     """Validation réservée Superviseur, Admin SCR et Admin SAQS."""
+    if is_superadmin(user):
+        return
     _ensure_not_transport_role(user)
     if not _user_role_names(user).intersection(VALIDATE_ROLES):
         raise HTTPException(
@@ -676,6 +869,190 @@ async def add_poste(
     return _poste_to_response(link)
 
 
+def _sig_node_tokens(troncons: list[TronconSigOrm]) -> set[str]:
+    tokens: set[str] = set()
+    for troncon in troncons:
+        for value in (
+            troncon.nom_noeud_amont,
+            troncon.nom_noeud_aval,
+            troncon.code_noeud_amont,
+            troncon.code_noeud_aval,
+            troncon.nom_troncon,
+        ):
+            if value:
+                token = value.strip().lower()
+                if len(token) >= 2:
+                    tokens.add(token)
+    return tokens
+
+
+def _poste_matches_sig_nodes(poste: Poste, tokens: set[str]) -> bool:
+    if not tokens:
+        return False
+    for raw in (poste.code, poste.libelle):
+        if not raw:
+            continue
+        value = raw.strip().lower()
+        if value in tokens:
+            return True
+        for token in tokens:
+            if len(token) >= 3 and (token in value or value in token):
+                return True
+    return False
+
+
+async def _bulk_link_postes(
+    db: AsyncSession,
+    interruption: Interruption,
+    postes: list[Poste],
+    current_user: Utilisateur,
+) -> PosteImpacteBulkResponse:
+    linked_ids = await repo.list_linked_poste_ids(db, interruption.id)
+    added: list[PosteImpacteResponse] = []
+    skipped = 0
+
+    for poste in postes:
+        if poste.id in linked_ids:
+            skipped += 1
+            continue
+        if not _poste_in_perimeter(poste, interruption):
+            skipped += 1
+            continue
+        link = await repo.add_poste_interruption(
+            db,
+            interruption_id=interruption.id,
+            poste_id=poste.id,
+            nombre_clients_touches=poste.nombre_clients,
+        )
+        link.poste = poste
+        linked_ids.add(poste.id)
+        added.append(_poste_to_response(link))
+        await log_audit(
+            db,
+            table_name="poste_interruptions",
+            record_id=link.id,
+            action=ACTION_CREATE,
+            user_id=current_user.id,
+            new_values={"interruption_id": interruption.id, "poste_id": poste.id, "bulk": True},
+        )
+
+    await db.commit()
+    return PosteImpacteBulkResponse(
+        added_count=len(added),
+        skipped_count=skipped,
+        items=added,
+    )
+
+
+async def add_postes_from_feeder(
+    db: AsyncSession,
+    interruption_id: int,
+    current_user: Utilisateur,
+) -> PosteImpacteBulkResponse:
+    """Associe tous les postes actifs du feeder de l'interruption."""
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    _ensure_statut_en_cours(interruption)
+    if interruption.feeder_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "L'interruption n'a pas de feeder associé",
+            },
+        )
+
+    postes = await reseau_repo.list_postes(db, feeder_id=interruption.feeder_id)
+    return await _bulk_link_postes(db, interruption, postes, current_user)
+
+
+async def add_postes_from_sig_troncon(
+    db: AsyncSession,
+    interruption_id: int,
+    body: PosteImpacteFromSigRequest,
+    current_user: Utilisateur,
+) -> PosteImpacteBulkResponse:
+    """Associe les postes correspondant au tronçon SIG (chaîne aval incluse)."""
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    _ensure_statut_en_cours(interruption)
+
+    troncon_sig_id = body.troncon_sig_id
+    if troncon_sig_id is None:
+        step = await workflow_repo.get_workflow_step(db, interruption.id)
+        troncon_sig_id = step.troncon_sig_id if step is not None else None
+    if troncon_sig_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Aucun tronçon SIG sélectionné dans le workflow",
+            },
+        )
+
+    troncon = await sig_repo.get_troncon_sig(db, troncon_sig_id)
+    if troncon is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": f"Tronçon SIG {troncon_sig_id} introuvable",
+            },
+        )
+
+    feeder_id = troncon.feeder_id or interruption.feeder_id
+    if feeder_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Impossible de résoudre le feeder pour ce tronçon SIG",
+            },
+        )
+
+    feeder = await sig_repo.get_feeder(db, feeder_id)
+    if feeder is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": f"Feeder {feeder_id} introuvable",
+            },
+        )
+
+    chain = await sig_repo.build_chaine_aval(db, feeder, troncon, limit=body.chain_limit)
+    tokens = _sig_node_tokens(chain)
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Tronçon SIG sans nœuds exploitables pour la correspondance postes",
+            },
+        )
+
+    postes = [
+        poste
+        for poste in await reseau_repo.list_postes(db, feeder_id=feeder_id)
+        if _poste_matches_sig_nodes(poste, tokens)
+    ]
+    if not postes:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Aucun poste MT/BT ne correspond aux nœuds du tronçon SIG",
+            },
+        )
+
+    return await _bulk_link_postes(db, interruption, postes, current_user)
+
+
 async def remove_poste(
     db: AsyncSession,
     interruption_id: int,
@@ -709,8 +1086,11 @@ async def remove_poste(
 
 
 def _ensure_can_modify(user: Utilisateur, interruption: Interruption) -> None:
-    """Seul le créateur ou Admin SCR peut modifier une interruption."""
-    if "ADMIN_SCR" in _user_role_names(user):
+    """BCC : créateur · BRC / Admin SCR : périmètre déjà validé."""
+    if is_superadmin(user):
+        return
+    roles = _user_role_names(user)
+    if roles.intersection({"ADMIN_SCR", "BRC"}):
         return
     if interruption.created_by_id == user.id:
         return
@@ -846,10 +1226,7 @@ async def update(
     )
 
     await db.commit()
-    return _to_response(interruption, distribution)
-
-
-def _compute_duree_minutes(date_apparition: datetime, date_remise: datetime) -> int:
+    return await _response_after_commit(db, interruption.id)
     delta = date_remise - date_apparition
     minutes = int(delta.total_seconds() // 60)
     if minutes <= 0:
@@ -942,7 +1319,7 @@ async def cloturer(
         service_id=interruption.service_id,
     )
 
-    return _to_response(interruption, distribution)
+    return await _response_after_commit(db, interruption.id)
 
 
 async def valider(
@@ -1015,4 +1392,4 @@ async def valider(
         service_id=interruption.service_id,
     )
 
-    return _to_response(interruption, distribution)
+    return await _response_after_commit(db, interruption.id)

@@ -48,12 +48,12 @@
 
   &--primary {
     border: none;
-    background: $primary;
+    background: $secondary;
     color: $on-primary;
-    box-shadow: 0 4px 6px -1px rgba(61, 73, 160, 0.25);
+    box-shadow: 0 4px 6px -1px rgba($secondary, 0.35);
 
     &:hover:not(:disabled) {
-      background: $primary-container;
+      background: $secondary-dark;
     }
 
     &:active:not(:disabled) {
@@ -63,7 +63,7 @@
 
   &--secondary {
     border: none;
-    background: #dce3ec;
+    background: $surface-container-high;
     color: $on-surface;
 
     &:hover:not(:disabled) {
@@ -73,11 +73,11 @@
 
   &--filter {
     border: none;
-    background: $primary-container;
+    background: $primary;
     color: $on-primary;
 
     &:hover:not(:disabled) {
-      filter: brightness(1.08);
+      background: $primary-container;
     }
   }
 }

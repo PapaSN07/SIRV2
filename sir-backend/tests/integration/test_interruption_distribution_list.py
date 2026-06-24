@@ -10,7 +10,10 @@ from httpx import AsyncClient
 from app.core.security import create_access_token, hash_password
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 from app.schemas.common import PaginatedResponse
-from app.schemas.interruption_distribution import InterruptionDistributionResponse
+from app.schemas.interruption_distribution import (
+    InterruptionDistributionResponse,
+    InterruptionDistributionStatsResponse,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -18,6 +21,10 @@ _READ_PERMS = [
     ("interruptions_distribution", "read"),
     ("interruptions_distribution", "create"),
     ("interruptions_distribution", "update"),
+]
+
+_BRC_READ_PERMS = [
+    ("interruptions_distribution", "read"),
 ]
 
 
@@ -54,8 +61,9 @@ def _make_user(
     role_nom: str,
     role_id: int,
     scope_service_id: int | None = 1,
+    permissions: list[tuple[str, str]] | None = None,
 ) -> Utilisateur:
-    role = _make_role(role_nom, role_id, _READ_PERMS)
+    role = _make_role(role_nom, role_id, permissions or _READ_PERMS)
     ur = UserRole()
     ur.id = 1
     ur.utilisateur_id = user_id
@@ -118,6 +126,11 @@ def _sample_item(service_id: int = 1, statut: str = "en_cours") -> InterruptionD
 @pytest.fixture
 def bcc_user() -> Utilisateur:
     return _make_user(1, "bcc_user", "BCC", 1, scope_service_id=1)
+
+
+@pytest.fixture
+def brc_user() -> Utilisateur:
+    return _make_user(2, "brc_user", "BRC", 2, scope_service_id=3, permissions=_BRC_READ_PERMS)
 
 
 async def test_bcc_list_own_service_returns_200(
@@ -225,3 +238,93 @@ async def test_list_pagination_fields(
     assert data["total"] == 25
     assert data["page"] == 2
     assert data["page_size"] == 10
+
+
+async def test_list_filter_ouverture_ouvert(
+    client: AsyncClient,
+    bcc_user: Utilisateur,
+) -> None:
+    paginated = PaginatedResponse(items=[], total=0, page=1, page_size=20)
+
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=bcc_user), patch(
+        "app.services.interruption_distribution_service.list_items",
+        new_callable=AsyncMock,
+        return_value=paginated,
+    ) as mock_list:
+        response = await client.get(
+            "/api/v1/interruptions/distribution?ouverture=ouvert",
+            headers=_auth_headers(_token(bcc_user)),
+        )
+
+    assert response.status_code == 200
+    assert mock_list.await_args.kwargs["ouverture"] == "ouvert"
+
+
+async def test_list_filter_nature_id(
+    client: AsyncClient,
+    bcc_user: Utilisateur,
+) -> None:
+    paginated = PaginatedResponse(items=[], total=0, page=1, page_size=20)
+
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=bcc_user), patch(
+        "app.services.interruption_distribution_service.list_items",
+        new_callable=AsyncMock,
+        return_value=paginated,
+    ) as mock_list:
+        response = await client.get(
+            "/api/v1/interruptions/distribution?nature_id=5",
+            headers=_auth_headers(_token(bcc_user)),
+        )
+
+    assert response.status_code == 200
+    assert mock_list.await_args.kwargs["nature_id"] == 5
+
+
+async def test_stats_returns_counters(
+    client: AsyncClient,
+    bcc_user: Utilisateur,
+) -> None:
+    stats = InterruptionDistributionStatsResponse(total=100, non_validees=12, en_cours=8)
+
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=bcc_user), patch(
+        "app.services.interruption_distribution_service.get_stats",
+        new_callable=AsyncMock,
+        return_value=stats,
+    ) as mock_stats:
+        response = await client.get(
+            "/api/v1/interruptions/distribution/stats",
+            headers=_auth_headers(_token(bcc_user)),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["data"]["total"] == 100
+    assert body["data"]["non_validees"] == 12
+    assert body["data"]["en_cours"] == 8
+    mock_stats.assert_awaited_once()
+
+
+async def test_brc_list_returns_200(
+    client: AsyncClient,
+    brc_user: Utilisateur,
+) -> None:
+    paginated = PaginatedResponse(
+        items=[_sample_item(service_id=10)],
+        total=1,
+        page=1,
+        page_size=20,
+    )
+
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=brc_user), patch(
+        "app.services.interruption_distribution_service.list_items",
+        new_callable=AsyncMock,
+        return_value=paginated,
+    ):
+        response = await client.get(
+            "/api/v1/interruptions/distribution",
+            headers=_auth_headers(_token(brc_user)),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["total"] == 1

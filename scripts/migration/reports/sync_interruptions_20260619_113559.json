@@ -1,0 +1,29 @@
+{
+  "started_at": "2026-06-19T11:34:25.059147",
+  "dry_run": true,
+  "date_from": "2020-01-01T00:00:00",
+  "date_to": "2026-12-31T23:59:59.999999",
+  "update_existing": false,
+  "before": {
+    "distribution_count": 75855,
+    "max_date_apparition": "2022-11-02 16:58:00"
+  },
+  "extract": {
+    "skipped": true
+  },
+  "etl": {
+    "entity": "interruptions",
+    "dry_run": true,
+    "inserted": 110155,
+    "skipped": 133394,
+    "rejected": 0
+  },
+  "backfill_fks": {
+    "skipped": true
+  },
+  "after": {
+    "distribution_count": 75855,
+    "max_date_apparition": "2022-11-02 16:58:00"
+  },
+  "finished_at": "2026-06-19T11:35:59.616394"
+}

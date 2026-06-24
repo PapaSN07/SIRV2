@@ -1,9 +1,13 @@
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
+
+# Schéma SQL Server explicite — évite la création dans le schéma par défaut du login
+metadata = MetaData(schema="dbo")
 
 engine = create_async_engine(
     settings.database_url,
@@ -21,7 +25,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = metadata
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

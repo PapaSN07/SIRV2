@@ -1,0 +1,37 @@
+{
+  "extracted_at": "2026-06-18T19:44:18.078673",
+  "date_from": "2020-01-01T00:00:00",
+  "date_to": "2026-12-31T23:59:59.999999",
+  "tables": {
+    "Interruptions": {
+      "source_table": "Interruptions",
+      "raw_count": 270023,
+      "exported_count": 80156,
+      "filter": "active_or_date_window",
+      "date_from": "2020-01-01T00:00:00",
+      "date_to": "2026-12-31T23:59:59.999999",
+      "checksum": "96ef5272d9bf5f27"
+    },
+    "Interruptions_Histo": {
+      "source_table": "Interruptions_Histo",
+      "raw_count": 133515,
+      "exported_count": 53358,
+      "filter": "date_window_only",
+      "date_from": "2020-01-01T00:00:00",
+      "date_to": "2026-12-31T23:59:59.999999",
+      "checksum": "33b269720752b8aa"
+    },
+    "InterruptionsTransport": {
+      "error": "('HY09', \"[HY09] Que s'est-il passé ?\\r\\nErreur dans le code SQL de la requête <SQLODBC>. Initialisation de la requête impossible.\\r\\nRubrique idservice inconnue dans le fichier . Vérifiez que la requ"
+    },
+    "Interruptions_OMVG": {
+      "source_table": "Interruptions_OMVG",
+      "raw_count": 0,
+      "exported_count": 0,
+      "filter": "active_or_date_window",
+      "date_from": "2020-01-01T00:00:00",
+      "date_to": "2026-12-31T23:59:59.999999",
+      "checksum": "e3b0c44298fc1c14"
+    }
+  }
+}

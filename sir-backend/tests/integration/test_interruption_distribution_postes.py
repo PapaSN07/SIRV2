@@ -176,3 +176,50 @@ async def test_get_postes_returns_200(
     body = response.json()
     assert body["status"] == "success"
     assert len(body["data"]) == 1
+
+
+async def test_post_postes_from_feeder_returns_201(
+    client: AsyncClient,
+    bcc_user: Utilisateur,
+) -> None:
+    from app.schemas.interruption_distribution import PosteImpacteBulkResponse
+
+    bulk = PosteImpacteBulkResponse(
+        added_count=2,
+        skipped_count=1,
+        items=[_poste_response()],
+    )
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=bcc_user), patch(
+        "app.services.interruption_distribution_service.add_postes_from_feeder",
+        new_callable=AsyncMock,
+        return_value=bulk,
+    ):
+        response = await client.post(
+            "/api/v1/interruptions/distribution/1/postes/from-feeder",
+            headers=_auth_headers(_token(bcc_user)),
+        )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["added_count"] == 2
+
+
+async def test_post_postes_from_sig_troncon_returns_201(
+    client: AsyncClient,
+    bcc_user: Utilisateur,
+) -> None:
+    from app.schemas.interruption_distribution import PosteImpacteBulkResponse
+
+    bulk = PosteImpacteBulkResponse(added_count=1, skipped_count=0, items=[_poste_response()])
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=bcc_user), patch(
+        "app.services.interruption_distribution_service.add_postes_from_sig_troncon",
+        new_callable=AsyncMock,
+        return_value=bulk,
+    ):
+        response = await client.post(
+            "/api/v1/interruptions/distribution/1/postes/from-sig-troncon",
+            json={"troncon_sig_id": 5},
+            headers=_auth_headers(_token(bcc_user)),
+        )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["added_count"] == 1

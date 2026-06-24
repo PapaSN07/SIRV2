@@ -1,17 +1,53 @@
-// Tokens design SIR Senelec (alignés logo + maquettes)
-$primary: #3d49a0;
-$primary-container: #2d4fa7;
+// SENELEC / SEN-MISSION — palette officielle
+$senelec-purple-dark: #3c1053;
+$senelec-purple: #5a1a72;
+$senelec-magenta: #ad1457;
+$senelec-red: #c62828;
+$senelec-orange: #f4811f;
+$senelec-orange-light: #fb8c00;
+$senelec-page-bg: #2a0845;
+$senelec-page-bg-alt: #1a0a2e;
+$senelec-primary-dark: #2a0838;
+$senelec-orange-dark: #e65100;
+
+$gradient-brand: linear-gradient(90deg, #3c1053 0%, #ad1457 48%, #f4811f 100%);
+
+$senelec-gradient: linear-gradient(
+  135deg,
+  $senelec-purple-dark 0%,
+  $senelec-magenta 55%,
+  $senelec-orange 100%
+);
+
+$senelec-gradient-sidebar: linear-gradient(
+  180deg,
+  $senelec-purple-dark 0%,
+  $senelec-primary-dark 100%
+);
+
+// Sémantique applicative
+$primary: $senelec-purple-dark;
+$primary-container: $senelec-purple;
+$primary-dark: $senelec-primary-dark;
+$secondary: $senelec-orange;
+$secondary-light: $senelec-orange-light;
+$secondary-dark: $senelec-orange-dark;
+$accent: $senelec-magenta;
 $on-primary: #ffffff;
-$on-surface: #151c22;
-$on-surface-variant: #414750;
-$outline: #727781;
-$outline-variant: #c1c7d2;
-$surface: #f6f9ff;
-$surface-container-low: #eef4fd;
-$surface-container-high: #e2e9f1;
-$surface-container: #e8eef7;
-$error: #ba1a1a;
-$tertiary-container: #873f01;
+$on-surface: #1a0a2e;
+$on-surface-variant: #5c4d68;
+$on-surface-on-dark: rgba(#ffffff, 0.88);
+$on-surface-variant-on-dark: rgba(#ffffff, 0.65);
+$outline: #8a7a96;
+$outline-variant: #d4c8de;
+$surface: #faf8fc;
+$surface-container-low: #f3eef8;
+$surface-container-high: #e8dff0;
+$surface-container: #eee8f4;
+$page-bg: $senelec-page-bg;
+$page-bg-alt: $senelec-page-bg-alt;
+$error: $senelec-red;
+$tertiary-container: $senelec-orange-dark;
 $success: #15803d;
 
 $sidebar-width: 260px;

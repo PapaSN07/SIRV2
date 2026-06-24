@@ -1,0 +1,21 @@
+{
+  "table": "PosteInterruption_Histo",
+  "source": "odbc",
+  "columns": [
+    "idposteinterruption",
+    "idpostes",
+    "saifi",
+    "saidi",
+    "ninterruption",
+    "posteconcerne",
+    "feederconcerne",
+    "ninterruption_saisi",
+    "nombreclientposteestime",
+    "idfeeder",
+    "ur",
+    "idagences",
+    "iddelegation",
+    "id_service",
+    "idregions"
+  ]
+}

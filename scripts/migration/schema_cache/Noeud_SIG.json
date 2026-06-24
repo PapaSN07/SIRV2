@@ -1,0 +1,20 @@
+{
+  "table": "Noeud_SIG",
+  "source": "odbc_full",
+  "columns": [
+    "idnoeud_sig",
+    "nom",
+    "nomfeeder",
+    "sstation",
+    "delegation",
+    "region",
+    "corx",
+    "cory",
+    "categorie",
+    "puissance_",
+    "famille_po",
+    "cellule",
+    "idtypenoeud_sig",
+    "fid"
+  ]
+}

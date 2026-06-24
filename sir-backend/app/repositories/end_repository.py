@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.models.geo import Agence, Delegation, Service
+from app.repositories.geo_scope_repository import get_region_id_for_service
 from app.models.indicateurs import EnergieNd
 from app.models.interruptions import (
     Interruption,
@@ -45,16 +46,6 @@ async def get_interruption_for_end(
 async def get_type_end_by_code(db: AsyncSession, code: str) -> TypeEnd | None:
     result = await db.execute(
         select(TypeEnd).where(TypeEnd.code == code, TypeEnd.is_active == True)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_region_id_for_service(db: AsyncSession, service_id: int) -> int | None:
-    result = await db.execute(
-        select(Delegation.region_id)
-        .join(Agence, Agence.delegation_id == Delegation.id)
-        .join(Service, Service.agence_id == Agence.id)
-        .where(Service.id == service_id)
     )
     return result.scalar_one_or_none()
 

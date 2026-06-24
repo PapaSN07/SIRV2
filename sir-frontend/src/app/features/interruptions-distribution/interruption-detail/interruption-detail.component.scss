@@ -35,15 +35,13 @@
   gap: 0.75rem;
 }
 
-.workflow-steps {
+.validation-steps {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 0.35rem;
 
   &__item {
-    flex: 1;
-    text-align: center;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 0.25rem;
     background: $surface-container;
     color: $on-surface-variant;
@@ -225,6 +223,23 @@
       font-size: 12px;
       color: $on-surface-variant;
     }
+  }
+}
+
+.poste-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  .sir-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .material-symbols-outlined {
+    font-size: 18px;
   }
 }
 

@@ -8,7 +8,7 @@
     gap: 1rem;
     padding: 0.75rem 1rem;
     margin-bottom: 1rem;
-    background: #d3e4ff;
+    background: rgba($primary, 0.12);
     color: $primary;
     border-radius: 0.375rem;
     font-weight: 600;
@@ -49,6 +49,12 @@
     font-weight: 700;
     letter-spacing: -0.02em;
     color: $primary;
+  }
+
+  &__scope {
+    margin: 0.25rem 0 0;
+    font-size: 14px;
+    color: $on-surface-variant;
   }
 
   &__actions {
@@ -158,11 +164,15 @@
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 
-  @media (max-width: 1200px) {
+  @media (max-width: 1400px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 900px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -209,6 +219,10 @@
     background: $primary-container;
   }
 
+  &--warning::before {
+    background: $secondary-dark;
+  }
+
   &__head {
     display: flex;
     justify-content: space-between;
@@ -246,6 +260,10 @@
     color: $primary-container;
   }
 
+  &--warning &__icon {
+    color: $secondary-dark;
+  }
+
   &__value-row {
     display: flex;
     align-items: flex-end;
@@ -273,6 +291,10 @@
 
     &--error {
       color: $error;
+    }
+
+    &--warning {
+      color: $secondary-dark;
     }
   }
 

@@ -68,3 +68,37 @@ async def list_services_by_agence(
         query = query.where(Service.is_active == True)
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def list_services_by_region(
+    db: AsyncSession,
+    region_id: int,
+    *,
+    active_only: bool = True,
+) -> list[Service]:
+    query = (
+        select(Service)
+        .where(Service.region_id == region_id)
+        .order_by(Service.libelle)
+    )
+    if active_only:
+        query = query.where(Service.is_active == True)
+    try:
+        result = await db.execute(query)
+        items = list(result.scalars().all())
+        if items:
+            return items
+    except Exception:
+        pass
+
+    legacy_query = (
+        select(Service)
+        .join(Agence, Service.agence_id == Agence.id)
+        .join(Delegation, Agence.delegation_id == Delegation.id)
+        .where(Delegation.region_id == region_id)
+        .order_by(Service.libelle)
+    )
+    if active_only:
+        legacy_query = legacy_query.where(Service.is_active == True)
+    result = await db.execute(legacy_query)
+    return list(result.scalars().all())

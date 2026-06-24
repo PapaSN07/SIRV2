@@ -91,6 +91,29 @@ async def list_by_direction(
     return list(result.scalars().all()), total
 
 
+async def list_all(
+    db: AsyncSession,
+    page: int,
+    page_size: int,
+) -> tuple[list[Utilisateur], int]:
+    """Liste paginée de tous les utilisateurs (super admin dev)."""
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    offset = (page - 1) * page_size
+
+    count_result = await db.execute(select(func.count()).select_from(Utilisateur))
+    total = count_result.scalar_one()
+
+    result = await db.execute(
+        select(Utilisateur)
+        .options(*_utilisateur_options())
+        .order_by(Utilisateur.id)
+        .offset(offset)
+        .limit(page_size)
+    )
+    return list(result.scalars().all()), total
+
+
 async def create(
     db: AsyncSession,
     *,

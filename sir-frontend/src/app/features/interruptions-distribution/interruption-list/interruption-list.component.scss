@@ -5,6 +5,24 @@
   margin: 0 auto;
 }
 
+.stats-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  margin-right: 0.5rem;
+  border-radius: 999px;
+  background: rgba($secondary, 0.12);
+  border: 1px solid rgba($secondary-light, 0.65);
+  color: $secondary-dark;
+  font-size: 12px;
+  font-weight: 700;
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+}
+
 .filters-panel {
   background: #fff;
   border: 1px solid $outline-variant;
@@ -26,6 +44,12 @@
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
+}
+
+.field__hint {
+  margin: 0.25rem 0 0;
+  font-size: 11px;
+  color: $on-surface-variant;
 }
 
 .filters-actions {
@@ -343,6 +367,11 @@
       background: #ffdad6;
       color: $error;
     }
+
+    &--warning {
+      background: #fff3e0;
+      color: $secondary-dark;
+    }
   }
 
   &__label {
@@ -360,6 +389,10 @@
 
     &--error {
       color: $error;
+    }
+
+    &--warning {
+      color: $secondary-dark;
     }
   }
 

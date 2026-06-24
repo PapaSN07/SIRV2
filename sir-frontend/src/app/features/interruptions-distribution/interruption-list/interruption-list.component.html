@@ -7,6 +7,14 @@
     ]"
   >
     <div actions>
+      @if (stats(); as s) {
+        @if (s.non_validees > 0) {
+          <span class="stats-badge" title="Interruptions non validées dans le périmètre filtré">
+            <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
+            {{ s.non_validees }} non validée{{ s.non_validees > 1 ? 's' : '' }}
+          </span>
+        }
+      }
       <button type="button" class="sir-btn sir-btn--outline-primary" disabled title="Bientôt disponible">
         <span class="material-symbols-outlined" aria-hidden="true">download</span>
         Exporter Excel/PDF
@@ -36,6 +44,7 @@
             (change)="onDateDebutChange($event)"
           />
         </div>
+        <p class="field__hint">{{ dateFilterHint }}</p>
       </div>
 
       <div class="field">
@@ -58,6 +67,7 @@
           id="region"
           class="field__select"
           [value]="regionId() ?? ''"
+          [disabled]="regionSelectDisabled()"
           (change)="onRegionChange($any($event.target).value)"
         >
           <option value="">Toutes les régions</option>
@@ -65,7 +75,34 @@
             <option [value]="r.id">{{ r.libelle }}</option>
           }
         </select>
+        @if (isRegionalScope()) {
+          <p class="field__hint">
+            @if (isBcc()) {
+              Périmètre BCC verrouillé sur Dakar.
+            } @else {
+              Périmètre BRC verrouillé sur votre région.
+            }
+          </p>
+        }
       </div>
+
+      @if (showServiceFilter()) {
+        <div class="field">
+          <label class="field__label" for="service">Service</label>
+          <select
+            id="service"
+            class="field__select"
+            [value]="serviceId() ?? ''"
+            [disabled]="!regionId()"
+            (change)="onServiceChange($any($event.target).value)"
+          >
+            <option value="">Tous les services</option>
+            @for (s of services(); track s.id) {
+              <option [value]="s.id">{{ s.libelle }}</option>
+            }
+          </select>
+        </div>
+      }
 
       <div class="field">
         <label class="field__label" for="feeder">Feeder</label>
@@ -83,16 +120,30 @@
       </div>
 
       <div class="field">
-        <label class="field__label" for="statut">Statut</label>
+        <label class="field__label" for="nature">Nature</label>
         <select
-          id="statut"
+          id="nature"
           class="field__select"
-          [value]="statut() ?? ''"
-          (change)="onStatutChange($any($event.target).value)"
+          [value]="natureId() ?? ''"
+          (change)="onNatureChange($any($event.target).value)"
         >
-          <option value="">Tous les statuts</option>
-          @for (s of statuts; track s) {
-            <option [value]="s">{{ statutLabel(s) }}</option>
+          <option value="">Toutes les natures</option>
+          @for (n of natures(); track n.id) {
+            <option [value]="n.id">{{ n.libelle }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="ouverture">Ouverture</label>
+        <select
+          id="ouverture"
+          class="field__select"
+          [value]="ouverture() ?? ''"
+          (change)="onOuvertureChange($any($event.target).value)"
+        >
+          @for (opt of ouvertureOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
           }
         </select>
       </div>
@@ -138,15 +189,15 @@
                   aria-label="Tout sélectionner"
                 />
               </th>
-              <th>Numéro</th>
+              <th>N°</th>
+              <th>Service</th>
               <th>Date</th>
-              <th>Région</th>
+              <th>Source</th>
+              <th class="data-table__num">Tension (kV)</th>
+              <th>Feeder</th>
+              <th>Nature</th>
               <th>Cause</th>
-              <th>Domaine</th>
-              <th>Localisation</th>
-              <th>Type</th>
-              <th class="data-table__num">Durée (min)</th>
-              <th class="data-table__num">END (MWh)</th>
+              <th>Siège</th>
               <th>Statut</th>
               <th class="data-table__actions">Actions</th>
             </tr>
@@ -176,16 +227,14 @@
                     INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}
                   </a>
                 </td>
+                <td class="data-table__truncate">{{ row.service_libelle || '—' }}</td>
                 <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
-                <td>{{ row.region_libelle || '—' }}</td>
-                <td>{{ row.cause_libelle || '—' }}</td>
-                <td>Distribution</td>
-                <td class="data-table__truncate">{{ row.localisation || '—' }}</td>
-                <td>{{ row.is_programme ? 'Programmé' : 'Accidentel' }}</td>
-                <td class="data-table__num">{{ row.duree_minutes ?? '—' }}</td>
-                <td class="data-table__num data-table__mono">
-                  {{ row.end_mwh != null ? (row.end_mwh | number: '1.0-3' : 'fr-FR') : '—' }}
-                </td>
+                <td class="data-table__truncate">{{ row.poste_source_libelle || '—' }}</td>
+                <td class="data-table__num">{{ row.tension_kv ?? '—' }}</td>
+                <td class="data-table__truncate">{{ row.feeder_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.nature_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.cause_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.siege_libelle || '—' }}</td>
                 <td>
                   <sir-status-chip [statut]="row.statut" />
                 </td>
@@ -199,10 +248,10 @@
                     >
                       <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
                     </a>
-                    @if (canCreate()) {
+                    @if (canCreate() && row.statut === 'en_cours') {
                       <a
                         class="row-actions__btn"
-                        [routerLink]="['/interruptions/distribution', row.id]"
+                        [routerLink]="['/interruptions/distribution', row.id, 'modifier']"
                         title="Modifier"
                         (click)="$event.stopPropagation()"
                       >
@@ -224,7 +273,15 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="10" class="data-table__empty">Aucune interruption trouvée.</td>
+                <td colspan="12" class="data-table__empty">
+                  @if (emptyFilterHint()) {
+                    {{ emptyFilterHint() }}
+                  } @else if (hasActiveFilters()) {
+                    Aucune interruption ne correspond aux filtres sélectionnés.
+                  } @else {
+                    Aucune interruption trouvée dans votre périmètre.
+                  }
+                </td>
               </tr>
             }
           </tbody>
@@ -242,44 +299,46 @@
     }
   </div>
 
-  <div class="summary-grid">
-    <article class="summary-card">
-      <div class="summary-card__icon summary-card__icon--primary">
-        <span class="material-symbols-outlined" aria-hidden="true">electric_bolt</span>
-      </div>
-      <div>
-        <p class="summary-card__label">Total END (page)</p>
-        <p class="summary-card__value">{{ totalEndPage() | number: '1.2-2' : 'fr-FR' }} MWh</p>
-      </div>
-    </article>
-
-    <article class="summary-card">
-      <div class="summary-card__icon summary-card__icon--error">
-        <span class="material-symbols-outlined" aria-hidden="true">timer</span>
-      </div>
-      <div>
-        <p class="summary-card__label">Durée moyenne (page)</p>
-        <p class="summary-card__value summary-card__value--error">{{ avgDurationPage() }} min</p>
-      </div>
-    </article>
-
-    <article class="summary-card summary-card--wide">
-      <div>
-        <p class="summary-card__label">Interruptions distribution</p>
-        <div class="summary-card__legend">
-          <span class="summary-card__legend-item">
-            <span class="summary-card__dot summary-card__dot--primary"></span>
-            Total filtré : {{ total() }}
-          </span>
-          <span class="summary-card__legend-item">
-            <span class="summary-card__dot summary-card__dot--tint"></span>
-            En cours : {{ activeCount() }}
-          </span>
+  @if (stats(); as s) {
+    <div class="summary-grid">
+      <article class="summary-card">
+        <div class="summary-card__icon summary-card__icon--primary">
+          <span class="material-symbols-outlined" aria-hidden="true">format_list_numbered</span>
         </div>
-      </div>
-      <span class="summary-card__deco material-symbols-outlined" aria-hidden="true">analytics</span>
-    </article>
-  </div>
+        <div>
+          <p class="summary-card__label">Total filtré</p>
+          <p class="summary-card__value">{{ s.total }}</p>
+        </div>
+      </article>
+
+      <article class="summary-card">
+        <div class="summary-card__icon summary-card__icon--warning">
+          <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
+        </div>
+        <div>
+          <p class="summary-card__label">Non validées</p>
+          <p class="summary-card__value summary-card__value--warning">{{ s.non_validees }}</p>
+        </div>
+      </article>
+
+      <article class="summary-card summary-card--wide">
+        <div>
+          <p class="summary-card__label">Interruptions distribution</p>
+          <div class="summary-card__legend">
+            <span class="summary-card__legend-item">
+              <span class="summary-card__dot summary-card__dot--primary"></span>
+              Total filtré : {{ s.total }}
+            </span>
+            <span class="summary-card__legend-item">
+              <span class="summary-card__dot summary-card__dot--tint"></span>
+              En cours : {{ s.en_cours }}
+            </span>
+          </div>
+        </div>
+        <span class="summary-card__deco material-symbols-outlined" aria-hidden="true">analytics</span>
+      </article>
+    </div>
+  }
 </section>
 
 <button type="button" class="fab" title="Support technique" aria-label="Besoin d'aide ?">

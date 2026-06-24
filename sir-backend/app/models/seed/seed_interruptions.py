@@ -245,13 +245,11 @@ async def seed_interruptions(db: AsyncSession) -> None:
 
     cause, siege, sig, nature = await _upsert_referentiel(db)
 
-    bcc = await _upsert_dev_user(
-        db,
-        login=_DEV_BCC_LOGIN,
-        role_nom="BCC",
-        scope_service_id=service.id,
-        nom="BCC Dev",
-    )
+    bcc_result = await db.execute(select(Utilisateur).where(Utilisateur.login == _DEV_BCC_LOGIN))
+    bcc = bcc_result.scalar_one_or_none()
+    if bcc is None:
+        raise ValueError(f"Utilisateur '{_DEV_BCC_LOGIN}' introuvable — exécuter seed_dev_accounts d'abord")
+
     supervisor = await _upsert_dev_user(
         db,
         login=_DEV_SUP_LOGIN,

@@ -105,6 +105,7 @@ async def _upsert_agence(
 async def _upsert_service(
     db: AsyncSession,
     agence_id: int,
+    region_id: int,
     code: str,
     libelle: str,
 ) -> Service:
@@ -113,11 +114,15 @@ async def _upsert_service(
     if service is None:
         service = Service(
             agence_id=agence_id,
+            region_id=region_id,
             code=code,
             libelle=libelle,
             is_active=True,
         )
         db.add(service)
+        await db.flush()
+    elif service.region_id != region_id:
+        service.region_id = region_id
         await db.flush()
     return service
 
@@ -146,7 +151,11 @@ async def seed_geo(db: AsyncSession) -> None:
 
     for agence_code, services in _SERVICES.items():
         agence = agence_map[agence_code]
+        delegation_code = next(
+            dcode for dcode, agences in _AGENCES.items() if any(a[0] == agence_code for a in agences)
+        )
+        region_id = delegation_map[delegation_code].region_id
         for svc_code, svc_libelle in services:
-            await _upsert_service(db, agence.id, svc_code, svc_libelle)
+            await _upsert_service(db, agence.id, region_id, svc_code, svc_libelle)
 
     await db.flush()

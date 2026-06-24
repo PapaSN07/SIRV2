@@ -11,7 +11,10 @@ import {
   HistoriquePoint,
   TableauDeBordResponse,
 } from '../../shared/models/indicateurs.models';
-import { InterruptionDistribution } from '../../shared/models/interruption.models';
+import {
+  InterruptionDistribution,
+  InterruptionDistributionStats,
+} from '../../shared/models/interruption.models';
 import { statutLabel } from '../../shared/utils/statut.utils';
 import { InterruptionDistributionService } from '../interruptions-distribution/services/interruption-distribution.service';
 import { IndicateursService } from '../indicateurs/services/indicateurs.service';
@@ -24,6 +27,8 @@ interface ChartMonth {
 }
 
 const MONTH_LABELS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
+
+const CAUSE_COLORS = ['#3c1053', '#ad1457', '#f4811f', '#c62828', '#5a1a72'];
 
 @Component({
   selector: 'sir-dashboard',
@@ -45,6 +50,7 @@ export class DashboardComponent implements OnInit {
   readonly loadError = signal<string | null>(null);
   readonly chartReady = signal(false);
   readonly kpi = signal<TableauDeBordResponse | null>(null);
+  readonly distributionStats = signal<InterruptionDistributionStats | null>(null);
   readonly chartMonths = signal<ChartMonth[]>([]);
   readonly recentInterruptions = signal<InterruptionDistribution[]>([]);
   readonly interruptionsLoading = signal(true);
@@ -63,14 +69,35 @@ export class DashboardComponent implements OnInit {
     return options;
   });
 
-  /** Données illustratives — pas d'endpoint backend répartition par cause. */
-  readonly causeRepartition: CauseRepartitionItem[] = [
-    { label: 'Technique / Maintenance', percent: 45, color: '#3d49a0' },
-    { label: 'Conditions climatiques', percent: 30, color: '#873f01' },
-    { label: 'Tiers / Vandalisme', percent: 25, color: '#ba1a1a' },
-  ];
+  /** Répartition par cause — données API tableau de bord. */
+  readonly causeRepartition = computed((): CauseRepartitionItem[] => {
+    const rows = this.kpi()?.causes_repartition ?? [];
+    return rows.map((item, index) => ({
+      ...item,
+      color: CAUSE_COLORS[index % CAUSE_COLORS.length],
+    }));
+  });
 
-  readonly causeTotal = computed(() => this.kpi()?.nb_interruptions_mois ?? 156);
+  readonly causeTotal = computed(() => this.kpi()?.nb_interruptions_mois ?? 0);
+
+  readonly scopeSubtitle = computed(() => {
+    const data = this.kpi();
+    if (!data) return '';
+    switch (data.niveau) {
+      case 'region':
+        return 'Périmètre régional — tous les services de votre région';
+      case 'service':
+        return 'Périmètre service — votre centre de conduite';
+      case 'delegation':
+        return 'Périmètre délégation';
+      case 'national':
+        return 'Vue nationale';
+      default:
+        return '';
+    }
+  });
+
+  readonly hasCauseData = computed(() => (this.kpi()?.causes_repartition?.length ?? 0) > 0);
 
   readonly activeProgress = computed(() => {
     const data = this.kpi();
@@ -95,7 +122,11 @@ export class DashboardComponent implements OnInit {
   }
 
   canCreateInterruption(): boolean {
-    return this.auth.hasRole('BCC', 'ADMIN_SCR');
+    return this.auth.hasRole('BCC', 'BRC', 'ADMIN_SCR');
+  }
+
+  isBrcUser(): boolean {
+    return this.auth.hasRole('BRC');
   }
 
   formatNumber(value: number | null | undefined): string {
@@ -124,8 +155,12 @@ export class DashboardComponent implements OnInit {
   }
 
   causeGradient(): string {
+    const items = this.causeRepartition();
+    if (!items.length) {
+      return 'conic-gradient(#e0e0e0 0% 100%)';
+    }
     let cursor = 0;
-    const stops = this.causeRepartition.map((item) => {
+    const stops = items.map((item) => {
       const start = cursor;
       cursor += item.percent;
       return `${item.color} ${start}% ${cursor}%`;
@@ -144,6 +179,7 @@ export class DashboardComponent implements OnInit {
           return of(null);
         }),
       ),
+      stats: this.interruptionService.stats().pipe(catchError(() => of(null))),
       saidi: this.dashboardService.getHistorique('saidi', 1).pipe(
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
@@ -151,10 +187,11 @@ export class DashboardComponent implements OnInit {
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
     }).subscribe({
-      next: ({ kpi, saidi, saifi }) => {
+      next: ({ kpi, stats, saidi, saifi }) => {
         if (kpi) {
           this.kpi.set(kpi);
         }
+        this.distributionStats.set(stats);
         this.chartMonths.set(this.buildChartMonths(saidi.points, saifi.points));
         this.loading.set(false);
         requestAnimationFrame(() => this.chartReady.set(true));

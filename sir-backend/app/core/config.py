@@ -1,9 +1,42 @@
+import os
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _BACKEND_DIR.parent
+
+
+def _resolve_env_files() -> tuple[str, ...]:
+    """Charge les fichiers .env selon le profil SIR_PROFILE (docker | senelec).
+
+    - docker (défaut) : .env racine + sir-backend/.env — base Docker locale
+    - senelec         : .env.senelec — base SQL Server srv-bddomtech/SIRV2
+    """
+    profile = os.environ.get("SIR_PROFILE", "docker").strip().lower()
+    paths: list[Path] = []
+
+    if profile == "senelec":
+        paths.extend(
+            [
+                _REPO_ROOT / ".env.senelec",
+                _BACKEND_DIR / ".env.senelec",
+            ]
+        )
+    else:
+        paths.extend([_REPO_ROOT / ".env", _BACKEND_DIR / ".env"])
+
+    resolved = tuple(str(p) for p in paths if p.is_file())
+    return resolved or (".env",)
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=_resolve_env_files(),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # Database
     database_url: str

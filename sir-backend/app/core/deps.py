@@ -7,15 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.redis import get_redis
+from app.core.rbac_helpers import NATIONAL_ROLES, is_superadmin
 from app.models.utilisateurs import Utilisateur
 from app.services import auth_service
 
 _bearer_scheme = HTTPBearer()
 
 # Rôles dont le périmètre est national — pas de vérification de scope_service_id
-_NATIONAL_ROLES: frozenset[str] = frozenset(
-    {"ADMIN_SCR", "ADMIN_DISPATCHING", "ADMIN_SAQS", "DISPATCHER"}
-)
+_NATIONAL_ROLES: frozenset[str] = NATIONAL_ROLES
 
 
 async def get_current_user(
@@ -49,6 +48,8 @@ def require_role(*roles: str):
     async def _check(
         current_user: Utilisateur = Depends(get_current_user),
     ) -> Utilisateur:
+        if is_superadmin(current_user):
+            return current_user
         if not current_user.user_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -89,6 +90,8 @@ def require_permission(resource: str, action: str):
     async def _check(
         current_user: Utilisateur = Depends(get_current_user),
     ) -> Utilisateur:
+        if is_superadmin(current_user):
+            return current_user
         for user_role in current_user.user_roles:
             for rp in user_role.role.role_permissions:
                 perm = rp.permission
@@ -112,10 +115,8 @@ def check_service_scope(current_user: Utilisateur, service_id: int) -> None:
     Règles de scope appliquées :
     - Rôles nationaux (ADMIN_SCR, ADMIN_DISPATCHING, ADMIN_SAQS, DISPATCHER) :
       aucune restriction — toujours autorisé.
-    - BCC : scope_service_id doit correspondre exactement au service_id de la ressource.
-    - BRC / SUPERVISEUR : scope_service_id est utilisé comme filtre de service direct.
-      La vérification de région doit être faite au niveau de la requête SQL
-      (WHERE service.agence.delegation.region_id = :scope_region_id).
+    - BCC / BRC : scope_service_id = region_id (Dakar pour BCC, région pour BRC).
+    - SUPERVISEUR : scope_service_id = service_id exact.
 
     Cette fonction doit être appelée dans la couche service, après la vérification
     du décorateur @require_permission sur le router (double enforcement RBAC).
@@ -137,13 +138,35 @@ def check_service_scope(current_user: Utilisateur, service_id: int) -> None:
             },
         )
 
+    if is_superadmin(current_user):
+        return
+
     user_role_names = {ur.role.nom for ur in current_user.user_roles}
 
     # Les rôles nationaux n'ont pas de restriction de périmètre
     if user_role_names.intersection(_NATIONAL_ROLES):
         return
 
-    # Pour BCC, BRC et SUPERVISEUR : le scope_service_id doit correspondre
+    if user_role_names.intersection({"BCC", "BRC"}):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Périmètre régional — vérifier service_in_region en couche service",
+            },
+        )
+
+    if "SUPERVISEUR" not in user_role_names:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Hors périmètre : service_id non autorisé",
+            },
+        )
+
     user_scope_service_id: int | None = current_user.user_roles[0].scope_service_id
 
     if user_scope_service_id is None:
@@ -169,15 +192,9 @@ def check_service_scope(current_user: Utilisateur, service_id: int) -> None:
 
 
 def check_region_scope(current_user: Utilisateur, region_id: int) -> None:
-    """Vérifie que l'utilisateur BRC est autorisé à agir sur la région donnée.
+    """Vérifie que l'utilisateur BCC/BRC est autorisé sur la région donnée.
 
-    Note : pour les BRC, le scope_service_id de user_roles stocke en réalité
-    l'identifiant de région (scope régional). Cette convention est définie dans
-    la modélisation des user_roles — le champ est nommé scope_service_id mais
-    son interprétation dépend du rôle.
-
-    TODO(RBAC): Si la modélisation évolue pour séparer scope_service_id et
-    scope_region_id dans user_roles, mettre à jour cette fonction.
+    Pour BCC/BRC, scope_service_id stocke l'identifiant régional (convention user_roles).
 
     Raises:
         HTTPException 403 : si le BRC tente d'accéder à une région hors périmètre.
@@ -192,10 +209,45 @@ def check_region_scope(current_user: Utilisateur, region_id: int) -> None:
             },
         )
 
+    if is_superadmin(current_user):
+        return
+
     user_role_names = {ur.role.nom for ur in current_user.user_roles}
 
     if user_role_names.intersection(_NATIONAL_ROLES):
         return
+
+    if user_role_names.intersection({"BCC", "BRC"}):
+        user_scope_id = current_user.user_roles[0].scope_service_id
+        if user_scope_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Périmètre régional non configuré pour ce compte",
+                },
+            )
+        if user_scope_id != region_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Hors périmètre : region_id non autorisé",
+                },
+            )
+        return
+
+    if user_role_names.intersection({"SUPERVISEUR"}):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Hors périmètre : filtre region_id non autorisé pour votre rôle",
+            },
+        )
 
     user_scope_id: int | None = current_user.user_roles[0].scope_service_id
 
