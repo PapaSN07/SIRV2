@@ -269,6 +269,10 @@
   gap: 1rem;
   margin-bottom: 2rem;
 
+  &--repartition {
+    grid-template-columns: 1fr 1fr;
+  }
+
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
   }
@@ -481,6 +485,12 @@
 
 .panel--table {
   overflow: hidden;
+
+  > .panel__title {
+    padding: 1.5rem;
+    margin: 0;
+    border-bottom: 1px solid $outline-variant;
+  }
 
   .panel__head {
     padding: 1.5rem;

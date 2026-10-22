@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Modèle relationnel Assistant ML — SIRV2 / SENELEC</title>
+  <style>
+    :root {
+      --ink: #1b3a57;
+      --muted: #555;
+      --border: #d0d7de;
+      --bg: #fafbfc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Calibri, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      color: #222;
+      background: var(--bg);
+    }
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      background: #fff;
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    h1, h2, h3 {
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    h1 { font-size: 1.85rem; border-bottom: 3px solid var(--ink); padding-bottom: 0.4rem; }
+    h2 { font-size: 1.35rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.4rem; }
+    p { margin: 0.75rem 0; }
+    ul { margin: 0.5rem 0 1rem; padding-left: 1.4rem; }
+    li { margin: 0.25rem 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.65rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--ink);
+      color: #fff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) td { background: #f6f8fa; }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+      background: #f0f3f6;
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+    }
+    em { color: var(--muted); }
+    .mermaid {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+      text-align: center;
+    }
+    .banner {
+      background: #e8f1f8;
+      border-left: 4px solid var(--ink);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+    @media print {
+      body { background: #fff; }
+      .page { box-shadow: none; max-width: none; padding: 0; }
+      .banner { break-inside: avoid; }
+      .mermaid { break-inside: avoid; }
+      h2 { break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="banner">
+      <strong>Version complète avec diagrammes</strong> —
+      ouvrez ce fichier dans Chrome ou Edge.
+      Pour un PDF : <kbd>Ctrl</kbd>+<kbd>P</kbd> → « Enregistrer au format PDF ».
+    </div>
+    <h1>Modèle relationnel — Assistant ML</h1>
+<p><strong>Système d’Information Réseau — SENELEC / SIRV2</strong></p>
+<table><tr><th><strong>Objet</strong></th><th>Schéma des tables et vues du module Assistant ML (aide à la décision)</th></tr><tr><td><strong>Public</strong></td><td>SAQS, ADMIN_SCR, équipe technique SIR</td></tr><tr><td><strong>Version</strong></td><td>1.0 — P0 (règles + statistiques) — Septembre 2026</td></tr><tr><td><strong>Périmètre</strong></td><td>Distribution MT/BT — module <strong>satellite</strong> (conseil, hors clôture / validation)</td></tr><tr><td><strong>Référence technique</strong></td><td>Migration <code>b2c3d4e5f6a7</code> · modèles <code>sir-backend/app/models/assistant_ml.py</code></td></tr></table>
+<hr />
+<h2>1. Objet du document</h2>
+<p>Ce document décrit le <strong>modèle relationnel</strong> du module Assistant ML : tables persistées, vues datamart lecture seule, clés étrangères et flux de données.</p>
+<p>Il sert à présenter le schéma en réunion (SAQS / métier / technique).</p>
+<p>Pour le contexte fonctionnel et les phases P1–P3, voir <a href="ASSISTANT_ML.md"><code>ASSISTANT_ML.md</code></a>.</p>
+<p>Pour le modèle métier global SIRV2, voir <a href="MODELE_DONNEES_SIRV2.md"><code>MODELE_DONNEES_SIRV2.md</code></a>.</p>
+<p><strong>Principe</strong> : le module ne modifie pas le chemin critique interruptions (saisie, clôture, validation). Il lit les données opérationnelles et produit des scores / suggestions.</p>
+<hr />
+<h2>2. Glossaire</h2>
+<table><tr><th>Terme</th><th>Définition</th></tr><tr><td><strong>Datamart</strong></td><td>Vues SQL agrégées en lecture seule sur les incidents (feeder, tronçon SIG, poste)</td></tr><tr><td><strong>Feature snapshot</strong></td><td>Instantané de indicateurs calculés sur une fenêtre temporelle (<code>ml_feature_snapshots</code>)</td></tr><tr><td><strong>Prédiction / score</strong></td><td>Score de risque 0–100 et niveau (<code>low</code> / <code>medium</code> / <code>high</code> / <code>critical</code>) stockés dans <code>ml_predictions</code></td></tr><tr><td><strong>entity_type / entity_id</strong></td><td>Cible polymorphe du scoring : <code>feeder</code>, <code>troncon_sig</code> ou <code>poste</code> (pas de FK stricte sur l’entité)</td></tr><tr><td><strong>horizon_days</strong></td><td>Fenêtre d’analyse (défaut P0 : 90 jours)</td></tr><tr><td><strong>Conversation</strong></td><td>Échange Q/R audité (<code>assistant_conversations</code>) — suggestion, pas décision métier</td></tr></table>
+<hr />
+<h2>3. Vue d’ensemble</h2>
+<div class="mermaid">
+flowchart LR
+  subgraph sources [Sources_operationnelles]
+    Int[interruptions]
+    Wf[interruption_workflow_steps]
+    Pi[poste_interruptions]
+  end
+
+  subgraph datamart [Datamart_vues]
+    Vf[v_ml_incidents_feeder_mois]
+    Vt[v_ml_incidents_troncon_sig]
+    Vp[v_ml_incidents_poste]
+  end
+
+  subgraph ml [Tables_ML]
+    Snap[ml_feature_snapshots]
+    Pred[ml_predictions]
+    Chat[assistant_conversations]
+  end
+
+  Int --> Vf
+  Int --> Vt
+  Wf --> Vt
+  Pi --> Vp
+  Int --> Vp
+  Vf --> Snap
+  Vt --> Snap
+  Vp --> Snap
+  Snap --> Pred
+  Pred --> Chat
+</div>
+<table><tr><th>Couche</th><th>Objets</th><th>Rôle</th></tr><tr><td>Sources</td><td><code>interruptions</code>, <code>interruption_workflow_steps</code>, <code>poste_interruptions</code> (+ <code>feeders</code>, <code>postes</code>, <code>troncons_sig</code>)</td><td>Données métier existantes</td></tr><tr><td>Datamart</td><td><code>v_ml_incidents_*</code></td><td>Agrégats lecture seule</td></tr><tr><td>ML</td><td><code>ml_feature_snapshots</code>, <code>ml_predictions</code></td><td>Features + scores</td></tr><tr><td>Audit</td><td><code>assistant_conversations</code></td><td>Traçabilité Q/R et feedback</td></tr></table>
+<hr />
+<h2>4. Diagramme entité-relation</h2>
+<div class="mermaid">
+erDiagram
+  services ||--o{ ml_feature_snapshots : "service_id"
+  feeders ||--o{ ml_feature_snapshots : "feeder_id"
+  services ||--o{ ml_predictions : "service_id"
+  feeders ||--o{ ml_predictions : "feeder_id"
+  ml_feature_snapshots ||--o{ ml_predictions : "feature_snapshot_id"
+  utilisateurs ||--o{ assistant_conversations : "user_id"
+  feeders ||--o{ assistant_conversations : "feeder_id"
+  interruptions ||--o{ assistant_conversations : "interruption_id"
+
+  ml_feature_snapshots {
+    int id PK
+    nvarchar entity_type
+    int entity_id
+    int horizon_days
+    datetime window_start
+    datetime window_end
+    int nb_interruptions
+    int nb_permanentes
+    decimal duree_moyenne_minutes
+    int clients_touches_total
+    int service_id FK
+    int feeder_id FK
+    nvarchar features_json
+    datetime created_at
+  }
+
+  ml_predictions {
+    int id PK
+    nvarchar entity_type
+    int entity_id
+    nvarchar entity_libelle
+    int horizon_days
+    decimal risk_score
+    nvarchar risk_level
+    nvarchar model_version
+    nvarchar factors_json
+    nvarchar recommendation
+    int service_id FK
+    int feeder_id FK
+    int feature_snapshot_id FK
+    datetime calculated_at
+    bit is_active
+  }
+
+  assistant_conversations {
+    int id PK
+    int user_id FK
+    nvarchar question
+    nvarchar answer
+    nvarchar context_json
+    int feeder_id FK
+    int interruption_id FK
+    bit accepted
+    datetime created_at
+  }
+</div>
+<hr />
+<h2>5. Tables</h2>
+<h3>5.1 <code>ml_feature_snapshots</code></h3>
+<p>Snapshot de features agrégées pour une entité et une fenêtre temporelle.</p>
+<table><tr><th>Colonne</th><th>Type</th><th>Nullable</th><th>Description</th></tr><tr><td><code>id</code></td><td>INT</td><td>Non</td><td>Clé primaire</td></tr><tr><td><code>entity_type</code></td><td>NVARCHAR(20)</td><td>Non</td><td><code>feeder</code> / <code>troncon_sig</code> / <code>poste</code></td></tr><tr><td><code>entity_id</code></td><td>INT</td><td>Non</td><td>Identifiant de l’entité (polymorphe)</td></tr><tr><td><code>horizon_days</code></td><td>INT</td><td>Non</td><td>Horizon d’analyse (ex. 90)</td></tr><tr><td><code>window_start</code></td><td>DATETIME2</td><td>Non</td><td>Début de fenêtre</td></tr><tr><td><code>window_end</code></td><td>DATETIME2</td><td>Non</td><td>Fin de fenêtre</td></tr><tr><td><code>nb_interruptions</code></td><td>INT</td><td>Non</td><td>Nombre d’interruptions dans la fenêtre</td></tr><tr><td><code>nb_permanentes</code></td><td>INT</td><td>Non</td><td>Part « permanentes » (règles natures P0)</td></tr><tr><td><code>duree_moyenne_minutes</code></td><td>DECIMAL(18,4)</td><td>Oui</td><td>Durée moyenne</td></tr><tr><td><code>clients_touches_total</code></td><td>INT</td><td>Non</td><td>Somme clients touchés</td></tr><tr><td><code>service_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>services.id</code></td></tr><tr><td><code>feeder_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>feeders.id</code></td></tr><tr><td><code>features_json</code></td><td>NVARCHAR(4000)</td><td>Oui</td><td>Détail features (JSON texte)</td></tr><tr><td><code>created_at</code></td><td>DATETIME2</td><td>Non</td><td>Horodatage création</td></tr></table>
+<p><strong>Contrainte unique</strong> : <code>(entity_type, entity_id, horizon_days, window_end)</code> — <code>uq_ml_feature_snapshot_entity_window</code>.</p>
+<h3>5.2 <code>ml_predictions</code></h3>
+<p>Score de risque calculé (P0 = règles ; P1+ = modèles supervisés).</p>
+<table><tr><th>Colonne</th><th>Type</th><th>Nullable</th><th>Description</th></tr><tr><td><code>id</code></td><td>INT</td><td>Non</td><td>Clé primaire</td></tr><tr><td><code>entity_type</code></td><td>NVARCHAR(20)</td><td>Non</td><td>Type d’entité scorée</td></tr><tr><td><code>entity_id</code></td><td>INT</td><td>Non</td><td>Identifiant entité</td></tr><tr><td><code>entity_libelle</code></td><td>NVARCHAR(255)</td><td>Oui</td><td>Libellé affiché</td></tr><tr><td><code>horizon_days</code></td><td>INT</td><td>Non</td><td>Horizon (ex. 90)</td></tr><tr><td><code>risk_score</code></td><td>DECIMAL(8,4)</td><td>Non</td><td>Score 0–100</td></tr><tr><td><code>risk_level</code></td><td>NVARCHAR(20)</td><td>Non</td><td><code>low</code> / <code>medium</code> / <code>high</code> / <code>critical</code></td></tr><tr><td><code>model_version</code></td><td>NVARCHAR(50)</td><td>Non</td><td>Ex. <code>p0-rules-v1</code></td></tr><tr><td><code>factors_json</code></td><td>NVARCHAR(4000)</td><td>Oui</td><td>Facteurs explicatifs</td></tr><tr><td><code>recommendation</code></td><td>NVARCHAR(1000)</td><td>Oui</td><td>Recommandation textuelle</td></tr><tr><td><code>service_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>services.id</code></td></tr><tr><td><code>feeder_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>feeders.id</code></td></tr><tr><td><code>feature_snapshot_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>ml_feature_snapshots.id</code></td></tr><tr><td><code>calculated_at</code></td><td>DATETIME2</td><td>Non</td><td>Date du calcul</td></tr><tr><td><code>is_active</code></td><td>BIT</td><td>Non</td><td>Dernière prédiction active pour l’entité</td></tr></table>
+<h3>5.3 <code>assistant_conversations</code></h3>
+<p>Audit des échanges Assistant (suggestions uniquement).</p>
+<table><tr><th>Colonne</th><th>Type</th><th>Nullable</th><th>Description</th></tr><tr><td><code>id</code></td><td>INT</td><td>Non</td><td>Clé primaire</td></tr><tr><td><code>user_id</code></td><td>INT</td><td>Non</td><td>FK → <code>utilisateurs.id</code></td></tr><tr><td><code>question</code></td><td>NVARCHAR(2000)</td><td>Non</td><td>Question utilisateur</td></tr><tr><td><code>answer</code></td><td>NVARCHAR(4000)</td><td>Non</td><td>Réponse Assistant</td></tr><tr><td><code>context_json</code></td><td>NVARCHAR(2000)</td><td>Oui</td><td>Contexte (feeder, filtres…)</td></tr><tr><td><code>feeder_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>feeders.id</code></td></tr><tr><td><code>interruption_id</code></td><td>INT</td><td>Oui</td><td>FK → <code>interruptions.id</code></td></tr><tr><td><code>accepted</code></td><td>BIT</td><td>Oui</td><td>Feedback utile / non utile</td></tr><tr><td><code>created_at</code></td><td>DATETIME2</td><td>Non</td><td>Horodatage</td></tr></table>
+<hr />
+<h2>6. Clés étrangères (synthèse)</h2>
+<table><tr><th>Table</th><th>Colonne</th><th>Référence</th></tr><tr><td><code>ml_feature_snapshots</code></td><td><code>service_id</code></td><td><code>services.id</code></td></tr><tr><td><code>ml_feature_snapshots</code></td><td><code>feeder_id</code></td><td><code>feeders.id</code></td></tr><tr><td><code>ml_predictions</code></td><td><code>service_id</code></td><td><code>services.id</code></td></tr><tr><td><code>ml_predictions</code></td><td><code>feeder_id</code></td><td><code>feeders.id</code></td></tr><tr><td><code>ml_predictions</code></td><td><code>feature_snapshot_id</code></td><td><code>ml_feature_snapshots.id</code></td></tr><tr><td><code>assistant_conversations</code></td><td><code>user_id</code></td><td><code>utilisateurs.id</code></td></tr><tr><td><code>assistant_conversations</code></td><td><code>feeder_id</code></td><td><code>feeders.id</code></td></tr><tr><td><code>assistant_conversations</code></td><td><code>interruption_id</code></td><td><code>interruptions.id</code></td></tr></table>
+<p><strong>Note</strong> : <code>entity_id</code> n’a pas de FK vers <code>feeders</code> / <code>troncons_sig</code> / <code>postes</code> — l’entité est polymorphe ; le rattachement métier opérationnel passe surtout par <code>feeder_id</code> et <code>service_id</code>.</p>
+<hr />
+<h2>7. Vues datamart (lecture seule)</h2>
+<h3>7.1 <code>v_ml_incidents_feeder_mois</code></h3>
+<table><tr><th><strong>Grain</strong></th><th>Feeder × année × mois</th></tr><tr><td><strong>Sources</strong></td><td><code>interruptions</code> LEFT JOIN <code>feeders</code></td></tr><tr><td><strong>Filtre</strong></td><td><code>type_direction = distribution</code> et <code>feeder_id</code> renseigné</td></tr><tr><td><strong>Mesures</strong></td><td><code>nb_interruptions</code>, <code>nb_force_majeure</code>, <code>duree_moyenne_minutes</code>, <code>clients_touches_total</code></td></tr></table>
+<h3>7.2 <code>v_ml_incidents_troncon_sig</code></h3>
+<table><tr><th><strong>Grain</strong></th><th>Tronçon SIG (+ feeder / service)</th></tr><tr><td><strong>Sources</strong></td><td><code>interruption_workflow_steps</code> INNER JOIN <code>interruptions</code> LEFT JOIN <code>troncons_sig</code></td></tr><tr><td><strong>Filtre</strong></td><td>Distribution + <code>troncon_sig_id</code> renseigné</td></tr><tr><td><strong>Mesures</strong></td><td><code>nb_interruptions</code>, <code>duree_moyenne_minutes</code>, <code>derniere_apparition</code></td></tr></table>
+<h3>7.3 <code>v_ml_incidents_poste</code></h3>
+<table><tr><th><strong>Grain</strong></th><th>Poste impacté</th></tr><tr><td><strong>Sources</strong></td><td><code>poste_interruptions</code> INNER JOIN <code>interruptions</code> LEFT JOIN <code>postes</code></td></tr><tr><td><strong>Filtre</strong></td><td>Distribution</td></tr><tr><td><strong>Mesures</strong></td><td><code>nb_impactes</code>, <code>clients_touches_total</code>, <code>derniere_apparition</code></td></tr><tr><td><strong>Feeder / service</strong></td><td><code>COALESCE(pi.feeder_id, p.feeder_id)</code> / <code>COALESCE(pi.service_id, p.service_id)</code></td></tr></table>
+<div class="mermaid">
+flowchart TB
+  subgraph vues [Vues]
+    V1[v_ml_incidents_feeder_mois]
+    V2[v_ml_incidents_troncon_sig]
+    V3[v_ml_incidents_poste]
+  end
+  subgraph tables_src [Tables_sources]
+    I[interruptions]
+    W[interruption_workflow_steps]
+    PI[poste_interruptions]
+    F[feeders]
+    TS[troncons_sig]
+    P[postes]
+  end
+  I --> V1
+  F --> V1
+  W --> V2
+  I --> V2
+  TS --> V2
+  PI --> V3
+  I --> V3
+  P --> V3
+</div>
+<hr />
+<h2>8. Flux de calcul (P0)</h2>
+<div class="mermaid">
+sequenceDiagram
+  participant Admin as Admin_SCR_SAQS
+  participant API as API_assistant
+  participant Celery as Celery_score_feeder_risk
+  participant DB as SQL_Server
+
+  Admin->>API: POST /assistant/scoring/run
+  API->>Celery: enqueue score_feeder_risk
+  Celery->>DB: lit vues / interruptions
+  Celery->>DB: insert ml_feature_snapshots
+  Celery->>DB: insert ml_predictions is_active
+  Admin->>API: GET /assistant/risk
+  API->>DB: lit ml_predictions
+</div>
+<ol>
+<li>Agrégation sur horizon (défaut 90 j) à partir des incidents distribution.</li>
+<li>Écriture d’un snapshot dans <code>ml_feature_snapshots</code>.</li>
+<li>Calcul du score P0 (fréquence, permanentes, durée, clients) → <code>ml_predictions</code>.</li>
+<li>Affichage UI <code>/assistant</code> et panneau fiche interruption ; chat audité dans <code>assistant_conversations</code>.</li>
+</ol>
+<hr />
+<h2>9. Périmètre et hors périmètre</h2>
+<p><strong>Inclus (P0)</strong> : tables ci-dessus, vues datamart, scoring règles, audit conversations.</p>
+<p><strong>Hors schéma actuel (P1–P3)</strong> : tables de modèles entraînés, features spatio-temporelles SIG avancées, stockage embeddings / RAG LLM — à ajouter après validation SAQS.</p>
+<hr />
+<h2>10. Présentation</h2>
+<p><strong>Version avec diagrammes</strong> : ouvrir <a href="MODELE_ASSISTANT_ML.html"><code>MODELE_ASSISTANT_ML.html</code></a> dans Chrome ou Edge.</p>
+<p>Pour un PDF : Ctrl+P → « Enregistrer au format PDF ».</p>
+<p>Document lié : <a href="ASSISTANT_ML.md"><code>ASSISTANT_ML.md</code></a> (phases, API, RBAC) · <a href="MODELE_DONNEES_SIRV2.md"><code>MODELE_DONNEES_SIRV2.md</code></a> (modèle métier global).</p>
+<hr />
+<p><em>Document de présentation — SIRV2 / SENELEC — Assistant ML P0 — Septembre 2026</em></p>
+    <p class="footer">
+      Document SIRV2 / SENELEC — Assistant ML P0 — export HTML depuis docs/MODELE_ASSISTANT_ML.md
+      (diagrammes Mermaid rendus dans le navigateur).
+    </p>
+  </div>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      securityLevel: "loose",
+      flowchart: { useMaxWidth: true, htmlLabels: true },
+      er: { useMaxWidth: true },
+      sequence: { useMaxWidth: true },
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Modèle de données SIRV2 — SENELEC</title>
+  <style>
+    :root {
+      --ink: #1b3a57;
+      --muted: #555;
+      --border: #d0d7de;
+      --bg: #fafbfc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Calibri, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      color: #222;
+      background: var(--bg);
+    }
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      background: #fff;
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    h1, h2, h3 {
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    h1 { font-size: 1.85rem; border-bottom: 3px solid var(--ink); padding-bottom: 0.4rem; }
+    h2 { font-size: 1.35rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.4rem; }
+    p { margin: 0.75rem 0; }
+    ul { margin: 0.5rem 0 1rem; padding-left: 1.4rem; }
+    li { margin: 0.25rem 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.65rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--ink);
+      color: #fff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) td { background: #f6f8fa; }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+      background: #f0f3f6;
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+    }
+    em { color: var(--muted); }
+    .mermaid {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+      text-align: center;
+    }
+    .banner {
+      background: #e8f1f8;
+      border-left: 4px solid var(--ink);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+    @media print {
+      body { background: #fff; }
+      .page { box-shadow: none; max-width: none; padding: 0; }
+      .banner { break-inside: avoid; }
+      .mermaid { break-inside: avoid; }
+      h2 { break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="banner">
+      <strong>Version complète avec diagrammes</strong> —
+      ouvrez ce fichier dans Chrome ou Edge.
+      Pour un PDF : <kbd>Ctrl</kbd>+<kbd>P</kbd> → « Enregistrer au format PDF ».
+    </div>
+    <h1>Modèle de données SIRV2</h1>
+<p><strong>Système d’Information Réseau — SENELEC</strong></p>
+<table><tr><th><strong>Objet</strong></th><th>Description du modèle de données métier SIRV2</th></tr><tr><td><strong>Public</strong></td><td>Fonctionnels métier, chef de service, SAQS</td></tr><tr><td><strong>Version</strong></td><td>1.0 — Juillet 2026</td></tr><tr><td><strong>Périmètre</strong></td><td>Distribution (MT/BT) en détail ; aperçu Transport / OMVG</td></tr><tr><td><strong>Source</strong></td><td>Schéma cible SIRV2 (migration depuis SIR HFSQL / WebDev)</td></tr></table>
+<hr />
+<h2>1. Objet du document</h2>
+<p>Ce document décrit <strong>comment les informations métier sont organisées</strong> dans SIRV2 : interruptions, réseau, topologie SIG, postes impactés, indicateurs et rôles.</p>
+<p>Il sert à :</p>
+<ul>
+<li>partager une vision commune entre métier et technique ;</li>
+<li>valider les concepts (départ, tronçonnement, nature, postes impactés…) ;</li>
+<li>faciliter la reprise des données depuis l’existant HFSQL.</li>
+</ul>
+<p>Ce n’est <strong>pas</strong> une documentation technique d’API ni un manuel utilisateur.</p>
+<hr />
+<h2>2. Glossaire métier</h2>
+<table><tr><th>Terme</th><th>Définition</th></tr><tr><td><strong>Interruption</strong></td><td>Coupure ou défaut sur le réseau, enregistrée avec un numéro, des dates, une nature et un rattachement géographique / réseau</td></tr><tr><td><strong>Direction</strong></td><td>Domaine de l’interruption : <em>distribution</em> (MT/BT), <em>transport</em> (HTB) ou <em>OMVG</em></td></tr><tr><td><strong>Poste source</strong></td><td>Poste de transformation HTB/MT — point d’injection des départs MT</td></tr><tr><td><strong>Feeder (départ)</strong></td><td>Départ MT depuis un poste source</td></tr><tr><td><strong>Sous-feeder</strong></td><td>Subdivision d’un départ MT</td></tr><tr><td><strong>Poste</strong></td><td>Poste de transformation MT/BT (clients raccordés)</td></tr><tr><td><strong>Tronçon (référentiel)</strong></td><td>Section de ligne du référentiel historique HFSQL <em>Troncon</em> — <strong>peu utiliséé</strong> en opérationnel (~80 lignes)</td></tr><tr><td><strong>Tronçon SIG</strong></td><td>Segment de ligne issu de la topologie SIG (<em>Troncon_SIG</em>) — <strong>référence pour le tronçonnement</strong></td></tr><tr><td><strong>Nœud SIG</strong></td><td>Point de la topologie (poste, piquage…) — amont / aval d’un tronçon SIG</td></tr><tr><td><strong>Nature</strong></td><td>Classification du défaut : permanent, semi-permanent, fugitif, délestage, coupure travaux…</td></tr><tr><td><strong>Cause / Siège / Signalisation</strong></td><td>Référentiels de caractérisation de l’incident</td></tr><tr><td><strong>Localisation</strong></td><td>Texte libre décrivant le lieu (souvent héritage de <em>NomTroncon</em> HFSQL)</td></tr><tr><td><strong>Workflow opérationnel</strong></td><td>Suivi des étapes terrain : déclenchement, interpellation PDM, tronçonnement, localisation, réparation, remise, clients</td></tr><tr><td><strong>Poste impacté</strong></td><td>Poste MT/BT touché par l’interruption, avec nombre de clients concernés</td></tr><tr><td><strong>END</strong></td><td>Énergie Non Distribuée (MWh)</td></tr><tr><td><strong>SAIFI / SAIDI</strong></td><td>Indicateurs de fréquence et durée moyenne d’interruption par client</td></tr><tr><td><strong>BCC</strong></td><td>Bureau de Conduite Central — saisie distribution sur son périmètre</td></tr><tr><td><strong>BRC</strong></td><td>Bureau Régional de Conduite — lecture / suivi régional</td></tr><tr><td><strong>ADMIN_SCR</strong></td><td>Administration SCR — validation distribution nationale</td></tr><tr><td><strong>ADMIN_SAQS</strong></td><td>SAQS — lecture nationale et validation indicateurs / rapports</td></tr></table>
+<hr />
+<h2>3. Vue d’ensemble des domaines</h2>
+<div class="mermaid">
+flowchart LR
+  Geo[Organisation_geo]
+  Reseau[Reseau_MT]
+  Sig[Topologie_SIG]
+  Ref[Referentiels]
+  Int[Interruptions]
+  Wf[Workflow_operationnel]
+  Postes[Postes_impactes]
+  Indic[Indicateurs]
+
+  Geo --> Reseau
+  Reseau --> Int
+  Sig --> Wf
+  Ref --> Int
+  Int --> Wf
+  Int --> Postes
+  Int --> Indic
+</div>
+<table><tr><th>Domaine</th><th>Rôle métier</th></tr><tr><td>Organisation</td><td>Régions, délégations, agences, services — périmètre de responsabilité</td></tr><tr><td>Réseau MT</td><td>Postes sources, départs, sous-feeders, postes clients</td></tr><tr><td>Topologie SIG</td><td>Tronçons et nœuds pour localiser le défaut sur le réseau</td></tr><tr><td>Référentiels</td><td>Natures, causes, sièges, signalisations</td></tr><tr><td>Interruptions</td><td>Fiche centrale de l’incident</td></tr><tr><td>Workflow</td><td>Chronologie opérationnelle et tronçonnement SIG</td></tr><tr><td>Postes impactés</td><td>Clients touchés (base SAIFI/SAIDI)</td></tr><tr><td>Indicateurs</td><td>END, SAIFI, SAIDI, base clients mensuelle</td></tr></table>
+<hr />
+<h2>4. Organisation géographique</h2>
+<div class="mermaid">
+erDiagram
+  Region ||--o{ Delegation : contient
+  Delegation ||--o{ Agence : contient
+  Agence ||--o{ Service : contient
+  Region ||--o{ Service : rattache
+</div>
+<table><tr><th>Entité</th><th>Description métier</th><th>Attributs clés</th></tr><tr><td><strong>Région</strong></td><td>Découpage régional SENELEC</td><td>Code, libellé</td></tr><tr><td><strong>Délégation</strong></td><td>Sous-ensemble d’une région</td><td>Code, libellé, région</td></tr><tr><td><strong>Agence</strong></td><td>Agence opérationnelle</td><td>Code, libellé, délégation</td></tr><tr><td><strong>Service</strong></td><td>Unité de gestion (ex. SDDV, service régional)</td><td>Code, libellé, agence, région</td></tr></table>
+<p>Les <strong>rôles BCC / BRC</strong> s’appuient sur ce découpage pour limiter la lecture et la saisie au bon périmètre.</p>
+<hr />
+<h2>5. Réseau distribution (MT/BT)</h2>
+<div class="mermaid">
+erDiagram
+  PosteSource ||--o{ Feeder : alimente
+  Feeder ||--o{ SousFeeder : subdivise
+  Feeder ||--o{ Poste : dessert
+  Feeder ||--o{ Troncon : sectionne
+  Service ||--o{ Feeder : gere
+</div>
+<table><tr><th>Entité</th><th>Description métier</th><th>Attributs clés</th></tr><tr><td><strong>Poste source</strong></td><td>Injection HTB → MT</td><td>Code, libellé, région, puissance (MVA)</td></tr><tr><td><strong>Feeder (départ)</strong></td><td>Départ MT</td><td>Code, libellé, tension (kV), poste source, service</td></tr><tr><td><strong>Sous-feeder</strong></td><td>Subdivision du départ</td><td>Code, libellé, feeder</td></tr><tr><td><strong>Poste</strong></td><td>Poste MT/BT (clients)</td><td>Code, libellé, puissance (kVA), nombre de clients, feeder</td></tr><tr><td><strong>Tronçon</strong></td><td>Section référentiel historique</td><td>Code, libellé, longueur, feeder</td></tr></table>
+<p><strong>Point d’attention métier</strong> : le référentiel <em>Troncon</em> (table HFSQL <code>Troncon</code>) est <strong>très incomplet</strong>. Pour le tronçonnement opérationnel, SIRV2 s’appuie sur la <strong>topologie SIG</strong> (chapitre suivant).</p>
+<p>Cascade de saisie d’une interruption distribution :</p>
+<p><strong>Région → Poste source → Feeder → Sous-feeder (optionnel)</strong></p>
+<hr />
+<h2>6. Topologie SIG (tronçonnement)</h2>
+<p>Source : tables HFSQL <strong><code>Troncon_SIG</code></strong> et <strong><code>Noeud_SIG</code></strong> (serveur <code>srv-hfsql</code>), importées dans SIRV2.</p>
+<div class="mermaid">
+erDiagram
+  Feeder ||--o{ TronconSig : porte
+  Feeder ||--o{ NoeudSig : porte
+  TronconSig }o--|| InterruptionWorkflowStep : localise
+</div>
+<table><tr><th>Entité</th><th>Description métier</th><th>Attributs clés</th></tr><tr><td><strong>Tronçon SIG</strong></td><td>Segment de ligne entre deux nœuds</td><td>Nom du tronçon, feeder, nœud amont, nœud aval, tension, longueur</td></tr><tr><td><strong>Nœud SIG</strong></td><td>Point du réseau (poste, piquage…)</td><td>Nom, feeder, catégorie, coordonnées</td></tr></table>
+<h3>Règle métier — tronçonnement</h3>
+<p>1. L’opérateur sélectionne un <strong>tronçon SIG</strong> lié au <strong>feeder</strong> de l’interruption.</p>
+<p>2. Les nœuds <strong>amont</strong> et <strong>aval</strong> sont renseignés automatiquement (ou ajustés).</p>
+<p>3. À partir du tronçon SIG, on peut proposer les <strong>postes impactés</strong> sur la chaîne aval.</p>
+<p>Dans l’existant HFSQL, le champ <em>NomTroncon</em> de l’interruption est souvent un <strong>texte libre</strong> (ex. <code>POSTE A - SECTION B</code>), sans lien systématique vers <code>ID_Troncon_SIG</code>. SIRV2 conserve ce texte en <em>localisation</em> et privilégie le lien explicite vers le tronçon SIG pour les nouvelles saisies.</p>
+<hr />
+<h2>7. Référentiels de caractérisation</h2>
+<table><tr><th>Entité</th><th>Usage</th><th>Particularité</th></tr><tr><td><strong>Nature</strong></td><td>Type de défaut / événement</td><td>Permanent, semi-permanent, fugitif, délestage, coupure…</td></tr><tr><td><strong>Cause</strong></td><td>Cause technique ou organisationnelle</td><td>Filtrable distribution / transport / commun</td></tr><tr><td><strong>Siège</strong></td><td>Localisation typologique du défaut</td><td>Idem</td></tr><tr><td><strong>Signalisation</strong></td><td>Mode de détection / signalisation</td><td>Idem</td></tr><tr><td><strong>Type END</strong></td><td>Classification pour l’énergie non distribuée</td><td>Référentiel END</td></tr><tr><td><strong>Statut</strong> (<em>statuts</em>)</td><td>Cycle de vie de l’interruption</td><td>Figé : en_cours (1), cloture (2), valide (3), archive (4) — lecture seule</td></tr><tr><td><strong>Direction source</strong> (<em>direction_sources</em>)</td><td>Domaine de l’interruption et de l’utilisateur</td><td>Figé : distribution (1), transport (2), omvg (3) — lecture seule</td></tr><tr><td><strong>Entreprise</strong> (<em>entreprises</em>)</td><td>Entreprise intervenante sur l’incident</td><td>Optionnelle, gérée par ADMIN_SCR</td></tr><tr><td><strong>Prestataire</strong> (<em>prestataires</em>)</td><td>Prestataire intervenant sur l’incident</td><td>Optionnel, indépendant de l’entreprise, géré par ADMIN_SCR</td></tr></table>
+<p>Exemples de <strong>natures</strong> (alignement FIS / tableau de bord) :</p>
+<table><tr><th>Code</th><th>Libellé</th></tr><tr><td>PERMANENT</td><td>Défaut permanent</td></tr><tr><td>SEMI_PERM</td><td>Défaut semi-permanent</td></tr><tr><td>FUGITIF</td><td>Défaut fugitif</td></tr><tr><td>DELESTAGE</td><td>Délestage incident HTA</td></tr><tr><td>COUPURE</td><td>Coupure travaux</td></tr></table>
+<hr />
+<h2>8. Interruption (cœur métier)</h2>
+<p>Une seule fiche <strong>Interruption</strong> couvre distribution, transport et OMVG. Le champ <em>direction</em> précise le domaine ; des détails spécifiques complètent la fiche.</p>
+<div class="mermaid">
+erDiagram
+  Interruption ||--o| InterruptionDistribution : detail_MT
+  Interruption ||--o| InterruptionTransport : detail_HTB
+  Interruption ||--o{ Workflow : etapes
+  Interruption ||--o{ PosteInterruption : impacte
+  Interruption }o--|| Statut : statut_id
+  Interruption }o--|| DirectionSource : direction_source_id
+  Interruption }o--o| Entreprise : entreprise_id
+  Interruption }o--o| Prestataire : prestataire_id
+  Interruption }o--o| Utilisateur : updated_by_id
+  Utilisateur }o--o| DirectionSource : direction_source_id
+  Interruption }o--|| Feeder : concerne
+  Interruption }o--o| PosteSource : depuis
+  Interruption }o--o| Nature : caracterise
+  Interruption }o--o| Cause : cause
+  Interruption }o--o| Service : perimetre
+</div>
+<h3>8.1 Attributs principaux de l’interruption</h3>
+<table><tr><th>Attribut métier</th><th>Description</th></tr><tr><td>Numéro d’interruption</td><td>Identifiant métier (numérique)</td></tr><tr><td>Direction (<em>direction_source_id</em>)</td><td>FK vers <em>direction_sources</em> : distribution / transport / OMVG</td></tr><tr><td>Statut (<em>statut_id</em>)</td><td>FK vers <em>statuts</em> : en cours → clôturée → validée → archivée</td></tr><tr><td>Date / heure d’apparition</td><td>Début de l’événement</td></tr><tr><td>Date / heure de remise</td><td>Fin (calcul de la durée)</td></tr><tr><td>Durée (minutes)</td><td>Calculée à la clôture</td></tr><tr><td>Service</td><td>Unité de gestion</td></tr><tr><td>Poste source / Feeder / Sous-feeder</td><td>Rattachement réseau</td></tr><tr><td>Nature, Cause, Siège, Signalisation</td><td>Caractérisation</td></tr><tr><td>Force majeure / Fugitif (<em>is_fugitive</em> BIT NOT NULL)</td><td>Flags métier</td></tr><tr><td>Entreprise / Prestataire</td><td>Intervenants (FK optionnelles, saisis dans le formulaire)</td></tr><tr><td>Modifiée par (<em>updated_by_id</em>)</td><td>Dernier utilisateur ayant modifié / clôturé / validé</td></tr><tr><td>Clients touchés / Puissance coupée</td><td>Impact agrégé</td></tr><tr><td>Localisation</td><td>Texte libre (héritage <em>NomTroncon</em>)</td></tr><tr><td>Observations</td><td>Commentaire libre</td></tr></table>
+<p>Les colonnes texte historiques <em>statut</em> et <em>type_direction</em> sont conservées et synchronisées automatiquement avec <em>statut_id</em> et <em>direction_source_id</em> à chaque écriture.</p>
+<h3>8.2 Complément distribution</h3>
+<table><tr><th>Attribut</th><th>Description</th></tr><tr><td>Tension (kV)</td><td>Niveau de tension</td></tr><tr><td>Clients MT / BT</td><td>Ventilation clients</td></tr><tr><td>END (MWh)</td><td>Énergie non distribuée (miroir rapport)</td></tr><tr><td>Programmée</td><td>Incident vs coupure programmée / délestage</td></tr><tr><td>Extension BT</td><td>Défaut BT secondaire lié au MT</td></tr></table>
+<h3>8.3 Complément transport (aperçu)</h3>
+<p>Équipement HTB, source transport, puissance de transit, énergie non fournie — hors détail de ce document.</p>
+<hr />
+<h2>9. Workflow opérationnel (étapes chaînées)</h2>
+<p>Le workflow est modélisé par deux tables :</p>
+<ul>
+<li><strong>Étape workflow</strong> (<em>etapes_workflow</em>) : référentiel des étapes, chaînées par <em>etape_suivante_id</em> ;</li>
+<li><strong>Workflow</strong> (<em>workflows</em>) : une ligne par interruption <strong>et</strong> par étape saisie (date début, date fin, observation).</li>
+</ul>
+<div class="mermaid">
+erDiagram
+  EtapeWorkflow ||--o| EtapeWorkflow : etape_suivante_id
+  EtapeWorkflow ||--o{ Workflow : etape_workflow_id
+  Interruption ||--o{ Workflow : interruption_id
+  TronconSig ||--o{ Workflow : troncon_sig_id
+  EtapeWorkflow {
+    int id PK
+    string code
+    string libelle_etape_workflow
+    int ordre
+    int etape_suivante_id FK
+  }
+  Workflow {
+    int id PK
+    int interruption_id FK
+    int etape_workflow_id FK
+    datetime2 date_debut
+    datetime2 date_fin
+    string observation
+    int responsable_matricule
+    int troncon_sig_id FK
+  }
+</div>
+<div class="mermaid">
+flowchart LR
+  Decl[Declenchement]
+  Inter[Interpellation_PDM]
+  Tronc[Tronconnement]
+  Loc[Localisation]
+  Rep[Reparation]
+  Rem[Remise]
+
+  Decl --> Inter --> Tronc --> Loc --> Rep --> Rem
+</div>
+<table><tr><th>Étape</th><th>Contenu métier</th></tr><tr><td><strong>Déclenchement</strong></td><td>Début / fin, durée</td></tr><tr><td><strong>Interpellation PDM</strong></td><td>Appel et arrivée PDM</td></tr><tr><td><strong>Tronçonnement</strong></td><td>Début / fin, <strong>tronçon SIG</strong>, nœuds amont / aval (colonnes portées par la ligne <em>workflows</em> de cette étape)</td></tr><tr><td><strong>Localisation</strong></td><td>Début / fin de la localisation terrain</td></tr><tr><td><strong>Réparation</strong></td><td>Début / fin travaux</td></tr><tr><td><strong>Remise</strong></td><td>Début / fin remise sous tension</td></tr></table>
+<p><strong>Règle d’enchaînement</strong> : une étape est <em>terminée</em> dès que sa date de fin est saisie. La première étape non terminée est <em>active</em> ; les suivantes sont <em>verrouillées</em> et <strong>ne s’affichent pas</strong> tant que la date de fin de l’étape en cours n’est pas saisie. Toute écriture sur une étape verrouillée est refusée (HTTP 422).</p>
+<p>L’onglet <strong>Clients</strong> n’est pas une étape : il agrège les <strong>postes impactés</strong> liés à l’interruption.</p>
+<hr />
+<h2>10. Postes impactés</h2>
+<div class="mermaid">
+erDiagram
+  Interruption ||--o{ PosteInterruption : a
+  Poste ||--o{ PosteInterruption : est
+</div>
+<table><tr><th>Entité</th><th>Description</th><th>Attributs clés</th></tr><tr><td><strong>Poste impacté</strong></td><td>Lien interruption ↔ poste</td><td>Poste, nombre de clients touchés, <strong>date d’interruption</strong> (<em>date_interruption</em>, par défaut la date d’apparition)</td></tr></table>
+<p>Ces données alimentent :</p>
+<ul>
+<li>l’onglet <strong>Clients</strong> du workflow ;</li>
+<li>les calculs <strong>SAIFI / SAIDI</strong> (sommes de clients et durées).</li>
+</ul>
+<p>Origine fréquente en migration : table <em>PosteInterruption</em> de la base Indicateurs Transport Distribution (ITD).</p>
+<hr />
+<h2>11. Indicateurs (aperçu)</h2>
+<table><tr><th>Entité</th><th>Description métier</th></tr><tr><td><strong>END</strong> (<em>energie_nd</em>)</td><td>Énergie non distribuée par interruption (MWh), liée à la puissance coupée et à la durée</td></tr><tr><td><strong>SAIFI / SAIDI</strong></td><td>Indicateurs mensuels par <strong>service</strong></td></tr><tr><td><strong>Nombre de clients / mois</strong></td><td>Base clients de référence (dénominateur SAIFI/SAIDI)</td></tr></table>
+<p>Formules de principe (à confirmer / pondérer avec SAQS – CRSE) :</p>
+<ul>
+<li><strong>END</strong> ≈ Puissance coupée (MW) × Durée (h)</li>
+<li><strong>SAIFI</strong> ≈ Σ(clients interrompus) / clients de référence</li>
+<li><strong>SAIDI</strong> ≈ Σ(clients × durée) / clients de référence</li>
+</ul>
+<p>Les exclusions (force majeure, etc.) et pondérations réglementaires restent à <strong>valider métier</strong>.</p>
+<hr />
+<h2>12. Rôles et périmètres (vue métier)</h2>
+<table><tr><th>Rôle</th><th>Peut créer / modifier</th><th>Périmètre de lecture</th><th>Peut valider</th></tr><tr><td><strong>BCC</strong></td><td>Interruptions distribution</td><td>Son périmètre (région / service)</td><td>Non</td></tr><tr><td><strong>BRC</strong></td><td>Suivi / contribution selon règles</td><td>Sa région</td><td>Non</td></tr><tr><td><strong>DISPATCHER</strong></td><td>Interruptions transport</td><td>Transport</td><td>Non</td></tr><tr><td><strong>ADMIN_SCR</strong></td><td>Distribution nationale</td><td>Distribution (pas transport)</td><td>Oui (distribution)</td></tr><tr><td><strong>ADMIN_DISPATCHING</strong></td><td>Transport national</td><td>Transport</td><td>Oui (transport)</td></tr><tr><td><strong>ADMIN_SAQS</strong></td><td>Lecture</td><td>Tout</td><td>Oui (indicateurs / rapports)</td></tr><tr><td><strong>SUPERVISEUR</strong></td><td>Selon scope</td><td>Son service</td><td>Oui (son service)</td></tr></table>
+<hr />
+<h2>13. Cycle de vie d’une interruption</h2>
+<div class="mermaid">
+stateDiagram-v2
+  [*] --> en_cours : Creation
+  en_cours --> cloture : Remise_sous_tension
+  cloture --> valide : Validation_hierarchique
+  valide --> archive : Archivage
+  en_cours --> archive : Cas_exceptionnels
+</div>
+<table><tr><th>Statut</th><th>Signification métier</th><th>Qui agit typiquement</th></tr><tr><td><strong>en_cours</strong></td><td>Incident ouvert ; saisie et workflow modifiables</td><td>BCC (distribution)</td></tr><tr><td><strong>cloture</strong></td><td>Remise effectuée ; durée connue</td><td>BCC / clôture</td></tr><tr><td><strong>valide</strong></td><td>Contrôlée / validée</td><td>ADMIN_SCR, SUPERVISEUR, SAQS selon cas</td></tr><tr><td><strong>archive</strong></td><td>Conservée pour historique / reporting</td><td>Administration</td></tr></table>
+<p>Tant que le statut est <strong>en_cours</strong>, le workflow opérationnel (dont le tronçonnement SIG) reste éditable.</p>
+<hr />
+<h2>14. Correspondance HFSQL → SIRV2</h2>
+<table><tr><th>Source HFSQL / ITD</th><th>Entité SIRV2</th><th>Commentaire métier</th></tr><tr><td><code>Interruptions</code></td><td><em>interruptions</em> + <em>interruptions_distribution</em></td><td>Fiche unifiée</td></tr><tr><td><code>Interruptions.NomTroncon</code></td><td><em>localisation</em></td><td>Texte libre — pas toujours un ID SIG</td></tr><tr><td><code>Interruptions.ID_Troncon_SIG</code></td><td><em>workflow.troncon_sig_id</em></td><td>Rarement renseigné en legacy</td></tr><tr><td><code>Troncon_SIG</code></td><td><em>troncons_sig</em></td><td>Base du tronçonnement</td></tr><tr><td><code>Noeud_SIG</code></td><td><em>noeuds_sig</em></td><td>Nœuds amont / aval</td></tr><tr><td><code>Troncon</code></td><td><em>troncons</em></td><td>Référentiel limité (~80 lignes)</td></tr><tr><td><code>Feeders</code> / <code>PostesSources</code> / <code>Postes</code></td><td><em>feeders</em> / <em>postes_sources</em> / <em>postes</em></td><td>Réseau distribution</td></tr><tr><td><code>SousFeeders</code></td><td><em>sous_feeders</em></td><td>Souvent à compléter</td></tr><tr><td><code>Natures</code>, <code>Causes</code>, <code>Sieges</code>, <code>Signalisations</code></td><td>référentiels homonymes</td><td>Unifiés distribution + transport</td></tr><tr><td><code>PosteInterruption</code> (ITD)</td><td><em>poste_interruptions</em></td><td>Clients / postes touchés</td></tr><tr><td>Dates workflow (début tronçonnement, réparation…)</td><td><em>workflows</em> (+ <em>etapes_workflow</em>)</td><td>Une ligne par étape saisie</td></tr></table>
+<hr />
+<h2>15. Schéma de synthèse — interruption distribution</h2>
+<div class="mermaid">
+flowchart TB
+  subgraph org [Organisation]
+    Region --> Delegation --> Agence --> Service
+  end
+
+  subgraph reseau [Reseau]
+    PosteSource --> Feeder
+    Feeder --> SousFeeder
+    Feeder --> Poste
+  end
+
+  subgraph sig [SIG]
+    Feeder --> TronconSig
+  end
+
+  subgraph fiche [Fiche_interruption]
+    Interruption
+    Nature
+    Cause
+    Workflow
+    PosteImpacte
+  end
+
+  Service --> Feeder
+  Service --> Interruption
+  Feeder --> Interruption
+  PosteSource --> Interruption
+  Nature --> Interruption
+  Cause --> Interruption
+  Interruption --> Workflow
+  TronconSig --> Workflow
+  Interruption --> PosteImpacte
+  Poste --> PosteImpacte
+</div>
+<hr />
+<h2>Annexe A — Liste des tables techniques (référence)</h2>
+<table><tr><th>Table SQL</th><th>Domaine</th></tr><tr><td><code>regions</code>, <code>delegations</code>, <code>agences</code>, <code>services</code></td><td>Organisation</td></tr><tr><td><code>postes_sources</code>, <code>feeders</code>, <code>sous_feeders</code>, <code>postes</code>, <code>troncons</code></td><td>Réseau distribution</td></tr><tr><td><code>equipements_transport</code>, <code>sources_transport</code>, <code>postes_lignes</code></td><td>Réseau transport</td></tr><tr><td><code>troncons_sig</code>, <code>noeuds_sig</code></td><td>Topologie SIG</td></tr><tr><td><code>causes</code>, <code>sieges</code>, <code>signalisations</code>, <code>natures</code>, <code>types_end</code></td><td>Référentiels</td></tr><tr><td><code>statuts</code>, <code>direction_sources</code></td><td>Référentiels figés (FK de <code>interruptions</code> ; <code>direction_sources</code> aussi de <code>utilisateurs</code>)</td></tr><tr><td><code>entreprises</code>, <code>prestataires</code></td><td>Intervenants (FK optionnelles de <code>interruptions</code>)</td></tr><tr><td><code>interruptions</code></td><td>Fiche centrale</td></tr><tr><td><code>interruptions_distribution</code></td><td>Détail MT/BT</td></tr><tr><td><code>interruptions_transport</code></td><td>Détail HTB</td></tr><tr><td><code>etapes_workflow</code></td><td>Référentiel des étapes chaînées (<code>etape_suivante_id</code>)</td></tr><tr><td><code>workflows</code></td><td>Saisie d’une étape pour une interruption (dates, observation, tronçon)</td></tr><tr><td><code>interruption_workflow_steps</code></td><td>Ancien workflow (1 ligne / interruption) — conservé jusqu’à validation, plus utilisé</td></tr><tr><td><code>poste_interruptions</code></td><td>Postes / clients impactés</td></tr><tr><td><code>energie_nd</code>, <code>saifi_saidi</code>, <code>nombre_client_mois</code></td><td>Indicateurs</td></tr><tr><td><code>utilisateurs</code>, <code>roles</code>, <code>permissions</code>, <code>user_roles</code></td><td>Accès / rôles</td></tr><tr><td><code>napt</code>, <code>consignations</code></td><td>NAPT</td></tr><tr><td><code>destinataires</code>, <code>sms_envoyes</code>, <code>email_envoyes</code></td><td>Notifications</td></tr><tr><td><code>rapports_generes</code></td><td>Rapports</td></tr><tr><td><code>audit_log</code></td><td>Traçabilité</td></tr><tr><td><code>ml_feature_snapshots</code>, <code>ml_predictions</code>, <code>assistant_conversations</code></td><td>Assistant ML (scores / audit)</td></tr><tr><td><code>v_ml_incidents_feeder_mois</code>, <code>v_ml_incidents_troncon_sig</code>, <code>v_ml_incidents_poste</code></td><td>Datamart ML (vues lecture seule)</td></tr></table>
+<p>Schéma détaillé Assistant ML (présentation) : [<code>MODELE_ASSISTANT_ML.md</code>](MODELE_ASSISTANT_ML.md) · HTML [<code>MODELE_ASSISTANT_ML.html</code>](MODELE_ASSISTANT_ML.html).</p>
+<hr />
+<h2>Annexe B — Points à valider avec le métier</h2>
+<p>1. <strong>Pondérations END / SAIFI / SAIDI</strong> (règles CRSE) — formules exactes à confirmer par SAQS.</p>
+<p>2. <strong>Format des rapports réglementaires</strong> — à fournir par l’équipe SAQS.</p>
+<p>3. <strong>Complétude sous-feeders</strong> — table HFSQL souvent vide ; bootstrap provisoire possible.</p>
+<p>4. <strong>Qualité du lien interruption ↔ Troncon_SIG</strong> — en legacy, <em>NomTroncon</em> texte ≠ ID SIG systématique.</p>
+<hr />
+<p><em>Document généré pour partage fonctionnel — SIRV2 / SENELEC — Juillet 2026</em></p>
+<p><strong>Version complète avec diagrammes</strong> : ouvrir [<code>MODELE_DONNEES_SIRV2.html</code>](MODELE_DONNEES_SIRV2.html) dans un navigateur (Chrome / Edge). Pour un PDF : Ctrl+P → « Enregistrer au format PDF ».</p>
+    <p class="footer">
+      Document SIRV2 / SENELEC — export HTML depuis docs/MODELE_DONNEES_SIRV2.md
+      (diagrammes Mermaid rendus dans le navigateur).
+    </p>
+  </div>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      securityLevel: "loose",
+      flowchart: { useMaxWidth: true, htmlLabels: true },
+      er: { useMaxWidth: true },
+    });
+  </script>
+</body>
+</html>

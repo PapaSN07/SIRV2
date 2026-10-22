@@ -114,7 +114,7 @@ async def delete_poste_source(
 )
 async def list_feeders(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     poste_source_id: int | None = Query(default=None),
     service_id: int | None = Query(default=None),
     region_id: int | None = Query(default=None, ge=1),
@@ -200,7 +200,7 @@ async def delete_feeder(
 )
 async def list_postes(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     feeder_id: int | None = Query(default=None),
     service_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
@@ -335,7 +335,7 @@ async def delete_troncon(
 )
 async def list_sous_feeders(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     feeder_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),

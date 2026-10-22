@@ -34,7 +34,7 @@ class UtilisateurUpdate(BaseModel):
     prenom: str | None = Field(default=None, min_length=1, max_length=100)
     email: str | None = Field(default=None, max_length=255)
     telephone: str | None = Field(default=None, max_length=20)
-    roles: list[RoleAssignment] | None = None
+    roles: list[RoleAssignment] | None = Field(default=None, min_length=1)
 
 
 class UtilisateurResponse(BaseModel):

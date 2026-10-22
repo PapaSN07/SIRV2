@@ -4,8 +4,23 @@ from pydantic import BaseModel, Field
 
 TypeReseau = Literal["distribution", "transport", "commun"]
 
-VALID_RESOURCES = frozenset({"causes", "sieges", "signalisations", "natures", "types_end"})
+VALID_RESOURCES = frozenset(
+    {
+        "causes",
+        "sieges",
+        "signalisations",
+        "natures",
+        "types_end",
+        "types_reseaux",
+        "entreprises",
+        "prestataires",
+        "statuts",
+        "direction_sources",
+    }
+)
 RESOURCES_WITH_TYPE_RESEAU = frozenset({"causes", "sieges", "signalisations"})
+READ_ONLY_RESOURCES = frozenset({"statuts", "direction_sources"})
+SCR_ONLY_RESOURCES = frozenset({"entreprises", "prestataires"})
 
 
 class ReferentielCreate(BaseModel):

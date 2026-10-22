@@ -118,9 +118,11 @@ def _paginate_list(
     page: int,
     page_size: int,
     response_builder: Callable[[Any], Any],
+    *,
+    max_page_size: int = 100,
 ) -> PaginatedResponse[Any]:
     page = max(1, page)
-    page_size = clamp_page_size(page_size)
+    page_size = max(1, min(page_size, max_page_size))
     total = len(items)
     start = (page - 1) * page_size
     page_items = [response_builder(i) for i in items[start : start + page_size]]
@@ -196,20 +198,22 @@ async def list_resources(
             region_id=region_id,
             scope=scope,
         )
-        return _paginate_list(items, page, page_size, _feeder_response)
+        return _paginate_list(items, page, page_size, _feeder_response, max_page_size=500)
 
     if slug == "postes":
         items = await repo.list_postes(
             db, feeder_id=feeder_id, service_id=service_id, scope=scope
         )
-        return _paginate_list(items, page, page_size, PosteResponse.model_validate)
+        return _paginate_list(items, page, page_size, PosteResponse.model_validate, max_page_size=500)
 
     if slug == "troncons":
         items = await repo.list_troncons(db, feeder_id=feeder_id, scope=scope)
         return _paginate_list(items, page, page_size, TronconResponse.model_validate)
 
     items = await repo.list_sous_feeders(db, feeder_id=feeder_id, scope=scope)
-    return _paginate_list(items, page, page_size, SousFeederResponse.model_validate)
+    return _paginate_list(
+        items, page, page_size, SousFeederResponse.model_validate, max_page_size=500
+    )
 
 
 async def get_resource(db: AsyncSession, user: Utilisateur, slug: str, item_id: int) -> Any:

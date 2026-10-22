@@ -562,6 +562,67 @@
   }
 }
 
+.nature-matrix {
+  margin-bottom: 2rem;
+
+  &__table {
+    th,
+    td {
+      white-space: nowrap;
+    }
+  }
+
+  &__service,
+  &__total {
+    text-align: center;
+    background: $primary;
+    color: #fff;
+  }
+
+  &__sub {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  &__nature {
+    font-weight: 600;
+    color: $primary;
+  }
+
+  &__total-row {
+    background: #f1f3f5;
+    font-weight: 700;
+  }
+
+  &__chart {
+    padding: 1rem 1.5rem 1.5rem;
+    border-top: 1px solid $outline-variant;
+
+    .panel__head {
+      margin-bottom: 1rem;
+    }
+  }
+}
+
+.bar-chart--services {
+  height: 220px;
+  overflow-x: auto;
+  justify-content: flex-start;
+
+  .bar-chart__group {
+    min-width: 4.25rem;
+    flex: 1 0 auto;
+    height: 100%;
+  }
+
+  .bar-chart__label span {
+    display: block;
+    font-weight: 700;
+    color: $primary;
+  }
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -677,5 +738,26 @@
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+.nature-matrix__table.data-table {
+  th,
+  td {
+    padding: 0.45rem 0.65rem;
+    text-align: center;
+  }
+
+  .nature-matrix__nature,
+  .nature-matrix__total-row th {
+    text-align: left;
+    color: $primary;
+  }
+
+  thead .nature-matrix__service,
+  thead .nature-matrix__total {
+    background: $primary;
+    color: #fff;
+    text-align: center;
   }
 }

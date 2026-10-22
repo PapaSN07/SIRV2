@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guide utilisateur — Interruptions distribution — SENELEC</title>
+  <style>
+    :root {
+      --ink: #3c1053;
+      --muted: #555;
+      --border: #d0d7de;
+      --bg: #fafbfc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Calibri, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      color: #222;
+      background: var(--bg);
+    }
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      background: #fff;
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    h1, h2, h3 {
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    h1 { font-size: 1.85rem; border-bottom: 3px solid var(--ink); padding-bottom: 0.4rem; }
+    h2 { font-size: 1.35rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+    h3 { font-size: 1.1rem; margin-top: 1.4rem; }
+    p { margin: 0.75rem 0; }
+    ul, ol { margin: 0.5rem 0 1rem; padding-left: 1.4rem; }
+    li { margin: 0.25rem 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.65rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--ink);
+      color: #fff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) td { background: #f6f8fa; }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+      background: #f0f3f6;
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+    }
+    em { color: var(--muted); }
+    .mermaid {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+      text-align: center;
+    }
+    .banner {
+      background: #f6eef8;
+      border-left: 4px solid var(--ink);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+    @media print {
+      body { background: #fff; }
+      .page { box-shadow: none; max-width: none; padding: 0; }
+      .banner { break-inside: avoid; }
+      .mermaid { break-inside: avoid; }
+      h2 { break-after: avoid; }
+      table, tr { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="banner">
+      <strong>Guide BCC / BRC — interruptions distribution</strong> —
+      ouvrez ce fichier dans Chrome ou Edge.
+      Pour un PDF : <kbd>Ctrl</kbd>+<kbd>P</kbd> → « Enregistrer au format PDF ».
+    </div>
+    <h1>Guide utilisateur — Interruptions distribution</h1>
+<p><strong>Public :</strong> agents BCC et BRC.</p>
+<p><strong>Application :</strong> SIR (Système d&#x27;Information Réseau), SENELEC.</p>
+<p>Ce guide explique comment enregistrer une interruption moyenne tension / basse tension, la faire avancer étape par étape, indiquer les postes touchés, puis la clôturer.</p>
+<p>Ouvrez SIR à l&#x27;adresse communiquée par votre administrateur. En recette, l&#x27;adresse est <code>http://localhost:4210</code>.</p>
+<hr />
+<h2>1. À quoi sert SIR pour vous</h2>
+<p>Une interruption distribution se suit sur une seule fiche :</p>
+<ol>
+<li>Vous la créez (date d&#x27;apparition, réseau, cause).</li>
+<li>Vous notez le déroulement : déclenchement, interpellation, tronçonnement, localisation, réparation, remise.</li>
+<li>Vous cochez les postes touchés.</li>
+<li>Vous la clôturez avec la date de remise.</li>
+</ol>
+<p>Tant que le statut est <strong>En cours</strong>, vous pouvez modifier la fiche. Après clôture, elle n&#x27;est plus modifiable. Un superviseur ou un administrateur SCR la valide ensuite. Le BCC et le BRC ne valident pas.</p>
+<hr />
+<h2>2. Connexion</h2>
+<ol>
+<li>Ouvrez l&#x27;adresse SIR.</li>
+<li>Saisissez votre <strong>Identifiant</strong> et votre <strong>Mot de passe</strong>.</li>
+<li>Cliquez sur <strong>Connexion</strong>.</li>
+</ol>
+<p>À la première connexion, SIR demande de changer le mot de passe avant d&#x27;entrer dans l&#x27;application. Choisissez un nouveau mot de passe, confirmez-le, puis reconnectez-vous.</p>
+<p>Pour quitter : en bas du menu de gauche, cliquez sur votre nom. La session se ferme et l&#x27;écran de connexion réapparaît.</p>
+<p>Si l&#x27;identifiant ou le mot de passe est refusé, le message « Identifiants invalides » s&#x27;affiche. Vérifiez la saisie ou demandez une réinitialisation à votre administrateur.</p>
+<hr />
+<h2>3. Ce que vous voyez</h2>
+<p>Après connexion, le menu de gauche propose notamment :</p>
+<table><tr><th>Entrée</th><th>Usage pour le BCC / BRC</th></tr><tr><td><strong>Tableau de bord</strong></td><td>Vue d&#x27;accueil</td></tr><tr><td><strong>Interruptions</strong></td><td>Liste et saisie des interruptions distribution</td></tr></table>
+<p>Votre périmètre est limité :</p>
+<ul>
+<li><strong>BCC</strong> — vous voyez et saisissez les interruptions de votre service. La région est verrouillée.</li>
+<li><strong>BRC</strong> — vous voyez et saisissez les interruptions de votre région. La région est verrouillée.</li>
+</ul>
+<p>Les deux rôles peuvent créer et modifier une fiche <strong>En cours</strong>. Une fiche d&#x27;un autre service (BCC) ou d&#x27;une autre région (BRC) n&#x27;est pas accessible : l&#x27;écran <strong>Accès refusé</strong> s&#x27;affiche.</p>
+<hr />
+<h2>4. Liste des interruptions</h2>
+<p>Menu <strong>Interruptions</strong>. Le titre de l&#x27;écran est <strong>Liste des interruptions</strong>.</p>
+<h3>Filtres</h3>
+<table><tr><th>Filtre</th><th>Rôle</th></tr><tr><td><strong>Période (début)</strong> et <strong>Période (fin)</strong></td><td>Restreint les fiches à une plage de dates</td></tr><tr><td><strong>Région</strong></td><td>Verrouillée sur votre périmètre (BCC ou BRC)</td></tr><tr><td><strong>Service</strong></td><td>Visible dans le périmètre régional ; « Tous les services » ou un service précis</td></tr><tr><td><strong>Feeder</strong></td><td>Un départ, ou « Tous les feeders »</td></tr><tr><td><strong>Nature</strong></td><td>Type de défaut (permanent, fugitif, etc.), ou « Toutes les natures »</td></tr><tr><td><strong>Ouverture</strong></td><td><strong>Toutes</strong>, <strong>Ouvertes</strong> ou <strong>Fermées</strong></td></tr></table>
+<p>Cliquez sur <strong>Filtrer</strong> pour appliquer. <strong>Réinitialiser</strong> efface les filtres. Chaque filtre actif apparaît sous forme de pastille : la croix retire ce filtre seul.</p>
+<p>Le bouton <strong>Exporter Excel/PDF</strong> est affiché mais n&#x27;est pas encore disponible.</p>
+<h3>Lire une ligne</h3>
+<p>La liste indique le numéro, le service, la date, la source, la tension, le feeder et le statut (<strong>En cours</strong>, <strong>Clôturée</strong>, <strong>Validée</strong>).</p>
+<ul>
+<li>Cliquez sur une ligne pour ouvrir la fiche.</li>
+<li>Le bouton <strong>Nouvelle saisie</strong> ouvre le formulaire de création.</li>
+<li>Sur une fiche <strong>En cours</strong>, l&#x27;action de modification est proposée dans la liste.</li>
+</ul>
+<p>Un badge indique le nombre de fiches <strong>non validées</strong> dans le périmètre filtré.</p>
+<hr />
+<h2>5. Nouvelle saisie</h2>
+<p><strong>Nouvelle saisie</strong> ouvre <strong>Formulaire de saisie d&#x27;interruption</strong>.</p>
+<p>Le bouton <strong>Soumettre</strong> reste inactif tant que les champs obligatoires ne sont pas remplis. <strong>Annuler</strong> revient à la liste sans enregistrer.</p>
+<h3>Identification réseau</h3>
+<p>Renseignez dans cet ordre. Chaque liste ne propose que ce qui dépend du choix précédent.</p>
+<ol>
+<li><strong>Région</strong> — déjà fixée sur votre périmètre.</li>
+<li><strong>Poste source</strong></li>
+<li><strong>Feeder</strong> — le <strong>Service</strong> se remplit tout seul à partir du feeder. Il n&#x27;est pas saisissable.</li>
+<li><strong>Sous-feeder</strong> — obligatoire.</li>
+<li><strong>Localisation</strong> — texte libre (lieu ou tronçon décrit en toutes lettres). Facultatif.</li>
+</ol>
+<p>S&#x27;il n&#x27;existe qu&#x27;un seul poste source, un seul feeder ou un seul sous-feeder, SIR le sélectionne.</p>
+<h3>Chronologie et caractérisation</h3>
+<table><tr><th>Champ</th><th>Obligatoire</th><th>Remarque</th></tr><tr><td><strong>Apparition</strong></td><td>Oui</td><td>Date et heure de début de l&#x27;incident</td></tr><tr><td><strong>Cause</strong>, <strong>Nature</strong>, <strong>Siège</strong>, <strong>Signalisation</strong></td><td>Oui</td><td>Choisissez une valeur dans chaque liste</td></tr><tr><td><strong>Entreprise</strong></td><td>Non</td><td>« Aucune » si elle n&#x27;intervient pas</td></tr><tr><td><strong>Prestataire</strong></td><td>Non</td><td>« Aucun » si aucun prestataire. Indépendant de l&#x27;entreprise</td></tr></table>
+<p>Si <strong>Entreprise</strong> ou <strong>Prestataire</strong> ne propose rien d&#x27;autre que « Aucune » / « Aucun », les listes n&#x27;ont pas encore été alimentées. Un administrateur SCR les crée dans <strong>Administration</strong>, onglets Entreprises et Prestataires. Vous pouvez soumettre la fiche sans ces deux informations.</p>
+<h3>Impact</h3>
+<table><tr><th>Champ</th><th>Remarque</th></tr><tr><td><strong>Puissance coupée (MW)</strong></td><td>Facultatif</td></tr><tr><td><strong>Tension (kV)</strong></td><td>Facultatif</td></tr><tr><td><strong>Clients MT</strong> / <strong>Clients BT</strong></td><td>Facultatif, effectifs globaux</td></tr><tr><td><strong>Force majeure</strong></td><td>À cocher si le cas s&#x27;applique</td></tr><tr><td><strong>Fugitive</strong></td><td>À cocher pour un défaut fugitif</td></tr><tr><td><strong>Extension BT</strong></td><td>À cocher si le défaut BT est lié au MT</td></tr></table>
+<p>Le bloc <strong>Observations</strong> sert au commentaire libre.</p>
+<p>Cliquez sur <strong>Soumettre</strong>. SIR ouvre la fiche détail. Le statut initial est <strong>En cours</strong>.</p>
+<hr />
+<h2>6. Fiche et workflow</h2>
+<p>La fiche résume le réseau, la chronologie, la caractérisation, l&#x27;entreprise, le prestataire et les observations.</p>
+<p>Le bloc <strong>Workflow opérationnel</strong> se remplit après la création. Six étapes se suivent. L&#x27;onglet <strong>Clients</strong> n&#x27;est pas une étape : il reprend les postes cochés.</p>
+<div class="mermaid">
+flowchart LR
+  Decl[Declenchement]
+  Inter[Interpellation PDM]
+  Tronc[Tronconnement]
+  Loc[Localisation]
+  Rep[Reparation]
+  Rem[Remise]
+  Decl --> Inter --> Tronc --> Loc --> Rep --> Rem
+</div>
+<h3>Règle d&#x27;affichage</h3>
+<ul>
+<li>L&#x27;étape en cours est la première qui n&#x27;a pas de <strong>date de fin</strong>.</li>
+<li>Les étapes suivantes restent masquées. Un cadenas indique « N étape(s) à venir ».</li>
+<li>Saisissez la <strong>date de fin</strong> de l&#x27;étape affichée, puis <strong>Enregistrer</strong>. L&#x27;étape suivante apparaît.</li>
+<li>Une étape déjà terminée reste visible : vous pouvez la relire.</li>
+<li>La date de fin doit être postérieure à la date de début de la même étape.</li>
+</ul>
+<p>Vous ne pouvez pas sauter une étape. Si vous tentez d&#x27;enregistrer une étape encore verrouillée, SIR refuse avec le message : « L&#x27;étape précédente doit avoir une date de fin avant de saisir cette étape ».</p>
+<h3>Contenu de chaque étape</h3>
+<table><tr><th>Étape</th><th>Ce que vous saisissez</th></tr><tr><td><strong>Déclenchement</strong></td><td>Début, fin, matricule responsable, observation</td></tr><tr><td><strong>Interpellation PDM</strong></td><td>Début, fin, matricule, observation</td></tr><tr><td><strong>Tronçonnement</strong></td><td>Début, fin, <strong>Tronçon SIG</strong>, nœud amont, nœud aval, matricule, observation</td></tr><tr><td><strong>Localisation</strong></td><td>Début, fin, matricule, observation</td></tr><tr><td><strong>Réparation</strong></td><td>Début, fin, matricule, observation</td></tr><tr><td><strong>Remise</strong></td><td>Début, fin, matricule, observation</td></tr></table>
+<p>Sur <strong>Tronçonnement</strong> :</p>
+<ul>
+<li>La liste <strong>Tronçon SIG</strong> ne se charge que si la fiche a un feeder. Sinon le message « Feeder non renseigné — liste Troncon_SIG indisponible » s&#x27;affiche.</li>
+<li><strong>Topologie SIG</strong> ouvre le choix du tronçon sur la carte du feeder.</li>
+<li>Le tronçon, le nœud amont et le nœud aval ne sont enregistrés que sur cette étape.</li>
+</ul>
+<p>Le workflow n&#x27;est modifiable que tant que l&#x27;interruption est <strong>En cours</strong>.</p>
+<hr />
+<h2>7. Postes impactés</h2>
+<p>Ouvrez l&#x27;onglet <strong>Clients</strong> du workflow. La liste propose les postes du feeder. Cochez ceux qui ont été touchés. Décochez pour retirer un poste.</p>
+<ul>
+<li>Le nombre de clients du poste est affiché à côté du libellé.</li>
+<li>La date d&#x27;interruption du poste reprend la date d&#x27;apparition de la fiche.</li>
+<li><strong>Tout cocher (feeder)</strong> ajoute tous les postes du feeder qui ne sont pas déjà cochés.</li>
+<li><strong>Postes du tronçon SIG</strong> n&#x27;est actif que si un tronçon SIG a été choisi à l&#x27;étape Tronçonnement. Il coche les postes rattachés à ce tronçon. Sans tronçon, le bouton indique « Sélectionnez un tronçon SIG dans l&#x27;onglet Tronçonnement ».</li>
+<li>La zone <strong>Rechercher un poste</strong> filtre par code ou par libellé.</li>
+</ul>
+<p>Le compteur « N poste(s) impacté(s) » résume la sélection. Ces postes alimentent l&#x27;onglet Clients (nombre de postes et total de clients touchés).</p>
+<hr />
+<h2>8. Clôturer</h2>
+<p>Sur une fiche <strong>En cours</strong>, le bloc <strong>Clôturer l&#x27;interruption</strong> demande la <strong>Date de remise</strong>.</p>
+<p>La durée est la différence entre cette date et la date d&#x27;apparition.</p>
+<table><tr><th>Durée</th><th>Postes impactés</th></tr><tr><td><strong>5 minutes ou moins</strong></td><td>Aucun poste n&#x27;est exigé. Vous pouvez clôturer.</td></tr><tr><td><strong>Plus de 5 minutes</strong></td><td>Au moins un poste doit être coché avant <strong>Clôturer</strong>.</td></tr></table>
+<p>Si la durée dépasse 5 minutes et qu&#x27;aucun poste n&#x27;est coché, SIR affiche : « Pour une interruption de plus de 5 minutes, au moins un poste impacté doit être coché. » Un rappel du même ordre est visible sous le bouton tant qu&#x27;aucun poste n&#x27;est sélectionné.</p>
+<p>La date de remise doit être <strong>après</strong> la date d&#x27;apparition. Sinon : « La date de remise doit être postérieure à la date d&#x27;apparition. »</p>
+<p>Après une clôture réussie, le statut passe à <strong>Clôturée</strong>. Le workflow, les postes et le formulaire ne sont plus modifiables. La validation est faite ensuite par un superviseur ou un administrateur SCR, depuis leur file de validation. Vous n&#x27;avez pas cette action.</p>
+<hr />
+<h2>9. Modifier une fiche en cours</h2>
+<p>Depuis la fiche ou la liste, <strong>Modifier</strong> ouvre le même formulaire, avec le titre <strong>Modifier l&#x27;interruption</strong>.</p>
+<ul>
+<li><strong>Poste source</strong>, <strong>Feeder</strong> et <strong>Sous-feeder</strong> sont figés. Pour changer le réseau, il faut créer une autre fiche.</li>
+<li>Vous pouvez corriger la date d&#x27;apparition, la cause, la nature, le siège, la signalisation, l&#x27;entreprise, le prestataire, les cases à cocher et les observations.</li>
+<li><strong>Enregistrer</strong> confirme. Le message « Modifications enregistrées » s&#x27;affiche, et le workflow reste accessible sous le formulaire.</li>
+</ul>
+<p>Dans la fiche, le bloc <strong>Historique</strong> indique <strong>Modifiée par</strong> avec le nom de la dernière personne qui a enregistré, clôturé ou fait avancer la fiche.</p>
+<p>Une fiche déjà clôturée ou validée ne se modifie pas. Le formulaire affiche : « Seules les interruptions en cours peuvent être modifiées. »</p>
+<hr />
+<h2>10. En cas de blocage</h2>
+<table><tr><th>Ce que vous voyez</th><th>Que faire</th></tr><tr><td><strong>Accès refusé</strong></td><td>La fiche est hors de votre service (BCC) ou de votre région (BRC), ou l&#x27;action n&#x27;est pas prévue pour votre rôle.</td></tr><tr><td><strong>Identifiants invalides</strong></td><td>Vérifiez l&#x27;identifiant et le mot de passe, ou faites réinitialiser le compte.</td></tr><tr><td>Bouton <strong>Soumettre</strong> inactif</td><td>Il manque la date d&#x27;apparition, le poste source, le feeder, le sous-feeder, la cause, la nature, le siège ou la signalisation.</td></tr><tr><td>Étape suivante invisible, cadenas « étape(s) à venir »</td><td>Saisissez la date de fin de l&#x27;étape affichée, puis <strong>Enregistrer</strong>.</td></tr><tr><td>« L&#x27;étape précédente doit avoir une date de fin… »</td><td>Revenez à l&#x27;étape active et terminez-la avant celle-ci.</td></tr><tr><td><strong>Postes du tronçon SIG</strong> grisé</td><td>Choisissez un tronçon à l&#x27;étape <strong>Tronçonnement</strong>.</td></tr><tr><td>« Pour une interruption de plus de 5 minutes… »</td><td>Cochez au moins un poste dans l&#x27;onglet <strong>Clients</strong>, puis recliquez sur <strong>Clôturer</strong>.</td></tr><tr><td>« La date de remise doit être postérieure… »</td><td>Corrigez la date de remise : elle doit être après l&#x27;apparition.</td></tr><tr><td>Listes <strong>Entreprise</strong> / <strong>Prestataire</strong> vides</td><td>Normal si personne ne les a encore créées. Laissez « Aucune » / « Aucun », ou demandez à un administrateur SCR de les renseigner.</td></tr><tr><td>« Seules les interruptions en cours peuvent être modifiées. »</td><td>La fiche est clôturée ou validée. Créez une nouvelle saisie si un autre incident doit être ouvert.</td></tr></table>
+<hr />
+<p><em>Guide SIR — interruptions distribution — BCC et BRC. Octobre 2026.</em></p>
+    <p class="footer">
+      Document SIR / SENELEC — export HTML depuis docs/GUIDE_UTILISATEUR_DISTRIBUTION.md
+      (schéma Mermaid rendu dans le navigateur).
+    </p>
+  </div>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      securityLevel: "loose",
+      flowchart: { useMaxWidth: true, htmlLabels: true },
+    });
+  </script>
+</body>
+</html>

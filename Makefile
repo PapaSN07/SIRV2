@@ -79,6 +79,22 @@ seed-sig:
 seed-dev:
 	docker compose exec api python -m scripts.run_seed_dev
 
+# ── Profil bureau SENELEC (srv-bddomtech via Docker) ─────────────────────────
+
+COMPOSE_SENELEC = docker compose --env-file .env.docker-senelec -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.senelec.yml
+
+docker-senelec-env:
+	powershell -ExecutionPolicy Bypass -File scripts/build-docker-senelec-env.ps1
+
+up-senelec: docker-senelec-env
+	$(COMPOSE_SENELEC) up -d redis api worker frontend
+
+down-senelec:
+	$(COMPOSE_SENELEC) down
+
+logs-senelec:
+	$(COMPOSE_SENELEC) logs -f api worker
+
 # ── Utilitaires ───────────────────────────────────────────────────────────────
 
 shell-api:

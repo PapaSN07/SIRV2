@@ -13,6 +13,8 @@ engine = create_async_engine(
     settings.database_url,
     echo=settings.environment == "development",
     pool_pre_ping=True,
+    # Le serveur SQL distant / pare-feu coupe les connexions inactives (TCP 10054)
+    pool_recycle=280,
     pool_size=10,
     max_overflow=20,
 )

@@ -9,7 +9,7 @@ from fastapi import HTTPException
 
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
 from app.models.referentiel import Cause, Nature, Siege, Signalisation
-from app.models.reseau import Feeder, Poste
+from app.models.reseau import Feeder, SousFeeder, Poste
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 from app.schemas.interruption_distribution import (
     InterruptionDistributionCreate,
@@ -76,15 +76,26 @@ def _feeder(service_id: int, feeder_id: int = 1) -> Feeder:
     return f
 
 
+def _sous_feeder(feeder_id: int = 1, sous_feeder_id: int = 1) -> SousFeeder:
+    sf = SousFeeder()
+    sf.id = sous_feeder_id
+    sf.feeder_id = feeder_id
+    sf.is_active = True
+    return sf
+
+
 def _create_body() -> InterruptionDistributionCreate:
     return InterruptionDistributionCreate(
         date_apparition=datetime(2026, 6, 12, 10, 30, 0),
         poste_source_id=10,
         feeder_id=1,
+        sous_feeder_id=1,
         cause_id=1,
         nature_id=1,
         siege_id=1,
         signalisation_id=1,
+        type_end_id=1,
+        type_reseau_id=1,
     )
 
 
@@ -111,6 +122,10 @@ async def test_create_bcc_wrong_service_raises_403() -> None:
         new_callable=AsyncMock,
         return_value=_feeder(service_id=2),
     ), patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_sous_feeder",
+        new_callable=AsyncMock,
+        return_value=_sous_feeder(),
+    ), patch(
         "app.services.interruption_distribution_service.repo.service_in_region",
         new_callable=AsyncMock,
         return_value=False,
@@ -129,6 +144,10 @@ async def test_create_brc_service_outside_region_raises_403() -> None:
         "app.services.interruption_distribution_service.reseau_repo.get_feeder",
         new_callable=AsyncMock,
         return_value=_feeder(service_id=99),
+    ), patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_sous_feeder",
+        new_callable=AsyncMock,
+        return_value=_sous_feeder(),
     ), patch(
         "app.services.interruption_distribution_service.repo.service_in_region",
         new_callable=AsyncMock,
@@ -168,11 +187,20 @@ async def test_create_brc_service_in_region_passes_scope() -> None:
     distribution = InterruptionDistribution()
     distribution.is_programme = False
     distribution.has_extension_bt = False
+    interruption.interruption_distribution = distribution
 
     with patch(
+        "app.services.interruption_distribution_service.repo.get_interruption_for_response",
+        new_callable=AsyncMock,
+        return_value=interruption,
+    ), patch(
         "app.services.interruption_distribution_service.reseau_repo.get_feeder",
         new_callable=AsyncMock,
         return_value=_feeder(service_id=5),
+    ), patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_sous_feeder",
+        new_callable=AsyncMock,
+        return_value=_sous_feeder(),
     ), patch(
         "app.services.interruption_distribution_service.repo.service_in_region",
         new_callable=AsyncMock,
@@ -180,7 +208,14 @@ async def test_create_brc_service_in_region_passes_scope() -> None:
     ), patch(
         "app.services.interruption_distribution_service.ref_repo.get_by_id",
         new_callable=AsyncMock,
-        side_effect=[_active_cause(), _active_nature(), _active_siege(), _active_signalisation()],
+        side_effect=[
+            _active_cause(),
+            _active_nature(),
+            _active_siege(),
+            _active_signalisation(),
+            _active_signalisation(),
+            _active_signalisation(),
+        ],
     ), patch(
         "app.services.interruption_distribution_service.repo.next_numero_interruption",
         new_callable=AsyncMock,
@@ -248,13 +283,20 @@ async def test_create_success_returns_en_cours() -> None:
     distribution = InterruptionDistribution()
     distribution.is_programme = False
     distribution.has_extension_bt = False
-    distribution.is_programme = False
-    distribution.has_extension_bt = False
+    interruption.interruption_distribution = distribution
 
     with patch(
+        "app.services.interruption_distribution_service.repo.get_interruption_for_response",
+        new_callable=AsyncMock,
+        return_value=interruption,
+    ), patch(
         "app.services.interruption_distribution_service.reseau_repo.get_feeder",
         new_callable=AsyncMock,
         return_value=_feeder(service_id=1),
+    ), patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_sous_feeder",
+        new_callable=AsyncMock,
+        return_value=_sous_feeder(),
     ), patch(
         "app.services.interruption_distribution_service.repo.service_in_region",
         new_callable=AsyncMock,
@@ -262,7 +304,14 @@ async def test_create_success_returns_en_cours() -> None:
     ), patch(
         "app.services.interruption_distribution_service.ref_repo.get_by_id",
         new_callable=AsyncMock,
-        side_effect=[_active_cause(), _active_nature(), _active_siege(), _active_signalisation()],
+        side_effect=[
+            _active_cause(),
+            _active_nature(),
+            _active_siege(),
+            _active_signalisation(),
+            _active_signalisation(),
+            _active_signalisation(),
+        ],
     ), patch(
         "app.services.interruption_distribution_service.repo.next_numero_interruption",
         new_callable=AsyncMock,
@@ -494,6 +543,10 @@ async def test_update_creator_success() -> None:
     updated.interruption_distribution = distribution
 
     with patch(
+        "app.services.interruption_distribution_service.repo.get_interruption_for_response",
+        new_callable=AsyncMock,
+        return_value=updated,
+    ), patch(
         "app.services.interruption_distribution_service._get_interruption_accessible",
         new_callable=AsyncMock,
         return_value=interruption,
@@ -501,7 +554,7 @@ async def test_update_creator_success() -> None:
         "app.services.interruption_distribution_service.repo.update_interruption_distribution",
         new_callable=AsyncMock,
         return_value=(updated, distribution),
-    ), patch(
+    ) as mock_update, patch(
         "app.services.interruption_distribution_service.log_audit",
         new_callable=AsyncMock,
     ) as mock_audit:
@@ -510,6 +563,7 @@ async def test_update_creator_success() -> None:
         )
 
     assert result.observations == "Modifié"
+    assert mock_update.await_args.kwargs["interruption_updates"]["updated_by_id"] == user.id
     mock_audit.assert_awaited_once()
     db.commit.assert_awaited_once()
 
@@ -592,6 +646,10 @@ async def test_cloturer_success_enqueues_celery() -> None:
     closed.interruption_distribution = distribution
 
     with patch(
+        "app.services.interruption_distribution_service.repo.get_interruption_for_response",
+        new_callable=AsyncMock,
+        return_value=closed,
+    ), patch(
         "app.services.interruption_distribution_service._get_interruption_accessible",
         new_callable=AsyncMock,
         return_value=interruption,
@@ -651,6 +709,87 @@ async def test_cloturer_no_postes_raises_422() -> None:
             )
 
     assert exc.value.status_code == 422
+    assert "plus de 5 minutes" in exc.value.detail["error"]
+
+
+async def test_cloturer_cinq_minutes_sans_poste_passe() -> None:
+    """5 minutes ou moins : la clôture n'exige pas de poste impacté."""
+    db = AsyncMock()
+    db.commit = AsyncMock()
+    user = _make_bcc(scope_service_id=1)
+    user.id = 1
+    apparition = datetime(2026, 6, 12, 10, 0, 0)
+    remise = datetime(2026, 6, 12, 10, 4, 0)
+
+    interruption = Interruption()
+    interruption.id = 1
+    interruption.service_id = 1
+    interruption.statut = "en_cours"
+    interruption.created_by_id = 1
+    interruption.date_apparition = apparition
+    interruption.numero_interruption = 1
+    interruption.type_direction = "distribution"
+    interruption.is_force_majeure = False
+    interruption.is_fugitive = True
+    interruption.created_at = apparition
+    interruption.updated_at = apparition
+    distribution = InterruptionDistribution()
+    distribution.is_programme = False
+    distribution.has_extension_bt = False
+
+    closed = Interruption()
+    closed.id = 1
+    closed.numero_interruption = 1
+    closed.type_direction = "distribution"
+    closed.statut = "cloture"
+    closed.service_id = 1
+    closed.date_apparition = apparition
+    closed.date_remise = remise
+    closed.duree_minutes = 4
+    closed.is_force_majeure = False
+    closed.is_fugitive = True
+    closed.created_by_id = 1
+    closed.created_at = apparition
+    closed.updated_at = remise
+    closed.interruption_distribution = distribution
+
+    with patch(
+        "app.services.interruption_distribution_service.repo.get_interruption_for_response",
+        new_callable=AsyncMock,
+        return_value=closed,
+    ), patch(
+        "app.services.interruption_distribution_service._get_interruption_accessible",
+        new_callable=AsyncMock,
+        return_value=interruption,
+    ), patch(
+        "app.services.interruption_distribution_service.repo.count_postes_for_interruption",
+        new_callable=AsyncMock,
+        return_value=0,
+    ) as count_postes, patch(
+        "app.services.interruption_distribution_service.repo.update_interruption_distribution",
+        new_callable=AsyncMock,
+        return_value=(closed, distribution),
+    ), patch(
+        "app.services.interruption_distribution_service.log_audit",
+        new_callable=AsyncMock,
+    ), patch("app.workers.tasks.indicateurs.calcul_end_task.delay"):
+        from app.schemas.interruption_distribution import InterruptionClotureRequest
+
+        result = await svc.cloturer(
+            db, 1, InterruptionClotureRequest(date_remise=remise), user
+        )
+
+    assert result.statut == "cloture"
+    assert result.duree_minutes == 4
+    count_postes.assert_not_awaited()
+
+
+async def test_cloturer_date_avec_fuseau_ne_plante_pas() -> None:
+    from datetime import timezone
+
+    apparition = datetime(2026, 6, 12, 10, 0, 0)
+    remise = datetime(2026, 6, 12, 10, 3, 0, tzinfo=timezone.utc)
+    assert svc._compute_duree_minutes(apparition, remise) == 3
 
 
 async def test_valider_success_enqueues_saifi_saidi() -> None:
@@ -704,6 +843,10 @@ async def test_valider_success_enqueues_saifi_saidi() -> None:
     validated.interruption_distribution = distribution
 
     with patch(
+        "app.services.interruption_distribution_service.repo.get_interruption_for_response",
+        new_callable=AsyncMock,
+        return_value=validated,
+    ), patch(
         "app.services.interruption_distribution_service._get_interruption_accessible",
         new_callable=AsyncMock,
         return_value=interruption,

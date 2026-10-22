@@ -1,0 +1,58 @@
+<section class="assistant-panel" [class.assistant-panel--compact]="compact()">
+  <header class="assistant-panel__header">
+    <h2>Assistant risque</h2>
+    <p>Conseil P0 (stats) — ne bloque pas la clôture / validation.</p>
+  </header>
+
+  @if (error()) {
+    <p class="assistant-panel__error" role="alert">{{ error() }}</p>
+  }
+
+  <form class="assistant-panel__form" [formGroup]="form" (ngSubmit)="ask()">
+    <label class="assistant-panel__label" for="assistant-q">Votre question</label>
+    <textarea
+      id="assistant-q"
+      class="assistant-panel__input"
+      rows="2"
+      formControlName="question"
+      placeholder="Ex. Quels départs prioriser pour travaux ?"
+    ></textarea>
+    <button type="submit" class="sir-btn sir-btn--primary" [disabled]="form.invalid || loading()">
+      Demander
+    </button>
+  </form>
+
+  @if (reply(); as r) {
+    <article class="assistant-panel__reply">
+      <p>{{ r.answer }}</p>
+      <p class="assistant-panel__disclaimer">{{ r.disclaimer }}</p>
+      <div class="assistant-panel__feedback">
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="feedback(true)">Utile</button>
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="feedback(false)">Pas utile</button>
+      </div>
+    </article>
+  }
+
+  <div class="assistant-panel__risks">
+    <h3>Alertes actives</h3>
+    @if (loading() && risks().length === 0) {
+      <p class="assistant-panel__muted">Chargement…</p>
+    } @else if (risks().length === 0) {
+      <p class="assistant-panel__muted">Aucun score actif — lancez le scoring (admins).</p>
+    } @else {
+      <ul>
+        @for (item of risks(); track item.id) {
+          <li>
+            <div class="assistant-panel__risk-head">
+              <strong>{{ item.entity_libelle ?? ('#' + item.entity_id) }}</strong>
+              <span [class]="levelClass(item.risk_level)">{{ item.risk_score | number: '1.0-0' }} · {{ item.risk_level }}</span>
+            </div>
+            @if (item.recommendation) {
+              <p>{{ item.recommendation }}</p>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</section>

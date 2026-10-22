@@ -104,6 +104,36 @@ class NatureRepartitionItemResponse(BaseModel):
     percent: float
 
 
+class NatureServiceCellResponse(BaseModel):
+    nombre: int
+    end_kwh: float
+
+
+class NatureServiceColumnResponse(BaseModel):
+    service_id: int
+    code: str
+    libelle: str
+    nombre: int
+    end_kwh: float
+
+
+class NatureServiceLigneResponse(BaseModel):
+    code: str
+    libelle: str
+    cellules: list[NatureServiceCellResponse]
+    nombre: int
+    end_kwh: float
+
+
+class NatureServiceRepartitionResponse(BaseModel):
+    """END et nombre d'interruptions croisés par nature et par service."""
+
+    services: list[NatureServiceColumnResponse] = Field(default_factory=list)
+    lignes: list[NatureServiceLigneResponse] = Field(default_factory=list)
+    total_nombre: int = 0
+    total_end_kwh: float = 0
+
+
 class TableauDeBordResponse(BaseModel):
     niveau: str
     scope_id: int | None = None
@@ -116,6 +146,9 @@ class TableauDeBordResponse(BaseModel):
     nb_interruptions_mois: int
     causes_repartition: list[CauseRepartitionItemResponse] = Field(default_factory=list)
     natures_repartition: list[NatureRepartitionItemResponse] = Field(default_factory=list)
+    nature_service: NatureServiceRepartitionResponse = Field(
+        default_factory=NatureServiceRepartitionResponse
+    )
 
 
 class HistoriquePointResponse(BaseModel):

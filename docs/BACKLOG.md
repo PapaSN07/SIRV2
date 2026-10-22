@@ -204,6 +204,7 @@
 ## Phase 5 — Indicateurs
 > **Priorité : P1 — Valeur analytique centrale**
 > **État :** ✅ Terminé — Sprint 5 backend + seeds dev + E2E indicateurs
+> **Référence métier :** [docs/indicateurs_sirv2.md](indicateurs_sirv2.md) (formules, endpoints, RBAC, cache Redis)
 
 - [x] **5.1 Calcul SAIFI/SAIDI**
   - [x] `saifi_service.py` : calcul par service → délégation → région → national
@@ -414,6 +415,12 @@
 
 - [x] **F-notif — Notifications (Phase 7)**
   - [x] SMS liste/envoi · destinataires CRUD · emails lecture seule
+
+- [~] **F-assistant — Aide à la décision / Assistant ML**
+  - [x] Datamart vues + tables `ml_*` / `assistant_conversations`
+  - [x] Scoring P0 Celery + API `/api/v1/assistant`
+  - [x] UI `/assistant` + panneau fiche interruption
+  - [ ] Validation SAQS phases P1–P3 (voir `docs/ASSISTANT_ML.md`)
 
 ---
 

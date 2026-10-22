@@ -98,14 +98,37 @@
       color: $primary;
     }
   }
+
+  &__locked {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 12px;
+    color: $on-surface-variant;
+
+    .material-symbols-outlined {
+      font-size: 16px;
+    }
+  }
 }
 
 .workflow-step {
   h3 {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
     margin: 0 0 1rem;
     font-size: 14px;
     font-weight: 600;
     color: $on-surface;
+  }
+
+  &__hint {
+    font-size: 12px;
+    font-weight: 400;
+    color: $on-surface-variant;
   }
 }
 
@@ -209,19 +232,6 @@
 
 .workflow-clients-slot {
   margin-top: 0.5rem;
-}
-
-.workflow-meta {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid $outline-variant;
-
-  &__form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: flex-end;
-  }
 }
 
 @keyframes wf-spin {

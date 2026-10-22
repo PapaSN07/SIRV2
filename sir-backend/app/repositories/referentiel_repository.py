@@ -5,7 +5,18 @@ from typing import Any, Type
 from sqlalchemy import Select, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.referentiel import Cause, Nature, Siege, Signalisation, TypeEnd
+from app.models.referentiel import (
+    Cause,
+    DirectionSource,
+    Entreprise,
+    Nature,
+    Prestataire,
+    Siege,
+    Signalisation,
+    Statut,
+    TypeEnd,
+    TypeReseau,
+)
 from app.schemas.referentiel import RESOURCES_WITH_TYPE_RESEAU, VALID_RESOURCES
 
 ResourceModel = Type[Any]
@@ -16,6 +27,11 @@ RESOURCE_MODELS: dict[str, ResourceModel] = {
     "signalisations": Signalisation,
     "natures": Nature,
     "types_end": TypeEnd,
+    "types_reseaux": TypeReseau,
+    "entreprises": Entreprise,
+    "prestataires": Prestataire,
+    "statuts": Statut,
+    "direction_sources": DirectionSource,
 }
 
 
@@ -30,7 +46,7 @@ def _to_dict(record: Any) -> dict[str, Any]:
         "id": record.id,
         "code": record.code,
         "libelle": record.libelle,
-        "is_active": record.is_active,
+        "is_active": getattr(record, "is_active", True),
     }
     if hasattr(record, "type_reseau"):
         data["type_reseau"] = record.type_reseau
@@ -51,6 +67,8 @@ def build_select_query(
         query = query.where(model.is_active == True)
     if type_reseau and resource in RESOURCES_WITH_TYPE_RESEAU:
         query = query.where(model.type_reseau == type_reseau)
+    if hasattr(model, "ordre"):
+        return query.order_by(model.ordre)
     return query.order_by(model.id)
 
 

@@ -1,6 +1,16 @@
 export type TypeReseau = 'distribution' | 'transport' | 'commun';
 
-export type ReferentielResource = 'causes' | 'sieges' | 'signalisations' | 'natures' | 'types_end';
+export type ReferentielResource =
+  | 'causes'
+  | 'sieges'
+  | 'signalisations'
+  | 'natures'
+  | 'types_end'
+  | 'types_reseaux'
+  | 'entreprises'
+  | 'prestataires'
+  | 'statuts'
+  | 'direction_sources';
 
 export interface ReferentielItem {
   id: number;

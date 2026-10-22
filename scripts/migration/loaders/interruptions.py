@@ -42,6 +42,7 @@ _MAX_INT = 2_147_483_647
 _FK_FIELDS = (
     "service_id",
     "feeder_id",
+    "sous_feeder_id",
     "poste_source_id",
     "cause_id",
     "nature_id",
@@ -51,6 +52,7 @@ _FK_FIELDS = (
 _FK_TABLE_BY_FIELD: dict[str, str] = {
     "service_id": "services",
     "feeder_id": "feeders",
+    "sous_feeder_id": "sous_feeders",
     "poste_source_id": "postes_sources",
     "cause_id": "causes",
     "nature_id": "natures",
@@ -195,6 +197,9 @@ class InterruptionsLoader(BaseLoader):
             "statut": statut,
             "service_id": service_id,
             "feeder_id": feeder_id,
+            "sous_feeder_id": self.fk.sous_feeder_id_by_legacy(
+                row_get(row, "idsousfeeder", "IDSousFeeder", "id_sous_feeder")
+            ),
             "poste_source_id": self.fk.poste_source_id(
                 str(row_get(row, "PosteSource", "postesource") or "")
             ),
@@ -349,12 +354,24 @@ class InterruptionsLoader(BaseLoader):
             rows = fetch_poste_interruptions_live(table, legacy_ids)
             for row in rows:
                 inter_id = self.fk.interruption_id(row_get(row, "NInterruption", "ninterruption"))
-                poste_id = self.fk.poste_id(
-                    str(
-                        row_get(row, "Poste", "NomPoste", "Posteconcerne", "poste", "nomposte", "posteconcerne")
-                        or ""
-                    )
+                poste_id = self.fk.poste_id_by_legacy(
+                    row_get(row, "IDPostes", "idpostes", "IDPoste", "idposte")
                 )
+                if poste_id is None:
+                    poste_id = self.fk.poste_id(
+                        str(
+                            row_get(
+                                row,
+                                "Poste",
+                                "NomPoste",
+                                "Posteconcerne",
+                                "poste",
+                                "nomposte",
+                                "posteconcerne",
+                            )
+                            or ""
+                        )
+                    )
                 if inter_id is None or poste_id is None:
                     self.log_reject(
                         row_get(row, "IDPosteInterruption"), "fk_poste_interruption", row
@@ -363,6 +380,7 @@ class InterruptionsLoader(BaseLoader):
                 if self.dry_run:
                     self.stats["inserted"] += 1
                     continue
+                inter = self.session.get(Interruption, inter_id)
                 self.session.add(
                     PosteInterruption(
                         interruption_id=inter_id,
@@ -370,6 +388,10 @@ class InterruptionsLoader(BaseLoader):
                         nombre_clients_touches=row_get(
                             row, "Nombreclientimpacte", "nombreclientimpacte", "nombreclientposteestime"
                         ),
+                        date_interruption=inter.date_apparition if inter else None,
+                        feeder_id=inter.feeder_id if inter else None,
+                        service_id=inter.service_id if inter else None,
+                        poste_source_id=inter.poste_source_id if inter else None,
                     )
                 )
                 self.stats["inserted"] += 1

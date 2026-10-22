@@ -73,6 +73,12 @@ export class AuthService {
     return roles.includes(user.role_label);
   }
 
+  /** Rôle réel du compte, sans le passe-droit SUPERADMIN. Sert au périmètre (région). */
+  isExactRole(...roles: string[]): boolean {
+    const label = this.currentUser()?.role_label;
+    return label !== null && label !== undefined && roles.includes(label);
+  }
+
   private unwrap<T>(res: ApiResponse<T>): T {
     if (res.status === 'error' || res.data === null) {
       throw new Error(res.error ?? 'Erreur API');

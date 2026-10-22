@@ -11,7 +11,7 @@ import {
 } from '../../../shared/models/interruption.models';
 import { ReferentielItem } from '../../../shared/models/referentiel.models';
 import { Region } from '../../../shared/models/geo.models';
-import { Feeder, PosteSource } from '../../../shared/models/reseau.models';
+import { Feeder, PosteSource, SousFeeder } from '../../../shared/models/reseau.models';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { BreadcrumbItem } from '../../../shared/ui/page-header/page-header.component';
 import { ReseauDistributionService } from '../services/reseau-distribution.service';
@@ -43,8 +43,8 @@ export class InterruptionFormComponent implements OnInit {
 
   /** BCC / BRC / ADMIN_SCR : saisie distribution. */
   readonly canWrite = computed(() => this.auth.hasRole('BCC', 'BRC', 'ADMIN_SCR'));
-  readonly isBrc = computed(() => this.auth.hasRole('BRC'));
-  readonly isBcc = computed(() => this.auth.hasRole('BCC'));
+  readonly isBrc = computed(() => this.auth.isExactRole('BRC'));
+  readonly isBcc = computed(() => this.auth.isExactRole('BCC'));
   readonly isRegionalScope = computed(() => this.isBcc() || this.isBrc());
   readonly isReadOnly = computed(() => this.isEditMode() && !this.canWrite());
 
@@ -58,12 +58,17 @@ export class InterruptionFormComponent implements OnInit {
   readonly posteSourceId = signal<number | null>(null);
   readonly postesSources = signal<PosteSource[]>([]);
   readonly feeders = signal<Feeder[]>([]);
+  readonly sousFeeders = signal<SousFeeder[]>([]);
   readonly serviceLibelle = signal<string | null>(null);
 
   readonly causes = signal<ReferentielItem[]>([]);
   readonly natures = signal<ReferentielItem[]>([]);
   readonly sieges = signal<ReferentielItem[]>([]);
   readonly signalisations = signal<ReferentielItem[]>([]);
+  readonly entreprises = signal<ReferentielItem[]>([]);
+  readonly prestataires = signal<ReferentielItem[]>([]);
+  readonly typesEnd = signal<ReferentielItem[]>([]);
+  readonly typesReseau = signal<ReferentielItem[]>([]);
   readonly loadingRef = signal(true);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -86,12 +91,16 @@ export class InterruptionFormComponent implements OnInit {
     date_apparition: ['', Validators.required],
     poste_source_id: [0, Validators.min(1)],
     feeder_id: [0, Validators.min(1)],
+    sous_feeder_id: [0, Validators.min(1)],
     cause_id: [0, Validators.min(1)],
     nature_id: [0, Validators.min(1)],
     siege_id: [0, Validators.min(1)],
     signalisation_id: [0, Validators.min(1)],
+    type_end_id: [0, Validators.min(1)],
+    type_reseau_id: [0, Validators.min(1)],
+    entreprise_id: [0],
+    prestataire_id: [0],
     puissance_coupee_mw: [null as number | null],
-    localisation: [''],
     observations: [''],
     is_force_majeure: [false],
     is_fugitive: [false],
@@ -122,6 +131,10 @@ export class InterruptionFormComponent implements OnInit {
     this.loadReferentiel('natures');
     this.loadReferentiel('sieges', 'distribution');
     this.loadReferentiel('signalisations', 'distribution');
+    this.loadReferentiel('entreprises');
+    this.loadReferentiel('prestataires');
+    this.loadReferentiel('types_end');
+    this.loadReferentiel('types_reseaux');
 
     if (editId) {
       forkJoin({
@@ -134,6 +147,14 @@ export class InterruptionFormComponent implements OnInit {
           this.detailFeederId.set(detail.feeder_id);
           this.workflow.set(workflow);
           this.applyEditDetail(detail);
+          if (detail.feeder_id) {
+            this.reseau
+              .listSousFeeders({ page: 1, page_size: 100, feeder_id: detail.feeder_id })
+              .subscribe({
+                next: (res) => this.sousFeeders.set(res.items),
+                error: () => {},
+              });
+          }
           this.syncReadOnlyControls();
           this.loadingRef.set(false);
         },
@@ -165,6 +186,10 @@ export class InterruptionFormComponent implements OnInit {
     this.form.controls.feeder_id.valueChanges.subscribe((id) => {
       if (this.isEditMode()) return;
       this.onFeederIdChanged(id);
+    });
+    this.form.controls.sous_feeder_id.valueChanges.subscribe((id) => {
+      if (this.isEditMode()) return;
+      this.onSousFeederIdChanged(id);
     });
   }
 
@@ -213,16 +238,18 @@ export class InterruptionFormComponent implements OnInit {
   private onPosteSourceIdChanged(posteSourceId: number): void {
     this.posteSourceId.set(posteSourceId >= 1 ? posteSourceId : null);
     this.feeders.set([]);
+    this.sousFeeders.set([]);
     this.serviceLibelle.set(null);
     if (posteSourceId < 1) {
       this.form.controls.feeder_id.setValue(0, { emitEvent: false });
+      this.form.controls.sous_feeder_id.setValue(0, { emitEvent: false });
       return;
     }
     this.loadFeedersForPosteSource(posteSourceId);
   }
 
   private loadFeedersForPosteSource(posteSourceId: number): void {
-    this.reseau.listFeeders({ page: 1, page_size: 100, poste_source_id: posteSourceId }).subscribe({
+    this.reseau.listFeeders({ page: 1, page_size: 500, poste_source_id: posteSourceId }).subscribe({
       next: (res) => this.applyFeeders(res.items),
       error: (err: Error) => this.error.set(err.message),
     });
@@ -230,6 +257,8 @@ export class InterruptionFormComponent implements OnInit {
 
   private applyFeeders(items: Feeder[]): void {
     this.feeders.set(items);
+    this.sousFeeders.set([]);
+    this.form.controls.sous_feeder_id.setValue(0, { emitEvent: false });
     if (this.isEditMode() || items.length !== 1) {
       return;
     }
@@ -239,12 +268,44 @@ export class InterruptionFormComponent implements OnInit {
   }
 
   private onFeederIdChanged(feederId: number): void {
+    this.sousFeeders.set([]);
+    this.form.controls.sous_feeder_id.setValue(0, { emitEvent: false });
     if (feederId < 1) {
       this.serviceLibelle.set(null);
       return;
     }
     const feeder = this.feeders().find((f) => f.id === feederId);
     this.serviceLibelle.set(feeder?.service_libelle ?? null);
+    this.loadSousFeedersForFeeder(feederId);
+  }
+
+  private loadSousFeedersForFeeder(feederId: number): void {
+    this.reseau.listSousFeeders({ page: 1, page_size: 500, feeder_id: feederId }).subscribe({
+      next: (res) => this.applySousFeeders(res.items),
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
+  private applySousFeeders(items: SousFeeder[]): void {
+    this.sousFeeders.set(items);
+    const control = this.form.controls.sous_feeder_id;
+    if (this.isEditMode()) {
+      return;
+    }
+    if (items.length === 0) {
+      control.clearValidators();
+      control.setValue(0, { emitEvent: false });
+    } else {
+      control.setValidators(Validators.min(1));
+      if (items.length === 1) {
+        control.setValue(items[0].id, { emitEvent: false });
+      }
+    }
+    control.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private onSousFeederIdChanged(_sousFeederId: number): void {
+    // réservé extension (ex. filtrage postes)
   }
 
   regionSelectDisabled(): boolean {
@@ -257,10 +318,11 @@ export class InterruptionFormComponent implements OnInit {
     this.posteSourceId.set(null);
     this.postesSources.set([]);
     this.feeders.set([]);
+    this.sousFeeders.set([]);
     this.serviceLibelle.set(null);
 
     if (!this.isEditMode()) {
-      this.form.patchValue({ poste_source_id: 0, feeder_id: 0 });
+      this.form.patchValue({ poste_source_id: 0, feeder_id: 0, sous_feeder_id: 0 });
     }
 
     this.syncNetworkControls();
@@ -296,6 +358,9 @@ export class InterruptionFormComponent implements OnInit {
       this.form.valid &&
       raw.poste_source_id >= 1 &&
       raw.feeder_id >= 1 &&
+      (this.sousFeeders().length === 0 || raw.sous_feeder_id >= 1) &&
+      raw.type_end_id >= 1 &&
+      raw.type_reseau_id >= 1 &&
       !!raw.date_apparition
     );
   }
@@ -304,7 +369,10 @@ export class InterruptionFormComponent implements OnInit {
     const raw = this.form.getRawValue();
     const invalid =
       this.form.invalid ||
-      (!this.isEditMode() && (raw.poste_source_id < 1 || raw.feeder_id < 1));
+      (!this.isEditMode() &&
+        (raw.poste_source_id < 1 ||
+          raw.feeder_id < 1 ||
+          (this.sousFeeders().length > 0 && raw.sous_feeder_id < 1)));
     if (invalid) return;
     this.saving.set(true);
     this.error.set(null);
@@ -321,8 +389,11 @@ export class InterruptionFormComponent implements OnInit {
           nature_id: raw.nature_id,
           siege_id: raw.siege_id,
           signalisation_id: raw.signalisation_id,
+          type_end_id: raw.type_end_id,
+          type_reseau_id: raw.type_reseau_id,
+          entreprise_id: raw.entreprise_id || null,
+          prestataire_id: raw.prestataire_id || null,
           puissance_coupee_mw: raw.puissance_coupee_mw,
-          localisation: raw.localisation || null,
           observations: raw.observations || null,
           is_force_majeure: raw.is_force_majeure,
           is_fugitive: raw.is_fugitive,
@@ -353,12 +424,16 @@ export class InterruptionFormComponent implements OnInit {
         date_apparition: dateIso,
         poste_source_id: raw.poste_source_id,
         feeder_id: raw.feeder_id,
+        sous_feeder_id: raw.sous_feeder_id >= 1 ? raw.sous_feeder_id : null,
         cause_id: raw.cause_id,
         nature_id: raw.nature_id,
         siege_id: raw.siege_id,
         signalisation_id: raw.signalisation_id,
+        type_end_id: raw.type_end_id,
+        type_reseau_id: raw.type_reseau_id,
+        entreprise_id: raw.entreprise_id || null,
+        prestataire_id: raw.prestataire_id || null,
         puissance_coupee_mw: raw.puissance_coupee_mw,
-        localisation: raw.localisation || null,
         observations: raw.observations || null,
         is_force_majeure: raw.is_force_majeure,
         is_fugitive: raw.is_fugitive,
@@ -390,12 +465,16 @@ export class InterruptionFormComponent implements OnInit {
       date_apparition: this.toDatetimeLocal(detail.date_apparition),
       poste_source_id: detail.poste_source_id ?? 0,
       feeder_id: detail.feeder_id ?? 0,
+      sous_feeder_id: detail.sous_feeder_id ?? 0,
       cause_id: detail.cause_id ?? 0,
       nature_id: detail.nature_id ?? 0,
       siege_id: detail.siege_id ?? 0,
       signalisation_id: detail.signalisation_id ?? 0,
+      type_end_id: detail.type_end_id ?? 0,
+      type_reseau_id: detail.type_reseau_id ?? 0,
+      entreprise_id: detail.entreprise_id ?? 0,
+      prestataire_id: detail.prestataire_id ?? 0,
       puissance_coupee_mw: detail.puissance_coupee_mw,
-      localisation: detail.localisation ?? '',
       observations: detail.observations ?? '',
       is_force_majeure: detail.is_force_majeure,
       is_fugitive: detail.is_fugitive,
@@ -413,15 +492,18 @@ export class InterruptionFormComponent implements OnInit {
   private syncNetworkControls(): void {
     const posteControl = this.form.controls.poste_source_id;
     const feederControl = this.form.controls.feeder_id;
+    const sousFeederControl = this.form.controls.sous_feeder_id;
 
     if (this.isEditMode()) {
       posteControl.disable({ emitEvent: false });
       feederControl.disable({ emitEvent: false });
+      sousFeederControl.disable({ emitEvent: false });
       return;
     }
 
     posteControl.enable({ emitEvent: false });
     feederControl.enable({ emitEvent: false });
+    sousFeederControl.enable({ emitEvent: false });
   }
 
   private syncReadOnlyControls(): void {
@@ -438,7 +520,15 @@ export class InterruptionFormComponent implements OnInit {
   }
 
   private loadReferentiel(
-    resource: 'causes' | 'natures' | 'sieges' | 'signalisations',
+    resource:
+      | 'causes'
+      | 'natures'
+      | 'sieges'
+      | 'signalisations'
+      | 'entreprises'
+      | 'prestataires'
+      | 'types_end'
+      | 'types_reseaux',
     typeReseau?: 'distribution',
   ): void {
     this.referentiel
@@ -457,6 +547,18 @@ export class InterruptionFormComponent implements OnInit {
               break;
             case 'signalisations':
               this.signalisations.set(res.items);
+              break;
+            case 'entreprises':
+              this.entreprises.set(res.items);
+              break;
+            case 'prestataires':
+              this.prestataires.set(res.items);
+              break;
+            case 'types_end':
+              this.typesEnd.set(res.items);
+              break;
+            case 'types_reseaux':
+              this.typesReseau.set(res.items);
               break;
           }
         },

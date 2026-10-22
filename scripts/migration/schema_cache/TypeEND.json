@@ -1,0 +1,9 @@
+{
+  "table": "TypeEND",
+  "source": "odbc_full",
+  "columns": [
+    "idtypeend",
+    "typeend",
+    "idresponsable"
+  ]
+}

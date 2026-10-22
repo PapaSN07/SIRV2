@@ -1,6 +1,7 @@
 # Secrets
 .env
 .env.senelec
+.env.docker-senelec
 .env.migration
 !.env.example
 !.env.senelec.example

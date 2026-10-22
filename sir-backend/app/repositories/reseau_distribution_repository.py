@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Type
 
-from sqlalchemy import Select, select, update
+from sqlalchemy import Select, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -55,6 +55,26 @@ def _apply_feeder_join_scope(
 # ---------------------------------------------------------------------------
 
 
+def _effective_region_id(region_id: int | None, scope: ScopeFilter | None) -> int | None:
+    if region_id is not None:
+        return region_id
+    if scope and scope.region_id is not None:
+        return scope.region_id
+    return None
+
+
+def _poste_source_ids_in_region_subquery(region_id: int) -> Select[Any]:
+    """Postes sources rattachés à la région via au moins un feeder."""
+    return (
+        select(Feeder.poste_source_id)
+        .where(
+            Feeder.poste_source_id.isnot(None),
+            Feeder.service_id.in_(_service_ids_in_region_subquery(region_id)),
+        )
+        .distinct()
+    )
+
+
 async def list_postes_sources(
     db: AsyncSession,
     *,
@@ -62,10 +82,15 @@ async def list_postes_sources(
     scope: ScopeFilter | None = None,
 ) -> list[PosteSource]:
     query = select(PosteSource).where(PosteSource.is_active == True).order_by(PosteSource.id)
-    if region_id is not None:
-        query = query.where(PosteSource.region_id == region_id)
-    if scope and scope.region_id is not None:
-        query = query.where(PosteSource.region_id == scope.region_id)
+    effective_region = _effective_region_id(region_id, scope)
+    if effective_region is not None:
+        ps_in_region = _poste_source_ids_in_region_subquery(effective_region)
+        query = query.where(
+            or_(
+                PosteSource.region_id == effective_region,
+                PosteSource.id.in_(ps_in_region),
+            )
+        )
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -211,7 +236,25 @@ async def list_troncons(
 ) -> list[Troncon]:
     query = select(Troncon).where(Troncon.is_active == True).order_by(Troncon.id)
     if feeder_id is not None:
-        query = query.where(Troncon.feeder_id == feeder_id)
+        from app.repositories.sig_repository import _feeder_sig_nom_aliases
+
+        feeder = await db.get(Feeder, feeder_id)
+        feeder_ids = {feeder_id}
+        if feeder is not None:
+            for alias in _feeder_sig_nom_aliases(feeder):
+                alias_upper = alias.upper()
+                related = await db.execute(
+                    select(Feeder.id).where(
+                        or_(
+                            func.upper(Feeder.libelle) == alias_upper,
+                            func.upper(Feeder.code) == alias_upper,
+                            func.upper(Feeder.libelle).like(func.concat(alias_upper, " %")),
+                            func.upper(Feeder.code).like(func.concat(alias_upper, "_%")),
+                        )
+                    )
+                )
+                feeder_ids.update(int(r) for r in related.scalars().all())
+        query = query.where(Troncon.feeder_id.in_(feeder_ids))
     if scope and (scope.service_id is not None or scope.region_id is not None):
         query = _apply_feeder_join_scope(query, Troncon, scope)
     result = await db.execute(query)

@@ -1,0 +1,65 @@
+.assistant-hub {
+  max-width: 1152px;
+  margin: 0 auto;
+
+  &__error {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    background: #ffdad6;
+    color: #93000a;
+    border-radius: 0.25rem;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  &__hint {
+    font-size: 13px;
+    color: #5c4d68;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+
+    @media (min-width: 960px) {
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+  }
+
+  &__datamart {
+    padding: 1rem;
+    border: 1px solid #d7d0df;
+    border-radius: 0.5rem;
+    background: #fff;
+
+    h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.05rem;
+      color: #3c1053;
+    }
+
+    h3 {
+      margin: 0.75rem 0 0.35rem;
+      font-size: 0.9rem;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.1rem;
+      font-size: 13px;
+      color: #3a3340;
+    }
+  }
+
+  &__meta {
+    margin-top: 1rem;
+    font-size: 12px;
+    color: #5c4d68;
+  }
+}

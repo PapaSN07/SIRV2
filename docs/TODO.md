@@ -1067,7 +1067,7 @@
 - [ ] Sélecteurs période / région / direction
 - [ ] Graphiques END, SAIFI, SAIDI avec ligne objectif CRSE
 - [ ] Export Excel depuis le frontend
-- [ ] Rapport `docs/integration/INTEGRATION_REPORT_indicateurs.md`
+- [x] Rapport `docs/integration/INTEGRATION_REPORT_indicateurs.md`
 
 ### Integration & QA
 

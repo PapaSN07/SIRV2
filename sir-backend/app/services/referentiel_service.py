@@ -12,7 +12,9 @@ from app.models.utilisateurs import Utilisateur
 from app.repositories import referentiel_repository as ref_repo
 from app.schemas.common import PaginatedResponse
 from app.schemas.referentiel import (
+    READ_ONLY_RESOURCES,
     RESOURCES_WITH_TYPE_RESEAU,
+    SCR_ONLY_RESOURCES,
     VALID_RESOURCES,
     ReferentielCreate,
     ReferentielResponse,
@@ -47,9 +49,28 @@ def _ensure_can_write(
     type_reseau: str | None,
 ) -> None:
     """Admin SCR → distribution/commun · Admin Dispatching → transport/commun."""
+    if resource in READ_ONLY_RESOURCES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": f"Le référentiel '{resource}' est en lecture seule",
+            },
+        )
     if is_superadmin(user):
         return
     roles = _user_role_names(user)
+
+    if resource in SCR_ONLY_RESOURCES and "ADMIN_SCR" not in roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": f"Seul Admin SCR peut modifier '{resource}'",
+            },
+        )
 
     if not roles.intersection({"ADMIN_SCR", "ADMIN_DISPATCHING"}):
         raise HTTPException(
@@ -107,7 +128,7 @@ def _build_response(record: Any) -> ReferentielResponse:
         libelle=record.libelle,
         type_reseau=getattr(record, "type_reseau", None),
         description=getattr(record, "description", None),
-        is_active=record.is_active,
+        is_active=getattr(record, "is_active", True),
     )
 
 

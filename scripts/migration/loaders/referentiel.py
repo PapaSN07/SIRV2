@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.models.referentiel import Cause, Nature, Siege, Signalisation, TypeEnd
+from sqlalchemy import select
+
+from app.models.referentiel import Cause, Nature, Siege, Signalisation, TypeEnd, TypeReseau
 
 from scripts.migration.hfsql_odbc import load_table_rows
 from scripts.migration.loaders.base import BaseLoader
@@ -25,6 +27,7 @@ class ReferentielLoader(BaseLoader):
         self._load_signalisations()
         self._load_natures()
         self._load_types_end()
+        self._load_types_reseaux()
         for entity in (
             "causes",
             "causes_by_text",
@@ -35,6 +38,7 @@ class ReferentielLoader(BaseLoader):
             "natures",
             "natures_by_text",
             "types_end",
+            "types_reseaux",
         ):
             self.id_maps.save(entity)
         return self.summary()
@@ -185,22 +189,60 @@ class ReferentielLoader(BaseLoader):
             self.stats["inserted"] += 1
 
     def _load_types_end(self) -> None:
-        for row in load_table_rows("TypesEND"):
-            legacy_id = row.get("IDTypeEND")
-            libelle = str(row.get("TypeEND") or row.get("Type_END") or "").strip()
+        for row in load_table_rows("TypeEND"):
+            legacy_id = row_get(row, "IDTypeEND", "idtypeend")
+            libelle = str(row_get(row, "TypeEND", "typeend", "Type_END") or "").strip()
             if not libelle:
                 self.log_reject(legacy_id, "type_end_vide", row)
                 continue
-            code = slug_code(libelle)
+            code = slug_code(libelle)[:20]
             if self.id_maps.get("types_end", legacy_id):
                 self.stats["skipped"] += 1
                 continue
             if self.dry_run:
                 new_id = len(self.id_maps.load("types_end")) + 1
             else:
-                obj = TypeEnd(code=code, libelle=libelle[:200], is_active=True)
-                self.session.add(obj)
-                self.session.flush()
-                new_id = obj.id
+                existing = self.session.execute(
+                    select(TypeEnd.id).where(TypeEnd.code == code)
+                ).scalar_one_or_none()
+                if existing:
+                    new_id = int(existing)
+                    self.stats["skipped"] += 1
+                else:
+                    obj = TypeEnd(code=code, libelle=libelle[:200], is_active=True)
+                    self.session.add(obj)
+                    self.session.flush()
+                    new_id = obj.id
+                    self.stats["inserted"] += 1
             self.id_maps.put("types_end", legacy_id, new_id)
-            self.stats["inserted"] += 1
+            if self.dry_run:
+                self.stats["inserted"] += 1
+
+    def _load_types_reseaux(self) -> None:
+        for row in load_table_rows("TypeReseau"):
+            legacy_id = row_get(row, "IDTypeReseau", "idtypereseau")
+            libelle = str(row_get(row, "typereseau", "TypeReseau", "libelle") or "").strip()
+            if not libelle:
+                self.log_reject(legacy_id, "type_reseau_vide", row)
+                continue
+            code = slug_code(libelle)[:20]
+            if self.id_maps.get("types_reseaux", legacy_id):
+                self.stats["skipped"] += 1
+                continue
+            if self.dry_run:
+                new_id = len(self.id_maps.load("types_reseaux")) + 1
+                self.stats["inserted"] += 1
+            else:
+                existing = self.session.execute(
+                    select(TypeReseau.id).where(TypeReseau.code == code)
+                ).scalar_one_or_none()
+                if existing:
+                    new_id = int(existing)
+                    self.stats["skipped"] += 1
+                else:
+                    obj = TypeReseau(code=code, libelle=libelle[:200], is_active=True)
+                    self.session.add(obj)
+                    self.session.flush()
+                    new_id = obj.id
+                    self.stats["inserted"] += 1
+            self.id_maps.put("types_reseaux", legacy_id, new_id)

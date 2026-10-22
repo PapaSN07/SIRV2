@@ -3,7 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Region } from '../../../shared/models/geo.models';
-import { HistoriquePoint, TableauDeBordResponse, TopFeederItem } from '../../../shared/models/indicateurs.models';
+import { CauseRepartitionItem, HistoriquePoint, NatureRepartitionItem, TableauDeBordResponse, TopFeederItem } from '../../../shared/models/indicateurs.models';
 import { AnalyticsNavComponent } from '../../../shared/ui/analytics-nav/analytics-nav.component';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { GeoService } from '../../geo/services/geo.service';
@@ -16,6 +16,7 @@ interface ChartMonth {
 }
 
 const MONTH_LABELS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
+const CAUSE_COLORS = ['#3d49a0', '#5c6bc0', '#7986cb', '#9fa8da', '#c5cae9'];
 
 @Component({
   selector: 'sir-indicateurs-hub',
@@ -49,6 +50,37 @@ export class IndicateursHubComponent implements OnInit {
     }
     return options;
   });
+
+  readonly causesRepartition = computed((): CauseRepartitionItem[] => this.kpi()?.causes_repartition ?? []);
+
+  readonly naturesRepartition = computed((): NatureRepartitionItem[] => this.kpi()?.natures_repartition ?? []);
+
+  readonly causeDonutStyle = computed((): string => {
+    const items = this.causesRepartition();
+    if (!items.length) {
+      return 'conic-gradient(#e5e7eb 0deg 360deg)';
+    }
+    let cursor = 0;
+    const stops: string[] = [];
+    items.forEach((item, index) => {
+      const span = (item.percent / 100) * 360;
+      const color = CAUSE_COLORS[index % CAUSE_COLORS.length];
+      stops.push(`${color} ${cursor}deg ${cursor + span}deg`);
+      cursor += span;
+    });
+    return `conic-gradient(${stops.join(', ')})`;
+  });
+
+  readonly causeDonutTotal = computed((): number => {
+    const kpi = this.kpi();
+    if (!kpi) return 0;
+    const fromCauses = this.causesRepartition().reduce((sum, item) => sum + item.nombre, 0);
+    return fromCauses || kpi.nb_interruptions_mois || 0;
+  });
+
+  causeColor(index: number): string {
+    return CAUSE_COLORS[index % CAUSE_COLORS.length];
+  }
 
   ngOnInit(): void {
     this.geo.getRegions().subscribe({

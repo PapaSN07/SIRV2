@@ -9,6 +9,7 @@ import { notificationEventLabel } from '../../core/notifications/notification.ut
 import {
   CauseRepartitionItem,
   HistoriquePoint,
+  NatureServiceRepartition,
   TableauDeBordResponse,
 } from '../../shared/models/indicateurs.models';
 import {
@@ -24,6 +25,16 @@ interface ChartMonth {
   label: string;
   saidiHeight: number;
   saifiHeight: number;
+}
+
+interface ServiceBar {
+  service_id: number;
+  code: string;
+  libelle: string;
+  endHeight: number;
+  nombreHeight: number;
+  end_kwh: number;
+  nombre: number;
 }
 
 const MONTH_LABELS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
@@ -99,6 +110,23 @@ export class DashboardComponent implements OnInit {
 
   readonly hasCauseData = computed(() => (this.kpi()?.causes_repartition?.length ?? 0) > 0);
 
+  readonly natureService = computed((): NatureServiceRepartition | null => this.kpi()?.nature_service ?? null);
+
+  readonly serviceBars = computed((): ServiceBar[] => {
+    const services = this.natureService()?.services ?? [];
+    const maxEnd = Math.max(...services.map((service) => service.end_kwh), 1);
+    const maxNombre = Math.max(...services.map((service) => service.nombre), 1);
+    return services.map((service) => ({
+      service_id: service.service_id,
+      code: service.code,
+      libelle: service.libelle,
+      end_kwh: service.end_kwh,
+      nombre: service.nombre,
+      endHeight: Math.round((service.end_kwh / maxEnd) * 100),
+      nombreHeight: Math.round((service.nombre / maxNombre) * 100),
+    }));
+  });
+
   readonly activeProgress = computed(() => {
     const data = this.kpi();
     if (!data || data.nb_interruptions_mois === 0) return 0;
@@ -126,12 +154,17 @@ export class DashboardComponent implements OnInit {
   }
 
   isBrcUser(): boolean {
-    return this.auth.hasRole('BRC');
+    return this.auth.isExactRole('BRC');
   }
 
   formatNumber(value: number | null | undefined): string {
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  }
+
+  formatEndKwh(value: number | null | undefined): string {
+    if (value === null || value === undefined) return '—';
+    return Math.round(value).toLocaleString('fr-FR');
   }
 
   readonly statutLabel = statutLabel;

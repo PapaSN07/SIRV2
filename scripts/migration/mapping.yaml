@@ -203,8 +203,9 @@ postes:
   fields:
     code: { source: Poste, transform: slug_code }
     libelle: { source: Poste }
-    feeder_id: { lookup: feeders, by_text: Feeder }
-    service_id: { lookup: services, by_text: Service }
+    puissance_kva: { source: puissanceTransfo }
+    feeder_id: { lookup: feeders, by_legacy: IDFeeder, by_text: Feeder }
+    service_id: { lookup: services, by_legacy: ID_Service, by_text: Service }
 
 troncons:
   source_table: Troncon
@@ -286,6 +287,7 @@ interruptions:
     # Résolution cascade : legacy ID HFSQL puis texte (voir fk_resolver.resolve_*)
     service_id: { lookup: services, by_legacy: idservice, by_text: Service }
     feeder_id: { lookup: feeders, by_legacy: idfeeder, by_text: [Feeder, Feeder1, feeder2] }
+    sous_feeder_id: { lookup: sous_feeders, by_legacy: idsousfeeder }
     poste_source_id: { lookup: postes_sources, by_text: PosteSource }
     # DateApparition toujours NULL en base réelle — date = Creation + heureApparition
     date_apparition: { merge: [Creation, heureApparition], fallback: [Modification, DateSaisie, Annee] }

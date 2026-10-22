@@ -54,6 +54,12 @@ class MigrationSettings(BaseSettings):
         default=False, validation_alias="MIGRATION_LOAD_POSTE_INTERRUPTIONS"
     )
 
+    # IndicateursTransportDistribution (PosteInterruption pour SAIFI/SAIDI)
+    itd_database: str = Field(
+        default="IndicateursTransportDistribution",
+        validation_alias="ITD_DATABASE",
+    )
+
     @property
     def exports_dir(self) -> Path:
         return MIGRATION_ROOT / "exports"

@@ -25,6 +25,10 @@ async def main() -> None:
             await seed_sig(session)
             print("→ seed_dev_accounts …")
             await seed_dev_accounts(session)
+            print("→ seed_natures …")
+            from app.models.seed.seed_natures import seed_natures
+
+            await seed_natures(session)
             print("→ seed_interruptions …")
             from app.models.seed.seed_interruptions import seed_interruptions
 

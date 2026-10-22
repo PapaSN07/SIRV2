@@ -235,6 +235,15 @@ async def update_utilisateur(
     )
 
     if body.roles is not None:
+        if len(body.roles) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Au moins un rôle est obligatoire",
+                },
+            )
         roles = await _validate_role_assignments(db, direction, body.roles)
         await admin_repo.replace_roles(db, user.id, roles)
         user = await admin_repo.get_by_id(db, user.id)

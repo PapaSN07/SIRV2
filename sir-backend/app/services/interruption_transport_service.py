@@ -671,6 +671,7 @@ async def update(
     transport_fields = {"tension_kv", "puissance_transit_mw", "source_transport_id"}
 
     interruption_updates = {k: v for k, v in updates.items() if k in interruption_fields}
+    interruption_updates["updated_by_id"] = current_user.id
     transport_updates = {k: v for k, v in updates.items() if k in transport_fields}
 
     result = await repo.update_interruption_transport(
@@ -728,6 +729,7 @@ async def cloturer(
             "statut": "cloture",
             "date_remise": body.date_remise,
             "duree_minutes": duree_minutes,
+            "updated_by_id": current_user.id,
         },
         transport_updates={},
     )
@@ -797,6 +799,7 @@ async def valider(
         interruption_updates={
             "statut": "valide",
             "validated_by_id": current_user.id,
+            "updated_by_id": current_user.id,
         },
         transport_updates={},
     )

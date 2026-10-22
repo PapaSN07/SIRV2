@@ -23,9 +23,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# En développement, le poste de test peut ouvrir le frontend par l'adresse IP du réseau.
+_DEV_LAN_ORIGIN = (
+    r"http://(localhost|127\.0\.0\.1|"
+    r"10(?:\.\d{1,3}){3}|"
+    r"192\.168(?:\.\d{1,3}){2}|"
+    r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}):4210"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=None if settings.is_production else _DEV_LAN_ORIGIN,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

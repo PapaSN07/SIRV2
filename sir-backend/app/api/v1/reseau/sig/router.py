@@ -20,7 +20,7 @@ router = APIRouter()
 async def list_troncons_sig(
     feeder_id: int = Query(..., ge=1),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=500),
     search: str | None = Query(default=None, max_length=100),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),

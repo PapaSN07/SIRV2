@@ -35,6 +35,19 @@ class NatureRepartitionRow:
     end_mwh: float
 
 
+@dataclass(frozen=True)
+class NatureServiceRow:
+    """Agrégat nature × service — nombre d'interruptions et END."""
+
+    nature_code: str
+    nature_libelle: str
+    service_id: int
+    service_code: str
+    service_libelle: str
+    nombre: int
+    end_mwh: float
+
+
 async def aggregate_end_by_services(
     db: AsyncSession,
     *,
@@ -312,6 +325,63 @@ async def aggregate_interruptions_by_nature(
     ]
     rows.sort(key=lambda r: _ORDER.index(r.code) if r.code in _ORDER else len(_ORDER))
     return rows
+
+
+async def aggregate_interruptions_by_nature_and_service(
+    db: AsyncSession,
+    *,
+    service_ids: list[int],
+    annee: int,
+    mois: int,
+) -> list[NatureServiceRow]:
+    """Nombre d'interruptions et END par nature et par service (période mensuelle)."""
+    if not service_ids:
+        return []
+
+    result = await db.execute(
+        select(
+            Nature.code.label("nature_code"),
+            Nature.libelle.label("nature_libelle"),
+            Service.id.label("service_id"),
+            Service.code.label("service_code"),
+            Service.libelle.label("service_libelle"),
+            func.count(Interruption.id).label("nombre"),
+            func.coalesce(func.sum(InterruptionDistribution.end_mwh), 0).label("end_mwh"),
+        )
+        .select_from(Interruption)
+        .join(Service, Service.id == Interruption.service_id)
+        .outerjoin(Nature, Nature.id == Interruption.nature_id)
+        .outerjoin(
+            InterruptionDistribution,
+            InterruptionDistribution.interruption_id == Interruption.id,
+        )
+        .where(
+            Interruption.type_direction == "distribution",
+            Interruption.service_id.in_(service_ids),
+            Interruption.statut.in_(("cloture", "valide")),
+            extract("year", Interruption.date_apparition) == annee,
+            extract("month", Interruption.date_apparition) == mois,
+        )
+        .group_by(
+            Nature.code,
+            Nature.libelle,
+            Service.id,
+            Service.code,
+            Service.libelle,
+        )
+    )
+    return [
+        NatureServiceRow(
+            nature_code=row.nature_code or "AUTRE",
+            nature_libelle=row.nature_libelle or "Non renseignee",
+            service_id=int(row.service_id),
+            service_code=row.service_code,
+            service_libelle=row.service_libelle,
+            nombre=int(row.nombre),
+            end_mwh=float(row.end_mwh),
+        )
+        for row in result.all()
+    ]
 
 
 async def count_transport_interruptions(

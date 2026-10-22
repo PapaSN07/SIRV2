@@ -28,9 +28,10 @@ _SEED_MARKER = "SEED:"
 _REFERENTIEL: list[tuple[str, type, str, str, str | None]] = [
     # (code, model, libelle, type_reseau_or_empty, _)
     ("CAUSE-DEF", Cause, "Défaut équipement", "distribution", None),
+    ("CAUSE-OR", Cause, "Défaut organique", "distribution", None),
+    ("CAUSE-EXT", Cause, "Facteur exogène", "distribution", None),
     ("SIEGE-DEF", Siege, "Ligne MT", "distribution", None),
     ("SIG-DEF", Signalisation, "Signalisation standard", "distribution", None),
-    ("NAT-DEF", Nature, "Incident", "", None),
 ]
 
 _INTERRUPTIONS: list[dict[str, object]] = [
@@ -44,6 +45,8 @@ _INTERRUPTIONS: list[dict[str, object]] = [
         "with_poste": True,
         "validated_by_id": None,
         "end_mwh": None,
+        "cause_code": "CAUSE-DEF",
+        "nature_code": "PERMANENT",
     },
     {
         "marker": "INT-CLOTURE",
@@ -55,6 +58,8 @@ _INTERRUPTIONS: list[dict[str, object]] = [
         "with_poste": True,
         "validated_by_id": None,
         "end_mwh": 2.5,
+        "cause_code": "CAUSE-OR",
+        "nature_code": "FUGITIF",
     },
     {
         "marker": "INT-VALIDE",
@@ -66,6 +71,8 @@ _INTERRUPTIONS: list[dict[str, object]] = [
         "with_poste": True,
         "validated_by_id": "supervisor",
         "end_mwh": 1.8,
+        "cause_code": "CAUSE-EXT",
+        "nature_code": "DELESTAGE",
     },
 ]
 
@@ -85,8 +92,9 @@ async def _get_by_code(db: AsyncSession, model: type, code: str):
     return row
 
 
-async def _upsert_referentiel(db: AsyncSession) -> tuple[Cause, Siege, Signalisation, Nature]:
-    cause = siege = sig = nature = None
+async def _upsert_referentiel(db: AsyncSession) -> tuple[Cause, Siege, Signalisation]:
+    causes: dict[str, Cause] = {}
+    siege = sig = None
     for code, model, libelle, type_reseau, _ in _REFERENTIEL:
         result = await db.execute(select(model).where(model.code == code))  # type: ignore[arg-type]
         row = result.scalar_one_or_none()
@@ -98,15 +106,23 @@ async def _upsert_referentiel(db: AsyncSession) -> tuple[Cause, Siege, Signalisa
             db.add(row)
             await db.flush()
         if model is Cause:
-            cause = row
+            causes[code] = row
         elif model is Siege:
             siege = row
         elif model is Signalisation:
             sig = row
-        elif model is Nature:
-            nature = row
-    assert cause and siege and sig and nature
-    return cause, siege, sig, nature
+    assert siege and sig and causes
+    return causes, siege, sig
+
+
+async def _get_nature_by_code(db: AsyncSession, code: str) -> Nature:
+    result = await db.execute(select(Nature).where(Nature.code == code))
+    nature = result.scalar_one_or_none()
+    if nature is None:
+        raise ValueError(
+            f"Nature '{code}' introuvable — exécuter seed_natures avant seed_interruptions"
+        )
+    return nature
 
 
 async def _upsert_dev_user(
@@ -229,6 +245,9 @@ async def _upsert_interruption(
                 interruption_id=interruption.id,
                 poste_id=poste_id,
                 nombre_clients_touches=120,
+                feeder_id=feeder_id,
+                service_id=service_id,
+                poste_source_id=poste_source_id,
             )
         )
         await db.flush()
@@ -243,7 +262,7 @@ async def seed_interruptions(db: AsyncSession) -> None:
     poste: Poste = await _get_by_code(db, Poste, _POSTE_CODE)
     poste_source: PosteSource = await _get_by_code(db, PosteSource, _POSTE_SOURCE_CODE)
 
-    cause, siege, sig, nature = await _upsert_referentiel(db)
+    causes, siege, sig = await _upsert_referentiel(db)
 
     bcc_result = await db.execute(select(Utilisateur).where(Utilisateur.login == _DEV_BCC_LOGIN))
     bcc = bcc_result.scalar_one_or_none()
@@ -262,6 +281,11 @@ async def seed_interruptions(db: AsyncSession) -> None:
         validated_id: int | None = None
         if spec["validated_by_id"] == "supervisor":
             validated_id = supervisor.id
+
+        cause_code = str(spec["cause_code"])
+        nature_code = str(spec["nature_code"])
+        cause = causes[cause_code]
+        nature = await _get_nature_by_code(db, nature_code)
 
         await _upsert_interruption(
             db,

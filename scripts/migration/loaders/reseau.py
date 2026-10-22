@@ -219,8 +219,10 @@ class ReseauLoader(BaseLoader):
 
     def _load_postes(self) -> None:
         for row in load_table_rows("Postes"):
-            legacy_id = row.get("IDPostes")
-            libelle = str(row.get("Poste") or row.get("NomPoste") or "").strip()
+            legacy_id = row_get(row, "IDPostes", "idpostes")
+            libelle = str(
+                row_get(row, "Poste", "poste", "NomPoste", "nomposte") or ""
+            ).strip()
             if not libelle:
                 self.log_reject(legacy_id, "poste_vide", row)
                 continue
@@ -228,15 +230,27 @@ class ReseauLoader(BaseLoader):
             if self.id_maps.get("postes", legacy_id):
                 self.stats["skipped"] += 1
                 continue
+            feeder_id = self.fk.resolve_feeder_id(row)
+            service_id = self.fk.service_id_by_legacy(
+                row_get(row, "ID_Service", "id_service", "IDService", "idservice")
+            )
+            if service_id is None:
+                service_id = self.fk.service_id(str(row_get(row, "Service", "service") or ""))
+            puissance = row_get(row, "puissanceTransfo", "puissancetransfo")
+            try:
+                puissance_kva = float(puissance) if puissance not in (None, "") else None
+            except (TypeError, ValueError):
+                puissance_kva = None
             if self.dry_run:
                 new_id = len(self.id_maps.load("postes")) + 1
             else:
                 obj = Poste(
-                    feeder_id=self.fk.feeder_id(str(row.get("Feeder") or "")),
-                    service_id=self.fk.service_id(str(row.get("Service") or "")),
+                    feeder_id=feeder_id,
+                    service_id=service_id,
                     code=code,
                     libelle=libelle[:200],
-                    nombre_clients=row.get("NombreClient"),
+                    puissance_kva=puissance_kva,
+                    nombre_clients=None,
                     is_active=True,
                 )
                 self.session.add(obj)
@@ -280,11 +294,34 @@ class ReseauLoader(BaseLoader):
             self.stats["inserted"] += 1
 
     def _load_sous_feeders(self) -> None:
-        for row in load_table_rows("SousFeeders"):
-            legacy_id = row.get("IDSousFeeder")
-            libelle = str(row.get("SousFeeder") or legacy_id or "").strip()
-            code = slug_code(libelle)
-            feeder_id = self.fk.feeder_id(str(row.get("Feeder") or ""))
+        """Table HFSQL SousFeeder (Libelle_SousFeeder + IDFeeder)."""
+        for row in load_table_rows("SousFeeder"):
+            legacy_id = row_get(row, "IDSousFeeder", "idsousfeeder")
+            libelle = str(
+                row_get(
+                    row,
+                    "Libelle_SousFeeder",
+                    "libelle_sousfeeder",
+                    "SousFeeder",
+                    "sousfeeder",
+                )
+                or ""
+            ).strip()
+            if not libelle:
+                libelle = str(
+                    row_get(row, "Libelle_Feeder_SousFeeder", "libelle_feeder_sousfeeder") or ""
+                ).strip()
+            if not libelle or legacy_id is None:
+                self.log_reject(legacy_id, "sous_feeder_vide", row)
+                continue
+            code = f"SF{int(legacy_id)}"[:20]
+            feeder_id = self.fk.feeder_id_by_legacy(
+                row_get(row, "IDFeeder", "idfeeder", "id_feeder")
+            )
+            if feeder_id is None:
+                feeder_id = self.fk.feeder_id(
+                    str(row_get(row, "Libelle_Feeder_SousFeeder", "Feeder", "feeder") or "")
+                )
             if feeder_id is None:
                 self.log_reject(legacy_id, "feeder_introuvable", row)
                 continue
@@ -294,7 +331,20 @@ class ReseauLoader(BaseLoader):
             if self.dry_run:
                 new_id = len(self.id_maps.load("sous_feeders")) + 1
             else:
-                obj = SousFeeder(feeder_id=feeder_id, code=code, libelle=libelle[:200], is_active=True)
+                existing = self.session.execute(
+                    select(SousFeeder.id).where(SousFeeder.code == code)
+                ).scalar_one_or_none()
+                if existing:
+                    new_id = int(existing)
+                    self.stats["skipped"] += 1
+                    self.id_maps.put("sous_feeders", legacy_id, new_id)
+                    continue
+                obj = SousFeeder(
+                    feeder_id=feeder_id,
+                    code=code,
+                    libelle=libelle[:200],
+                    is_active=True,
+                )
                 self.session.add(obj)
                 self.session.flush()
                 new_id = obj.id

@@ -185,6 +185,100 @@
       </section>
     </div>
 
+    <section class="panel panel--table nature-matrix">
+      <div class="panel__head">
+        <div>
+          <h2 class="panel__title">END et nombre d'interruptions par nature et par service</h2>
+          <p class="panel__hint">Période {{ periodLabel() }} — interruptions clôturées ou validées. END en kWh.</p>
+        </div>
+      </div>
+      @if (natureService(); as matrix) {
+        <div class="table-wrap">
+          <table class="data-table nature-matrix__table">
+            <thead>
+              <tr>
+                <th rowspan="2">Nature</th>
+                @for (service of matrix.services; track service.service_id) {
+                  <th class="nature-matrix__service" colspan="2" [title]="service.libelle">{{ service.code }}</th>
+                }
+                <th class="nature-matrix__total" colspan="2">Total</th>
+              </tr>
+              <tr>
+                @for (service of matrix.services; track service.service_id) {
+                  <th class="nature-matrix__sub">Nombre</th>
+                  <th class="nature-matrix__sub">END</th>
+                }
+                <th class="nature-matrix__sub">Nombre</th>
+                <th class="nature-matrix__sub">END</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (ligne of matrix.lignes; track ligne.code) {
+                <tr>
+                  <th class="nature-matrix__nature" scope="row">{{ ligne.libelle }}</th>
+                  @for (cell of ligne.cellules; track $index) {
+                    <td class="data-table__num">{{ cell.nombre > 0 ? cell.nombre : '' }}</td>
+                    <td class="data-table__num">{{ cell.end_kwh > 0 ? formatEndKwh(cell.end_kwh) : '' }}</td>
+                  }
+                  <td class="data-table__num data-table__bold">{{ ligne.nombre }}</td>
+                  <td class="data-table__num data-table__bold">{{ formatEndKwh(ligne.end_kwh) }}</td>
+                </tr>
+              }
+              <tr class="nature-matrix__total-row">
+                <th scope="row">Total</th>
+                @for (service of matrix.services; track service.service_id) {
+                  <td class="data-table__num">{{ service.nombre }}</td>
+                  <td class="data-table__num">{{ formatEndKwh(service.end_kwh) }}</td>
+                }
+                <td class="data-table__num">{{ matrix.total_nombre }}</td>
+                <td class="data-table__num">{{ formatEndKwh(matrix.total_end_kwh) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="nature-matrix__chart">
+          <div class="panel__head">
+            <h2 class="panel__title">Répartition par service</h2>
+            <div class="panel__legend">
+              <span class="legend-item">
+                <span class="legend-item__swatch legend-item__swatch--primary"></span>
+                END (kWh)
+              </span>
+              <span class="legend-item">
+                <span class="legend-item__swatch legend-item__swatch--tertiary"></span>
+                Nombre d'interruptions
+              </span>
+            </div>
+          </div>
+          <div class="bar-chart bar-chart--services">
+            @for (service of serviceBars(); track service.service_id) {
+              <div class="bar-chart__group">
+                <div class="bar-chart__bars">
+                  <div
+                    class="bar-chart__bar bar-chart__bar--saidi"
+                    [style.height.%]="chartReady() ? service.endHeight : 0"
+                    [title]="service.libelle + ' — END ' + formatEndKwh(service.end_kwh) + ' kWh'"
+                  ></div>
+                  <div
+                    class="bar-chart__bar bar-chart__bar--saifi"
+                    [style.height.%]="chartReady() ? service.nombreHeight : 0"
+                    [title]="service.libelle + ' — ' + service.nombre + ' interruption(s)'"
+                  ></div>
+                </div>
+                <p class="bar-chart__label" [title]="service.libelle">
+                  {{ service.code }}
+                  <span>{{ formatEndKwh(service.end_kwh) }} · {{ service.nombre }}</span>
+                </p>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <p class="dashboard__hint">Aucune interruption clôturée ou validée sur cette période.</p>
+      }
+    </section>
+
     <section class="panel panel--table">
       <div class="panel__head">
         <h2 class="panel__title">Dernières interruptions</h2>

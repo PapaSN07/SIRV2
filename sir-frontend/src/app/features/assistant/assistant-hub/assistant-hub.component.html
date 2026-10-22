@@ -1,0 +1,70 @@
+<section class="assistant-hub">
+  <sir-page-header
+    title="Assistant risque panne / travaux"
+    [breadcrumbs]="[{ label: 'Indicateurs', route: '/indicateurs' }, { label: 'Assistant' }]"
+  />
+
+  <sir-analytics-nav />
+
+  @if (error()) {
+    <p class="assistant-hub__error" role="alert">{{ error() }}</p>
+  }
+
+  <div class="assistant-hub__actions">
+    @if (canAdmin()) {
+      <button type="button" class="sir-btn sir-btn--primary" (click)="runScoring()">
+        Recalculer scores P0
+      </button>
+    }
+    @if (scoringMsg()) {
+      <span class="assistant-hub__hint">{{ scoringMsg() }}</span>
+    }
+  </div>
+
+  <div class="assistant-hub__grid">
+    <sir-assistant-panel />
+
+    <aside class="assistant-hub__datamart">
+      <h2>Datamart (lecture)</h2>
+      @if (loading()) {
+        <p>Chargement…</p>
+      } @else {
+        @if (datamart(); as dm) {
+        <h3>Feeders / mois (top)</h3>
+        <ul>
+          @for (f of dm.feeders_mois.slice(0, 8); track f.feeder_id + '-' + f.annee + '-' + f.mois) {
+            <li>
+              <strong>{{ f.feeder_libelle ?? f.feeder_code }}</strong>
+              — {{ f.mois }}/{{ f.annee }} : {{ f.nb_interruptions }} int.
+            </li>
+          }
+        </ul>
+        <h3>Tronçons SIG</h3>
+        <ul>
+          @for (t of dm.troncons_sig.slice(0, 8); track t.troncon_sig_id) {
+            <li>
+              <strong>{{ t.troncon_sig_libelle ?? t.troncon_sig_id }}</strong>
+              — {{ t.nb_interruptions }} int.
+            </li>
+          }
+        </ul>
+        <h3>Postes impactés</h3>
+        <ul>
+          @for (p of dm.postes.slice(0, 8); track p.poste_id) {
+            <li>
+              <strong>{{ p.poste_libelle ?? p.poste_code }}</strong>
+              — {{ p.nb_impactes }} × · {{ p.clients_touches_total }} clients
+            </li>
+          }
+        </ul>
+        }
+      }
+
+      @if (risks(); as r) {
+        <p class="assistant-hub__meta">
+          Modèle {{ r.model_version }} · horizon {{ r.horizon_days }} j · {{ r.items.length }} alerte(s)
+        </p>
+      }
+    </aside>
+  </div>
+</section>

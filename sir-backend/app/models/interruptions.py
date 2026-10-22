@@ -9,12 +9,14 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     UniqueConstraint,
+    event,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.defaults import MSSQL_NOW
+from app.models.referentiel import DIRECTION_SOURCE_IDS, STATUT_IDS
 
 # Valid discriminant values
 TYPE_DIRECTION_VALUES = ("distribution", "transport", "omvg")
@@ -36,9 +38,23 @@ class Interruption(Base):
     # Discriminant: distribution | transport | omvg
     type_direction: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, index=True)
 
-    # Statut: en_cours | cloture | valide | archive
+    direction_source_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("direction_sources.id", ondelete="NO ACTION"), nullable=False, index=True
+    )
+
+    # Statut: en_cours | cloture | valide | archive — statut_id est synchronisé à l'écriture
     statut: Mapped[str] = mapped_column(
         NVARCHAR(20), nullable=False, default="en_cours", index=True
+    )
+    statut_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("statuts.id", ondelete="NO ACTION"), nullable=False, index=True
+    )
+
+    entreprise_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("entreprises.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    prestataire_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("prestataires.id", ondelete="NO ACTION"), nullable=True, index=True
     )
 
     # Geo / réseau scope
@@ -47,6 +63,9 @@ class Interruption(Base):
     )
     feeder_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("feeders.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    sous_feeder_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("sous_feeders.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     poste_source_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("postes_sources.id", ondelete="NO ACTION"), nullable=True, index=True
@@ -75,6 +94,12 @@ class Interruption(Base):
     nature_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("natures.id", ondelete="NO ACTION"), nullable=True, index=True
     )
+    type_end_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("types_end.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    type_reseau_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("types_reseaux.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
     is_force_majeure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_fugitive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
@@ -91,6 +116,9 @@ class Interruption(Base):
         Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=False, index=True
     )
     validated_by_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    updated_by_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("utilisateurs.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -117,13 +145,27 @@ class Interruption(Base):
     # Relationships
     service: Mapped["Service | None"] = relationship("Service", foreign_keys=[service_id], lazy="select")  # noqa: F821
     feeder: Mapped["Feeder | None"] = relationship("Feeder", foreign_keys=[feeder_id], lazy="select")  # noqa: F821
+    sous_feeder: Mapped["SousFeeder | None"] = relationship(  # noqa: F821
+        "SousFeeder", foreign_keys=[sous_feeder_id], lazy="select"
+    )
     poste_source: Mapped["PosteSource | None"] = relationship("PosteSource", foreign_keys=[poste_source_id], lazy="select")  # noqa: F821
     cause: Mapped["Cause | None"] = relationship("Cause", foreign_keys=[cause_id], lazy="select")  # noqa: F821
     siege: Mapped["Siege | None"] = relationship("Siege", foreign_keys=[siege_id], lazy="select")  # noqa: F821
     signalisation: Mapped["Signalisation | None"] = relationship("Signalisation", foreign_keys=[signalisation_id], lazy="select")  # noqa: F821
     nature: Mapped["Nature | None"] = relationship("Nature", foreign_keys=[nature_id], lazy="select")  # noqa: F821
+    type_end: Mapped["TypeEnd | None"] = relationship("TypeEnd", foreign_keys=[type_end_id], lazy="select")  # noqa: F821
+    type_reseau: Mapped["TypeReseau | None"] = relationship(  # noqa: F821
+        "TypeReseau", foreign_keys=[type_reseau_id], lazy="select"
+    )
     created_by: Mapped["Utilisateur"] = relationship("Utilisateur", foreign_keys=[created_by_id], lazy="select")  # noqa: F821
     validated_by: Mapped["Utilisateur | None"] = relationship("Utilisateur", foreign_keys=[validated_by_id], lazy="select")  # noqa: F821
+    updated_by: Mapped["Utilisateur | None"] = relationship("Utilisateur", foreign_keys=[updated_by_id], lazy="select")  # noqa: F821
+    statut_ref: Mapped["Statut"] = relationship("Statut", foreign_keys=[statut_id], lazy="select")  # noqa: F821
+    direction_source: Mapped["DirectionSource"] = relationship(  # noqa: F821
+        "DirectionSource", foreign_keys=[direction_source_id], lazy="select"
+    )
+    entreprise: Mapped["Entreprise | None"] = relationship("Entreprise", foreign_keys=[entreprise_id], lazy="select")  # noqa: F821
+    prestataire: Mapped["Prestataire | None"] = relationship("Prestataire", foreign_keys=[prestataire_id], lazy="select")  # noqa: F821
     interruption_distribution: Mapped["InterruptionDistribution | None"] = relationship(
         "InterruptionDistribution", back_populates="interruption", lazy="select", uselist=False
     )
@@ -136,9 +178,20 @@ class Interruption(Base):
     energie_nd: Mapped["EnergieNd | None"] = relationship(  # noqa: F821
         "EnergieNd", back_populates="interruption", lazy="select", uselist=False
     )
-    workflow_step: Mapped["InterruptionWorkflowStep | None"] = relationship(
-        "InterruptionWorkflowStep", back_populates="interruption", lazy="select", uselist=False
+    workflows: Mapped[list["Workflow"]] = relationship(  # noqa: F821
+        "Workflow", back_populates="interruption", lazy="select"
     )
+
+
+@event.listens_for(Interruption, "before_insert")
+@event.listens_for(Interruption, "before_update")
+def _sync_referentiel_ids(_mapper, _connection, target: Interruption) -> None:
+    """Les colonnes texte statut / type_direction restent la saisie ; les FK suivent."""
+    if target.statut is None:
+        target.statut = "en_cours"
+    target.statut_id = STATUT_IDS[target.statut]
+    if target.type_direction is not None:
+        target.direction_source_id = DIRECTION_SOURCE_IDS[target.type_direction]
 
 
 class InterruptionDistribution(Base):
@@ -224,7 +277,11 @@ class InterruptionTransport(Base):
 
 
 class PosteInterruption(Base):
-    """Table N-N entre interruptions et postes MT/BT impactés."""
+    """Table N-N entre interruptions et postes MT/BT impactés.
+
+    feeder_id / service_id / poste_source_id sont dénormalisés pour filtrage
+    et reporting (copie depuis l'interruption, avec repli poste/feeder).
+    """
 
     __tablename__ = "poste_interruptions"
 
@@ -235,7 +292,19 @@ class PosteInterruption(Base):
     poste_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("postes.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    feeder_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("feeders.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    service_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("services.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    poste_source_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("postes_sources.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
     nombre_clients_touches: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    date_interruption: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
 
     __table_args__ = (
         UniqueConstraint("interruption_id", "poste_id", name="uq_poste_interruption"),
@@ -246,3 +315,12 @@ class PosteInterruption(Base):
         "Interruption", back_populates="postes_interrompus"
     )
     poste: Mapped["Poste"] = relationship("Poste", foreign_keys=[poste_id], lazy="select")  # noqa: F821
+    feeder: Mapped["Feeder | None"] = relationship(  # noqa: F821
+        "Feeder", foreign_keys=[feeder_id], lazy="select"
+    )
+    service: Mapped["Service | None"] = relationship(  # noqa: F821
+        "Service", foreign_keys=[service_id], lazy="select"
+    )
+    poste_source: Mapped["PosteSource | None"] = relationship(  # noqa: F821
+        "PosteSource", foreign_keys=[poste_source_id], lazy="select"
+    )

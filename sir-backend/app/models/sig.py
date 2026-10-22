@@ -59,8 +59,8 @@ class TronconSig(Base):
     )
 
     feeder: Mapped["Feeder | None"] = relationship("Feeder", lazy="select")  # noqa: F821
-    workflow_steps: Mapped[list["InterruptionWorkflowStep"]] = relationship(  # noqa: F821
-        "InterruptionWorkflowStep", back_populates="troncon_sig", lazy="select"
+    workflows: Mapped[list["Workflow"]] = relationship(  # noqa: F821
+        "Workflow", back_populates="troncon_sig", lazy="select"
     )
 
     __table_args__ = (

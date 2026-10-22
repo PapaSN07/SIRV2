@@ -1,0 +1,8 @@
+{
+  "table": "TypeReseau",
+  "source": "odbc_full",
+  "columns": [
+    "idtypereseau",
+    "typereseau"
+  ]
+}

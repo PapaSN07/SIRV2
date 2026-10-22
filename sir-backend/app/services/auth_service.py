@@ -16,6 +16,7 @@ from app.core.security import (
 from app.models.utilisateurs import Utilisateur
 from app.repositories import utilisateur_repository
 from app.schemas.auth import LoginRequest, MeResponse
+from app.services import ldap_service
 
 
 # ---------------------------------------------------------------------------
@@ -108,8 +109,18 @@ async def login(
     """
     user = await utilisateur_repository.get_by_login(db, body.login)
 
-    # Vérification identifiants — message générique pour ne pas révéler si le login existe
-    if user is None or not verify_password(body.password, user.password_hash):
+    # Compte présent dans l'AD : seul le mot de passe Active Directory est accepté.
+    # None = annuaire inactif, compte absent ou injoignable → mot de passe local.
+    ad_ok = ldap_service.verify_user_password(body.login, body.password)
+    if ad_ok is True:
+        password_ok = user is not None
+    elif ad_ok is False:
+        password_ok = False
+    else:
+        password_ok = user is not None and verify_password(body.password, user.password_hash)
+
+    # Message générique : ne pas révéler si le login existe.
+    if user is None or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -129,7 +140,12 @@ async def login(
             },
         )
 
-    if user.premiere_connexion:
+    if ad_ok is True and user.premiere_connexion:
+        await utilisateur_repository.update_premiere_connexion(db, user.id)
+        await db.commit()
+        user.premiere_connexion = False
+
+    if user.premiere_connexion and ad_ok is not True:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={

@@ -49,7 +49,11 @@ export class SigTronconPickerComponent {
 
   load(): void {
     const feederId = this.feederId();
-    if (!feederId) return;
+    if (!feederId) {
+      this.error.set("Feeder non renseigné sur l'interruption.");
+      this.items.set([]);
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
     this.sig

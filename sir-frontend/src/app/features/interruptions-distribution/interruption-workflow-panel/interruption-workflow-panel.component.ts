@@ -1,37 +1,27 @@
 import { DatePipe } from '@angular/common';
-import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { InterruptionWorkflow, InterruptionWorkflowUpdate } from '../../../shared/models/interruption.models';
-import { Troncon } from '../../../shared/models/reseau.models';
+import {
+  ETAPE_TRONCONNEMENT,
+  InterruptionWorkflow,
+  WorkflowEtape,
+  WorkflowEtapeUpdate,
+} from '../../../shared/models/interruption.models';
+import { TronconSig, TronconSigChaine } from '../../../shared/models/sig.models';
 import { InterruptionDistributionService } from '../services/interruption-distribution.service';
-import { ReseauDistributionService } from '../services/reseau-distribution.service';
+import { SigService } from '../services/sig.service';
 import { SigTronconPickerComponent } from '../sig-troncon-picker/sig-troncon-picker.component';
-import { TronconSigChaine } from '../../../shared/models/sig.models';
 
-export type WorkflowTabKey =
-  | 'declenchement'
-  | 'interpellation'
-  | 'tronconnement'
-  | 'localisation'
-  | 'reparation'
-  | 'remise'
-  | 'clients';
+export const CLIENTS_TAB = 'clients';
 
-interface WorkflowTab {
-  key: WorkflowTabKey;
-  label: string;
-  icon: string;
-}
-
-const WORKFLOW_TABS: WorkflowTab[] = [
-  { key: 'declenchement', label: 'Déclenchement', icon: 'bolt' },
-  { key: 'interpellation', label: 'Interpellation', icon: 'campaign' },
-  { key: 'tronconnement', label: 'Tronçonnement', icon: 'content_cut' },
-  { key: 'localisation', label: 'Localisation', icon: 'location_on' },
-  { key: 'reparation', label: 'Réparation', icon: 'build' },
-  { key: 'remise', label: 'Remise', icon: 'power' },
-  { key: 'clients', label: 'Clients', icon: 'groups' },
-];
+const ETAPE_ICONS: Record<string, string> = {
+  declenchement: 'bolt',
+  interpellation_pdm: 'campaign',
+  tronconnement: 'content_cut',
+  localisation: 'location_on',
+  reparation: 'build',
+  remise: 'power',
+};
 
 function toDatetimeLocal(value: string | null | undefined): string {
   if (!value) return '';
@@ -57,9 +47,9 @@ function fromDatetimeLocal(value: string): string | null {
 export class InterruptionWorkflowPanelComponent {
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(InterruptionDistributionService);
-  private readonly reseau = inject(ReseauDistributionService);
+  private readonly sig = inject(SigService);
 
-  readonly tabs = WORKFLOW_TABS;
+  readonly clientsTab = CLIENTS_TAB;
   readonly workflow = input<InterruptionWorkflow | null>(null);
   readonly loading = input(false);
   readonly canEdit = input(false);
@@ -68,97 +58,115 @@ export class InterruptionWorkflowPanelComponent {
 
   readonly saved = output<void>();
 
-  readonly activeTab = signal<WorkflowTabKey>('declenchement');
+  readonly activeTab = signal<string | null>(null);
   readonly saving = signal(false);
   readonly saveError = signal<string | null>(null);
-  readonly troncons = signal<Troncon[]>([]);
+  readonly tronconsSig = signal<TronconSig[]>([]);
+  readonly tronconsSigTotal = signal(0);
+  readonly tronconsSigLoading = signal(false);
+  readonly tronconsSigError = signal<string | null>(null);
+  readonly tronconSearch = signal('');
+  readonly selectedAmont = signal('');
   readonly sigPickerOpen = signal(false);
+  private searchTimer = 0;
+  private tronconLoadSeq = 0;
 
-  readonly declenchementForm = this.fb.nonNullable.group({
-    date_debut: [''],
-    date_fin: [''],
+  /** Toutes les étapes restent accessibles : une étape peut être passée. */
+  readonly visibleEtapes = computed<WorkflowEtape[]>(() => this.workflow()?.etapes ?? []);
+
+  readonly currentEtape = computed<WorkflowEtape | null>(() => {
+    const tab = this.activeTab();
+    return this.visibleEtapes().find((e) => e.code === tab) ?? null;
   });
 
-  readonly interpellationForm = this.fb.nonNullable.group({
-    date_interpellation: [''],
-    date_arrivee: [''],
+  readonly isTronconnement = computed(() => this.currentEtape()?.code === ETAPE_TRONCONNEMENT);
+
+  readonly noeudsAmont = computed(() => this.withCurrent(this.uniqueNoeuds('amont'), this.selectedAmont()));
+
+  readonly noeudsAval = computed(() => {
+    const amont = this.selectedAmont();
+    const matches = amont
+      ? this.tronconsSig().filter((t) => this.noeudKey(t.nom_noeud_amont, t.code_noeud_amont) === amont)
+      : [];
+    return this.withCurrent(this.uniqueFrom(matches, 'aval'), this.etapeForm.controls.noeud_aval_libelle.value);
   });
 
-  readonly tronconnementForm = this.fb.nonNullable.group({
+  readonly etapeForm = this.fb.nonNullable.group({
     date_debut: [''],
     date_fin: [''],
-    troncon_id: [0],
+    observation: [''],
+    responsable_matricule: [null as number | null],
+    troncon_sig_id: [0],
     noeud_amont_libelle: [''],
     noeud_aval_libelle: [''],
   });
 
-  readonly localisationForm = this.fb.nonNullable.group({
-    date_debut: [''],
-    date_fin: [''],
-  });
-
-  readonly reparationForm = this.fb.nonNullable.group({
-    date_debut: [''],
-    date_fin: [''],
-  });
-
-  readonly remiseForm = this.fb.nonNullable.group({
-    date_debut: [''],
-    date_fin: [''],
-  });
-
-  readonly metaForm = this.fb.nonNullable.group({
-    responsable_matricule: [null as number | null],
-    observations_workflow: [''],
-  });
-
   constructor() {
-    effect(() => {
-      const wf = this.workflow();
-      if (wf) this.patchForms(wf);
-    });
+    effect(
+      () => {
+        const etapes = this.visibleEtapes();
+        const tab = this.activeTab();
+        const stillVisible = tab === CLIENTS_TAB || etapes.some((e) => e.code === tab);
+        if (!stillVisible) {
+          const active = etapes.find((e) => e.etat === 'active') ?? etapes[etapes.length - 1];
+          this.activeTab.set(active?.code ?? CLIENTS_TAB);
+        }
+      },
+      { allowSignalWrites: true },
+    );
 
     effect(() => {
-      const feederId = this.feederId();
-      if (feederId) {
-        this.reseau.listTroncons({ feeder_id: feederId, page_size: 100 }).subscribe({
-          next: (res) => this.troncons.set(res.items),
-          error: () => this.troncons.set([]),
-        });
-      } else {
-        this.troncons.set([]);
-      }
+      const etape = this.currentEtape();
+      if (etape) this.patchForm(etape);
     });
+
+    effect(
+      () => {
+        const feederId = this.feederId();
+        const search = this.tronconSearch();
+        if (feederId) {
+          const seq = ++this.tronconLoadSeq;
+          this.tronconsSigLoading.set(true);
+          this.tronconsSigError.set(null);
+          this.sig
+            .listTroncons({
+              feeder_id: feederId,
+              page_size: 500,
+              search: search || undefined,
+            })
+            .subscribe({
+              next: (res) => {
+                if (seq !== this.tronconLoadSeq) return;
+                this.tronconsSig.set(res.items);
+                this.tronconsSigTotal.set(res.total);
+                this.tronconsSigLoading.set(false);
+              },
+              error: (err: Error) => {
+                if (seq !== this.tronconLoadSeq) return;
+                this.tronconsSig.set([]);
+                this.tronconsSigTotal.set(0);
+                this.tronconsSigLoading.set(false);
+                this.tronconsSigError.set(err.message);
+              },
+            });
+        } else {
+          this.tronconsSig.set([]);
+          this.tronconsSigTotal.set(0);
+          this.tronconsSigLoading.set(false);
+          this.tronconsSigError.set(null);
+        }
+      },
+      { allowSignalWrites: true },
+    );
   }
 
-  selectTab(key: WorkflowTabKey): void {
+  etapeIcon(code: string): string {
+    return ETAPE_ICONS[code] ?? 'radio_button_unchecked';
+  }
+
+  selectTab(key: string): void {
     this.activeTab.set(key);
     this.saveError.set(null);
-  }
-
-  tabHasData(key: WorkflowTabKey): boolean {
-    const wf = this.workflow();
-    if (!wf) return false;
-    switch (key) {
-      case 'declenchement':
-        return !!(wf.declenchement.date_debut || wf.declenchement.date_fin);
-      case 'interpellation':
-        return !!(wf.interpellation.date_interpellation || wf.interpellation.date_arrivee);
-      case 'tronconnement':
-        return !!(
-          wf.tronconnement.date_debut ||
-          wf.tronconnement.troncon_id ||
-          wf.tronconnement.noeud_amont_libelle
-        );
-      case 'localisation':
-        return !!(wf.localisation.date_debut || wf.localisation.date_fin);
-      case 'reparation':
-        return !!(wf.reparation.date_debut || wf.reparation.date_fin);
-      case 'remise':
-        return !!(wf.remise.date_debut || wf.remise.date_fin);
-      case 'clients':
-        return wf.clients.nombre_postes_impactes > 0;
-    }
   }
 
   formatDuration(minutes: number | null): string {
@@ -169,37 +177,80 @@ export class InterruptionWorkflowPanelComponent {
     return m > 0 ? `${h} h ${m} min` : `${h} h`;
   }
 
-  saveDeclenchement(): void {
-    const raw = this.declenchementForm.getRawValue();
-    this.persist({
-      declenchement: {
-        date_debut: fromDatetimeLocal(raw.date_debut),
-        date_fin: fromDatetimeLocal(raw.date_fin),
-      },
+  sigSegmentLabel(t: TronconSig): string {
+    const amont = t.nom_noeud_amont || t.code_noeud_amont || '?';
+    const aval = t.nom_noeud_aval || t.code_noeud_aval || '?';
+    return `${amont} → ${aval}`;
+  }
+
+  onTronconSearchInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value.trim();
+    window.clearTimeout(this.searchTimer);
+    this.searchTimer = window.setTimeout(() => this.tronconSearch.set(value), 300);
+  }
+
+  onNoeudAmontChange(event: Event): void {
+    const amont = (event.target as HTMLSelectElement).value;
+    this.selectedAmont.set(amont);
+    const match = this.tronconsSig().find(
+      (t) => this.noeudKey(t.nom_noeud_amont, t.code_noeud_amont) === amont,
+    );
+    if (!match) {
+      this.etapeForm.patchValue({ noeud_aval_libelle: '', troncon_sig_id: 0 });
+      return;
+    }
+    this.etapeForm.patchValue({
+      noeud_amont_libelle: amont,
+      noeud_aval_libelle: this.noeudKey(match.nom_noeud_aval, match.code_noeud_aval),
+      troncon_sig_id: match.id,
     });
   }
 
-  saveInterpellation(): void {
-    const raw = this.interpellationForm.getRawValue();
-    this.persist({
-      interpellation: {
-        date_interpellation: fromDatetimeLocal(raw.date_interpellation),
-        date_arrivee: fromDatetimeLocal(raw.date_arrivee),
-      },
+  onNoeudAvalChange(event: Event): void {
+    const aval = (event.target as HTMLSelectElement).value;
+    const amont = this.selectedAmont();
+    const match = this.tronconsSig().find(
+      (t) =>
+        this.noeudKey(t.nom_noeud_amont, t.code_noeud_amont) === amont &&
+        this.noeudKey(t.nom_noeud_aval, t.code_noeud_aval) === aval,
+    );
+    if (match) {
+      this.etapeForm.patchValue({ noeud_aval_libelle: aval, troncon_sig_id: match.id });
+    }
+  }
+
+  onTronconChange(): void {
+    const id = this.etapeForm.controls.troncon_sig_id.value;
+    const troncon = this.tronconsSig().find((t) => t.id === id);
+    if (!troncon) return;
+    const amont = this.noeudKey(troncon.nom_noeud_amont, troncon.code_noeud_amont);
+    this.selectedAmont.set(amont);
+    this.etapeForm.patchValue({
+      noeud_amont_libelle: amont,
+      noeud_aval_libelle: this.noeudKey(troncon.nom_noeud_aval, troncon.code_noeud_aval),
     });
   }
 
-  saveTronconnement(): void {
-    const raw = this.tronconnementForm.getRawValue();
-    this.persist({
-      tronconnement: {
-        date_debut: fromDatetimeLocal(raw.date_debut),
-        date_fin: fromDatetimeLocal(raw.date_fin),
-        troncon_id: raw.troncon_id > 0 ? raw.troncon_id : null,
-        noeud_amont_libelle: raw.noeud_amont_libelle || null,
-        noeud_aval_libelle: raw.noeud_aval_libelle || null,
-      },
-    });
+  saveEtape(): void {
+    const etape = this.currentEtape();
+    if (!etape) return;
+    const raw = this.etapeForm.getRawValue();
+    const body: WorkflowEtapeUpdate = {
+      date_debut: fromDatetimeLocal(raw.date_debut),
+      date_fin: fromDatetimeLocal(raw.date_fin),
+      observation: raw.observation || null,
+      responsable_matricule: raw.responsable_matricule || null,
+    };
+    if (etape.code === ETAPE_TRONCONNEMENT) {
+      const sigId = raw.troncon_sig_id > 0 ? raw.troncon_sig_id : null;
+      const selected = sigId ? this.tronconsSig().find((t) => t.id === sigId) : undefined;
+      body.troncon_sig_id = sigId;
+      body.noeud_amont_libelle =
+        raw.noeud_amont_libelle || selected?.nom_noeud_amont || selected?.code_noeud_amont || null;
+      body.noeud_aval_libelle =
+        raw.noeud_aval_libelle || selected?.nom_noeud_aval || selected?.code_noeud_aval || null;
+    }
+    this.persist(etape.etape_workflow_id, body);
   }
 
   openSigPicker(): void {
@@ -211,96 +262,70 @@ export class InterruptionWorkflowPanelComponent {
   }
 
   onSigSelected(chain: TronconSigChaine): void {
+    const etape = this.currentEtape();
+    if (!etape) return;
     const t = chain.troncon;
-    this.tronconnementForm.patchValue({
+    this.etapeForm.patchValue({
+      troncon_sig_id: t.id,
       noeud_amont_libelle: t.nom_noeud_amont || t.code_noeud_amont || '',
       noeud_aval_libelle: t.nom_noeud_aval || t.code_noeud_aval || '',
     });
-    this.persist({
-      tronconnement: {
-        troncon_sig_id: t.id,
-        noeud_amont_libelle: t.nom_noeud_amont || t.code_noeud_amont || null,
-        noeud_aval_libelle: t.nom_noeud_aval || t.code_noeud_aval || null,
-      },
+    this.persist(etape.etape_workflow_id, {
+      troncon_sig_id: t.id,
+      noeud_amont_libelle: t.nom_noeud_amont || t.code_noeud_amont || null,
+      noeud_aval_libelle: t.nom_noeud_aval || t.code_noeud_aval || null,
     });
   }
 
-  saveLocalisation(): void {
-    const raw = this.localisationForm.getRawValue();
-    this.persist({
-      localisation: {
-        date_debut: fromDatetimeLocal(raw.date_debut),
-        date_fin: fromDatetimeLocal(raw.date_fin),
-      },
+  private patchForm(etape: WorkflowEtape): void {
+    const amont = etape.noeud_amont_libelle ?? '';
+    this.selectedAmont.set(amont);
+    this.etapeForm.reset({
+      date_debut: toDatetimeLocal(etape.date_debut),
+      date_fin: toDatetimeLocal(etape.date_fin),
+      observation: etape.observation ?? '',
+      responsable_matricule: etape.responsable_matricule,
+      troncon_sig_id: etape.troncon_sig_id ?? 0,
+      noeud_amont_libelle: amont,
+      noeud_aval_libelle: etape.noeud_aval_libelle ?? '',
     });
   }
 
-  saveReparation(): void {
-    const raw = this.reparationForm.getRawValue();
-    this.persist({
-      reparation: {
-        date_debut: fromDatetimeLocal(raw.date_debut),
-        date_fin: fromDatetimeLocal(raw.date_fin),
-      },
-    });
+  private noeudKey(nom: string | null, code: string | null): string {
+    return (nom || code || '').trim();
   }
 
-  saveRemise(): void {
-    const raw = this.remiseForm.getRawValue();
-    this.persist({
-      remise: {
-        date_debut: fromDatetimeLocal(raw.date_debut),
-        date_fin: fromDatetimeLocal(raw.date_fin),
-      },
-    });
+  private uniqueNoeuds(side: 'amont' | 'aval'): { key: string; label: string }[] {
+    return this.uniqueFrom(this.tronconsSig(), side);
   }
 
-  saveMeta(): void {
-    const raw = this.metaForm.getRawValue();
-    this.persist({
-      responsable_matricule: raw.responsable_matricule,
-      observations_workflow: raw.observations_workflow || null,
-    });
+  private uniqueFrom(rows: TronconSig[], side: 'amont' | 'aval'): { key: string; label: string }[] {
+    const seen = new Set<string>();
+    const items: { key: string; label: string }[] = [];
+    for (const row of rows) {
+      const key =
+        side === 'amont'
+          ? this.noeudKey(row.nom_noeud_amont, row.code_noeud_amont)
+          : this.noeudKey(row.nom_noeud_aval, row.code_noeud_aval);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      items.push({ key, label: key });
+    }
+    return items.sort((a, b) => a.label.localeCompare(b.label, 'fr'));
   }
 
-  private patchForms(wf: InterruptionWorkflow): void {
-    this.declenchementForm.patchValue({
-      date_debut: toDatetimeLocal(wf.declenchement.date_debut),
-      date_fin: toDatetimeLocal(wf.declenchement.date_fin),
-    });
-    this.interpellationForm.patchValue({
-      date_interpellation: toDatetimeLocal(wf.interpellation.date_interpellation),
-      date_arrivee: toDatetimeLocal(wf.interpellation.date_arrivee),
-    });
-    this.tronconnementForm.patchValue({
-      date_debut: toDatetimeLocal(wf.tronconnement.date_debut),
-      date_fin: toDatetimeLocal(wf.tronconnement.date_fin),
-      troncon_id: wf.tronconnement.troncon_id ?? 0,
-      noeud_amont_libelle: wf.tronconnement.noeud_amont_libelle ?? '',
-      noeud_aval_libelle: wf.tronconnement.noeud_aval_libelle ?? '',
-    });
-    this.localisationForm.patchValue({
-      date_debut: toDatetimeLocal(wf.localisation.date_debut),
-      date_fin: toDatetimeLocal(wf.localisation.date_fin),
-    });
-    this.reparationForm.patchValue({
-      date_debut: toDatetimeLocal(wf.reparation.date_debut),
-      date_fin: toDatetimeLocal(wf.reparation.date_fin),
-    });
-    this.remiseForm.patchValue({
-      date_debut: toDatetimeLocal(wf.remise.date_debut),
-      date_fin: toDatetimeLocal(wf.remise.date_fin),
-    });
-    this.metaForm.patchValue({
-      responsable_matricule: wf.responsable_matricule,
-      observations_workflow: wf.observations_workflow ?? '',
-    });
+  private withCurrent(
+    options: { key: string; label: string }[],
+    current: string,
+  ): { key: string; label: string }[] {
+    if (!current || options.some((option) => option.key === current)) return options;
+    return [{ key: current, label: current }, ...options];
   }
 
-  private persist(body: InterruptionWorkflowUpdate): void {
+  private persist(etapeId: number, body: WorkflowEtapeUpdate): void {
     this.saving.set(true);
     this.saveError.set(null);
-    this.service.updateWorkflow(this.interruptionId(), body).subscribe({
+    this.service.updateWorkflowEtape(this.interruptionId(), etapeId, body).subscribe({
       next: () => {
         this.saving.set(false);
         this.saved.emit();

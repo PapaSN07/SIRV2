@@ -7,6 +7,7 @@ const VALIDATION_ROLES = ['SUPERVISEUR', 'ADMIN_SCR', 'ADMIN_SAQS'];
 const TRANSPORT_READ_ROLES = ['DISPATCHER', 'ADMIN_DISPATCHING', 'ADMIN_SAQS'];
 const TRANSPORT_WRITE_ROLES = ['DISPATCHER', 'ADMIN_DISPATCHING'];
 const INDICATEURS_ROLES = ['BCC', 'BRC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR'];
+const ASSISTANT_ROLES = ['BCC', 'BRC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR'];
 const RAPPORTS_ROLES = ['BCC', 'BRC', 'DISPATCHER', 'ADMIN_SCR', 'ADMIN_DISPATCHING', 'ADMIN_SAQS', 'SUPERVISEUR'];
 const ADMIN_REF_ROLES = ['ADMIN_SCR', 'ADMIN_DISPATCHING', 'BCC', 'BRC', 'DISPATCHER', 'ADMIN_SAQS', 'SUPERVISEUR'];
 const ADMIN_RESEAU_DIST_ROLES = ['ADMIN_SCR', 'BCC', 'BRC', 'ADMIN_SAQS', 'SUPERVISEUR'];
@@ -134,6 +135,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/indicateurs/indicateurs-hub/indicateurs-hub.component').then(
             (m) => m.IndicateursHubComponent,
+          ),
+      },
+      {
+        path: 'assistant',
+        canActivate: [roleGuard],
+        data: { roles: ASSISTANT_ROLES },
+        loadComponent: () =>
+          import('./features/assistant/assistant-hub/assistant-hub.component').then(
+            (m) => m.AssistantHubComponent,
           ),
       },
       {

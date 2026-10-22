@@ -28,12 +28,19 @@ from app.schemas.indicateurs import (
     TopFeedersResponse,
     CauseRepartitionItemResponse,
     NatureRepartitionItemResponse,
+    NatureServiceCellResponse,
+    NatureServiceColumnResponse,
+    NatureServiceLigneResponse,
+    NatureServiceRepartitionResponse,
 )
 from app.services import saifi_saidi_service
 from app.services.indicateurs_cache_service import (
+    build_cache_key,
+    get_cached,
     get_or_load,
     get_or_load_historique,
     get_or_load_top_feeders,
+    set_cached,
 )
 from app.utils.pagination import clamp_page_size
 
@@ -422,6 +429,80 @@ async def _count_interruptions_for_scope(
     return total
 
 
+_NATURE_SERVICE_ORDER = ["COUPURE", "DELESTAGE", "FUGITIF", "PERMANENT", "SEMI_PERM"]
+
+
+def build_nature_service_repartition(
+    rows: list[repo.NatureServiceRow],
+) -> NatureServiceRepartitionResponse:
+    """Croise les agrégats nature × service pour le tableau de bord."""
+    services: dict[int, tuple[str, str]] = {}
+    by_nature: dict[str, dict[str, object]] = {}
+    for row in rows:
+        services[row.service_id] = (row.service_code, row.service_libelle)
+        bucket = by_nature.setdefault(
+            row.nature_code,
+            {"libelle": row.nature_libelle, "cells": {}},
+        )
+        cells = bucket["cells"]
+        assert isinstance(cells, dict)
+        cells[row.service_id] = (row.nombre, row.end_mwh)
+
+    ordered_services = sorted(services.items(), key=lambda item: (item[1][0], item[0]))
+
+    def _nature_sort(code: str) -> tuple[int, str]:
+        if code in _NATURE_SERVICE_ORDER:
+            return (_NATURE_SERVICE_ORDER.index(code), code)
+        return (len(_NATURE_SERVICE_ORDER), code)
+
+    service_nombre = {service_id: 0 for service_id, _meta in ordered_services}
+    service_end = {service_id: 0.0 for service_id, _meta in ordered_services}
+    lignes: list[NatureServiceLigneResponse] = []
+
+    for code in sorted(by_nature, key=_nature_sort):
+        info = by_nature[code]
+        cells = info["cells"]
+        assert isinstance(cells, dict)
+        cellules: list[NatureServiceCellResponse] = []
+        row_nombre = 0
+        row_end = 0.0
+        for service_id, _meta in ordered_services:
+            nombre, end_mwh = cells.get(service_id, (0, 0.0))
+            cellules.append(
+                NatureServiceCellResponse(nombre=int(nombre), end_kwh=round(float(end_mwh) * 1000, 2))
+            )
+            row_nombre += int(nombre)
+            row_end += float(end_mwh)
+            service_nombre[service_id] += int(nombre)
+            service_end[service_id] += float(end_mwh)
+        lignes.append(
+            NatureServiceLigneResponse(
+                code=code,
+                libelle=str(info["libelle"]),
+                cellules=cellules,
+                nombre=row_nombre,
+                end_kwh=round(row_end * 1000, 2),
+            )
+        )
+
+    columns = [
+        NatureServiceColumnResponse(
+            service_id=service_id,
+            code=code,
+            libelle=libelle,
+            nombre=service_nombre[service_id],
+            end_kwh=round(service_end[service_id] * 1000, 2),
+        )
+        for service_id, (code, libelle) in ordered_services
+    ]
+    return NatureServiceRepartitionResponse(
+        services=columns,
+        lignes=lignes,
+        total_nombre=sum(service_nombre.values()),
+        total_end_kwh=round(sum(service_end.values()) * 1000, 2),
+    )
+
+
 async def get_tableau_de_bord(
     db: AsyncSession,
     redis: Redis,
@@ -493,6 +574,15 @@ async def get_tableau_de_bord(
             for row in nature_rows
         ]
 
+        nature_service = build_nature_service_repartition(
+            await repo.aggregate_interruptions_by_nature_and_service(
+                db,
+                service_ids=service_ids,
+                annee=resolved_annee,
+                mois=resolved_mois,
+            )
+        )
+
         payload = TableauDeBordResponse(
             niveau=scope.niveau,
             scope_id=scope.scope_id,
@@ -505,20 +595,23 @@ async def get_tableau_de_bord(
             nb_interruptions_mois=nb_mois,
             causes_repartition=causes,
             natures_repartition=natures,
+            nature_service=nature_service,
         )
         return payload.model_dump()
 
     if scope.niveau == "service":
         return TableauDeBordResponse.model_validate(await _loader())
 
-    cached = await get_or_load(
-        redis,
+    cache_key = build_cache_key(
         "tableau-de-bord",
         scope.cache_region_id,
         resolved_annee,
         resolved_mois,
-        _loader,
     )
+    cached = await get_cached(redis, cache_key)
+    if not isinstance(cached, dict) or "nature_service" not in cached:
+        cached = await _loader()
+        await set_cached(redis, cache_key, cached)
     return TableauDeBordResponse.model_validate(cached)
 
 

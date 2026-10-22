@@ -94,6 +94,14 @@ export interface Troncon {
   is_active: boolean;
 }
 
+export interface SousFeeder {
+  id: number;
+  code: string;
+  libelle: string;
+  feeder_id: number;
+  is_active: boolean;
+}
+
 export interface ReseauListParams {
   page?: number;
   page_size?: number;

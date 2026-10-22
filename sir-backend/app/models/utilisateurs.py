@@ -71,6 +71,9 @@ class Utilisateur(Base):
     telephone: Mapped[str | None] = mapped_column(NVARCHAR(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     premiere_connexion: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    direction_source_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("direction_sources.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )

@@ -25,7 +25,7 @@
         <p class="sig-modal__error" role="alert">{{ error() }}</p>
       } @else if (items().length === 0) {
         <p class="sig-modal__hint">
-          Aucun tronçon SIG pour ce feeder. Lancez l'import :
+          Aucun tronçon SIG pour ce feeder. Vérifiez que l'interruption a un feeder renseigné, ou lancez l'import :
           <code>python scripts/migration/import_sig_topology.py --execute</code>
         </p>
       } @else {

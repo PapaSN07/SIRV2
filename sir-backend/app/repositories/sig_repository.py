@@ -8,6 +8,33 @@ from app.models.sig import TronconSig as TronconSigOrm
 from app.schemas.common import PaginatedResponse
 from app.utils.pagination import paginate
 
+_LIBELLE_VOLTAGE_SUFFIXES = (" 30KV", " 6.6KV", " 6.6", " (D4)")
+_CODE_VOLTAGE_SUFFIXES = ("_30KV", "_6_6", "_6.6")
+
+
+def _feeder_sig_nom_aliases(feeder: Feeder) -> set[str]:
+    """Noms feeder tels qu'ils apparaissent dans Troncon_SIG (souvent sans suffixe tension)."""
+    aliases: set[str] = set()
+    if feeder.libelle:
+        aliases.add(feeder.libelle.strip())
+        for suffix in _LIBELLE_VOLTAGE_SUFFIXES:
+            if feeder.libelle.endswith(suffix):
+                aliases.add(feeder.libelle[: -len(suffix)].strip())
+    if feeder.code:
+        aliases.add(feeder.code.strip())
+        for suffix in _CODE_VOLTAGE_SUFFIXES:
+            if feeder.code.endswith(suffix):
+                aliases.add(feeder.code[: -len(suffix)].strip())
+    return {a for a in aliases if a}
+
+
+def _feeder_match_clause(feeder: Feeder):
+    """Relie un feeder SIR aux tronçons SIG par id ou par le nom exact du départ."""
+    clauses = [TronconSigOrm.feeder_id == feeder.id]
+    for alias in _feeder_sig_nom_aliases(feeder):
+        clauses.append(TronconSigOrm.nom_feeder == alias)
+    return or_(*clauses)
+
 
 async def get_feeder(db: AsyncSession, feeder_id: int) -> Feeder | None:
     result = await db.execute(select(Feeder).where(Feeder.id == feeder_id))
@@ -17,14 +44,6 @@ async def get_feeder(db: AsyncSession, feeder_id: int) -> Feeder | None:
 async def get_troncon_sig(db: AsyncSession, troncon_sig_id: int) -> TronconSigOrm | None:
     result = await db.execute(select(TronconSigOrm).where(TronconSigOrm.id == troncon_sig_id))
     return result.scalar_one_or_none()
-
-
-def _feeder_match_clause(feeder: Feeder):
-    return or_(
-        TronconSigOrm.feeder_id == feeder.id,
-        func.upper(TronconSigOrm.nom_feeder) == func.upper(feeder.libelle),
-        func.upper(TronconSigOrm.nom_feeder) == func.upper(feeder.code),
-    )
 
 
 async def list_troncons_sig_by_feeder(
@@ -51,7 +70,14 @@ async def list_troncons_sig_by_feeder(
                 TronconSigOrm.code_noeud_aval.ilike(pattern),
             )
         )
-    return await paginate(db, query, page=page, page_size=page_size, scalar_type=TronconSigOrm)
+    return await paginate(
+        db,
+        query,
+        page=page,
+        page_size=page_size,
+        scalar_type=TronconSigOrm,
+        max_page_size=500,
+    )
 
 
 async def find_next_troncon_aval(

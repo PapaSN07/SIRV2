@@ -262,6 +262,48 @@ async def test_login_raises_403_on_inactive_user() -> None:
 # ---------------------------------------------------------------------------
 
 
+async def test_login_accepts_active_directory_password() -> None:
+    """Compte présent dans l'AD : le mot de passe annuaire ouvre la session, sans changement local."""
+    user = _make_utilisateur(premiere_connexion=True)
+    mock_db = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_redis = AsyncMock()
+    mock_redis.setex = AsyncMock()
+
+    with (
+        patch("app.repositories.utilisateur_repository.get_by_login", return_value=user),
+        patch("app.services.auth_service.ldap_service.verify_user_password", return_value=True),
+        patch(
+            "app.repositories.utilisateur_repository.update_premiere_connexion",
+            new_callable=AsyncMock,
+        ) as clear_flag,
+    ):
+        result = await auth_service.login(
+            mock_db, mock_redis, _login_request(password="MotDePasseAnnuaire")
+        )
+
+    assert "access_token" in result
+    assert user.premiere_connexion is False
+    clear_flag.assert_awaited_once()
+    mock_db.commit.assert_awaited()
+
+
+async def test_login_rejects_wrong_active_directory_password() -> None:
+    """Compte AD : un mot de passe refusé par l'annuaire ne retombe pas sur le hash local."""
+    user = _make_utilisateur()
+    mock_db = AsyncMock()
+    mock_redis = AsyncMock()
+
+    with (
+        patch("app.repositories.utilisateur_repository.get_by_login", return_value=user),
+        patch("app.services.auth_service.ldap_service.verify_user_password", return_value=False),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.login(mock_db, mock_redis, _login_request())
+
+    assert exc_info.value.status_code == 401
+
+
 async def test_login_raises_403_force_password_change_on_premiere_connexion() -> None:
     """login() avec premiere_connexion=True → lève HTTPException 403 avec code FORCE_PASSWORD_CHANGE."""
     user = _make_utilisateur(premiere_connexion=True)

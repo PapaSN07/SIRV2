@@ -1,98 +1,62 @@
-"""Étapes opérationnelles workflow interruption distribution (7 onglets legacy)."""
+"""Workflow opérationnel interruption distribution — étapes chaînées."""
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, NVARCHAR, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, NVARCHAR, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.defaults import MSSQL_NOW
 
+ETAPE_DECLENCHEMENT = "declenchement"
+ETAPE_INTERPELLATION = "interpellation_pdm"
+ETAPE_TRONCONNEMENT = "tronconnement"
+ETAPE_LOCALISATION = "localisation"
+ETAPE_REPARATION = "reparation"
+ETAPE_REMISE = "remise"
 
-class InterruptionWorkflowStep(Base):
-    """Données workflow opérationnel — 1 ligne par interruption distribution.
 
-    Onglets legacy : déclenchement, interpellation PDM, tronçonnement, localisation,
-    réparation, remise. L'onglet « clients » s'appuie sur poste_interruptions.
-    """
+class EtapeWorkflow(Base):
+    """Référentiel des étapes ; `etape_suivante_id` définit l'enchaînement."""
 
-    __tablename__ = "interruption_workflow_steps"
+    __tablename__ = "etapes_workflow"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    code: Mapped[str] = mapped_column(NVARCHAR(30), nullable=False, unique=True)
+    libelle_etape_workflow: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)
+    ordre: Mapped[int] = mapped_column(Integer, nullable=False)
+    etape_suivante_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("etapes_workflow.id", ondelete="NO ACTION"), nullable=True
+    )
+
+
+class Workflow(Base):
+    """Une ligne par (interruption, étape). L'étape suivante n'est saisissable
+    qu'une fois `date_fin` renseignée sur l'étape précédente."""
+
+    __tablename__ = "workflows"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     interruption_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("interruptions.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True,
-        index=True,
+        Integer, ForeignKey("interruptions.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    etape_workflow_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("etapes_workflow.id", ondelete="NO ACTION"), nullable=False, index=True
+    )
+    date_debut: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    date_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    observation: Mapped[str | None] = mapped_column(NVARCHAR(2000), nullable=True)
 
-    # Déclenchement
-    date_debut_declenchement: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    date_fin_declenchement: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    duree_declenchement_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # Interpellation PDM
-    date_interpellation_pdm: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    date_arrivee_pdm: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    duree_interpellation_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # Tronçonnement
-    date_debut_tronconnement: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    date_fin_tronconnement: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    duree_tronconnement_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Données propres à l'étape tronçonnement
     troncon_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("troncons.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     troncon_sig_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("troncons_sig.id", ondelete="NO ACTION"), nullable=True, index=True
     )
-
-    # Localisation
-    date_debut_localisation: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    date_fin_localisation: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    duree_localisation_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # Réparation
-    date_debut_reparation: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    date_fin_reparation: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    duree_reparation_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # Remise
-    date_debut_remise: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    date_fin_remise: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=False), nullable=True
-    )
-    duree_remise_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # SIG (libellés temporaires — FK noeuds en phase C)
     noeud_amont_libelle: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True)
     noeud_aval_libelle: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True)
-
     responsable_matricule: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    observations_workflow: Mapped[str | None] = mapped_column(NVARCHAR(2000), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
@@ -104,10 +68,19 @@ class InterruptionWorkflowStep(Base):
         onupdate=func.now(),
     )
 
-    interruption: Mapped["Interruption"] = relationship(  # noqa: F821
-        "Interruption", back_populates="workflow_step", lazy="select"
+    __table_args__ = (
+        UniqueConstraint("interruption_id", "etape_workflow_id", name="uq_workflow_interruption_etape"),
+        CheckConstraint(
+            "date_fin IS NULL OR date_debut IS NULL OR date_fin >= date_debut",
+            name="ck_workflow_dates",
+        ),
     )
+
+    interruption: Mapped["Interruption"] = relationship(  # noqa: F821
+        "Interruption", back_populates="workflows", lazy="select"
+    )
+    etape: Mapped["EtapeWorkflow"] = relationship("EtapeWorkflow", lazy="select")
     troncon: Mapped["Troncon | None"] = relationship("Troncon", lazy="select")  # noqa: F821
     troncon_sig: Mapped["TronconSig | None"] = relationship(  # noqa: F821
-        "TronconSig", back_populates="workflow_steps", lazy="select"
+        "TronconSig", back_populates="workflows", lazy="select"
     )

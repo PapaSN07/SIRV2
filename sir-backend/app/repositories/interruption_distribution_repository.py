@@ -24,16 +24,27 @@ def _service_ids_in_region_subquery(region_id: int):
     return service_ids_in_region_subquery(region_id)
 
 
+def _intervenant_options() -> tuple:
+    return (
+        joinedload(Interruption.entreprise),
+        joinedload(Interruption.prestataire),
+    )
+
+
 def _base_distribution_query():
     return (
         select(Interruption)
         .options(
+            *_intervenant_options(),
             joinedload(Interruption.interruption_distribution),
             joinedload(Interruption.cause),
             joinedload(Interruption.nature),
             joinedload(Interruption.siege),
             joinedload(Interruption.feeder),
+            joinedload(Interruption.sous_feeder),
             joinedload(Interruption.poste_source),
+            joinedload(Interruption.type_end),
+            joinedload(Interruption.type_reseau),
             joinedload(Interruption.service)
             .joinedload(Service.agence)
             .joinedload(Agence.delegation)
@@ -161,12 +172,16 @@ async def get_interruption_for_response(
     result = await db.execute(
         select(Interruption)
         .options(
+            *_intervenant_options(),
             joinedload(Interruption.interruption_distribution),
             joinedload(Interruption.cause),
             joinedload(Interruption.nature),
             joinedload(Interruption.siege),
             joinedload(Interruption.feeder),
+            joinedload(Interruption.sous_feeder),
             joinedload(Interruption.poste_source),
+            joinedload(Interruption.type_end),
+            joinedload(Interruption.type_reseau),
             joinedload(Interruption.service)
             .joinedload(Service.agence)
             .joinedload(Agence.delegation)
@@ -188,13 +203,18 @@ async def get_interruption_detail(
     result = await db.execute(
         select(Interruption)
         .options(
+            *_intervenant_options(),
+            joinedload(Interruption.updated_by),
             joinedload(Interruption.interruption_distribution),
             joinedload(Interruption.feeder),
+            joinedload(Interruption.sous_feeder),
             joinedload(Interruption.poste_source),
             joinedload(Interruption.cause),
             joinedload(Interruption.nature),
             joinedload(Interruption.siege),
             joinedload(Interruption.signalisation),
+            joinedload(Interruption.type_end),
+            joinedload(Interruption.type_reseau),
             joinedload(Interruption.service)
             .joinedload(Service.agence)
             .joinedload(Agence.delegation)
@@ -365,11 +385,19 @@ async def add_poste_interruption(
     interruption_id: int,
     poste_id: int,
     nombre_clients_touches: int | None,
+    date_interruption: datetime | None = None,
+    feeder_id: int | None = None,
+    service_id: int | None = None,
+    poste_source_id: int | None = None,
 ) -> PosteInterruption:
     link = PosteInterruption(
         interruption_id=interruption_id,
         poste_id=poste_id,
         nombre_clients_touches=nombre_clients_touches,
+        date_interruption=date_interruption,
+        feeder_id=feeder_id,
+        service_id=service_id,
+        poste_source_id=poste_source_id,
     )
     db.add(link)
     await db.flush()

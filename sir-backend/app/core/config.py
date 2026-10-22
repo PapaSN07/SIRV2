@@ -78,6 +78,23 @@ class Settings(BaseSettings):
     # Seuil interruption fugitive (minutes)
     seuil_fugitif_minutes: int = Field(default=5, validation_alias="SEUIL_FUGITIF_MINUTES")
 
+    # LDAP / Active Directory (compte de service bind)
+    ldap_enabled: bool = Field(default=False, validation_alias="LDAP_ENABLED")
+    ldap_hosts: str = Field(
+        default="srv-siegedc0.electricite.sn,srv-siegedc2.electricite.sn,srv-datacentdc1.electricite.sn",
+        validation_alias="LDAP_HOSTS",
+    )
+    ldap_port: int = Field(default=389, validation_alias="LDAP_PORT")
+    ldap_use_ssl: bool = Field(default=False, validation_alias="LDAP_USE_SSL")
+    ldap_bind_dn: str = Field(default="", validation_alias="LDAP_BIND_DN")
+    ldap_bind_password: str = Field(default="", validation_alias="LDAP_BIND_PASSWORD")
+    ldap_base_dn: str = Field(default="DC=electricite,DC=sn", validation_alias="LDAP_BASE_DN")
+    ldap_user_search_filter: str = Field(
+        default="(sAMAccountName={login})",
+        validation_alias="LDAP_USER_SEARCH_FILTER",
+    )
+    ldap_timeout_seconds: int = Field(default=8, validation_alias="LDAP_TIMEOUT_SECONDS")
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
@@ -85,6 +102,19 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def ldap_hosts_list(self) -> list[str]:
+        return [host.strip() for host in self.ldap_hosts.split(",") if host.strip()]
+
+    @property
+    def ldap_is_configured(self) -> bool:
+        return bool(
+            self.ldap_enabled
+            and self.ldap_hosts_list
+            and self.ldap_bind_dn.strip()
+            and self.ldap_bind_password
+        )
 
 
 settings = Settings()

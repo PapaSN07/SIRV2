@@ -11,6 +11,8 @@ Migration de **SIR** (Système d'Information Réseau SENELEC) : WebDev + HFSQL �
 
 Domaines : interruptions réseau électrique (MT/BT distribution + HTB transport), indicateurs SAIFI/SAIDI/END, rapports CRSE, NAPT, notifications SMS/Email.
 
+Référence indicateurs (formules, endpoints, RBAC) : [docs/indicateurs_sirv2.md](docs/indicateurs_sirv2.md).
+
 Répertoires cibles : `sir-backend/` (FastAPI) et `sir-frontend/` (Angular 17+).
 
 ---

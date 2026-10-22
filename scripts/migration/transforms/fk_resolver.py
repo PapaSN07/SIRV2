@@ -101,6 +101,14 @@ class FkResolver:
         key = text_key(poste_text)
         return self.id_maps.lookup_text("postes_by_text", key) if key else None
 
+    def poste_id_by_legacy(self, legacy_id: Any) -> int | None:
+        lid = _positive_legacy(legacy_id)
+        return self.id_maps.get("postes", lid) if lid is not None else None
+
+    def sous_feeder_id_by_legacy(self, legacy_id: Any) -> int | None:
+        lid = _positive_legacy(legacy_id)
+        return self.id_maps.get("sous_feeders", lid) if lid is not None else None
+
     def utilisateur_id(self, login: str | None) -> int | None:
         if not login:
             return None

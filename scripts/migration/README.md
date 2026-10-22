@@ -29,6 +29,28 @@ Chaîne ODBC Client/Serveur :
 DRIVER={HFSQL};Server Name=srv-hfsql;Server Port=4900;Database=<db>;UID=admin;PWD=***;IntegrityCheck=1
 ```
 
+### PosteInterruption (SAIFI/SAIDI)
+
+Les clients touchés par poste ne sont pas dans HFSQL exportable (volume > 16M lignes).
+Source opérationnelle : **`srv-bddomtech` / `IndicateursTransportDistribution` / `dbo.PosteInterruption`**.
+
+Cible SIRV2 `poste_interruptions` : `interruption_id`, `poste_id`, `nombre_clients_touches`,
+plus dénormalisation `feeder_id`, `service_id`, `poste_source_id` (depuis l’interruption / poste / feeder).
+
+```ini
+# .env.migration (optionnel)
+ITD_DATABASE=IndicateursTransportDistribution
+```
+
+```powershell
+cd sir-backend
+$env:SIR_PROFILE="senelec"
+python ..\scripts\migration\import_poste_interruptions_itd.py --dry-run
+python ..\scripts\migration\import_poste_interruptions_itd.py --execute --truncate
+python ..\scripts\migration\backfill_poste_interruptions_context.py --execute
+python ..\scripts\migration\recalculate_saifi_saidi.py --execute
+```
+
 > **Note** : utiliser **`pypyodbc`** (recommandé) — `pyodbc` peut crasher avec le driver HFSQL PC SOFT.
 
 ## Pipeline
@@ -41,6 +63,9 @@ DRIVER={HFSQL};Server Name=srv-hfsql;Server Port=4900;Database=<db>;UID=admin;PW
 | ETL simulation | `python scripts/migration/etl_hfsql.py --dry-run --wave geo` |
 | ETL import | `python scripts/migration/etl_hfsql.py --execute --wave all` |
 | **Sync interruptions** | `python scripts/migration/sync_interruptions.py --execute` |
+| **Import poste_interruptions (ITD)** | `python scripts/migration/import_poste_interruptions_itd.py --execute --truncate` |
+| **Import sous-feeders** | `python scripts/migration/import_sous_feeders.py --execute` ou `bootstrap_sous_feeders.py --execute` |
+| **Recalcul SAIFI/SAIDI** | `python scripts/migration/recalculate_saifi_saidi.py --execute` |
 | Validation | `python scripts/migration/validate_migration.py` |
 
 ## Vagues ETL

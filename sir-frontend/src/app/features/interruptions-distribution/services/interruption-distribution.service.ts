@@ -12,11 +12,11 @@ import {
   InterruptionDistributionUpdate,
   InterruptionListParams,
   InterruptionWorkflow,
-  InterruptionWorkflowUpdate,
   PosteImpacte,
   PosteImpacteBulk,
   PosteImpacteFromSigRequest,
   PosteInterruptionCreate,
+  WorkflowEtapeUpdate,
 } from '../../../shared/models/interruption.models';
 
 @Injectable({ providedIn: 'root' })
@@ -130,9 +130,13 @@ export class InterruptionDistributionService {
       .pipe(map((res) => this.unwrap(res)));
   }
 
-  updateWorkflow(id: number, body: InterruptionWorkflowUpdate): Observable<InterruptionWorkflow> {
+  updateWorkflowEtape(
+    id: number,
+    etapeId: number,
+    body: WorkflowEtapeUpdate,
+  ): Observable<InterruptionWorkflow> {
     return this.http
-      .put<ApiResponse<InterruptionWorkflow>>(`${this.apiUrl}/${id}/workflow`, body)
+      .put<ApiResponse<InterruptionWorkflow>>(`${this.apiUrl}/${id}/workflow/etapes/${etapeId}`, body)
       .pipe(map((res) => this.unwrap(res)));
   }
 

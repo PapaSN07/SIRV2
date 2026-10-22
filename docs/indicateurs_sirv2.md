@@ -5,6 +5,21 @@
 
 ---
 
+## État d'implémentation SIRV2
+
+| Composant | Statut | Fichiers / routes |
+|---|---|---|
+| Calcul END (worker) | Implémenté | `sir-backend/app/services/end_service.py`, tâche `calcul_end` |
+| Calcul SAIFI/SAIDI (worker) | Implémenté | `sir-backend/app/services/saifi_saidi_service.py`, tâche `calcul_saifi_saidi` |
+| API `/api/v1/indicateurs/*` | Implémenté (Sprint 5) | `sir-backend/app/api/v1/indicateurs/router.py` |
+| Cache Redis | Implémenté | `sir-backend/app/services/indicateurs_cache_service.py` |
+| END transport HTB | Rapports uniquement | `rapport_transport_repository.py` — **pas** d'endpoint `/indicateurs` |
+| Frontend hub | Partiel | `sir-frontend/.../indicateurs/indicateurs-hub/` — KPI, historique END, top feeders, répartitions |
+| Import FIS | Implémenté | `sir-backend/app/services/fis_import_service.py` |
+| Coefficients CRSE | Bloqué | Validation SENELEC requise (voir fin de document) |
+
+---
+
 ## 1. END — Énergie Non Distribuée
 
 ### Définition
@@ -41,11 +56,14 @@ END (kWh) = Puissance_Coupée (kW) × Durée (minutes) / 60
 
 ### Coefficients par nature (provisoires — TODO CRSE)
 
-| Code Nature | Type END | Coefficient |
+Ces codes servent à la **pondération END** (`REGLES_END_PAR_NATURE` dans `end_service.py`). Ils sont distincts des codes **FIS** utilisés pour l'affichage du tableau de bord (voir §4). Le code `DELESTAGE` est partagé entre les deux nomenclatures.
+
+| Code Nature (pondération) | Type END | Coefficient |
 |---|---|---|
 | INCIDENT | END_IMPUTABLE | 1.0 |
 | DELESTAGE | END_PROGRAMME | 1.0 |
 | MAINTENANCE | END_PROGRAMME | 1.0 |
+| Codes FIS (PERMANENT, SEMI_PERM, …) | END_IMPUTABLE (défaut) | 1.0 |
 | Autres | END_IMPUTABLE | 1.0 |
 
 ### Règles d'exclusion
@@ -230,6 +248,8 @@ GET /api/v1/indicateurs/saidi?annee=2024&mois=5&region_id=1
 ### Définition
 
 Distribution des interruptions par nature, avec END cumulé, alignée sur le format Tableau de Bord des fichiers FIS SENELEC.
+
+> **Nomenclature FIS vs pondération END** : les codes ci-dessous sont stockés dans la table `natures` et utilisés pour l'affichage (`natures_repartition`). La pondération END (§1) utilise une table de règles séparée (`REGLES_END_PAR_NATURE`) avec des codes métier (`INCIDENT`, `MAINTENANCE`, …). Seul `DELESTAGE` est commun. Mapping import FIS : `fis_import_service.NATURE_LIBELLE_TO_CODE`.
 
 ### Codes et ordre canonique FIS
 
@@ -429,8 +449,12 @@ WHERE
 
 ### Utilisé dans
 
-- Rapport mensuel transport
+- Rapport mensuel transport (`POST /api/v1/rapports/mensuel/transport`)
 - Rapport annuel consolidé (distribution + transport)
+
+### Non exposé en API indicateurs
+
+Il n'existe **pas** de `GET /api/v1/indicateurs/end-transport` ni de champ `end_transport` dans le tableau de bord. Le comptage d'interruptions transport au niveau national est réservé au rôle `ADMIN_SAQS` dans `indicateurs_service.get_tableau_de_bord`.
 
 ---
 
@@ -455,8 +479,14 @@ Vue agrégée combinant tous les indicateurs du mois courant (ou d'un mois donn�
 ### Cache Redis
 
 Les résultats sont mis en cache par `(type, region_id, annee, mois)`.  
-Clé pattern : `ind:{type}:{region_id}:{annee}:{mois}`  
-Invalidation automatique à chaque validation d'interruption.
+Clé pattern : `indicateurs:{type}:{region_id}:{annee}:{mois}`  
+Clés dérivées : `indicateurs:historique:{type}:{region_id}:{annees}`, `indicateurs:tableau-de-bord:…`, `indicateurs:top-feeders:…`  
+TTL : 1 h (3600 s) — voir `indicateurs_cache_service.py` et `CLAUDE.md`.
+
+**Invalidation :**
+
+- **Clôture** (`statut → cloture`) : tâche Celery `calcul_end` → invalidation cache END à la fin du calcul
+- **Validation** (`statut → valide`) : invalidation synchrone des caches indicateurs + tâche Celery `calcul_saifi_saidi`
 
 ### Endpoint API
 
@@ -483,6 +513,7 @@ Clé : `(service_id, annee, mois)` — contrainte UNIQUE
 ### Alimentation
 
 Saisie manuelle ou import mensuel (pas encore automatisé).  
+Seed dev : `make seed-dev` charge des snapshots via `seed_indicateurs.py`.  
 Si absent pour un service/période → SAIFI et SAIDI ne peuvent pas être calculés pour ce service.
 
 ---
@@ -517,29 +548,36 @@ brouillon → soumis → approuve → [exécution] → archive
 ## Schéma de déclenchement des calculs
 
 ```
+Interruption clôturée (statut → 'cloture')
+    │
+    └── Celery Task: calcul_end(interruption_id)
+            └── calculer_et_persister_end → energie_nd + miroir interruptions_distribution.end_mwh
+                └── Invalide cache Redis END (région, mois de date_remise)
+
 Interruption validée (statut → 'valide')
     │
-    ├── Celery Task: calculer_et_persister_end(interruption_id)
-    │       └── END (MWh) → energie_nd + miroir interruptions_distribution.end_mwh
-    │           └── Invalide cache Redis END (région, mois)
+    ├── Invalidation synchrone cache Redis (END, SAIFI, SAIDI, tableau-de-bord, …)
     │
-    └── Celery Task: calculer_et_persister_saifi_saidi(interruption_id)
-            └── Recalcule SAIFI + SAIDI pour (service_id, annee, mois)
-                └── Invalide cache Redis SAIFI/SAIDI/tableau-de-bord (région, mois)
+    └── Celery Task: calcul_saifi_saidi(interruption_id)
+            └── Recalcule SAIFI + SAIDI pour (service_id, annee, mois de date_apparition)
+                └── Persiste dans saifi_saidi
 ```
 
 ---
 
 ## Périmètres RBAC par indicateur
 
-| Rôle | Périmètre | Indicateurs accessibles |
-|---|---|---|
-| BCC | Région (distribution) | END, SAIFI, SAIDI, TB, Top Feeders, Historique |
-| BRC | Région (lecture) | END, SAIFI, SAIDI, TB, Top Feeders, Historique |
-| SUPERVISEUR | Service unique | END, SAIFI, SAIDI, TB (son service uniquement) |
-| DISPATCHER | Transport national | Interruptions transport uniquement |
-| ADMIN_SCR | National | Tous indicateurs distribution |
-| ADMIN_SAQS | National | Tous indicateurs distribution + transport |
+Aligné sur `seed_rbac.py` et `indicateurs_service._resolve_scope` (BCC/BRC : `user_roles.scope_service_id` = `region_id`).
+
+| Rôle | Périmètre | Permission `indicateurs:read` | Indicateurs accessibles |
+|---|---|---|---|
+| BCC | Région (distribution) | Oui | END, SAIFI, SAIDI, TB, Top Feeders, Historique |
+| BRC | Région (lecture) | Oui | END, SAIFI, SAIDI, TB, Top Feeders, Historique |
+| SUPERVISEUR | Service unique | Oui | END, SAIFI, SAIDI, TB (son service uniquement) |
+| DISPATCHER | Transport national | **Non** | Interruptions transport uniquement (pas d'API indicateurs) |
+| ADMIN_DISPATCHING | Transport national | **Non** | Interruptions transport + rapports transport |
+| ADMIN_SCR | National distribution | Oui | Tous indicateurs distribution |
+| ADMIN_SAQS | National | Oui | Distribution + comptage interruptions transport au TB national |
 
 ---
 

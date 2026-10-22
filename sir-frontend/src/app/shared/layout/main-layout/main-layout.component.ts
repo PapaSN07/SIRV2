@@ -50,6 +50,7 @@ export class MainLayoutComponent implements OnDestroy {
         enabled: true,
       },
       { label: 'Workflow', icon: 'assignment', route: '/workflow/validation', enabled: true },
+      { label: 'Assistant', icon: 'psychology', route: '/assistant', enabled: true },
       { label: 'Rapports', icon: 'assessment', route: '/rapports', enabled: true },
       { label: 'Administration', icon: 'admin_panel_settings', route: '/admin/referentiel', enabled: true },
       { label: 'Utilisateurs', icon: 'group', route: '/admin/utilisateurs', enabled: true },

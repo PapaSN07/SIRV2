@@ -11,6 +11,36 @@ export interface TableauDeBordResponse {
   nb_interruptions_actives: number;
   nb_interruptions_mois: number;
   causes_repartition?: CauseRepartitionItem[];
+  natures_repartition?: NatureRepartitionItem[];
+  nature_service?: NatureServiceRepartition;
+}
+
+export interface NatureServiceCell {
+  nombre: number;
+  end_kwh: number;
+}
+
+export interface NatureServiceColumn {
+  service_id: number;
+  code: string;
+  libelle: string;
+  nombre: number;
+  end_kwh: number;
+}
+
+export interface NatureServiceLigne {
+  code: string;
+  libelle: string;
+  cellules: NatureServiceCell[];
+  nombre: number;
+  end_kwh: number;
+}
+
+export interface NatureServiceRepartition {
+  services: NatureServiceColumn[];
+  lignes: NatureServiceLigne[];
+  total_nombre: number;
+  total_end_kwh: number;
 }
 
 export interface HistoriquePoint {
@@ -105,4 +135,13 @@ export interface CauseRepartitionItem {
   nombre: number;
   percent: number;
   color?: string;
+}
+
+/** Répartition par nature FIS — fournie par le tableau de bord API. */
+export interface NatureRepartitionItem {
+  code: string;
+  libelle: string;
+  nombre: number;
+  end_kwh: number;
+  percent: number;
 }

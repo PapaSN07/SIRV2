@@ -5,7 +5,18 @@
 # IMPORTANT: import order matters — tables with no FK deps come first.
 
 from app.models.geo import Agence, Delegation, Region, Service  # noqa: F401
-from app.models.referentiel import Cause, Nature, Siege, Signalisation, TypeEnd  # noqa: F401
+from app.models.referentiel import (  # noqa: F401
+    Cause,
+    DirectionSource,
+    Entreprise,
+    Nature,
+    Prestataire,
+    Siege,
+    Signalisation,
+    Statut,
+    TypeEnd,
+    TypeReseau,
+)
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
 from app.models.reseau import (  # noqa: F401
@@ -24,12 +35,17 @@ from app.models.interruptions import (  # noqa: F401
     InterruptionTransport,
     PosteInterruption,
 )
-from app.models.interruption_workflow import InterruptionWorkflowStep  # noqa: F401
+from app.models.interruption_workflow import EtapeWorkflow, Workflow  # noqa: F401
 from app.models.indicateurs import EnergieNd, NombreClientMois, SaifiSaidi  # noqa: F401
 from app.models.napt import Consignation, Napt  # noqa: F401
 from app.models.notifications import Destinataire, EmailEnvoye, SmsEnvoye  # noqa: F401
 from app.models.rapports import RapportGenere  # noqa: F401
 from app.models.sig import NoeudSig, TronconSig  # noqa: F401
+from app.models.assistant_ml import (  # noqa: F401
+    AssistantConversation,
+    MlFeatureSnapshot,
+    MlPrediction,
+)
 
 __all__ = [
     # Geo
@@ -43,6 +59,11 @@ __all__ = [
     "Signalisation",
     "Nature",
     "TypeEnd",
+    "TypeReseau",
+    "Statut",
+    "DirectionSource",
+    "Entreprise",
+    "Prestataire",
     # Utilisateurs & RBAC
     "Permission",
     "Role",
@@ -65,7 +86,8 @@ __all__ = [
     "InterruptionDistribution",
     "InterruptionTransport",
     "PosteInterruption",
-    "InterruptionWorkflowStep",
+    "EtapeWorkflow",
+    "Workflow",
     # Indicateurs
     "EnergieNd",
     "SaifiSaidi",
@@ -81,4 +103,8 @@ __all__ = [
     "RapportGenere",
     "NoeudSig",
     "TronconSig",
+    # Assistant ML
+    "MlFeatureSnapshot",
+    "MlPrediction",
+    "AssistantConversation",
 ]

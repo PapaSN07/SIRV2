@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiResponse, PaginatedResponse } from '../../../shared/models/api.models';
-import { Feeder, Poste, PosteSource, ReseauListParams, Troncon } from '../../../shared/models/reseau.models';
+import { Feeder, Poste, PosteSource, ReseauListParams, SousFeeder, Troncon } from '../../../shared/models/reseau.models';
 
 @Injectable({ providedIn: 'root' })
 export class ReseauDistributionService {
@@ -25,6 +25,10 @@ export class ReseauDistributionService {
 
   listTroncons(params: ReseauListParams = {}): Observable<PaginatedResponse<Troncon>> {
     return this.list<Troncon>('troncons', params);
+  }
+
+  listSousFeeders(params: ReseauListParams = {}): Observable<PaginatedResponse<SousFeeder>> {
+    return this.list<SousFeeder>('sous-feeders', params);
   }
 
   private list<T>(resource: string, params: ReseauListParams): Observable<PaginatedResponse<T>> {

@@ -24,7 +24,7 @@ from app.schemas.interruption_distribution import (
 )
 from app.schemas.interruption_workflow import (
     InterruptionWorkflowResponse,
-    InterruptionWorkflowUpdate,
+    WorkflowEtapeUpdate,
 )
 from app.services import fis_import_service
 from app.services import interruption_distribution_service
@@ -298,21 +298,22 @@ async def get_interruption_workflow(
 
 
 @router.put(
-    "/{interruption_id}/workflow",
+    "/{interruption_id}/workflow/etapes/{etape_id}",
     response_model=ApiResponse[InterruptionWorkflowResponse],
     status_code=status.HTTP_200_OK,
-    summary="Mettre à jour le workflow opérationnel (BCC / ADMIN_SCR)",
+    summary="Saisir une étape du workflow (déverrouillée par la date de fin de l'étape précédente)",
 )
-async def update_interruption_workflow(
+async def update_interruption_workflow_etape(
     interruption_id: int,
-    body: InterruptionWorkflowUpdate,
+    etape_id: int,
+    body: WorkflowEtapeUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(
         require_permission("interruptions_distribution", "update")
     ),
 ) -> ApiResponse[InterruptionWorkflowResponse]:
-    result = await interruption_workflow_service.update_workflow(
-        db, interruption_id, body, current_user
+    result = await interruption_workflow_service.update_etape(
+        db, interruption_id, etape_id, body, current_user
     )
     return ApiResponse.success(result)
 

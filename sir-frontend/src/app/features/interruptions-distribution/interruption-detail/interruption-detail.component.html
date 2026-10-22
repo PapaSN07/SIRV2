@@ -29,39 +29,18 @@
       </div>
     </sir-page-header>
 
-    <sir-interruption-workflow-panel
-      [workflow]="workflow()"
-      [loading]="workflowLoading()"
-      [canEdit]="canEditWorkflow(it)"
-      [interruptionId]="it.id"
-      [feederId]="it.feeder_id"
-      (saved)="onWorkflowSaved()"
-    >
-      <div workflowClients>
-        @if (it.postes_impactes.length === 0) {
-          <p class="detail-empty">Aucun poste associé.</p>
-        } @else {
-          <ul class="postes-list">
-            @for (p of it.postes_impactes; track p.poste_id) {
-              <li class="postes-list__item">
-                <div>
-                  <strong>{{ p.poste_libelle ?? p.poste_code }}</strong>
-                  <span>{{ p.nombre_clients_touches ?? '?' }} clients touchés</span>
-                </div>
-                @if (canWritePostes()) {
-                  <button
-                    type="button"
-                    class="sir-btn sir-btn--outline-primary"
-                    (click)="removePoste(p.poste_id)"
-                  >
-                    Retirer
-                  </button>
-                }
-              </li>
-            }
-          </ul>
-        }
-
+    <article class="detail-card postes-card">
+      <header class="detail-card__head">
+        <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
+        <h2>Postes impactés</h2>
+      </header>
+      <div class="postes-toolbar">
+        <p class="postes-toolbar__summary">
+          {{ postesCheckedCount() }} poste(s) impacté(s)
+          @if (postesCatalog().length > 0) {
+            <span> · {{ postesCatalog().length }} sur le feeder</span>
+          }
+        </p>
         @if (canWritePostes()) {
           <div class="poste-actions">
             <button
@@ -70,48 +49,79 @@
               [disabled]="postesBulkLoading()"
               (click)="addPostesFromFeeder()"
             >
-              <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
-              Tous les postes du feeder
+              <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
+              Tout cocher (feeder)
             </button>
             <button
               type="button"
               class="sir-btn sir-btn--outline-primary"
               [disabled]="postesBulkLoading() || !hasSigTroncon()"
-              [title]="hasSigTroncon() ? '' : 'Sélectionnez un tronçon SIG dans l\'onglet Tronçonnement'"
+              [title]="hasSigTroncon() ? '' : 'Sélectionnez un tronçon SIG dans l\'étape Tronçonnement'"
               (click)="addPostesFromSigTroncon()"
             >
               <span class="material-symbols-outlined" aria-hidden="true">share_location</span>
               Postes du tronçon SIG
             </button>
           </div>
-          <form class="poste-form" [formGroup]="posteForm" (ngSubmit)="addPoste()">
-            <div class="field">
-              <label class="field__label" for="poste">Poste</label>
-              <select id="poste" class="field__select" formControlName="poste_id">
-                <option [ngValue]="0">Sélectionner un poste</option>
-                @for (p of availablePostes(); track p.id) {
-                  <option [ngValue]="p.id">{{ p.libelle }}</option>
-                }
-              </select>
-            </div>
-            <div class="field">
-              <label class="field__label" for="clients">Clients touchés</label>
-              <input
-                id="clients"
-                class="field__select"
-                type="number"
-                min="0"
-                formControlName="nombre_clients_touches"
-              />
-            </div>
-            <button type="submit" class="sir-btn sir-btn--primary" [disabled]="posteForm.invalid || postesBulkLoading()">
-              <span class="material-symbols-outlined" aria-hidden="true">add</span>
-              Ajouter un poste
-            </button>
-          </form>
         }
       </div>
-    </sir-interruption-workflow-panel>
+
+      <div class="field postes-filter">
+        <label class="field__label" for="postes-filter">Rechercher un poste</label>
+        <input
+          id="postes-filter"
+          class="field__select"
+          type="search"
+          placeholder="Code ou libellé…"
+          [value]="postesFilter()"
+          (input)="onPostesFilterInput($event)"
+        />
+      </div>
+
+      @if (postesCatalogLoading()) {
+        <p class="detail-empty">Chargement des postes du feeder…</p>
+      } @else if (postesRows().length === 0) {
+        <p class="detail-empty">Aucun poste à afficher pour ce feeder.</p>
+      } @else {
+        <ul class="postes-check-list" role="list">
+          @for (row of postesRows(); track row.posteId) {
+            <li class="postes-check-list__item" [class.postes-check-list__item--checked]="row.checked">
+              <label class="postes-check">
+                <input
+                  type="checkbox"
+                  [checked]="row.checked"
+                  [disabled]="!canWritePostes() || isPosteToggling(row.posteId) || postesBulkLoading()"
+                  (change)="onPosteCheckboxChange(row, $event)"
+                />
+                <span class="postes-check__body">
+                  <strong>{{ row.libelle }}</strong>
+                  @if (row.code) {
+                    <span class="postes-check__code">{{ row.code }}</span>
+                  }
+                  <span class="postes-check__clients">
+                    {{ row.nombreClientsTouches ?? '—' }} clients
+                  </span>
+                  @if (row.dateInterruption) {
+                    <span class="postes-check__clients">
+                      {{ row.dateInterruption | date: 'dd/MM/yyyy HH:mm' }}
+                    </span>
+                  }
+                </span>
+              </label>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+
+    <sir-interruption-workflow-panel
+      [workflow]="workflow()"
+      [loading]="workflowLoading()"
+      [canEdit]="canEditWorkflow(it)"
+      [interruptionId]="it.id"
+      [feederId]="it.feeder_id"
+      (saved)="onWorkflowSaved()"
+    />
 
     <div class="detail-bento">
       <div class="detail-bento__main">
@@ -201,6 +211,14 @@
                 <dt>END (MWh)</dt>
                 <dd>{{ it.end_mwh ?? it.energie_nd?.valeur_mwh ?? '—' }}</dd>
               </div>
+              <div class="detail-dl__row">
+                <dt>Entreprise</dt>
+                <dd>{{ it.entreprise_libelle ?? '—' }}</dd>
+              </div>
+              <div class="detail-dl__row">
+                <dt>Prestataire</dt>
+                <dd>{{ it.prestataire_libelle ?? '—' }}</dd>
+              </div>
               @if (it.is_force_majeure || it.is_fugitive || it.has_extension_bt) {
                 <div class="detail-dl__row">
                   <dt>Indicateurs</dt>
@@ -254,6 +272,11 @@
               >
                 Clôturer
               </button>
+              @if (postesCheckedCount() === 0) {
+                <p class="form-hint">
+                  Au-delà de 5 minutes (date de remise − date d'apparition), au moins un poste impacté doit être coché.
+                </p>
+              }
             </form>
           </article>
         }
@@ -275,6 +298,12 @@
       </div>
 
       <aside class="detail-bento__side">
+        <sir-assistant-panel
+          [feederId]="it.feeder_id"
+          [interruptionId]="it.id"
+          [compact]="true"
+        />
+
         <article class="detail-card">
           <header class="detail-card__head">
             <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
@@ -299,6 +328,15 @@
             <h2>Historique</h2>
           </header>
           <ol class="history-timeline">
+            @if (it.updated_by) {
+              <li class="history-timeline__item">
+                <p class="history-timeline__title">Modifiée par</p>
+                <p class="history-timeline__user">
+                  {{ it.updated_by.prenom }} {{ it.updated_by.nom }}
+                </p>
+                <p class="history-timeline__date">{{ it.updated_at | date: 'dd/MM/yyyy HH:mm' }}</p>
+              </li>
+            }
             @if (it.validated_by) {
               <li class="history-timeline__item history-timeline__item--valid">
                 <p class="history-timeline__title">Validée par</p>

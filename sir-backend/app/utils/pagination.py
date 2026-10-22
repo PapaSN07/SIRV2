@@ -24,6 +24,7 @@ async def paginate(
     page_size: int,
     *,
     scalar_type: type[T],
+    max_page_size: int = MAX_PAGE_SIZE,
 ) -> PaginatedResponse[T]:
     """Execute a paginated query and return a PaginatedResponse.
 
@@ -31,7 +32,8 @@ async def paginate(
         db: Active async database session.
         query: Base SELECT statement (no offset/limit/order applied yet).
         page: 1-based page number.
-        page_size: Number of items per page (capped at MAX_PAGE_SIZE).
+        page_size: Number of items per page (capped at max_page_size).
+        max_page_size: Upper bound for this query (defaults to MAX_PAGE_SIZE).
         scalar_type: The SQLAlchemy model or Pydantic type used for type narrowing.
 
     Returns:
@@ -47,7 +49,7 @@ async def paginate(
         )
     """
     page = max(1, page)
-    page_size = clamp_page_size(page_size)
+    page_size = max(1, min(page_size, max_page_size))
     offset = (page - 1) * page_size
 
     # Count total rows using the same base query

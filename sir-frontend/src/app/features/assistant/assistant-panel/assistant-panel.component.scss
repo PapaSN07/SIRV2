@@ -1,0 +1,145 @@
+.assistant-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #d7d0df;
+  border-radius: 0.5rem;
+  background: #faf8fc;
+
+  &--compact {
+    max-width: 420px;
+  }
+
+  &__header {
+    h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #3c1053;
+    }
+    p {
+      margin: 0.25rem 0 0;
+      font-size: 12px;
+      color: #5c4d68;
+    }
+  }
+
+  &__error {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    background: #ffdad6;
+    color: #93000a;
+    border-radius: 0.25rem;
+    font-size: 13px;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #5c4d68;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #c9c0d4;
+    border-radius: 0.35rem;
+    font: inherit;
+    resize: vertical;
+  }
+
+  &__reply {
+    padding: 0.75rem;
+    background: #fff;
+    border-radius: 0.35rem;
+    border: 1px solid #e6e0ee;
+
+    p {
+      margin: 0 0 0.5rem;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+  }
+
+  &__disclaimer {
+    font-size: 12px !important;
+    color: #5c4d68 !important;
+  }
+
+  &__feedback {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  &__risks {
+    h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    li {
+      padding: 0.65rem 0.75rem;
+      background: #fff;
+      border-radius: 0.35rem;
+      border: 1px solid #e6e0ee;
+
+      p {
+        margin: 0.35rem 0 0;
+        font-size: 12px;
+        color: #5c4d68;
+      }
+    }
+  }
+
+  &__risk-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+
+  &__muted {
+    margin: 0;
+    font-size: 13px;
+    color: #5c4d68;
+  }
+}
+
+.risk-level {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+
+  &--low {
+    background: #e8f5e9;
+    color: #1b5e20;
+  }
+  &--medium {
+    background: #fff8e1;
+    color: #e65100;
+  }
+  &--high {
+    background: #ffe0b2;
+    color: #bf360c;
+  }
+  &--critical {
+    background: #ffcdd2;
+    color: #b71c1c;
+  }
+}

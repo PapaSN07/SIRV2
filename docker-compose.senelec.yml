@@ -1,0 +1,60 @@
+# Surcharge Docker — API/worker sur srv-bddomtech (reseau SENELEC).
+# Usage :
+#   .\scripts\build-docker-senelec-env.ps1
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.senelec.yml up -d redis api worker frontend
+#
+# Ou : make up-senelec
+# Frontend : http://localhost:4210  (4200 est souvent pris par d'autres apps Angular)
+
+services:
+
+  db:
+    profiles: ["local-db"]
+
+  api:
+    build:
+      target: deps
+    env_file: !override
+      - .env.docker-senelec
+    extra_hosts:
+      - "srv-bddomtech:${SENELEC_DB_IP}"
+      - "srv-bddomtech.electricite.sn:${SENELEC_DB_IP}"
+    dns:
+      - 10.101.2.28
+    depends_on: !override
+      redis:
+        condition: service_healthy
+    ports: !override
+      - "8000:8000"
+    volumes:
+      - ./sir-backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      ENVIRONMENT: development
+
+  worker:
+    build:
+      target: deps
+    env_file: !override
+      - .env.docker-senelec
+    extra_hosts:
+      - "srv-bddomtech:${SENELEC_DB_IP}"
+      - "srv-bddomtech.electricite.sn:${SENELEC_DB_IP}"
+    dns:
+      - 10.101.2.28
+    depends_on: !override
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./sir-backend:/app
+    command: celery -A app.workers.celery_app worker --loglevel=debug --concurrency=2
+
+  frontend:
+    build:
+      target: deps
+    ports: !override
+      - "4210:4200"
+    volumes:
+      - ./sir-frontend:/app
+      - /app/node_modules
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 500

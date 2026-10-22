@@ -10,6 +10,7 @@ celery_app = Celery(
         "app.workers.tasks.indicateurs",
         "app.workers.tasks.rapports",
         "app.workers.tasks.notifications",
+        "app.workers.tasks.assistant_ml",
     ],
 )
 

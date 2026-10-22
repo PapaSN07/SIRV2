@@ -1,0 +1,10 @@
+{
+  "table": "SousFeeder",
+  "source": "odbc_full",
+  "columns": [
+    "idsousfeeder",
+    "libelle_sousfeeder",
+    "libelle_feeder_sousfeeder",
+    "idfeeder"
+  ]
+}

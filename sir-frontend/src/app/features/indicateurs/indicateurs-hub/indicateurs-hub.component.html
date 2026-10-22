@@ -76,6 +76,64 @@
       </article>
     </div>
 
+    <div class="charts-grid charts-grid--repartition">
+      <section class="panel panel--donut">
+        <h2 class="panel__title">Répartition par cause</h2>
+        <div class="donut">
+          <div class="donut__ring" [style.background]="causeDonutStyle()">
+            <div class="donut__center">
+              <p class="donut__center-label">Total</p>
+              <p class="donut__center-value">{{ causeDonutTotal() }}</p>
+            </div>
+          </div>
+        </div>
+        <ul class="donut__legend">
+          @for (cause of causesRepartition(); track cause.label; let i = $index) {
+            <li class="donut__legend-row">
+              <span class="donut__legend-left">
+                <span class="donut__dot" [style.background]="causeColor(i)"></span>
+                {{ cause.label }}
+              </span>
+              <span class="donut__percent">{{ cause.percent | number: '1.0-1' : 'fr-FR' }} %</span>
+            </li>
+          } @empty {
+            <li class="panel__empty">Aucune cause sur la période.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="panel panel--table">
+        <h2 class="panel__title">Répartition par nature (FIS)</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nature</th>
+                <th class="data-table__num">Nb int.</th>
+                <th class="data-table__num">END (kWh)</th>
+                <th class="data-table__num">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (nature of naturesRepartition(); track nature.code) {
+                <tr>
+                  <td>
+                    {{ nature.libelle }}
+                    <small>({{ nature.code }})</small>
+                  </td>
+                  <td class="data-table__num">{{ nature.nombre }}</td>
+                  <td class="data-table__num">{{ nature.end_kwh | number: '1.0-0' : 'fr-FR' }}</td>
+                  <td class="data-table__num">{{ nature.percent | number: '1.0-1' : 'fr-FR' }} %</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="data-table__empty">Aucune nature sur la période.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
     <div class="charts-grid">
       <section class="panel panel--chart">
         <div class="panel__head">

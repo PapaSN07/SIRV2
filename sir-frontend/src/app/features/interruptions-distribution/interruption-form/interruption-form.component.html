@@ -32,7 +32,7 @@
     </div>
   } @else {
     <form class="form-bento" [formGroup]="form" (ngSubmit)="submit()">
-      <section class="form-card form-card--half">
+      <section class="form-card form-card--full">
         <header class="form-card__head">
           <span class="material-symbols-outlined" aria-hidden="true">lan</span>
           <h2>Identification réseau</h2>
@@ -52,17 +52,19 @@
                 <option [value]="r.id">{{ r.libelle }}</option>
               }
             </select>
-            @if (isRegionalScope() && !isEditMode()) {
+            @if (!isEditMode()) {
               <p class="form-field-hint">
                 @if (isBcc()) {
-                  Périmètre BCC verrouillé sur Dakar.
-                } @else {
+                  Périmètre BCC verrouillé sur votre région.
+                } @else if (isBrc()) {
                   Périmètre BRC verrouillé sur votre région.
+                } @else {
+                  Choisissez la région de l'interruption.
                 }
               </p>
             }
           </div>
-          <div class="form-row">
+          <div class="form-row form-row--network">
             <div class="field">
               <label class="field__label" for="poste-source">Poste source</label>
               <select
@@ -89,24 +91,34 @@
                 }
               </select>
             </div>
+            <div class="field">
+              <label class="field__label" for="sous-feeder">Sous-feeder</label>
+              <select
+                id="sous-feeder"
+                class="field__select"
+                formControlName="sous_feeder_id"
+              >
+                <option [ngValue]="0">
+                  {{ feeders().length && form.controls.feeder_id.value >= 1 ? 'Sélectionner' : 'Choisissez d\'abord un feeder' }}
+                </option>
+                @for (sf of sousFeeders(); track sf.id) {
+                  <option [ngValue]="sf.id">{{ sf.libelle }}</option>
+                }
+              </select>
+              <p class="form-field-hint">Liste des sous-feeders du feeder choisi.</p>
+            </div>
           </div>
-          <div class="form-row">
-            <div class="field">
-              <label class="field__label" for="service">Service</label>
-              <input
-                id="service"
-                class="field__select field__select--readonly"
-                type="text"
-                [value]="serviceLibelle() ?? ''"
-                placeholder="Renseigné automatiquement via le feeder"
-                readonly
-                tabindex="-1"
-              />
-            </div>
-            <div class="field">
-              <label class="field__label" for="localisation">Localisation</label>
-              <input id="localisation" class="field__select" type="text" formControlName="localisation" />
-            </div>
+          <div class="field">
+            <label class="field__label" for="service">Service</label>
+            <input
+              id="service"
+              class="field__select field__select--readonly"
+              type="text"
+              [value]="serviceLibelle() ?? ''"
+              placeholder="Renseigné automatiquement via le feeder"
+              readonly
+              tabindex="-1"
+            />
           </div>
         </div>
       </section>
@@ -181,6 +193,42 @@
               <option [ngValue]="0">Sélectionner</option>
               @for (s of signalisations(); track s.id) {
                 <option [ngValue]="s.id">{{ s.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="type-end">Type END</label>
+            <select id="type-end" class="field__select" formControlName="type_end_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (t of typesEnd(); track t.id) {
+                <option [ngValue]="t.id">{{ t.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="type-reseau">Type réseau</label>
+            <select id="type-reseau" class="field__select" formControlName="type_reseau_id">
+              <option [ngValue]="0">Sélectionner</option>
+              @for (t of typesReseau(); track t.id) {
+                <option [ngValue]="t.id">{{ t.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="entreprise">Entreprise</label>
+            <select id="entreprise" class="field__select" formControlName="entreprise_id">
+              <option [ngValue]="0">Aucune</option>
+              @for (e of entreprises(); track e.id) {
+                <option [ngValue]="e.id">{{ e.libelle }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="prestataire">Prestataire</label>
+            <select id="prestataire" class="field__select" formControlName="prestataire_id">
+              <option [ngValue]="0">Aucun</option>
+              @for (p of prestataires(); track p.id) {
+                <option [ngValue]="p.id">{{ p.libelle }}</option>
               }
             </select>
           </div>
@@ -290,7 +338,7 @@
     @if (!isEditMode()) {
       <p class="form-hint-banner">
         <span class="material-symbols-outlined" aria-hidden="true">info</span>
-        Après la création, complétez le workflow opérationnel (7 onglets) et les postes impactés depuis la fiche détail.
+        Après la création, complétez le workflow opérationnel (étapes successives) et les postes impactés depuis la fiche détail.
       </p>
     }
 

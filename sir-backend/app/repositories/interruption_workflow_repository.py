@@ -1,46 +1,78 @@
-"""Repository — workflow opérationnel interruptions distribution."""
+"""Repository — workflow opérationnel interruptions distribution (étapes chaînées)."""
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.interruption_workflow import InterruptionWorkflowStep
+from app.models.interruption_workflow import ETAPE_TRONCONNEMENT, EtapeWorkflow, Workflow
 from app.models.interruptions import PosteInterruption
 
 
-async def get_workflow_step(
+async def list_etapes(db: AsyncSession) -> list[EtapeWorkflow]:
+    result = await db.execute(select(EtapeWorkflow).order_by(EtapeWorkflow.ordre))
+    return list(result.scalars().all())
+
+
+async def get_etape(db: AsyncSession, etape_id: int) -> EtapeWorkflow | None:
+    result = await db.execute(select(EtapeWorkflow).where(EtapeWorkflow.id == etape_id))
+    return result.scalar_one_or_none()
+
+
+async def list_workflows(db: AsyncSession, interruption_id: int) -> list[Workflow]:
+    result = await db.execute(
+        select(Workflow)
+        .options(joinedload(Workflow.troncon), joinedload(Workflow.troncon_sig))
+        .where(Workflow.interruption_id == interruption_id)
+    )
+    return list(result.scalars().unique().all())
+
+
+async def get_workflow(
     db: AsyncSession,
     interruption_id: int,
-) -> InterruptionWorkflowStep | None:
+    etape_id: int,
+) -> Workflow | None:
     result = await db.execute(
-        select(InterruptionWorkflowStep)
-        .options(
-            joinedload(InterruptionWorkflowStep.troncon),
-            joinedload(InterruptionWorkflowStep.troncon_sig),
+        select(Workflow).where(
+            Workflow.interruption_id == interruption_id,
+            Workflow.etape_workflow_id == etape_id,
         )
-        .where(InterruptionWorkflowStep.interruption_id == interruption_id)
     )
     return result.scalar_one_or_none()
 
 
-async def upsert_workflow_step(
+async def upsert_workflow(
     db: AsyncSession,
     interruption_id: int,
+    etape_id: int,
     values: dict,
-) -> InterruptionWorkflowStep:
-    existing = await get_workflow_step(db, interruption_id)
+) -> Workflow:
+    existing = await get_workflow(db, interruption_id, etape_id)
     if existing is None:
-        step = InterruptionWorkflowStep(interruption_id=interruption_id, **values)
-        db.add(step)
+        row = Workflow(interruption_id=interruption_id, etape_workflow_id=etape_id, **values)
+        db.add(row)
         await db.flush()
-        await db.refresh(step, attribute_names=["troncon", "troncon_sig"])
-        return step
+        return row
 
     for key, value in values.items():
         setattr(existing, key, value)
     await db.flush()
-    await db.refresh(existing, attribute_names=["troncon", "troncon_sig"])
     return existing
+
+
+async def get_troncon_sig_id_for_interruption(
+    db: AsyncSession,
+    interruption_id: int,
+) -> int | None:
+    result = await db.execute(
+        select(Workflow.troncon_sig_id)
+        .join(EtapeWorkflow, EtapeWorkflow.id == Workflow.etape_workflow_id)
+        .where(
+            Workflow.interruption_id == interruption_id,
+            EtapeWorkflow.code == ETAPE_TRONCONNEMENT,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def count_clients_workflow(

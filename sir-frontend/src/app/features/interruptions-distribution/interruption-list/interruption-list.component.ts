@@ -87,8 +87,8 @@ export class InterruptionListComponent implements OnInit {
   readonly emptyFilterHint = signal<string | null>(null);
   readonly selectedIds = signal<Set<number>>(new Set());
 
-  readonly isBrc = computed(() => this.auth.hasRole('BRC'));
-  readonly isBcc = computed(() => this.auth.hasRole('BCC'));
+  readonly isBrc = computed(() => this.auth.isExactRole('BRC'));
+  readonly isBcc = computed(() => this.auth.isExactRole('BCC'));
   readonly isRegionalScope = computed(() => this.isBcc() || this.isBrc());
   readonly showServiceFilter = computed(() => this.isRegionalScope() || (!this.isBcc() && !this.isBrc()));
 

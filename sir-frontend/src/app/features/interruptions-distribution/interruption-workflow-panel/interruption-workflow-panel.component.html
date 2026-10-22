@@ -8,18 +8,30 @@
   </header>
 
   <nav class="workflow-tabs" aria-label="Étapes workflow">
-    @for (tab of tabs; track tab.key) {
+    @for (etape of visibleEtapes(); track etape.etape_workflow_id) {
       <button
         type="button"
         class="workflow-tabs__btn"
-        [class.workflow-tabs__btn--active]="activeTab() === tab.key"
-        [class.workflow-tabs__btn--filled]="tabHasData(tab.key)"
-        (click)="selectTab(tab.key)"
+        [class.workflow-tabs__btn--active]="activeTab() === etape.code"
+        [class.workflow-tabs__btn--filled]="etape.etat === 'terminee'"
+        (click)="selectTab(etape.code)"
       >
-        <span class="material-symbols-outlined" aria-hidden="true">{{ tab.icon }}</span>
-        {{ tab.label }}
+        <span class="material-symbols-outlined" aria-hidden="true">
+          {{ etape.etat === 'terminee' ? 'check_circle' : etapeIcon(etape.code) }}
+        </span>
+        {{ etape.libelle_etape_workflow }}
       </button>
     }
+    <button
+      type="button"
+      class="workflow-tabs__btn"
+      [class.workflow-tabs__btn--active]="activeTab() === clientsTab"
+      [class.workflow-tabs__btn--filled]="(workflow()?.clients?.nombre_postes_impactes ?? 0) > 0"
+      (click)="selectTab(clientsTab)"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+      Clients
+    </button>
   </nav>
 
   @if (loading()) {
@@ -29,237 +41,136 @@
     </div>
   } @else if (workflow()) {
     <div class="workflow-panel__body">
-      @switch (activeTab()) {
-        @case ('declenchement') {
-          <section class="workflow-step">
-            <h3>Déclenchement</h3>
-            @if (canEdit()) {
-              <form class="workflow-form" [formGroup]="declenchementForm" (ngSubmit)="saveDeclenchement()">
-                <div class="workflow-form__grid">
-                  <label class="field">
-                    <span class="field__label">Début</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_debut" />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Fin</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_fin" />
-                  </label>
-                </div>
-                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
-              </form>
-            } @else {
-              <dl class="workflow-dl">
-                <div><dt>Début</dt><dd>{{ workflow()!.declenchement.date_debut | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR' }}</dd></div>
-                <div><dt>Fin</dt><dd>{{ workflow()!.declenchement.date_fin ? (workflow()!.declenchement.date_fin | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Durée</dt><dd>{{ formatDuration(workflow()!.declenchement.duree_minutes) }}</dd></div>
-              </dl>
-            }
-          </section>
-        }
+      @if (activeTab() === clientsTab) {
+        <section class="workflow-step">
+          <h3>Clients impactés</h3>
+          <dl class="workflow-dl workflow-dl--inline">
+            <div><dt>Postes impactés</dt><dd>{{ workflow()!.clients.nombre_postes_impactes }}</dd></div>
+            <div><dt>Clients touchés (total)</dt><dd>{{ workflow()!.clients.nombre_clients_touches ?? '—' }}</dd></div>
+          </dl>
+          <div class="workflow-clients-slot">
+            <p class="workflow-hint">La liste à cocher des postes du feeder est affichée au-dessus du workflow.</p>
+          </div>
+        </section>
+      } @else {
+        @if (currentEtape(); as etape) {
+        <section class="workflow-step">
+          <h3>
+            {{ etape.libelle_etape_workflow }}
+            <span class="workflow-step__hint">Étape facultative — vous pouvez la laisser vide.</span>
+          </h3>
+          @if (canEdit()) {
+            <form class="workflow-form" [formGroup]="etapeForm" (ngSubmit)="saveEtape()">
+              <div class="workflow-form__grid">
+                <label class="field">
+                  <span class="field__label">Début</span>
+                  <input class="field__input" type="datetime-local" formControlName="date_debut" />
+                </label>
+                <label class="field">
+                  <span class="field__label">Fin</span>
+                  <input class="field__input" type="datetime-local" formControlName="date_fin" />
+                </label>
+                <label class="field">
+                  <span class="field__label">Matricule responsable</span>
+                  <input class="field__input" type="number" min="1" formControlName="responsable_matricule" />
+                </label>
 
-        @case ('interpellation') {
-          <section class="workflow-step">
-            <h3>Interpellation PDM</h3>
-            @if (canEdit()) {
-              <form class="workflow-form" [formGroup]="interpellationForm" (ngSubmit)="saveInterpellation()">
-                <div class="workflow-form__grid">
-                  <label class="field">
-                    <span class="field__label">Date interpellation</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_interpellation" />
+                @if (isTronconnement()) {
+                  <label class="field field--wide">
+                    <span class="field__label">Rechercher un tronçon ou un nœud</span>
+                    <input
+                      class="field__input"
+                      type="search"
+                      placeholder="Nom du tronçon, nœud amont ou aval…"
+                      (input)="onTronconSearchInput($event)"
+                    />
                   </label>
-                  <label class="field">
-                    <span class="field__label">Date arrivée PDM</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_arrivee" />
-                  </label>
-                </div>
-                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
-              </form>
-            } @else {
-              <dl class="workflow-dl">
-                <div><dt>Interpellation</dt><dd>{{ workflow()!.interpellation.date_interpellation ? (workflow()!.interpellation.date_interpellation | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Arrivée PDM</dt><dd>{{ workflow()!.interpellation.date_arrivee ? (workflow()!.interpellation.date_arrivee | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Durée</dt><dd>{{ formatDuration(workflow()!.interpellation.duree_minutes) }}</dd></div>
-              </dl>
-            }
-          </section>
-        }
-
-        @case ('tronconnement') {
-          <section class="workflow-step">
-            <h3>Tronçonnement</h3>
-            @if (canEdit()) {
-              <form class="workflow-form" [formGroup]="tronconnementForm" (ngSubmit)="saveTronconnement()">
-                <div class="workflow-form__grid">
-                  <label class="field">
-                    <span class="field__label">Début</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_debut" />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Fin</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_fin" />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Tronçon</span>
-                    <select class="field__input" formControlName="troncon_id">
+                  <label class="field field--wide">
+                    <span class="field__label">Tronçon SIG</span>
+                    <select class="field__input" formControlName="troncon_sig_id" (change)="onTronconChange()">
                       <option [ngValue]="0">—</option>
-                      @for (t of troncons(); track t.id) {
-                        <option [ngValue]="t.id">{{ t.libelle }}</option>
+                      @for (t of tronconsSig(); track t.id) {
+                        <option [ngValue]="t.id">{{ t.nom_troncon || sigSegmentLabel(t) }}</option>
+                      }
+                    </select>
+                    @if (!feederId()) {
+                      <span class="workflow-hint">Feeder non renseigné — liste des tronçons SIG indisponible.</span>
+                    } @else if (tronconsSigLoading()) {
+                      <span class="workflow-hint">Chargement des tronçons SIG…</span>
+                    } @else if (tronconsSigError()) {
+                      <span class="workflow-hint workflow-hint--error">{{ tronconsSigError() }}</span>
+                    } @else if (tronconsSig().length === 0) {
+                      <span class="workflow-hint">Aucun tronçon SIG pour ce feeder.</span>
+                    } @else {
+                      <span class="workflow-hint">
+                        {{ tronconsSig().length }}
+                        @if (tronconsSigTotal() > tronconsSig().length) {
+                          sur {{ tronconsSigTotal() }}
+                        }
+                        tronçon(s) du feeder. Le choix du nœud amont remplit le nœud aval.
+                      </span>
+                    }
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Nœud amont</span>
+                    <select class="field__input" formControlName="noeud_amont_libelle" (change)="onNoeudAmontChange($event)">
+                      <option value="">—</option>
+                      @for (n of noeudsAmont(); track n.key) {
+                        <option [value]="n.key">{{ n.label }}</option>
                       }
                     </select>
                   </label>
                   <label class="field">
-                    <span class="field__label">Nœud amont</span>
-                    <input class="field__input" type="text" formControlName="noeud_amont_libelle" />
-                  </label>
-                  <label class="field">
                     <span class="field__label">Nœud aval</span>
-                    <input class="field__input" type="text" formControlName="noeud_aval_libelle" />
+                    <select class="field__input" formControlName="noeud_aval_libelle" (change)="onNoeudAvalChange($event)">
+                      <option value="">—</option>
+                      @for (n of noeudsAval(); track n.key) {
+                        <option [value]="n.key">{{ n.label }}</option>
+                      }
+                    </select>
                   </label>
-                </div>
+                }
+
+                <label class="field field--wide">
+                  <span class="field__label">Observation</span>
+                  <textarea class="field__textarea" rows="2" formControlName="observation"></textarea>
+                </label>
+              </div>
+
+              @if (isTronconnement()) {
                 <p class="workflow-hint workflow-hint--actions">
                   <button type="button" class="sir-btn sir-btn--outline-primary" (click)="openSigPicker()">
                     <span class="material-symbols-outlined" aria-hidden="true">map</span>
                     Topologie SIG
                   </button>
-                  @if (workflow()?.tronconnement?.troncon_sig_libelle; as sigLabel) {
+                  @if (etape.troncon_sig_libelle; as sigLabel) {
                     <span>SIG : {{ sigLabel }}</span>
                   }
                 </p>
-                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
-              </form>
-            } @else {
-              <dl class="workflow-dl">
-                <div><dt>Début</dt><dd>{{ workflow()!.tronconnement.date_debut ? (workflow()!.tronconnement.date_debut | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Fin</dt><dd>{{ workflow()!.tronconnement.date_fin ? (workflow()!.tronconnement.date_fin | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Durée</dt><dd>{{ formatDuration(workflow()!.tronconnement.duree_minutes) }}</dd></div>
-                <div><dt>Tronçon</dt><dd>{{ workflow()!.tronconnement.troncon_libelle ?? '—' }}</dd></div>
-                <div><dt>Tronçon SIG</dt><dd>{{ workflow()!.tronconnement.troncon_sig_libelle ?? '—' }}</dd></div>
-                <div><dt>Nœud amont</dt><dd>{{ workflow()!.tronconnement.noeud_amont_libelle ?? '—' }}</dd></div>
-                <div><dt>Nœud aval</dt><dd>{{ workflow()!.tronconnement.noeud_aval_libelle ?? '—' }}</dd></div>
-              </dl>
-            }
-          </section>
-        }
-
-        @case ('localisation') {
-          <section class="workflow-step">
-            <h3>Localisation</h3>
-            @if (canEdit()) {
-              <form class="workflow-form" [formGroup]="localisationForm" (ngSubmit)="saveLocalisation()">
-                <div class="workflow-form__grid">
-                  <label class="field">
-                    <span class="field__label">Début</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_debut" />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Fin</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_fin" />
-                  </label>
-                </div>
-                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
-              </form>
-            } @else {
-              <dl class="workflow-dl">
-                <div><dt>Début</dt><dd>{{ workflow()!.localisation.date_debut ? (workflow()!.localisation.date_debut | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Fin</dt><dd>{{ workflow()!.localisation.date_fin ? (workflow()!.localisation.date_fin | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Durée</dt><dd>{{ formatDuration(workflow()!.localisation.duree_minutes) }}</dd></div>
-              </dl>
-            }
-          </section>
-        }
-
-        @case ('reparation') {
-          <section class="workflow-step">
-            <h3>Réparation</h3>
-            @if (canEdit()) {
-              <form class="workflow-form" [formGroup]="reparationForm" (ngSubmit)="saveReparation()">
-                <div class="workflow-form__grid">
-                  <label class="field">
-                    <span class="field__label">Début</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_debut" />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Fin</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_fin" />
-                  </label>
-                </div>
-                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
-              </form>
-            } @else {
-              <dl class="workflow-dl">
-                <div><dt>Début</dt><dd>{{ workflow()!.reparation.date_debut ? (workflow()!.reparation.date_debut | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Fin</dt><dd>{{ workflow()!.reparation.date_fin ? (workflow()!.reparation.date_fin | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Durée</dt><dd>{{ formatDuration(workflow()!.reparation.duree_minutes) }}</dd></div>
-              </dl>
-            }
-          </section>
-        }
-
-        @case ('remise') {
-          <section class="workflow-step">
-            <h3>Remise</h3>
-            @if (canEdit()) {
-              <form class="workflow-form" [formGroup]="remiseForm" (ngSubmit)="saveRemise()">
-                <div class="workflow-form__grid">
-                  <label class="field">
-                    <span class="field__label">Début</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_debut" />
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Fin</span>
-                    <input class="field__input" type="datetime-local" formControlName="date_fin" />
-                  </label>
-                </div>
-                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
-              </form>
-            } @else {
-              <dl class="workflow-dl">
-                <div><dt>Début</dt><dd>{{ workflow()!.remise.date_debut ? (workflow()!.remise.date_debut | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Fin</dt><dd>{{ workflow()!.remise.date_fin ? (workflow()!.remise.date_fin | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
-                <div><dt>Durée</dt><dd>{{ formatDuration(workflow()!.remise.duree_minutes) }}</dd></div>
-              </dl>
-            }
-          </section>
-        }
-
-        @case ('clients') {
-          <section class="workflow-step">
-            <h3>Clients impactés</h3>
-            <dl class="workflow-dl workflow-dl--inline">
-              <div><dt>Postes impactés</dt><dd>{{ workflow()!.clients.nombre_postes_impactes }}</dd></div>
-              <div><dt>Clients touchés (total)</dt><dd>{{ workflow()!.clients.nombre_clients_touches ?? '—' }}</dd></div>
+              }
+              <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">Enregistrer</button>
+            </form>
+          } @else {
+            <dl class="workflow-dl">
+              <div><dt>Début</dt><dd>{{ etape.date_debut ? (etape.date_debut | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
+              <div><dt>Fin</dt><dd>{{ etape.date_fin ? (etape.date_fin | date: 'dd/MM/yyyy HH:mm' : undefined : 'fr-FR') : '—' }}</dd></div>
+              <div><dt>Durée</dt><dd>{{ formatDuration(etape.duree_minutes) }}</dd></div>
+              @if (isTronconnement()) {
+                <div><dt>Tronçon SIG</dt><dd>{{ etape.troncon_sig_libelle ?? etape.troncon_libelle ?? '—' }}</dd></div>
+                <div><dt>Nœud amont</dt><dd>{{ etape.noeud_amont_libelle ?? '—' }}</dd></div>
+                <div><dt>Nœud aval</dt><dd>{{ etape.noeud_aval_libelle ?? '—' }}</dd></div>
+              }
+              @if (etape.responsable_matricule) {
+                <div><dt>Responsable (matricule)</dt><dd>{{ etape.responsable_matricule }}</dd></div>
+              }
+              @if (etape.observation) {
+                <div><dt>Observation</dt><dd>{{ etape.observation }}</dd></div>
+              }
             </dl>
-            <div class="workflow-clients-slot">
-              <ng-content select="[workflowClients]" />
-            </div>
-          </section>
+          }
+        </section>
         }
       }
-
-      <footer class="workflow-meta">
-        @if (canEdit()) {
-          <form class="workflow-meta__form" [formGroup]="metaForm" (ngSubmit)="saveMeta()">
-            <label class="field">
-              <span class="field__label">Matricule responsable</span>
-              <input class="field__input" type="number" min="1" formControlName="responsable_matricule" />
-            </label>
-            <label class="field field--wide">
-              <span class="field__label">Observations workflow</span>
-              <textarea class="field__textarea" rows="2" formControlName="observations_workflow"></textarea>
-            </label>
-            <button type="submit" class="sir-btn sir-btn--secondary" [disabled]="saving()">Enregistrer métadonnées</button>
-          </form>
-        } @else if (workflow()?.responsable_matricule || workflow()?.observations_workflow) {
-          <dl class="workflow-dl">
-            @if (workflow()?.responsable_matricule; as matricule) {
-              <div><dt>Responsable (matricule)</dt><dd>{{ matricule }}</dd></div>
-            }
-            @if (workflow()?.observations_workflow; as obs) {
-              <div><dt>Observations</dt><dd>{{ obs }}</dd></div>
-            }
-          </dl>
-        }
-      </footer>
     </div>
   }
 

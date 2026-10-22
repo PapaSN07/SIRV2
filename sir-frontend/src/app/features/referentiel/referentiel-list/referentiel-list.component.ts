@@ -25,6 +25,8 @@ const TABS: ReferentielTab[] = [
   { key: 'signalisations', label: 'Signalisations', filterType: true },
   { key: 'natures', label: 'Natures', filterType: false },
   { key: 'types_end', label: 'Types de fin', filterType: false },
+  { key: 'entreprises', label: 'Entreprises', filterType: false },
+  { key: 'prestataires', label: 'Prestataires', filterType: false },
 ];
 
 interface ReferentielFormState {

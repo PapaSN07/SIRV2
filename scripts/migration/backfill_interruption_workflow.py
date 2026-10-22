@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Backfill interruption_workflow_steps depuis HFSQL Interruptions (exports ou live)."""
+"""Backfill workflows (une ligne par étape) depuis HFSQL Interruptions (exports ou live)."""
 
 from __future__ import annotations
 
@@ -59,12 +59,6 @@ def _parse_dt(row: dict[str, Any], date_key: str, time_key: str | None = None):
     return _valid_sql_datetime(parse_datetime(date_val))
 
 
-def _duree_minutes(debut, fin) -> int | None:
-    if debut is None or fin is None or fin < debut:
-        return None
-    return int((fin - debut).total_seconds() // 60)
-
-
 def _resolve_troncon_sig_id(id_maps: IdMapStore, legacy_sig: Any) -> int | None:
     try:
         lid = int(legacy_sig)
@@ -74,6 +68,16 @@ def _resolve_troncon_sig_id(id_maps: IdMapStore, legacy_sig: Any) -> int | None:
         return None
     mapped = id_maps.get("troncons_sig", lid)
     return int(mapped) if mapped is not None else None
+
+
+def _split_nomtroncon(nom: str) -> tuple[str | None, str | None]:
+    text = nom.strip()
+    if not text:
+        return None, None
+    if " - " in text:
+        amont, aval = text.split(" - ", 1)
+        return amont.strip() or None, aval.strip() or None
+    return text, None
 
 
 def _workflow_row_from_hfsql(row: dict[str, Any], id_maps: IdMapStore) -> dict[str, Any] | None:
@@ -92,19 +96,6 @@ def _workflow_row_from_hfsql(row: dict[str, Any], id_maps: IdMapStore) -> dict[s
         if dt is not None:
             values[col] = dt
             has_data = True
-
-    pairs = (
-        ("duree_declenchement_minutes", "date_debut_declenchement", "date_fin_declenchement"),
-        ("duree_interpellation_minutes", "date_interpellation_pdm", "date_arrivee_pdm"),
-        ("duree_tronconnement_minutes", "date_debut_tronconnement", "date_fin_tronconnement"),
-        ("duree_localisation_minutes", "date_debut_localisation", "date_fin_localisation"),
-        ("duree_reparation_minutes", "date_debut_reparation", "date_fin_reparation"),
-        ("duree_remise_minutes", "date_debut_remise", "date_fin_remise"),
-    )
-    for duree_col, debut_col, fin_col in pairs:
-        duree = _duree_minutes(values.get(debut_col), values.get(fin_col))
-        if duree is not None:
-            values[duree_col] = duree
 
     legacy_troncon = row_get(row, "IDTroncon", "idtroncon")
     if legacy_troncon is not None:
@@ -127,6 +118,16 @@ def _workflow_row_from_hfsql(row: dict[str, Any], id_maps: IdMapStore) -> dict[s
         val = row_get(row, key, key.lower())
         if val:
             values[col] = str(val)[:255]
+            has_data = True
+
+    nom_troncon = row_get(row, "NomTroncon", "nomtroncon")
+    if nom_troncon and str(nom_troncon).strip():
+        amont, aval = _split_nomtroncon(str(nom_troncon))
+        if amont and "noeud_amont_libelle" not in values:
+            values["noeud_amont_libelle"] = amont[:255]
+            has_data = True
+        if aval and "noeud_aval_libelle" not in values:
+            values["noeud_aval_libelle"] = aval[:255]
             has_data = True
 
     matricule = row_get(row, "Matricule", "matricule")
@@ -167,11 +168,47 @@ def collect_workflow_rows(id_maps: IdMapStore) -> dict[str, Any]:
     return {"rows": rows, "skipped_sig_unmapped": skipped_sig}
 
 
+# (code étape, colonne début, colonne fin) — ids résolus depuis dbo.etapes_workflow
+ETAPE_DATE_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("declenchement", "date_debut_declenchement", "date_fin_declenchement"),
+    ("interpellation_pdm", "date_interpellation_pdm", "date_arrivee_pdm"),
+    ("tronconnement", "date_debut_tronconnement", "date_fin_tronconnement"),
+    ("localisation", "date_debut_localisation", "date_fin_localisation"),
+    ("reparation", "date_debut_reparation", "date_fin_reparation"),
+    ("remise", "date_debut_remise", "date_fin_remise"),
+)
+TRONCONNEMENT_EXTRA = ("troncon_id", "troncon_sig_id", "noeud_amont_libelle", "noeud_aval_libelle")
+
+
+def explode_to_etapes(row: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Convertit une ligne plate HFSQL en lignes `workflows` (une par étape renseignée)."""
+    out: list[tuple[str, dict[str, Any]]] = []
+    for code, col_debut, col_fin in ETAPE_DATE_COLUMNS:
+        debut, fin = row.get(col_debut), row.get(col_fin)
+        if debut is not None and fin is not None and fin < debut:
+            fin = None
+        payload: dict[str, Any] = {}
+        if debut is not None:
+            payload["date_debut"] = debut
+        if fin is not None:
+            payload["date_fin"] = fin
+        if code == "tronconnement":
+            payload.update({k: row[k] for k in TRONCONNEMENT_EXTRA if row.get(k) is not None})
+        if payload:
+            out.append((code, payload))
+
+    if row.get("responsable_matricule") is not None:
+        if not out:
+            out.append(("declenchement", {}))
+        out[-1][1]["responsable_matricule"] = row["responsable_matricule"]
+    return out
+
+
 def apply_workflow_rows(rows: list[dict[str, Any]], *, dry_run: bool) -> dict[str, int]:
     from app.core.config import settings as app_settings
 
     if dry_run:
-        return {"would_upsert": len(rows)}
+        return {"would_upsert": sum(len(explode_to_etapes(r)) for r in rows)}
 
     url = app_settings.database_url.replace("aioodbc", "pyodbc")
     engine = create_engine(url)
@@ -179,68 +216,46 @@ def apply_workflow_rows(rows: list[dict[str, Any]], *, dry_run: bool) -> dict[st
     updated = 0
     batch_size = 500
 
-    cols = [
-        "interruption_id",
-        "date_debut_declenchement",
-        "date_fin_declenchement",
-        "duree_declenchement_minutes",
-        "date_interpellation_pdm",
-        "date_arrivee_pdm",
-        "duree_interpellation_minutes",
-        "date_debut_tronconnement",
-        "date_fin_tronconnement",
-        "duree_tronconnement_minutes",
-        "troncon_id",
-        "troncon_sig_id",
-        "date_debut_localisation",
-        "date_fin_localisation",
-        "duree_localisation_minutes",
-        "date_debut_reparation",
-        "date_fin_reparation",
-        "duree_reparation_minutes",
-        "date_debut_remise",
-        "date_fin_remise",
-        "duree_remise_minutes",
-        "noeud_amont_libelle",
-        "noeud_aval_libelle",
-        "responsable_matricule",
-    ]
-
     with engine.connect() as conn:
+        etape_ids = {
+            code: eid
+            for eid, code in conn.execute(text("SELECT id, code FROM dbo.etapes_workflow")).all()
+        }
         for idx, row in enumerate(rows, start=1):
             interruption_id = row["interruption_id"]
-            existing = conn.execute(
-                text("SELECT id FROM dbo.interruption_workflow_steps WHERE interruption_id = :iid"),
-                {"iid": interruption_id},
-            ).scalar_one_or_none()
-
-            payload = {c: row.get(c) for c in cols if c != "interruption_id" and c in row}
-            if existing is None:
-                keys = ["interruption_id", *payload.keys()]
-                params = {"interruption_id": interruption_id, **payload}
-                placeholders = ", ".join(f":{k}" for k in keys)
-                colnames = ", ".join(keys)
-                conn.execute(
-                    text(f"INSERT INTO dbo.interruption_workflow_steps ({colnames}) VALUES ({placeholders})"),
-                    params,
-                )
-                inserted += 1
-            else:
-                if not payload:
-                    continue
-                set_clause = ", ".join(f"{k} = :{k}" for k in payload)
-                conn.execute(
+            for code, payload in explode_to_etapes(row):
+                etape_id = etape_ids[code]
+                existing = conn.execute(
                     text(
-                        f"UPDATE dbo.interruption_workflow_steps SET {set_clause} "
-                        "WHERE interruption_id = :interruption_id"
+                        "SELECT id FROM dbo.workflows "
+                        "WHERE interruption_id = :iid AND etape_workflow_id = :eid"
                     ),
-                    {"interruption_id": interruption_id, **payload},
-                )
-                updated += 1
+                    {"iid": interruption_id, "eid": etape_id},
+                ).scalar_one_or_none()
+                params = {"interruption_id": interruption_id, "etape_workflow_id": etape_id, **payload}
+                if existing is None:
+                    colnames = ", ".join(params.keys())
+                    placeholders = ", ".join(f":{k}" for k in params)
+                    conn.execute(
+                        text(f"INSERT INTO dbo.workflows ({colnames}) VALUES ({placeholders})"),
+                        params,
+                    )
+                    inserted += 1
+                elif payload:
+                    set_clause = ", ".join(f"{k} = :{k}" for k in payload)
+                    conn.execute(
+                        text(
+                            f"UPDATE dbo.workflows SET {set_clause} "
+                            "WHERE interruption_id = :interruption_id "
+                            "AND etape_workflow_id = :etape_workflow_id"
+                        ),
+                        params,
+                    )
+                    updated += 1
 
             if idx % batch_size == 0:
                 conn.commit()
-                print(f"  … {idx}/{len(rows)} lignes traitées", flush=True)
+                print(f"  … {idx}/{len(rows)} interruptions traitées", flush=True)
         conn.commit()
 
     return {"inserted": inserted, "updated": updated}

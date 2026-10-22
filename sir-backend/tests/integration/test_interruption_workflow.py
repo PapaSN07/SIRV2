@@ -11,13 +11,8 @@ from app.core.security import create_access_token, hash_password
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 from app.schemas.interruption_workflow import (
     InterruptionWorkflowResponse,
+    WorkflowEtapeResponse,
     WorkflowStepClients,
-    WorkflowStepDeclenchement,
-    WorkflowStepInterpellation,
-    WorkflowStepLocalisation,
-    WorkflowStepRemise,
-    WorkflowStepReparation,
-    WorkflowStepTronconnement,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -105,16 +100,28 @@ def _token(user: Utilisateur) -> str:
 def _workflow_response() -> InterruptionWorkflowResponse:
     return InterruptionWorkflowResponse(
         interruption_id=1,
-        declenchement=WorkflowStepDeclenchement(
-            date_debut=datetime(2026, 6, 19, 8, 0, 0),
-            date_fin=datetime(2026, 6, 19, 8, 15, 0),
-            duree_minutes=15,
-        ),
-        interpellation=WorkflowStepInterpellation(),
-        tronconnement=WorkflowStepTronconnement(),
-        localisation=WorkflowStepLocalisation(),
-        reparation=WorkflowStepReparation(),
-        remise=WorkflowStepRemise(),
+        etapes=[
+            WorkflowEtapeResponse(
+                etape_workflow_id=1,
+                code="declenchement",
+                libelle_etape_workflow="Déclenchement",
+                ordre=1,
+                etape_suivante_id=2,
+                etat="terminee",
+                workflow_id=10,
+                date_debut=datetime(2026, 6, 19, 8, 0, 0),
+                date_fin=datetime(2026, 6, 19, 8, 15, 0),
+                duree_minutes=15,
+            ),
+            WorkflowEtapeResponse(
+                etape_workflow_id=2,
+                code="interpellation_pdm",
+                libelle_etape_workflow="Interpellation PDM",
+                ordre=2,
+                etape_suivante_id=3,
+                etat="active",
+            ),
+        ],
         clients=WorkflowStepClients(nombre_postes_impactes=2, nombre_clients_touches=120),
     )
 
@@ -146,7 +153,8 @@ async def test_bcc_get_workflow_returns_200(
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "success"
-    assert body["data"]["declenchement"]["duree_minutes"] == 15
+    assert body["data"]["etapes"][0]["duree_minutes"] == 15
+    assert body["data"]["etapes"][1]["etat"] == "active"
     assert body["data"]["clients"]["nombre_postes_impactes"] == 2
     mock_get.assert_awaited_once()
 
@@ -174,23 +182,22 @@ async def test_bcc_put_workflow_returns_200(
     bcc_user: Utilisateur,
 ) -> None:
     with patch("app.repositories.utilisateur_repository.get_by_id", return_value=bcc_user), patch(
-        "app.services.interruption_workflow_service.update_workflow",
+        "app.services.interruption_workflow_service.update_etape",
         new_callable=AsyncMock,
         return_value=_workflow_response(),
     ) as mock_put:
         response = await client.put(
-            "/api/v1/interruptions/distribution/1/workflow",
+            "/api/v1/interruptions/distribution/1/workflow/etapes/1",
             headers=_auth_headers(_token(bcc_user)),
             json={
-                "declenchement": {
-                    "date_debut": "2026-06-19T08:00:00",
-                    "date_fin": "2026-06-19T08:15:00",
-                }
+                "date_debut": "2026-06-19T08:00:00",
+                "date_fin": "2026-06-19T08:15:00",
             },
         )
 
     assert response.status_code == 200
     mock_put.assert_awaited_once()
+    assert mock_put.await_args.args[2] == 1
 
 
 async def test_brc_put_workflow_returns_200(
@@ -198,19 +205,14 @@ async def test_brc_put_workflow_returns_200(
     brc_user: Utilisateur,
 ) -> None:
     with patch("app.repositories.utilisateur_repository.get_by_id", return_value=brc_user), patch(
-        "app.services.interruption_workflow_service.update_workflow",
+        "app.services.interruption_workflow_service.update_etape",
         new_callable=AsyncMock,
         return_value=_workflow_response(),
     ) as mock_put:
         response = await client.put(
-            "/api/v1/interruptions/distribution/1/workflow",
+            "/api/v1/interruptions/distribution/1/workflow/etapes/2",
             headers=_auth_headers(_token(brc_user)),
-            json={
-                "declenchement": {
-                    "date_debut": "2026-06-19T08:00:00",
-                    "date_fin": "2026-06-19T08:15:00",
-                }
-            },
+            json={"observation": "PDM interpellé"},
         )
 
     assert response.status_code == 200

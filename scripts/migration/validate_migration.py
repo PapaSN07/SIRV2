@@ -51,6 +51,9 @@ FK_CHECKS = [
     ("energie_nd", "interruption_id", "interruptions", "id"),
     ("poste_interruptions", "interruption_id", "interruptions", "id"),
     ("poste_interruptions", "poste_id", "postes", "id"),
+    ("poste_interruptions", "feeder_id", "feeders", "id"),
+    ("poste_interruptions", "service_id", "services", "id"),
+    ("poste_interruptions", "poste_source_id", "postes_sources", "id"),
 ]
 
 FEEDER_POSTE_SOURCE_INCONNU_CODE = "INCONNU"

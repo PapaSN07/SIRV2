@@ -220,15 +220,7 @@ def _to_detail_response(
     elif end_mwh is None and distribution.end_mwh is not None:
         end_mwh = float(distribution.end_mwh)
 
-    postes = [
-        PosteImpacteResponse(
-            poste_id=pi.poste_id,
-            poste_code=pi.poste.code if pi.poste else None,
-            poste_libelle=pi.poste.libelle if pi.poste else None,
-            nombre_clients_touches=pi.nombre_clients_touches,
-        )
-        for pi in interruption.postes_interrompus
-    ]
+    postes = [_poste_to_response(pi) for pi in interruption.postes_interrompus]
 
     detail_data = base.model_dump()
     detail_data["end_mwh"] = end_mwh
@@ -244,6 +236,7 @@ def _to_detail_response(
         created_by=_user_summary(interruption.created_by),
         validated_by=_user_summary(interruption.validated_by),
         validated_by_id=interruption.validated_by_id,
+        updated_by=_user_summary(interruption.updated_by),
     )
 
 
@@ -327,6 +320,54 @@ async def _validate_referentiel_distribution(
         )
 
 
+async def _validate_type_saisie(
+    db: AsyncSession,
+    *,
+    type_end_id: int | None,
+    type_reseau_id: int | None,
+) -> None:
+    for resource, item_id, label in (
+        ("types_end", type_end_id, "Type END"),
+        ("types_reseaux", type_reseau_id, "Type réseau"),
+    ):
+        if item_id is None:
+            continue
+        record = await ref_repo.get_by_id(db, resource, item_id)
+        if record is None or not record.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": f"{label} {item_id} introuvable ou inactif",
+                },
+            )
+
+
+async def _validate_intervenants(
+    db: AsyncSession,
+    *,
+    entreprise_id: int | None,
+    prestataire_id: int | None,
+) -> None:
+    for resource, item_id, label in (
+        ("entreprises", entreprise_id, "Entreprise"),
+        ("prestataires", prestataire_id, "Prestataire"),
+    ):
+        if item_id is None:
+            continue
+        record = await ref_repo.get_by_id(db, resource, item_id)
+        if record is None or not record.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": f"{label} {item_id} introuvable ou inactif",
+                },
+            )
+
+
 def _region_libelle(interruption: Interruption) -> str | None:
     service = interruption.service
     if service is None or service.agence is None:
@@ -345,9 +386,14 @@ def _to_response(
         id=interruption.id,
         numero_interruption=interruption.numero_interruption,
         type_direction="distribution",
+        direction_source_id=interruption.direction_source_id,
         statut=interruption.statut,  # type: ignore[arg-type]
+        statut_id=interruption.statut_id,
+        entreprise_id=interruption.entreprise_id,
+        prestataire_id=interruption.prestataire_id,
         service_id=interruption.service_id,
         feeder_id=interruption.feeder_id,
+        sous_feeder_id=interruption.sous_feeder_id,
         poste_source_id=interruption.poste_source_id,
         date_apparition=interruption.date_apparition,
         date_remise=interruption.date_remise,
@@ -356,6 +402,8 @@ def _to_response(
         nature_id=interruption.nature_id,
         siege_id=interruption.siege_id,
         signalisation_id=interruption.signalisation_id,
+        type_end_id=interruption.type_end_id,
+        type_reseau_id=interruption.type_reseau_id,
         puissance_coupee_mw=float(interruption.puissance_coupee_mw)
         if interruption.puissance_coupee_mw is not None
         else None,
@@ -370,8 +418,13 @@ def _to_response(
         is_programme=distribution.is_programme,
         has_extension_bt=distribution.has_extension_bt,
         created_by_id=interruption.created_by_id,
+        updated_by_id=interruption.updated_by_id,
         created_at=interruption.created_at,
         updated_at=interruption.updated_at,
+        entreprise_libelle=interruption.entreprise.libelle if interruption.entreprise else None,
+        prestataire_libelle=interruption.prestataire.libelle
+        if interruption.prestataire
+        else None,
         cause_libelle=interruption.cause.libelle if interruption.cause else None,
         nature_libelle=interruption.nature.libelle if interruption.nature else None,
         siege_libelle=interruption.siege.libelle if interruption.siege else None,
@@ -380,6 +433,11 @@ def _to_response(
         if interruption.poste_source
         else None,
         feeder_libelle=interruption.feeder.libelle if interruption.feeder else None,
+        type_end_libelle=interruption.type_end.libelle if interruption.type_end else None,
+        type_reseau_libelle=interruption.type_reseau.libelle if interruption.type_reseau else None,
+        sous_feeder_libelle=interruption.sous_feeder.libelle
+        if interruption.sous_feeder
+        else None,
         region_libelle=_region_libelle(interruption),
     )
 
@@ -441,6 +499,29 @@ async def create(
             },
         )
 
+    sous_feeder_id: int | None = None
+    if body.sous_feeder_id is not None:
+        sous_feeder = await reseau_repo.get_sous_feeder(db, body.sous_feeder_id)
+        if sous_feeder is None or not sous_feeder.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": f"Sous-feeder {body.sous_feeder_id} introuvable ou inactif",
+                },
+            )
+        if sous_feeder.feeder_id != feeder.id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": "Le sous-feeder ne correspond pas au feeder sélectionné",
+                },
+            )
+        sous_feeder_id = sous_feeder.id
+
     await _ensure_service_in_write_scope(db, current_user, feeder.service_id)
 
     await _validate_referentiel_distribution(
@@ -449,6 +530,12 @@ async def create(
         nature_id=body.nature_id,
         siege_id=body.siege_id,
         signalisation_id=body.signalisation_id,
+    )
+    await _validate_intervenants(
+        db, entreprise_id=body.entreprise_id, prestataire_id=body.prestataire_id
+    )
+    await _validate_type_saisie(
+        db, type_end_id=body.type_end_id, type_reseau_id=body.type_reseau_id
     )
 
     year = body.date_apparition.year
@@ -460,17 +547,22 @@ async def create(
         "statut": "en_cours",
         "service_id": feeder.service_id,
         "feeder_id": feeder.id,
+        "sous_feeder_id": sous_feeder_id,
         "poste_source_id": feeder.poste_source_id,
         "date_apparition": body.date_apparition,
         "cause_id": body.cause_id,
         "nature_id": body.nature_id,
         "siege_id": body.siege_id,
         "signalisation_id": body.signalisation_id,
+        "type_end_id": body.type_end_id,
+        "type_reseau_id": body.type_reseau_id,
         "puissance_coupee_mw": body.puissance_coupee_mw,
         "localisation": body.localisation,
         "observations": body.observations,
         "is_force_majeure": body.is_force_majeure,
         "is_fugitive": body.is_fugitive,
+        "entreprise_id": body.entreprise_id,
+        "prestataire_id": body.prestataire_id,
         "created_by_id": current_user.id,
     }
 
@@ -726,7 +818,22 @@ def _poste_to_response(pi: PosteInterruption) -> PosteImpacteResponse:
         poste_code=pi.poste.code if pi.poste else None,
         poste_libelle=pi.poste.libelle if pi.poste else None,
         nombre_clients_touches=pi.nombre_clients_touches,
+        date_interruption=pi.date_interruption,
+        feeder_id=pi.feeder_id,
+        service_id=pi.service_id,
+        poste_source_id=pi.poste_source_id,
     )
+
+
+def _context_ids_for_poste_link(
+    interruption: Interruption,
+    poste: Poste,
+) -> tuple[int | None, int | None, int | None]:
+    """Dénormalise feeder / service / poste_source pour poste_interruptions."""
+    feeder_id = interruption.feeder_id or poste.feeder_id
+    service_id = interruption.service_id or poste.service_id
+    poste_source_id = interruption.poste_source_id
+    return feeder_id, service_id, poste_source_id
 
 
 def _poste_in_perimeter(poste: Poste, interruption: Interruption) -> bool:
@@ -848,11 +955,16 @@ async def add_poste(
             },
         )
 
+    feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(interruption, poste)
     link = await repo.add_poste_interruption(
         db,
         interruption_id=interruption.id,
         poste_id=body.poste_id,
         nombre_clients_touches=body.nombre_clients_touches,
+        date_interruption=body.date_interruption or interruption.date_apparition,
+        feeder_id=feeder_id,
+        service_id=service_id,
+        poste_source_id=poste_source_id,
     )
     link.poste = poste
 
@@ -862,7 +974,13 @@ async def add_poste(
         record_id=link.id,
         action=ACTION_CREATE,
         user_id=current_user.id,
-        new_values={"interruption_id": interruption.id, "poste_id": body.poste_id},
+        new_values={
+            "interruption_id": interruption.id,
+            "poste_id": body.poste_id,
+            "feeder_id": feeder_id,
+            "service_id": service_id,
+            "poste_source_id": poste_source_id,
+        },
     )
 
     await db.commit()
@@ -918,11 +1036,18 @@ async def _bulk_link_postes(
         if not _poste_in_perimeter(poste, interruption):
             skipped += 1
             continue
+        feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(
+            interruption, poste
+        )
         link = await repo.add_poste_interruption(
             db,
             interruption_id=interruption.id,
             poste_id=poste.id,
             nombre_clients_touches=poste.nombre_clients,
+            date_interruption=interruption.date_apparition,
+            feeder_id=feeder_id,
+            service_id=service_id,
+            poste_source_id=poste_source_id,
         )
         link.poste = poste
         linked_ids.add(poste.id)
@@ -933,7 +1058,14 @@ async def _bulk_link_postes(
             record_id=link.id,
             action=ACTION_CREATE,
             user_id=current_user.id,
-            new_values={"interruption_id": interruption.id, "poste_id": poste.id, "bulk": True},
+            new_values={
+                "interruption_id": interruption.id,
+                "poste_id": poste.id,
+                "feeder_id": feeder_id,
+                "service_id": service_id,
+                "poste_source_id": poste_source_id,
+                "bulk": True,
+            },
         )
 
     await db.commit()
@@ -978,8 +1110,9 @@ async def add_postes_from_sig_troncon(
 
     troncon_sig_id = body.troncon_sig_id
     if troncon_sig_id is None:
-        step = await workflow_repo.get_workflow_step(db, interruption.id)
-        troncon_sig_id = step.troncon_sig_id if step is not None else None
+        troncon_sig_id = await workflow_repo.get_troncon_sig_id_for_interruption(
+            db, interruption.id
+        )
     if troncon_sig_id is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1119,6 +1252,8 @@ def _snapshot_interruption(interruption: Interruption) -> dict[str, object]:
         "observations": interruption.observations,
         "is_force_majeure": interruption.is_force_majeure,
         "is_fugitive": interruption.is_fugitive,
+        "entreprise_id": interruption.entreprise_id,
+        "prestataire_id": interruption.prestataire_id,
     }
     if distribution is not None:
         snapshot.update(
@@ -1172,6 +1307,18 @@ async def update(
             siege_id=siege_id,
             signalisation_id=signalisation_id,
         )
+    if "type_end_id" in updates or "type_reseau_id" in updates:
+        await _validate_type_saisie(
+            db,
+            type_end_id=updates.get("type_end_id"),
+            type_reseau_id=updates.get("type_reseau_id"),
+        )
+    if "entreprise_id" in updates or "prestataire_id" in updates:
+        await _validate_intervenants(
+            db,
+            entreprise_id=updates.get("entreprise_id"),
+            prestataire_id=updates.get("prestataire_id"),
+        )
 
     interruption_fields = {
         "date_apparition",
@@ -1179,11 +1326,15 @@ async def update(
         "nature_id",
         "siege_id",
         "signalisation_id",
+        "type_end_id",
+        "type_reseau_id",
         "puissance_coupee_mw",
         "localisation",
         "observations",
         "is_force_majeure",
         "is_fugitive",
+        "entreprise_id",
+        "prestataire_id",
     }
     distribution_fields = {
         "tension_kv",
@@ -1194,6 +1345,7 @@ async def update(
     }
 
     interruption_updates = {k: v for k, v in updates.items() if k in interruption_fields}
+    interruption_updates["updated_by_id"] = current_user.id
     distribution_updates = {k: v for k, v in updates.items() if k in distribution_fields}
 
     result = await repo.update_interruption_distribution(
@@ -1227,7 +1379,23 @@ async def update(
 
     await db.commit()
     return await _response_after_commit(db, interruption.id)
-    delta = date_remise - date_apparition
+
+
+# Au-delà de cette durée, au moins un poste impacté est obligatoire pour clôturer.
+POSTES_OBLIGATOIRES_APRES_MINUTES = 5
+
+
+def _as_naive(value: datetime) -> datetime:
+    """DATETIME2 est naïf. Une date avec fuseau (ISO « Z ») est ramenée en UTC naïf."""
+    if value.tzinfo is not None and value.utcoffset() is not None:
+        from datetime import timezone
+
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _compute_duree_minutes(date_apparition: datetime, date_remise: datetime) -> int:
+    delta = _as_naive(date_remise) - _as_naive(date_apparition)
     minutes = int(delta.total_seconds() // 60)
     if minutes <= 0:
         raise HTTPException(
@@ -1252,18 +1420,22 @@ async def cloturer(
     _ensure_statut_en_cours(interruption)
     _ensure_can_modify(current_user, interruption)
 
-    postes_count = await repo.count_postes_for_interruption(db, interruption.id)
-    if postes_count < 1:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "status": "error",
-                "data": None,
-                "error": "Au moins un poste impacté est requis avant clôture",
-            },
-        )
-
     duree_minutes = _compute_duree_minutes(interruption.date_apparition, body.date_remise)
+
+    if duree_minutes > POSTES_OBLIGATOIRES_APRES_MINUTES:
+        postes_count = await repo.count_postes_for_interruption(db, interruption.id)
+        if postes_count < 1:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "error",
+                    "data": None,
+                    "error": (
+                        "Pour une interruption de plus de 5 minutes, "
+                        "au moins un poste impacté doit être coché"
+                    ),
+                },
+            )
 
     old_values = {"statut": interruption.statut, "date_remise": None, "duree_minutes": None}
 
@@ -1274,6 +1446,7 @@ async def cloturer(
             "statut": "cloture",
             "date_remise": body.date_remise,
             "duree_minutes": duree_minutes,
+            "updated_by_id": current_user.id,
         },
         distribution_updates={},
     )
@@ -1343,6 +1516,7 @@ async def valider(
         interruption_updates={
             "statut": "valide",
             "validated_by_id": current_user.id,
+            "updated_by_id": current_user.id,
         },
         distribution_updates={},
     )
