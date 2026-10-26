@@ -10,7 +10,10 @@ import {
   IndicateursQueryParams,
   SaifiIndicateurResponse,
   SaidiIndicateurResponse,
+  ObjectifsPilotageUpdate,
+  PilotageResponse,
   TableauDeBordResponse,
+  TendanceResponse,
   TopFeedersResponse,
 } from '../../../shared/models/indicateurs.models';
 
@@ -57,6 +60,34 @@ export class IndicateursService {
   getSaidi(params: IndicateursQueryParams): Observable<SaidiIndicateurResponse> {
     return this.http
       .get<ApiResponse<SaidiIndicateurResponse>>(`${this.apiUrl}/saidi`, { params: this.buildParams(params) })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  getPilotage(params: IndicateursQueryParams = {}): Observable<PilotageResponse> {
+    return this.http
+      .get<ApiResponse<PilotageResponse>>(`${this.apiUrl}/pilotage`, {
+        params: this.buildParams(params),
+      })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  saveObjectifs(body: ObjectifsPilotageUpdate): Observable<PilotageResponse> {
+    return this.http
+      .put<ApiResponse<PilotageResponse>>(`${this.apiUrl}/pilotage/objectifs`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  getTendance(
+    cible: 'feeder' | 'poste',
+    cibleId: number,
+    annees = 3,
+  ): Observable<TendanceResponse> {
+    const params = new HttpParams()
+      .set('cible', cible)
+      .set('cible_id', cibleId)
+      .set('annees', annees);
+    return this.http
+      .get<ApiResponse<TendanceResponse>>(`${this.apiUrl}/pilotage/tendance`, { params })
       .pipe(map((res) => this.unwrap(res)));
   }
 

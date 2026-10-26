@@ -9,8 +9,13 @@ import { notificationEventLabel } from '../../core/notifications/notification.ut
 import {
   CauseRepartitionItem,
   HistoriquePoint,
+  IndicateurSuivi,
   NatureServiceRepartition,
+  ObjectifsPilotageUpdate,
+  PilotageResponse,
+  PosteOuvertCarte,
   TableauDeBordResponse,
+  TendanceResponse,
 } from '../../shared/models/indicateurs.models';
 import {
   InterruptionDistribution,
@@ -25,6 +30,18 @@ interface ChartMonth {
   label: string;
   saidiHeight: number;
   saifiHeight: number;
+}
+
+interface ObjectifDraft {
+  end_mwh: string;
+  saifi: string;
+  saidi: string;
+  defauts_100km: string;
+}
+
+interface MapPin extends PosteOuvertCarte {
+  left: number;
+  top: number;
 }
 
 interface ServiceBar {
@@ -110,7 +127,49 @@ export class DashboardComponent implements OnInit {
 
   readonly hasCauseData = computed(() => (this.kpi()?.causes_repartition?.length ?? 0) > 0);
 
+  readonly pilotage = signal<PilotageResponse | null>(null);
+  readonly pilotageLoading = signal(false);
+  readonly pilotageError = signal<string | null>(null);
+  readonly objectifDraft = signal<ObjectifDraft>({
+    end_mwh: '',
+    saifi: '',
+    saidi: '',
+    defauts_100km: '',
+  });
+  readonly objectifSaving = signal(false);
+  readonly objectifMessage = signal<string | null>(null);
+  readonly tendanceCible = signal<'feeder' | 'poste'>('feeder');
+  readonly tendanceAnnees = signal(3);
+  readonly tendance = signal<TendanceResponse | null>(null);
+  readonly tendanceLoading = signal(false);
+  readonly tendanceError = signal<string | null>(null);
+  private tendanceChoice: { cible: 'feeder' | 'poste'; id: number } | null = null;
+
   readonly natureService = computed((): NatureServiceRepartition | null => this.kpi()?.nature_service ?? null);
+
+  readonly mapPins = computed((): MapPin[] => {
+    const lonMin = -17.55;
+    const lonMax = -11.3;
+    const latMin = 12.25;
+    const latMax = 16.75;
+    return (this.pilotage()?.postes_ouverts ?? [])
+      .filter((poste) => poste.latitude !== null && poste.longitude !== null)
+      .map((poste) => {
+        const left = ((poste.longitude! - lonMin) / (lonMax - lonMin)) * 100;
+        const top = ((latMax - poste.latitude!) / (latMax - latMin)) * 100;
+        return {
+          ...poste,
+          left: Math.min(97, Math.max(3, left)),
+          top: Math.min(97, Math.max(3, top)),
+        };
+      });
+  });
+
+  readonly postesSansCoord = computed(() =>
+    (this.pilotage()?.postes_ouverts ?? []).filter(
+      (poste) => poste.latitude === null || poste.longitude === null,
+    ),
+  );
 
   readonly serviceBars = computed((): ServiceBar[] => {
     const services = this.natureService()?.services ?? [];
@@ -141,12 +200,14 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDashboard();
+    this.loadPilotage();
     this.loadRecentInterruptions();
   }
 
   onPeriodeChange(value: string): void {
     this.periode.set(value);
     this.loadDashboard();
+    this.loadPilotage();
   }
 
   canCreateInterruption(): boolean {
@@ -160,6 +221,116 @@ export class DashboardComponent implements OnInit {
   formatNumber(value: number | null | undefined): string {
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  }
+
+  formatTaux(value: number | null | undefined): string {
+    if (value === null || value === undefined) return '—';
+    return `${value.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
+  }
+
+  gaugePct(value: number | null | undefined): number {
+    if (value === null || value === undefined) return 0;
+    return Math.max(0, Math.min(100, value));
+  }
+
+  gaugeClass(value: number | null | undefined): string {
+    if (value === null || value === undefined) return 'gauge gauge--empty';
+    if (value <= 90) return 'gauge gauge--ok';
+    if (value <= 100) return 'gauge gauge--warn';
+    return 'gauge gauge--over';
+  }
+
+  onObjectifInput(field: keyof ObjectifDraft, value: string): void {
+    this.objectifDraft.update((draft) => ({ ...draft, [field]: value }));
+  }
+
+  saveObjectifs(): void {
+    const data = this.pilotage();
+    if (!data) return;
+    const draft = this.objectifDraft();
+    const body: ObjectifsPilotageUpdate = { annee: data.annee_objectif };
+    const end = this.parseObjectif(draft.end_mwh);
+    const saifi = this.parseObjectif(draft.saifi);
+    const saidi = this.parseObjectif(draft.saidi);
+    const defauts = this.parseObjectif(draft.defauts_100km);
+    if (end === null || saifi === null || saidi === null || defauts === null) {
+      this.objectifMessage.set('Chaque objectif saisi doit être un nombre positif ou nul.');
+      return;
+    }
+    if (end !== undefined) body.end_mwh = end;
+    if (saifi !== undefined) body.saifi = saifi;
+    if (saidi !== undefined) body.saidi = saidi;
+    if (defauts !== undefined) body.defauts_100km = defauts;
+    if (
+      body.end_mwh === undefined &&
+      body.saifi === undefined &&
+      body.saidi === undefined &&
+      body.defauts_100km === undefined
+    ) {
+      this.objectifMessage.set('Saisissez au moins un objectif annuel.');
+      return;
+    }
+    this.objectifSaving.set(true);
+    this.objectifMessage.set(null);
+    this.dashboardService.saveObjectifs(body).subscribe({
+      next: () => {
+        this.objectifSaving.set(false);
+        this.objectifMessage.set('Objectifs enregistrés.');
+        this.loadPilotage();
+      },
+      error: (err: Error) => {
+        this.objectifSaving.set(false);
+        this.objectifMessage.set(err.message);
+      },
+    });
+  }
+
+  onTendanceCibleChange(value: string): void {
+    const cible = value === 'poste' ? 'poste' : 'feeder';
+    this.tendanceCible.set(cible);
+    const data = this.pilotage();
+    if (!data) return;
+    const id = cible === 'poste' ? data.top_postes[0]?.poste_id : data.top_feeders[0]?.feeder_id;
+    if (id) this.selectTendance(cible, id);
+  }
+
+  onTendanceIdChange(value: string): void {
+    const id = Number(value);
+    if (id > 0) this.selectTendance(this.tendanceCible(), id);
+  }
+
+  onTendanceAnneesChange(value: string): void {
+    const annees = Number(value) === 2 ? 2 : 3;
+    this.tendanceAnnees.set(annees);
+    if (this.tendanceChoice) {
+      this.loadTendance(this.tendanceChoice.cible, this.tendanceChoice.id);
+    }
+  }
+
+  tendanceId(): string {
+    const id = this.tendanceChoice?.id ?? this.tendance()?.cible_id;
+    return id ? String(id) : '';
+  }
+
+  trendChart(): { historique: string; courbe: string } | null {
+    const data = this.tendance();
+    if (!data?.points.length) return null;
+    const nombres = data.points.map((point) => point.nombre);
+    const courbe = [
+      ...data.points.map((point) => point.tendance_nombre),
+      ...data.previsions.map((point) => point.tendance_nombre),
+    ];
+    const max = Math.max(...nombres, ...courbe, 1);
+    const total = courbe.length;
+    const draw = (series: number[], start: number) =>
+      series
+        .map((value, index) => {
+          const x = 16 + ((start + index) / Math.max(total - 1, 1)) * 608;
+          const y = 8 + (1 - value / max) * 132;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(' ');
+    return { historique: draw(nombres, 0), courbe: draw(courbe, 0) };
   }
 
   formatEndKwh(value: number | null | undefined): string {
@@ -232,6 +403,77 @@ export class DashboardComponent implements OnInit {
       error: () => {
         this.loading.set(false);
         requestAnimationFrame(() => this.chartReady.set(true));
+      },
+    });
+  }
+
+  private loadPilotage(): void {
+    this.pilotageLoading.set(true);
+    this.pilotageError.set(null);
+    this.dashboardService.getPilotage({ periode: this.periode() }).subscribe({
+      next: (data) => {
+        this.pilotage.set(data);
+        this.pilotageLoading.set(false);
+        this.syncObjectifDraft(data);
+        this.ensureTendance(data);
+      },
+      error: (err: Error) => {
+        this.pilotageError.set(err.message);
+        this.pilotageLoading.set(false);
+      },
+    });
+  }
+
+  private syncObjectifDraft(data: PilotageResponse): void {
+    const byCode = new Map(data.indicateurs.map((item) => [item.code, item]));
+    this.objectifDraft.set({
+      end_mwh: this.draftValue(byCode.get('END')),
+      saifi: this.draftValue(byCode.get('SAIFI')),
+      saidi: this.draftValue(byCode.get('SAIDI')),
+      defauts_100km: this.draftValue(byCode.get('DEFAUTS_100KM')),
+    });
+  }
+
+  private draftValue(item: IndicateurSuivi | undefined): string {
+    if (!item || item.objectif_annuel === null || item.objectif_annuel === undefined) return '';
+    return String(item.objectif_annuel);
+  }
+
+  private parseObjectif(value: string): number | null | undefined {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return parsed;
+  }
+
+  private ensureTendance(data: PilotageResponse): void {
+    if (this.tendanceChoice) {
+      this.loadTendance(this.tendanceChoice.cible, this.tendanceChoice.id);
+      return;
+    }
+    const feeder = data.top_feeders[0];
+    if (!feeder) return;
+    this.selectTendance('feeder', feeder.feeder_id);
+  }
+
+  private selectTendance(cible: 'feeder' | 'poste', id: number): void {
+    this.tendanceCible.set(cible);
+    this.tendanceChoice = { cible, id };
+    this.loadTendance(cible, id);
+  }
+
+  private loadTendance(cible: 'feeder' | 'poste', id: number): void {
+    this.tendanceLoading.set(true);
+    this.tendanceError.set(null);
+    this.dashboardService.getTendance(cible, id, this.tendanceAnnees()).subscribe({
+      next: (data) => {
+        this.tendance.set(data);
+        this.tendanceLoading.set(false);
+      },
+      error: (err: Error) => {
+        this.tendanceError.set(err.message);
+        this.tendanceLoading.set(false);
       },
     });
   }

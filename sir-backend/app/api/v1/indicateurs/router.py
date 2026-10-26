@@ -11,13 +11,16 @@ from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse
 from app.schemas.indicateurs import (
     EndIndicateurResponse,
-    SaifiIndicateurResponse,
-    SaidiIndicateurResponse,
-    TableauDeBordResponse,
     HistoriqueResponse,
+    ObjectifsPilotageUpdate,
+    PilotageResponse,
+    SaidiIndicateurResponse,
+    SaifiIndicateurResponse,
+    TableauDeBordResponse,
+    TendanceResponse,
     TopFeedersResponse,
 )
-from app.services import indicateurs_service
+from app.services import indicateurs_service, pilotage_service
 
 router = APIRouter()
 
@@ -200,5 +203,80 @@ async def get_top_feeders(
         mois=mois,
         region_id=region_id,
         limit=limit,
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/pilotage",
+    response_model=ApiResponse[PilotageResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Objectifs, défauts aux 100 km, carte des postes ouverts et classements",
+)
+async def get_pilotage(
+    periode: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    annee: int | None = Query(None, ge=2000, le=2100),
+    mois: int | None = Query(None, ge=1, le=12),
+    region_id: int | None = Query(None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[PilotageResponse]:
+    result = await pilotage_service.get_pilotage(
+        db,
+        redis,
+        current_user,
+        periode=periode,
+        annee=annee,
+        mois=mois,
+        region_id=region_id,
+    )
+    return ApiResponse.success(result)
+
+
+@router.put(
+    "/pilotage/objectifs",
+    response_model=ApiResponse[PilotageResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Enregistre les objectifs annuels END, SAIFI, SAIDI et défauts aux 100 km",
+)
+async def update_objectifs_pilotage(
+    body: ObjectifsPilotageUpdate,
+    region_id: int | None = Query(None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[PilotageResponse]:
+    result = await pilotage_service.update_objectifs(
+        db,
+        redis,
+        current_user,
+        body,
+        region_id=region_id,
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/pilotage/tendance",
+    response_model=ApiResponse[TendanceResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Courbe de tendance mensuelle d'un feeder ou d'un poste",
+)
+async def get_tendance_pilotage(
+    cible: Literal["feeder", "poste"] = Query(...),
+    cible_id: int = Query(..., ge=1),
+    annees: int = Query(3, ge=2, le=3),
+    region_id: int | None = Query(None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[TendanceResponse]:
+    result = await pilotage_service.get_tendance(
+        db,
+        current_user,
+        cible=cible,
+        cible_id=cible_id,
+        annees=annees,
+        region_id=region_id,
     )
     return ApiResponse.success(result)

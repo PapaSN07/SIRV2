@@ -145,3 +145,107 @@ export interface NatureRepartitionItem {
   end_kwh: number;
   percent: number;
 }
+
+export interface Defauts100Km {
+  nombre_defauts: number;
+  longueur_km: number;
+  valeur: number | null;
+}
+
+export interface IndicateurSuivi {
+  code: string;
+  libelle: string;
+  unite: string;
+  objectif_annuel: number | null;
+  objectif_journalier: number | null;
+  realise_jour: number | null;
+  ecart_jour: number | null;
+  taux_jour: number | null;
+  note_jour: string;
+  objectif_cumul: number | null;
+  realise_cumul: number | null;
+  ecart_cumul: number | null;
+  taux_cumul: number | null;
+  note_cumul: string;
+}
+
+export interface PosteOuvertCarte {
+  poste_id: number;
+  code: string;
+  libelle: string;
+  interruption_id: number;
+  numero_interruption: number;
+  date_apparition: string;
+  feeder_libelle: string | null;
+  service_libelle: string | null;
+  sans_remise: boolean;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface TopPosteItem {
+  poste_id: number;
+  code: string;
+  libelle: string;
+  nombre: number;
+  clients: number;
+  end_mwh: number;
+}
+
+export interface ZonePerturbee {
+  zone_id: number;
+  code: string;
+  libelle: string;
+  nombre: number;
+  end_mwh: number;
+  saifi: number | null;
+  saidi: number | null;
+}
+
+export interface PilotageResponse {
+  niveau: string;
+  scope_id: number | null;
+  annee: number;
+  mois: number;
+  annee_objectif: number;
+  jour: string;
+  jours_ecoules: number;
+  jours_annee: number;
+  peut_modifier_objectifs: boolean;
+  defauts_100km_mois: Defauts100Km;
+  indicateurs: IndicateurSuivi[];
+  postes_ouverts: PosteOuvertCarte[];
+  top_postes: TopPosteItem[];
+  top_feeders: TopFeederItem[];
+  zone_niveau: string;
+  zones: ZonePerturbee[];
+}
+
+export interface ObjectifsPilotageUpdate {
+  annee: number;
+  end_mwh?: number;
+  saifi?: number;
+  saidi?: number;
+  defauts_100km?: number;
+}
+
+export interface TendancePoint {
+  annee: number;
+  mois: number;
+  nombre: number;
+  end_kwh: number;
+  tendance_nombre: number;
+}
+
+export interface TendanceResponse {
+  cible: 'feeder' | 'poste' | string;
+  cible_id: number;
+  code: string;
+  libelle: string;
+  annees: number;
+  sens: string;
+  pente_mensuelle: number;
+  lecture: string;
+  points: TendancePoint[];
+  previsions: TendancePoint[];
+}

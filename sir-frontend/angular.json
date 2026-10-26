@@ -38,6 +38,10 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json",
+            "disableHostCheck": true
+          },
           "configurations": {
             "production": { "buildTarget": "sir-frontend:build:production" },
             "development": { "buildTarget": "sir-frontend:build:development" }

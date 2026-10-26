@@ -181,3 +181,107 @@ class TopFeedersResponse(BaseModel):
     mois: int
     limit: int
     items: list[TopFeederItemResponse]
+
+
+class Defauts100KmResponse(BaseModel):
+    nombre_defauts: int
+    longueur_km: float
+    valeur: float | None = None
+
+
+class IndicateurSuiviResponse(BaseModel):
+    code: str
+    libelle: str
+    unite: str
+    objectif_annuel: float | None = None
+    objectif_journalier: float | None = None
+    realise_jour: float | None = None
+    ecart_jour: float | None = None
+    taux_jour: float | None = None
+    note_jour: str = ""
+    objectif_cumul: float | None = None
+    realise_cumul: float | None = None
+    ecart_cumul: float | None = None
+    taux_cumul: float | None = None
+    note_cumul: str = ""
+
+
+class PosteOuvertResponse(BaseModel):
+    poste_id: int
+    code: str
+    libelle: str
+    interruption_id: int
+    numero_interruption: int
+    date_apparition: datetime
+    feeder_libelle: str | None = None
+    service_libelle: str | None = None
+    sans_remise: bool = False
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+class TopPosteResponse(BaseModel):
+    poste_id: int
+    code: str
+    libelle: str
+    nombre: int
+    clients: int
+    end_mwh: float
+
+
+class ZonePerturbeeResponse(BaseModel):
+    zone_id: int
+    code: str
+    libelle: str
+    nombre: int
+    end_mwh: float
+    saifi: float | None = None
+    saidi: float | None = None
+
+
+class PilotageResponse(BaseModel):
+    niveau: str
+    scope_id: int | None = None
+    annee: int
+    mois: int
+    annee_objectif: int
+    jour: str
+    jours_ecoules: int
+    jours_annee: int
+    peut_modifier_objectifs: bool
+    defauts_100km_mois: Defauts100KmResponse
+    indicateurs: list[IndicateurSuiviResponse]
+    postes_ouverts: list[PosteOuvertResponse]
+    top_postes: list[TopPosteResponse]
+    top_feeders: list[TopFeederItemResponse]
+    zone_niveau: str
+    zones: list[ZonePerturbeeResponse]
+
+
+class ObjectifsPilotageUpdate(BaseModel):
+    annee: int = Field(..., ge=2000, le=2100)
+    end_mwh: float | None = Field(default=None, ge=0)
+    saifi: float | None = Field(default=None, ge=0)
+    saidi: float | None = Field(default=None, ge=0)
+    defauts_100km: float | None = Field(default=None, ge=0)
+
+
+class TendancePointResponse(BaseModel):
+    annee: int
+    mois: int
+    nombre: int
+    end_kwh: float
+    tendance_nombre: float
+
+
+class TendanceResponse(BaseModel):
+    cible: str
+    cible_id: int
+    code: str
+    libelle: str
+    annees: int
+    sens: str
+    pente_mensuelle: float
+    lecture: str
+    points: list[TendancePointResponse]
+    previsions: list[TendancePointResponse]

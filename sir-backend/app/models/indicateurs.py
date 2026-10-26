@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DECIMAL, Boolean, DateTime, ForeignKey, Integer, UniqueConstraint, func
+from sqlalchemy import DECIMAL, Boolean, DateTime, ForeignKey, Integer, NVARCHAR, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -103,3 +103,27 @@ class NombreClientMois(Base):
 
     # Relationships
     service: Mapped["Service"] = relationship("Service", foreign_keys=[service_id], lazy="select")  # noqa: F821
+
+
+class ObjectifIndicateur(Base):
+    """Objectif annuel d'un indicateur, national (region_id vide) ou par région.
+
+    L'objectif journalier et le cumul au jour affiché sont dérivés de cette valeur :
+    journalier = annuel / nombre de jours de l'année,
+    cumul = annuel × jours écoulés / nombre de jours de l'année.
+    """
+
+    __tablename__ = "objectifs_indicateurs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    annee: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    code: Mapped[str] = mapped_column(NVARCHAR(30), nullable=False)
+    valeur_annuelle: Mapped[float] = mapped_column(DECIMAL(18, 4), nullable=False)
+    region_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("regions.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
+    )
+
+    region: Mapped["Region | None"] = relationship("Region", foreign_keys=[region_id], lazy="select")  # noqa: F821

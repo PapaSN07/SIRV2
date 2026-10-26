@@ -164,7 +164,7 @@
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 
@@ -759,5 +759,244 @@
     background: $primary;
     color: #fff;
     text-align: center;
+  }
+}
+
+.pilotage {
+  margin-bottom: 2rem;
+
+  &__note {
+    margin: 0 0 1rem;
+    color: $on-surface-variant;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  &__tables {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1fr;
+    }
+
+    h3 {
+      margin: 0 0 0.75rem;
+      font-size: 15px;
+      color: $primary;
+    }
+  }
+}
+
+.gauge-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.gauge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: center;
+
+  h3,
+  p {
+    margin: 0;
+  }
+
+  h3 {
+    font-size: 14px;
+    color: $primary;
+  }
+
+  p {
+    font-size: 12px;
+    color: $on-surface-variant;
+  }
+}
+
+.gauge {
+  --gauge-color: #2e7d32;
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  background: conic-gradient(var(--gauge-color) var(--pct, 0%), #ece6f0 0);
+  display: grid;
+  place-items: center;
+
+  &--warn {
+    --gauge-color: #f4811f;
+  }
+
+  &--over {
+    --gauge-color: #c62828;
+  }
+
+  &--empty {
+    --gauge-color: #bdbdbd;
+  }
+
+  &__hole {
+    width: 5.4rem;
+    height: 5.4rem;
+    border-radius: 50%;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    strong {
+      font-size: 14px;
+      color: $primary;
+    }
+
+    span {
+      font-size: 11px;
+      color: $on-surface-variant;
+    }
+  }
+}
+
+.objectif-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 1rem;
+
+  h3 {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 15px;
+    color: $primary;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 12px;
+    color: $on-surface-variant;
+  }
+
+  input {
+    width: 8rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    font: inherit;
+  }
+
+  p {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 13px;
+  }
+}
+
+.outage-map-panel,
+.trend-panel {
+  margin-bottom: 1.5rem;
+}
+
+.outage-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1rem;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.outage-map {
+  position: relative;
+  min-height: 320px;
+  border-radius: 0.5rem;
+  background:
+    radial-gradient(circle at 30% 40%, rgba(60, 16, 83, 0.08), transparent 55%),
+    linear-gradient(160deg, #f7f4ef 0%, #e7eef2 100%);
+  border: 1px solid $outline-variant;
+  overflow: hidden;
+
+  &__pin {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: $primary;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px $primary;
+
+    &--open {
+      background: #c62828;
+      box-shadow: 0 0 0 1px #c62828;
+      z-index: 1;
+    }
+  }
+
+  &__empty {
+    margin: 0;
+    padding: 1.5rem;
+    color: $on-surface-variant;
+    font-size: 13px;
+  }
+}
+
+.outage-list {
+  max-height: 360px;
+  overflow: auto;
+
+  a {
+    color: $primary;
+    font-weight: 600;
+  }
+}
+
+.data-table small {
+  display: block;
+  font-weight: 400;
+  color: $on-surface-variant;
+}
+
+.trend-panel__filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  select {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    font: inherit;
+  }
+}
+
+.trend-chart {
+  width: 100%;
+  height: 180px;
+
+  &__history {
+    fill: none;
+    stroke: $primary;
+    stroke-width: 2;
+  }
+
+  &__fit {
+    fill: none;
+    stroke: #f4811f;
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
   }
 }
