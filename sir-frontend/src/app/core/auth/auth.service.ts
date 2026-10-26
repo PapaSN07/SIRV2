@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, switchMap, tap, map } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../../shared/models/api.models';
 import { LoginRequest, MeResponse, TokenResponse, ChangePasswordRequest } from '../../shared/models/auth.models';
@@ -11,6 +11,9 @@ const TOKEN_KEY = 'sir_access_token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   readonly currentUser = signal<MeResponse | null>(null);
+
+  /** Renouvellement en cours, partagé par toutes les requêtes tombées en 401 en même temps. */
+  private refreshInFlight$: Observable<string> | null = null;
 
   constructor(
     private readonly http: HttpClient,
@@ -50,12 +53,37 @@ export class AuthService {
     return this.http
       .delete<void>(`${environment.apiUrl}/auth/logout`, { withCredentials: true })
       .pipe(
-        tap(() => {
-          sessionStorage.removeItem(TOKEN_KEY);
-          this.currentUser.set(null);
+        // Session déjà expirée côté serveur : on déconnecte quand même le navigateur.
+        catchError(() => of(undefined)),
+        finalize(() => {
+          this.clearSession();
           void this.router.navigate(['/login']);
         }),
       );
+  }
+
+  /**
+   * Obtient un nouvel access token via le cookie HttpOnly refresh_token.
+   * Plusieurs appels simultanés partagent une seule requête au serveur.
+   */
+  refreshAccessToken(): Observable<string> {
+    if (!this.refreshInFlight$) {
+      this.refreshInFlight$ = this.http
+        .post<ApiResponse<TokenResponse>>(`${environment.apiUrl}/auth/refresh`, {}, { withCredentials: true })
+        .pipe(
+          map((res) => this.unwrap(res).access_token),
+          tap((token) => sessionStorage.setItem(TOKEN_KEY, token)),
+          finalize(() => (this.refreshInFlight$ = null)),
+          shareReplay(1),
+        );
+    }
+    return this.refreshInFlight$;
+  }
+
+  /** Fin de session côté navigateur (sans appel serveur) : jeton et profil effacés. */
+  clearSession(): void {
+    sessionStorage.removeItem(TOKEN_KEY);
+    this.currentUser.set(null);
   }
 
   getAccessToken(): string | null {

@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 
 function isForcePasswordChange(err: unknown): boolean {
@@ -24,6 +24,13 @@ export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /** Page demandée avant la connexion (lien partagé, session expirée) ; adresses internes uniquement. */
+  private returnUrl(): string {
+    const url = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
+    return url.startsWith('/') && !url.startsWith('//') ? url : '/';
+  }
 
   loading = false;
   errorMessage = '';
@@ -47,7 +54,7 @@ export class LoginComponent {
     this.auth.signIn(this.form.getRawValue()).subscribe({
       next: () => {
         this.loading = false;
-        void this.router.navigate(['/']);
+        void this.router.navigateByUrl(this.returnUrl());
       },
       error: (err: { error?: { detail?: { error?: string | { code?: string; message?: string } } } }) => {
         this.loading = false;
