@@ -4,7 +4,23 @@
 > Sprint courant : voir [docs/TODO.md](docs/TODO.md)  
 > Backlog global : voir [docs/BACKLOG.md](docs/BACKLOG.md)
 
-## Point d'entrée
+## Claude Code — agents du projet (`.claude/agents/`)
+
+| Agent | Rôle |
+| --- | --- |
+| `sir-orchestrateur` | Briefing : état, prochaine tâche, agent responsable |
+| `sir-backend` | FastAPI, services, repositories, Alembic, Celery |
+| `sir-frontend` | Angular 17, Material, services HTTP typés |
+| `sir-qa` | Tests pytest, non-régression, suite rouge |
+| `sir-integration` | Cohérence backend ↔ frontend, rapports d'intégration |
+| `sir-securite` | Revue sécurité : auth, RBAC, uploads, secrets, dépendances |
+| `sir-design` | Revue des écrans réels (captures 1440 / 390 px) vs maquettes |
+| `sir-migration` | Migration HFSQL → SQL Server, validation, cutover |
+
+Usage dans Claude Code : « Utilise l'agent sir-orchestrateur pour la prochaine tâche », ou `/agents` pour la liste.
+Les agents Cursor ci-dessous restent en place pour Cursor.
+
+## Point d'entrée (Cursor)
 
 En début de session, invoquer **sir-orchestrateur** :
 

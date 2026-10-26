@@ -68,13 +68,13 @@ Répertoires cibles : `sir-backend/` (FastAPI) et `sir-frontend/` (Angular 17+).
 ### Backend (`sir-backend/`)
 - Python 3.12 · FastAPI 0.115+ · SQLAlchemy 2.0 async · Pydantic v2 · Alembic 1.13+
 - Auth : JWT HS256 (`python-jose`), bcrypt (`passlib`), blacklist JTI dans Redis
-- Driver SQL Server : `aiomssql` (async)
+- Driver SQL Server : `aioodbc` + ODBC Driver 17/18 (async)
 - Workers : Celery 5.x, broker `redis://localhost:6379/1`, results `redis://localhost:6379/2`
 - Exports : `openpyxl` (Excel), `reportlab` (PDF)
 
 ### Frontend (`sir-frontend/`)
-- Angular 17+ · TypeScript 5.x · Angular Material 17+ · NgRx · RxJS 7
-- Lazy loading obligatoire sur tous les modules `features/`
+- Angular 17+ · TypeScript 5.x · Angular Material 17+ · RxJS 7 · composants standalone + signals (pas de NgRx)
+- Lazy loading obligatoire sur toutes les routes `features/` (`loadComponent`)
 - `RoleGuard` sur toutes les routes sensibles
 
 ### Infrastructure
@@ -153,7 +153,10 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Règle** : la règle à appliquer à l'avenir
 -->
 
-Aucune erreur documentée pour l'instant.
+### 26/10/2026 — Audit : erreurs corrigées (branche fix/audit-securite)
+**Contexte** : audit complet du dépôt.
+**Erreurs** : SECRET_KEY d'exemple dans les .env ; `update()` du repository référentiel masquant `sqlalchemy.update` ; import FIS sans périmètre ni workflow ; SSE diffusant tous les événements à tous ; LDAP synchrone et en clair ; aucune limite de tentatives au login.
+**Règles** : voir la section « Règles apprises » de `.claude/agents/sir-backend.md` et `sir-frontend.md`.
 
 ---
 
