@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notifications import Destinataire
 from app.repositories import destinataire_repository as dest_repo
 from app.repositories import email_repository as email_repo
+from app.repositories import geo_scope_repository
 from app.repositories import sms_repository as sms_repo
 from app.repositories import utilisateur_repository
 from app.schemas.notifications import NotificationEventType
@@ -156,12 +157,18 @@ async def dispatch_event(
         celery_app.send_task("envoi_sms", args=[sms_id])
 
     message = f"{event_type} — {entity_type} #{entity_id}"
+    region_id = (
+        await geo_scope_repository.get_region_id_for_service(db, service_id)
+        if service_id is not None
+        else None
+    )
     await notification_stream_service.publish_event(
         event_type=event_type,
         entity_type=entity_type,
         entity_id=entity_id,
         message=message,
         service_id=service_id,
+        region_id=region_id,
     )
 
     logger.info(

@@ -317,16 +317,14 @@ async def logout(
             pass
 
 
-async def get_current_user(
-    db: AsyncSession,
-    redis: Redis,
-    token: str,
-) -> Utilisateur:
-    """Valide l'access token et retourne l'utilisateur authentifié.
+async def validate_access_token(redis: Redis, token: str) -> dict:
+    """Vérifie signature, expiration, type et blacklist d'un access token.
+
+    Returns:
+        Le payload décodé.
 
     Raises:
-        HTTPException 401 : token invalide, expiré ou blacklisté.
-        HTTPException 403 : utilisateur inactif.
+        HTTPException 401 : token invalide, expiré, de mauvais type ou révoqué.
     """
     try:
         payload = decode_token(token)
@@ -367,6 +365,21 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    return payload
+
+
+async def get_current_user(
+    db: AsyncSession,
+    redis: Redis,
+    token: str,
+) -> Utilisateur:
+    """Valide l'access token et retourne l'utilisateur authentifié.
+
+    Raises:
+        HTTPException 401 : token invalide, expiré ou blacklisté.
+        HTTPException 403 : utilisateur inactif.
+    """
+    payload = await validate_access_token(redis, token)
     user_id = int(payload["sub"])
     user = await utilisateur_repository.get_by_id(db, user_id)
 

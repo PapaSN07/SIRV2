@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -235,14 +235,30 @@ async def notification_stream(
     user = await auth_service.get_current_user(db, redis, token)
     role_names = {ur.role.nom for ur in user.user_roles}
     is_national = is_superadmin(user) or bool(role_names.intersection(_NATIONAL_ROLES))
-    scope_service_id = user.user_roles[0].scope_service_id if user.user_roles else None
-    channels = await notification_stream_service.subscribe_channels_for_user(
-        scope_service_id,
-        is_national,
+    scope_id = user.user_roles[0].scope_service_id if user.user_roles else None
+    # Convention user_roles : BCC/BRC → scope = region_id ; Superviseur → scope = service_id
+    is_regional = bool(role_names.intersection({"BCC", "BRC"}))
+    channels = notification_stream_service.subscribe_channels_for_user(
+        is_national=is_national,
+        region_id=scope_id if is_regional else None,
+        service_id=scope_id if not is_regional and "SUPERVISEUR" in role_names else None,
     )
 
+    async def is_still_authorized() -> bool:
+        try:
+            await auth_service.validate_access_token(redis, token)
+        except HTTPException:
+            return False
+        return True
+
     async def event_generator():
-        async for chunk in notification_stream_service.iter_sse_events(redis, channels):
+        async for chunk in notification_stream_service.iter_sse_events(
+            redis, channels, is_still_authorized=is_still_authorized
+        ):
             yield chunk
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

@@ -39,6 +39,14 @@ export class NotificationService implements OnDestroy {
       }
     };
 
+    // Le serveur ferme le flux quand le jeton expire ou est révoqué :
+    // on se reconnecte avec le jeton courant (ou on s'arrête si déconnecté).
+    this.eventSource.addEventListener('session-expired', () => {
+      this.zone.run(() => this.connected.set(false));
+      this.disconnect(false);
+      this.scheduleReconnect();
+    });
+
     this.eventSource.onerror = () => {
       this.zone.run(() => this.connected.set(false));
       this.disconnect(false);
