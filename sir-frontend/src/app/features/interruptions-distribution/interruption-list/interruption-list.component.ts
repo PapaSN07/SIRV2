@@ -196,6 +196,13 @@ export class InterruptionListComponent implements OnInit {
     this.applyFilters();
   }
 
+  /** Raccourci « N en cours » : filtre sur les interruptions encore ouvertes (bascule). */
+  toggleEnCours(): void {
+    this.ouverture.set(this.ouverture() === 'ouvert' ? null : 'ouvert');
+    if (this.ouverture()) this.moreFilters.set(true);
+    this.applyFilters();
+  }
+
   onDateDebutChange(event: Event): void {
     this.dateDebut.set((event.target as HTMLInputElement).value);
     this.applyFilters();

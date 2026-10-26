@@ -500,6 +500,10 @@
         <p class="pilotage__note">Chaque point est un poste touché pendant le mois choisi. Les points rouges n'ont pas encore de date de remise.</p>
         <div class="outage-layout">
           <div class="outage-map" aria-label="Carte des postes encore coupés">
+            <img class="outage-map__bg" src="assets/maps/senegal.svg" alt="" aria-hidden="true" />
+            @for (city of mapCities; track city.name) {
+              <span class="outage-map__city" [class.outage-map__city--right]="city.side === 'right'" [style.left.%]="city.left" [style.top.%]="city.top" aria-hidden="true">{{ city.name }}</span>
+            }
             @for (pin of mapPins(); track pin.interruption_id + '-' + pin.poste_id) {
               <a
                 class="outage-map__pin"

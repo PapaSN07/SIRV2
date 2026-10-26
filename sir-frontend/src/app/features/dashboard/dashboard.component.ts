@@ -36,6 +36,31 @@ interface ChartMonth {
 
 type DashboardTab = 'synthese' | 'objectifs' | 'reseau';
 
+/**
+ * Cadre du fond de carte assets/maps/senegal.svg (Natural Earth 1:10m, domaine public) :
+ * toute position est exprimée en % de ce cadre, pour les postes comme pour les repères.
+ */
+const MAP_FRAME = { lonMin: -17.55, lonMax: -11.3, latMin: 12.25, latMax: 16.75 };
+
+function projectSenegal(lon: number, lat: number): { left: number; top: number } {
+  return {
+    left: ((lon - MAP_FRAME.lonMin) / (MAP_FRAME.lonMax - MAP_FRAME.lonMin)) * 100,
+    top: ((MAP_FRAME.latMax - lat) / (MAP_FRAME.latMax - MAP_FRAME.latMin)) * 100,
+  };
+}
+
+const MAP_CITIES: { name: string; lon: number; lat: number; side?: 'right' }[] = [
+  // Dakar est au bord ouest du cadre : étiquette à droite du point
+  { name: 'Dakar', lon: -17.45, lat: 14.69, side: 'right' },
+  { name: 'Thiès', lon: -16.93, lat: 14.79 },
+  { name: 'Saint-Louis', lon: -16.49, lat: 16.03 },
+  { name: 'Touba', lon: -15.88, lat: 14.86 },
+  { name: 'Kaolack', lon: -16.07, lat: 14.15 },
+  { name: 'Ziguinchor', lon: -16.27, lat: 12.57 },
+  { name: 'Tambacounda', lon: -13.67, lat: 13.77 },
+  { name: 'Matam', lon: -13.25, lat: 15.66 },
+];
+
 interface ObjectifDraft {
   end_mwh: string;
   saifi: string;
@@ -176,23 +201,17 @@ export class DashboardComponent implements OnInit {
 
   readonly natureService = computed((): NatureServiceRepartition | null => this.kpi()?.nature_service ?? null);
 
-  readonly mapPins = computed((): MapPin[] => {
-    const lonMin = -17.55;
-    const lonMax = -11.3;
-    const latMin = 12.25;
-    const latMax = 16.75;
-    return (this.pilotage()?.postes_ouverts ?? [])
+  readonly mapPins = computed((): MapPin[] =>
+    (this.pilotage()?.postes_ouverts ?? [])
       .filter((poste) => poste.latitude !== null && poste.longitude !== null)
       .map((poste) => {
-        const left = ((poste.longitude! - lonMin) / (lonMax - lonMin)) * 100;
-        const top = ((latMax - poste.latitude!) / (latMax - latMin)) * 100;
-        return {
-          ...poste,
-          left: Math.min(97, Math.max(3, left)),
-          top: Math.min(97, Math.max(3, top)),
-        };
-      });
-  });
+        const { left, top } = projectSenegal(poste.longitude!, poste.latitude!);
+        return { ...poste, left: Math.min(97, Math.max(3, left)), top: Math.min(97, Math.max(3, top)) };
+      }),
+  );
+
+  /** Repères sur le fond de carte (même projection que les postes). */
+  readonly mapCities = MAP_CITIES.map((c) => ({ ...c, ...projectSenegal(c.lon, c.lat) }));
 
   readonly postesSansCoord = computed(() =>
     (this.pilotage()?.postes_ouverts ?? []).filter(

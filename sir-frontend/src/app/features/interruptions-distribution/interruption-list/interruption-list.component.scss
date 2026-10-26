@@ -590,3 +590,15 @@
     transform: rotate(180deg);
   }
 }
+
+.stats-badge--info {
+  border-color: #b2ccff;
+  background: #eff4ff;
+  color: #1849a9;
+  font-family: inherit;
+}
+
+.stats-badge--active {
+  outline: 2px solid #1849a9;
+  outline-offset: 1px;
+}

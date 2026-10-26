@@ -8,6 +8,19 @@
   >
     <div actions>
       @if (stats(); as s) {
+        @if (s.en_cours > 0) {
+          <button
+            type="button"
+            class="stats-badge stats-badge--info stats-badge--link"
+            [class.stats-badge--active]="ouverture() === 'ouvert'"
+            [attr.aria-pressed]="ouverture() === 'ouvert'"
+            title="Afficher uniquement les interruptions encore ouvertes"
+            (click)="toggleEnCours()"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
+            {{ s.en_cours }} en cours
+          </button>
+        }
         @if (s.non_validees > 0) {
           @if (canValidate()) {
             <a class="stats-badge stats-badge--link" routerLink="/workflow/validation" title="Ouvrir la file de validation">
@@ -326,45 +339,5 @@
     }
   </div>
 
-  @if (stats(); as s) {
-    <div class="summary-grid">
-      <article class="summary-card">
-        <div class="summary-card__icon summary-card__icon--primary">
-          <span class="material-symbols-outlined" aria-hidden="true">format_list_numbered</span>
-        </div>
-        <div>
-          <p class="summary-card__label">Total filtré</p>
-          <p class="summary-card__value">{{ s.total }}</p>
-        </div>
-      </article>
-
-      <article class="summary-card">
-        <div class="summary-card__icon summary-card__icon--warning">
-          <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
-        </div>
-        <div>
-          <p class="summary-card__label">Non validées</p>
-          <p class="summary-card__value summary-card__value--warning">{{ s.non_validees }}</p>
-        </div>
-      </article>
-
-      <article class="summary-card summary-card--wide">
-        <div>
-          <p class="summary-card__label">Interruptions distribution</p>
-          <div class="summary-card__legend">
-            <span class="summary-card__legend-item">
-              <span class="summary-card__dot summary-card__dot--primary"></span>
-              Total filtré : {{ s.total }}
-            </span>
-            <span class="summary-card__legend-item">
-              <span class="summary-card__dot summary-card__dot--tint"></span>
-              En cours : {{ s.en_cours }}
-            </span>
-          </div>
-        </div>
-        <span class="summary-card__deco material-symbols-outlined" aria-hidden="true">analytics</span>
-      </article>
-    </div>
-  }
 </section>
 
