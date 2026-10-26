@@ -45,3 +45,16 @@ scripts/migration/logs/
 
 # E2E artifacts
 scripts/e2e_output/
+
+# Rapports générés par l'API (contiennent des données d'exploitation)
+sir-backend/storage/
+
+# Rapports d'exécution de la migration
+scripts/migration/reports/*
+!scripts/migration/reports/.gitkeep
+
+# Fichiers FIS réels (données d'exploitation SENELEC)
+docs/Rapport_Journalier_mensuel/
+
+# Fichiers de verrou Office
+~$*
