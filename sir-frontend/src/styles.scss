@@ -1,5 +1,10 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 @import 'material-symbols/outlined.css';
+// Police Inter embarquée : aucun appel à Google Fonts (build et usage hors internet)
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
 @import 'styles/sir-ui';
 
 :root {
