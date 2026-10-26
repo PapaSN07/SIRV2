@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime
 
@@ -16,7 +17,7 @@ from app.core.security import (
 from app.models.utilisateurs import Utilisateur
 from app.repositories import utilisateur_repository
 from app.schemas.auth import LoginRequest, MeResponse
-from app.services import ldap_service
+from app.services import ldap_service, login_throttle_service
 
 
 # ---------------------------------------------------------------------------
@@ -107,11 +108,14 @@ async def login(
         HTTPException 401 : identifiants incorrects (message volontairement générique).
         HTTPException 403 : utilisateur inactif ou première connexion forcée.
     """
+    await login_throttle_service.ensure_not_locked(redis, body.login)
+
     user = await utilisateur_repository.get_by_login(db, body.login)
 
     # Compte présent dans l'AD : seul le mot de passe Active Directory est accepté.
     # None = annuaire inactif, compte absent ou injoignable → mot de passe local.
-    ad_ok = ldap_service.verify_user_password(body.login, body.password)
+    # ldap3 est synchrone : exécuté dans un thread pour ne pas figer l'API.
+    ad_ok = await asyncio.to_thread(ldap_service.verify_user_password, body.login, body.password)
     if ad_ok is True:
         password_ok = user is not None
     elif ad_ok is False:
@@ -121,6 +125,7 @@ async def login(
 
     # Message générique : ne pas révéler si le login existe.
     if user is None or not password_ok:
+        await login_throttle_service.register_failure(redis, body.login)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -158,6 +163,7 @@ async def login(
             },
         )
 
+    await login_throttle_service.reset(redis, body.login)
     return await _issue_tokens(db, redis, user)
 
 
@@ -169,9 +175,12 @@ async def change_password(
     new_password: str,
 ) -> dict:
     """Change le mot de passe lors de la première connexion et émet de nouveaux tokens."""
+    await login_throttle_service.ensure_not_locked(redis, login)
+
     user = await utilisateur_repository.get_by_login(db, login)
 
     if user is None or not verify_password(current_password, user.password_hash):
+        await login_throttle_service.register_failure(redis, login)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

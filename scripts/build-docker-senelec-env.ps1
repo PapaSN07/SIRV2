@@ -35,6 +35,7 @@ if (-not $secret -or $secret -like "changeme*") {
     throw "SECRET_KEY absente ou valeur d'exemple dans .env.senelec (generer avec : openssl rand -hex 32)"
 }
 
+$startTls = Get-EnvValue "LDAP_START_TLS"
 $accessTtl = Get-EnvValue "ACCESS_TOKEN_EXPIRE_MINUTES"
 if (-not $accessTtl) { $accessTtl = "30" }
 $refreshDays = Get-EnvValue "REFRESH_TOKEN_EXPIRE_DAYS"
@@ -70,6 +71,8 @@ $out = @(
     "LDAP_HOSTS=$(Get-EnvValue 'LDAP_HOSTS')",
     "LDAP_PORT=$(Get-EnvValue 'LDAP_PORT')",
     "LDAP_USE_SSL=$(Get-EnvValue 'LDAP_USE_SSL')",
+    "LDAP_START_TLS=$(if ($startTls) { $startTls } else { 'false' })",
+    "LDAP_CA_CERT_FILE=$(Get-EnvValue 'LDAP_CA_CERT_FILE')",
     "LDAP_BIND_DN=$(Get-EnvValue 'LDAP_BIND_DN')",
     "LDAP_BIND_PASSWORD=$(Get-EnvValue 'LDAP_BIND_PASSWORD')",
     "LDAP_BASE_DN=$(Get-EnvValue 'LDAP_BASE_DN')",

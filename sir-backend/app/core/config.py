@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     )
     ldap_port: int = Field(default=389, validation_alias="LDAP_PORT")
     ldap_use_ssl: bool = Field(default=False, validation_alias="LDAP_USE_SSL")
+    # StartTLS sur le port 389 : chiffre le bind sans changer de port
+    ldap_start_tls: bool = Field(default=False, validation_alias="LDAP_START_TLS")
+    # Certificat de l'autorité de certification interne (PEM) ; vide = magasin système
+    ldap_ca_cert_file: str = Field(default="", validation_alias="LDAP_CA_CERT_FILE")
     ldap_bind_dn: str = Field(default="", validation_alias="LDAP_BIND_DN")
     ldap_bind_password: str = Field(default="", validation_alias="LDAP_BIND_PASSWORD")
     ldap_base_dn: str = Field(default="DC=electricite,DC=sn", validation_alias="LDAP_BASE_DN")
