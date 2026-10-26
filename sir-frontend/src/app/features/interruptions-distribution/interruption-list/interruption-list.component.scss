@@ -265,6 +265,23 @@
     white-space: nowrap;
   }
 
+  // Colonne Actions toujours visible quand le tableau défile horizontalement
+  &__sticky-end {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: #ffffff;
+    box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.15);
+  }
+
+  thead &__sticky-end {
+    background: #f1f3f5;
+  }
+
+  &__row:nth-child(even) &__sticky-end {
+    background: #f8f9fa;
+  }
+
   &__truncate {
     max-width: 220px;
     overflow: hidden;

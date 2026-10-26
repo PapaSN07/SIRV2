@@ -1,5 +1,8 @@
 <div class="app-shell">
-  <aside class="sidebar">
+  @if (menuOpen()) {
+    <div class="sidebar-backdrop" (click)="closeMenu()" aria-hidden="true"></div>
+  }
+  <aside class="sidebar" id="sir-sidebar" [class.sidebar--open]="menuOpen()">
     <div class="sidebar__brand">
       <img
         class="sidebar__logo"
@@ -19,6 +22,7 @@
             [routerLink]="item.route"
             routerLinkActive="sidebar__link--active"
             [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+            (click)="closeMenu()"
           >
             <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
             <span>{{ item.label }}</span>
@@ -46,6 +50,16 @@
   </aside>
 
   <header class="topbar">
+    <button
+      type="button"
+      class="topbar__icon-btn topbar__menu-btn"
+      aria-label="Ouvrir le menu"
+      aria-controls="sir-sidebar"
+      [attr.aria-expanded]="menuOpen()"
+      (click)="toggleMenu()"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+    </button>
     <div class="topbar__search">
       <span class="material-symbols-outlined topbar__search-icon" aria-hidden="true">search</span>
       <input

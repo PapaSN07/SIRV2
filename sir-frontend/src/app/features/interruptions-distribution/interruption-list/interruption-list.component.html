@@ -192,14 +192,14 @@
               <th>N°</th>
               <th>Service</th>
               <th>Date</th>
+              <th>Statut</th>
               <th>Source</th>
               <th class="data-table__num">Tension (kV)</th>
               <th>Feeder</th>
               <th>Nature</th>
               <th>Cause</th>
               <th>Siège</th>
-              <th>Statut</th>
-              <th class="data-table__actions">Actions</th>
+              <th class="data-table__actions data-table__sticky-end">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -218,7 +218,7 @@
                     [attr.aria-label]="'Sélectionner interruption ' + row.numero_interruption"
                   />
                 </td>
-                <td>
+                <td class="data-table__nowrap">
                   <a
                     class="data-table__numero"
                     [routerLink]="['/interruptions/distribution', row.id]"
@@ -229,16 +229,16 @@
                 </td>
                 <td class="data-table__truncate">{{ row.service_libelle || '—' }}</td>
                 <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  <sir-status-chip [statut]="row.statut" />
+                </td>
                 <td class="data-table__truncate">{{ row.poste_source_libelle || '—' }}</td>
                 <td class="data-table__num">{{ row.tension_kv ?? '—' }}</td>
                 <td class="data-table__truncate">{{ row.feeder_libelle || '—' }}</td>
                 <td class="data-table__truncate">{{ row.nature_libelle || '—' }}</td>
                 <td class="data-table__truncate">{{ row.cause_libelle || '—' }}</td>
                 <td class="data-table__truncate">{{ row.siege_libelle || '—' }}</td>
-                <td>
-                  <sir-status-chip [statut]="row.statut" />
-                </td>
-                <td>
+                <td class="data-table__sticky-end">
                   <div class="row-actions">
                     <a
                       class="row-actions__btn"

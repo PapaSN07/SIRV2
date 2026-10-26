@@ -103,7 +103,7 @@
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">speed</span>
         </div>
         <div class="kpi-card__value-row">
-          <p class="kpi-card__value">{{ formatNumber(kpi()?.saifi) }}</p>
+          <p class="kpi-card__value">{{ formatNumber(kpi()?.saifi, 2) }}</p>
         </div>
         <p class="kpi-card__hint">Fréquence moyenne d'interruption</p>
       </article>
@@ -188,9 +188,9 @@
                 @for (item of board.indicateurs; track item.code) {
                   <tr>
                     <td>{{ item.libelle }}<small>{{ item.note_jour }}</small></td>
-                    <td>{{ formatNumber(item.realise_jour) }} {{ item.unite }}</td>
-                    <td>{{ formatNumber(item.objectif_journalier) }} {{ item.unite }}</td>
-                    <td>{{ formatNumber(item.ecart_jour) }}</td>
+                    <td>{{ formatIndicateur(item.realise_jour, item.code) }} {{ item.unite }}</td>
+                    <td>{{ formatIndicateur(item.objectif_journalier, item.code) }} {{ item.unite }}</td>
+                    <td>{{ formatIndicateur(item.ecart_jour, item.code) }}</td>
                     <td>{{ formatTaux(item.taux_jour) }}</td>
                   </tr>
                 }
@@ -213,9 +213,9 @@
                 @for (item of board.indicateurs; track item.code) {
                   <tr>
                     <td>{{ item.libelle }}<small>{{ item.note_cumul }}</small></td>
-                    <td>{{ formatNumber(item.realise_cumul) }} {{ item.unite }}</td>
-                    <td>{{ formatNumber(item.objectif_cumul) }} {{ item.unite }}</td>
-                    <td>{{ formatNumber(item.objectif_annuel) }} {{ item.unite }}</td>
+                    <td>{{ formatIndicateur(item.realise_cumul, item.code) }} {{ item.unite }}</td>
+                    <td>{{ formatIndicateur(item.objectif_cumul, item.code) }} {{ item.unite }}</td>
+                    <td>{{ formatIndicateur(item.objectif_annuel, item.code) }} {{ item.unite }}</td>
                     <td>{{ formatTaux(item.taux_cumul) }}</td>
                   </tr>
                 }
@@ -357,7 +357,7 @@
               <td>{{ zone.libelle }}</td>
               <td>{{ zone.nombre }}</td>
               <td>{{ formatNumber(zone.end_mwh) }}</td>
-              <td>{{ formatNumber(zone.saifi) }}</td>
+              <td>{{ formatNumber(zone.saifi, 2) }}</td>
               <td>{{ formatNumber(zone.saidi) }}</td>
             </tr>
           } @empty {

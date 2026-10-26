@@ -29,6 +29,8 @@ export class MainLayoutComponent implements OnDestroy {
 
   readonly user = this.auth.currentUser;
   readonly panelOpen = signal(false);
+  /** Menu latéral en tiroir sous 1024 px (toujours visible au-delà). */
+  readonly menuOpen = signal(false);
   readonly unreadCount = computed(() => this.notifications.unreadCount());
   readonly notificationItems = this.notifications.items;
   readonly eventLabel = notificationEventLabel;
@@ -88,6 +90,14 @@ export class MainLayoutComponent implements OnDestroy {
     if (next) {
       this.notifications.markAllRead();
     }
+  }
+
+  toggleMenu(): void {
+    this.menuOpen.update((open) => !open);
+  }
+
+  closeMenu(): void {
+    this.menuOpen.set(false);
   }
 
   closeNotifications(): void {

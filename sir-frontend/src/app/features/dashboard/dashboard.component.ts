@@ -218,9 +218,14 @@ export class DashboardComponent implements OnInit {
     return this.auth.isExactRole('BRC');
   }
 
-  formatNumber(value: number | null | undefined): string {
+  formatNumber(value: number | null | undefined, digits = 1): string {
     if (value === null || value === undefined) return '—';
-    return value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    return value.toLocaleString('fr-FR', { maximumFractionDigits: digits });
+  }
+
+  /** SAIFI : 2 décimales (valeurs proches de 1) ; END, SAIDI et autres : 1 décimale. */
+  formatIndicateur(value: number | null | undefined, code: string): string {
+    return this.formatNumber(value, code.toUpperCase() === 'SAIFI' ? 2 : 1);
   }
 
   formatTaux(value: number | null | undefined): string {
