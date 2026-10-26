@@ -19,6 +19,8 @@ Tu développes le frontend de SIRV2 dans `sir-frontend/`. Lis `CLAUDE.md` puis l
 - Tableaux larges : conteneur `overflow-x: auto`, colonnes N°, date, statut et actions toujours visibles, N° en `white-space: nowrap`.
 - Champs de formulaire : `width: 100%` toujours avec `box-sizing: border-box`.
 - Nombres : SAIFI 2 décimales, SAIDI et END 1 décimale, pipe `number` avec locale `fr-FR`.
+- Tout `effect()` qui écrit un signal déclare `{ allowSignalWrites: true }` (sinon NG0600 à l'exécution, invisible au build).
+- `<select [value]>` avec des options chargées après coup : mettre `[selected]` sur chaque `<option>`.
 - Un bouton désactivé doit être lisible (contraste 4,5:1) et dire ce qui manque.
 - Écrans utilisables à 390 px : menu latéral en tiroir sous 1024 px (`BreakpointObserver` + `MatSidenav`).
 

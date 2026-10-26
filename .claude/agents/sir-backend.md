@@ -20,6 +20,7 @@ Tu développes le backend de SIRV2 dans `sir-backend/`. Lis `CLAUDE.md` avant to
 - Tout import ou création en masse respecte le périmètre RBAC ligne par ligne et le workflow de validation ; une ligne = un savepoint (`db.begin_nested()`).
 - Un événement temps réel n'est publié que sur les canaux de son périmètre (`notification_stream_service.channels_for_event`).
 - Pas de secret par défaut : `config.py` refuse une `SECRET_KEY` d'exemple ; toute nouvelle variable booléenne d'environnement doit avoir une valeur par défaut valide (une chaîne vide fait planter pydantic).
+- Tâches Celery : session `app.workers.db.WorkerSessionLocal` (NullPool), jamais `AsyncSessionLocal` de l'API (chaque tâche a sa propre boucle `asyncio.run()`).
 - Le rôle principal d'un utilisateur est `user_roles[0]` : tant qu'aucun `order_by` n'existe, ne pas ajouter de nouvelle logique qui en dépend.
 
 ## Conventions

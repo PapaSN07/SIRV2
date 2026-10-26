@@ -158,6 +158,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : SECRET_KEY d'exemple dans les .env ; `update()` du repository référentiel masquant `sqlalchemy.update` ; import FIS sans périmètre ni workflow ; SSE diffusant tous les événements à tous ; LDAP synchrone et en clair ; aucune limite de tentatives au login.
 **Règles** : voir la section « Règles apprises » de `.claude/agents/sir-backend.md` et `sir-frontend.md`.
 
+### 26/10/2026 — Worker Celery, image Docker frontend, signaux Angular
+**Contexte** : `app/workers/tasks/*`, `sir-frontend/Dockerfile`, `dashboard.component.ts`.
+**Erreurs** : les tâches Celery (un `asyncio.run()` par tâche) partageaient le pool de connexions de l'API ; l'image Docker copiait `/dist` alors que le builder Angular `application` écrit dans `/dist/browser` (site introuvable) ; un `effect()` écrivait un signal sans `allowSignalWrites` (NG0600, toast temps réel jamais affiché) ; nginx limitait les envois à 1 Mo (import FIS refusé).
+**Règles** : tâche Celery → `app.workers.db.WorkerSessionLocal` (NullPool), jamais `app.core.database` ; tout `effect()` qui écrit un signal déclare `{ allowSignalWrites: true }` ; tester l'image de production (build + nginx) et pas seulement `ng serve`.
+
 ---
 
 *Dernière mise à jour : Juin 2026*
