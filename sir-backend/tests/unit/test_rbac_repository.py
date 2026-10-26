@@ -398,14 +398,17 @@ async def test_seed_rbac_idempotent_ne_cree_pas_de_doublons() -> None:
     """
     from app.models.seed.seed_rbac import _PERMISSIONS, _ROLES, seed_rbac
 
-    # Simuler une base déjà peuplée : chaque appel select retourne l'objet existant
-    existing_permissions: dict[tuple[str, str], Permission] = {}
-    existing_roles: dict[str, Role] = {}
-    existing_role_permissions: set[tuple[int, int]] = set()
-
     db = AsyncMock()
     db.flush = AsyncMock()
-    db.add = MagicMock()  # Suivre les appels
+    next_id = iter(range(1, 10_000))
+
+    def _add(obj) -> None:
+        # Simule l'id attribué par la base au flush (sinon toutes les
+        # associations rôle↔permission ont la clé (None, None) et sont dédupliquées)
+        if getattr(obj, "id", None) is None:
+            obj.id = next(next_id)
+
+    db.add = MagicMock(side_effect=_add)  # Suivre les appels
 
     call_count: int = 0
 
@@ -470,41 +473,23 @@ async def test_seed_rbac_idempotent_ne_cree_pas_de_doublons() -> None:
 
     execute_call_index: list[int] = [0]
 
-    # Ordre d'appels dans seed_rbac :
-    # 1) len(_PERMISSIONS) appels pour upsert_permission
-    # 2) pour chaque rôle : 1 appel rôle + len(role_perms) appels RolePermission
-
-    perm_list = list(perm_objects.values())
-    role_list = list(role_objects.values())
-
-    # Construire la séquence attendue
-    call_sequence: list = []
-    for perm in perm_list:
-        call_sequence.append(("permission", perm))
-    for j, (nom_role, _, role_perms) in enumerate(_ROLES):
-        call_sequence.append(("role", role_objects[nom_role]))
-        for ressource, action in role_perms:
-            rp = RolePermission()
-            rp.id = 1
-            rp.role_id = role_objects[nom_role].id
-            rp.permission_id = perm_objects[(ressource, action)].id
-            call_sequence.append(("rp", rp))
+    # Ordre des requêtes dans seed_rbac :
+    # 1) une requête par permission (upsert)
+    # 2) une seule requête qui charge toutes les associations rôle↔permission
+    # 3) une requête par rôle (upsert) ; les associations sont vérifiées en mémoire
+    call_sequence: list = [("permission", perm) for perm in perm_objects.values()]
+    call_sequence.append(("links", sorted(rp_objects)))
+    call_sequence.extend(("role", role_objects[nom_role]) for nom_role, _, _ in _ROLES)
 
     async def _fake_execute_second_run(stmt):
         idx = execute_call_index[0]
         execute_call_index[0] += 1
         mock_result = MagicMock()
-
-        if idx < len(call_sequence):
-            kind, obj = call_sequence[idx]
-            if kind in ("permission", "role"):
-                mock_result.scalar_one_or_none.return_value = obj
-            else:
-                # RolePermission existe déjà
-                mock_result.scalar_one_or_none.return_value = obj
+        kind, obj = call_sequence[idx] if idx < len(call_sequence) else (None, None)
+        if kind == "links":
+            mock_result.all.return_value = obj
         else:
-            mock_result.scalar_one_or_none.return_value = None
-
+            mock_result.scalar_one_or_none.return_value = obj
         return mock_result
 
     db2.execute = _fake_execute_second_run

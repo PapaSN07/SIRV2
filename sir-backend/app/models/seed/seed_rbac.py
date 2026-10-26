@@ -166,7 +166,6 @@ _ROLES: list[tuple[str, str, list[tuple[str, str]]]] = [
 
 _SUPERADMIN_ROLE = "SUPERADMIN"
 _SUPERADMIN_LOGIN = "superadmin.dev"
-_SUPERADMIN_PASSWORD = "DevSir123!"
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +268,7 @@ async def _seed_superadmin_role_and_user(
     db: AsyncSession,
     permission_map: dict[tuple[str, str], Permission],
     links: set[tuple[int, int]],
+    password: str,
 ) -> None:
     """Rôle et compte dev SUPERADMIN — toutes les permissions, accès total."""
     role = await _upsert_role(
@@ -286,7 +286,7 @@ async def _seed_superadmin_role_and_user(
 
     user = Utilisateur(
         login=_SUPERADMIN_LOGIN,
-        password_hash=hash_password(_SUPERADMIN_PASSWORD),
+        password_hash=hash_password(password),
         nom="Super",
         prenom="Admin",
         email=f"{_SUPERADMIN_LOGIN}@senelec.sn",
@@ -312,8 +312,17 @@ async def _seed_superadmin_role_and_user(
 # ---------------------------------------------------------------------------
 
 
-async def seed_rbac(db: AsyncSession) -> None:
+async def seed_rbac(
+    db: AsyncSession,
+    *,
+    with_superadmin: bool = False,
+    superadmin_password: str | None = None,
+) -> None:
     """Initialise les rôles et permissions RBAC du système SIR.
+
+    Le compte ``superadmin.dev`` (accès total) n'est créé que sur demande
+    explicite (``with_superadmin=True``, seed de développement) : jamais
+    par le seed RBAC exécuté sur une base partagée ou de production.
 
     Idempotent : safe à appeler plusieurs fois en développement et au démarrage
     en environnement de staging. En production, appeler une seule fois via
@@ -337,7 +346,10 @@ async def seed_rbac(db: AsyncSession) -> None:
             permission = permission_map[(ressource, action)]
             await _upsert_role_permission(db, links, role.id, permission.id)
 
-    await _seed_superadmin_role_and_user(db, permission_map, links)
+    if with_superadmin:
+        if not superadmin_password:
+            raise ValueError("superadmin_password requis pour créer le compte superadmin.dev")
+        await _seed_superadmin_role_and_user(db, permission_map, links, superadmin_password)
 
     # Flush final pour persister toutes les associations avant commit externe
     await db.flush()

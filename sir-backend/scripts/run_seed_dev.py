@@ -1,6 +1,7 @@
 """CLI — charge tous les seeds dev (RBAC → geo → réseau)."""
 
 import asyncio
+import os
 import sys
 
 from app.core.database import AsyncSessionLocal
@@ -10,11 +11,26 @@ from app.models.seed.seed_rbac import seed_rbac
 from app.models.seed.seed_reseau import seed_reseau
 
 
+# Comptes à mot de passe partagé : jamais sur la base SENELEC.
+_DEV_PASSWORD = os.environ.get("SIR_SUPERADMIN_PASSWORD", "DevSir123!")
+
+
+def _refuse_shared_database() -> None:
+    if os.environ.get("SIR_PROFILE", "docker").strip().lower() == "senelec":
+        print(
+            "seed-dev : REFUSÉ — profil senelec (base partagée). Ce seed crée des comptes "
+            "à mot de passe connu ; il est réservé à la base Docker locale.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+
 async def main() -> None:
+    _refuse_shared_database()
     async with AsyncSessionLocal() as session:
         try:
             print("→ seed_rbac …")
-            await seed_rbac(session)
+            await seed_rbac(session, with_superadmin=True, superadmin_password=_DEV_PASSWORD)
             print("→ seed_geo …")
             await seed_geo(session)
             print("→ seed_reseau …")
@@ -48,7 +64,7 @@ async def main() -> None:
             await session.commit()
             print("seed-dev : OK — RBAC + geo + réseau + SIG + interruptions + indicateurs + notifications chargés")
             print("  Comptes dev : bcc.dev / brc.dev / superviseur.dev — mot de passe DevSir123!")
-            print("  Super admin : superadmin.dev — mot de passe DevSir123!")
+            print("  Super admin : superadmin.dev — mot de passe SIR_SUPERADMIN_PASSWORD (défaut DevSir123!)")
         except Exception as exc:
             await session.rollback()
             print(f"seed-dev : ERREUR — {exc}", file=sys.stderr)
