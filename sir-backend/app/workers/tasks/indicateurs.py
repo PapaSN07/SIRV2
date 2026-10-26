@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from app.core.database import AsyncSessionLocal
+from app.workers.db import WorkerSessionLocal
 from app.services import end_service
 from app.workers.celery_app import celery_app
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _run_calcul_end(interruption_id: int) -> dict[str, int | float | str | bool | None]:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             result = await end_service.calculer_et_persister_end(db, interruption_id)
             await db.commit()
@@ -38,7 +38,7 @@ async def _run_calcul_saifi_saidi(
 ) -> dict[str, int | float | str | None]:
     from app.services import saifi_saidi_service
 
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             result = await saifi_saidi_service.calculer_et_persister_saifi_saidi(
                 db, interruption_id

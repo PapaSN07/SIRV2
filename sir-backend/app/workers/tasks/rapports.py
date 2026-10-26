@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from app.core.database import AsyncSessionLocal
+from app.workers.db import WorkerSessionLocal
 from app.services import rapport_generation_service
 from app.workers.celery_app import celery_app
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _run_generer_rapport(rapport_id: int) -> dict[str, str]:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             result = await rapport_generation_service.execute_generation(db, rapport_id)
             await db.commit()

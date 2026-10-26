@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from app.core.database import AsyncSessionLocal
+from app.workers.db import WorkerSessionLocal
 from app.services import email_service, notification_dispatch_service, sms_service
 from app.workers.celery_app import celery_app
 
@@ -17,7 +17,7 @@ async def _run_dispatch(
     service_id: int | None,
     extra_json: str | None,
 ) -> dict[str, int]:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             result = await notification_dispatch_service.dispatch_event(
                 db,
@@ -33,25 +33,38 @@ async def _run_dispatch(
             raise
 
 
+async def _commit_failure_trace(db, kind: str, record_id: int) -> None:
+    """Persiste le statut « echec » écrit par le service ; rollback si la base elle-même est en cause."""
+    try:
+        await db.commit()
+    except Exception:
+        logger.exception("Trace d'échec %s non enregistrée id=%s", kind, record_id)
+        await db.rollback()
+
+
 async def _run_envoi_email(email_id: int) -> dict[str, str]:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             result = await email_service.send_email_record(db, email_id)
             await db.commit()
             return result
         except Exception:
-            await db.rollback()
+            # Le service a marqué l'envoi « echec » avant de lever : on conserve
+            # cette trace (sinon le rollback l'efface et l'échec devient invisible).
+            await _commit_failure_trace(db, "email", email_id)
             raise
 
 
 async def _run_envoi_sms(sms_id: int) -> dict[str, str]:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             result = await sms_service.send_sms_record(db, sms_id)
             await db.commit()
             return result
         except Exception:
-            await db.rollback()
+            # Le service a marqué l'envoi « echec » avant de lever : on conserve
+            # cette trace (sinon le rollback l'efface et l'échec devient invisible).
+            await _commit_failure_trace(db, "sms", sms_id)
             raise
 
 

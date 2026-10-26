@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from app.core.database import AsyncSessionLocal
+from app.workers.db import WorkerSessionLocal
 from app.services import ml_scoring_service
 from app.workers.celery_app import celery_app
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _run_score_feeders(horizon_days: int) -> dict[str, int | str]:
-    async with AsyncSessionLocal() as db:
+    async with WorkerSessionLocal() as db:
         try:
             return await ml_scoring_service.score_feeders(
                 db, horizon_days=horizon_days
