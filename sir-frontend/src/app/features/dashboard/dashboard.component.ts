@@ -412,7 +412,8 @@ export class DashboardComponent implements OnInit {
           setTimeout(() => this.toastMessage.set(null), 8000);
         }
       }
-    });
+      // Le toast est un signal : écriture autorisée explicitement (sinon NG0600, toast jamais affiché)
+    }, { allowSignalWrites: true });
   }
 
   dismissToast(): void {

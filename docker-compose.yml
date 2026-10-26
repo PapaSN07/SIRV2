@@ -8,8 +8,8 @@ services:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD}"
       MSSQL_PID: Developer
-    ports:
-      - "1433:1433"
+    # Pas de port publié : SQL Server reste joignable uniquement par l'API et le worker
+    # (docker-compose.override.yml le publie en développement local)
     volumes:
       - sqlserver_data:/var/opt/mssql
     healthcheck:
@@ -75,7 +75,7 @@ services:
       target: production
     ports:
       - "80:80"
-      - "443:443"
+      # 443 : à ajouter avec un bloc « listen 443 ssl » et les certificats (voir nginx.conf)
     depends_on:
       api:
         condition: service_healthy

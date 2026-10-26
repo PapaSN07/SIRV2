@@ -28,7 +28,7 @@ RUN npx ng build --configuration production --output-path /dist
 # ── Serveur Nginx production ─────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS production
 
-COPY --from=builder /dist /usr/share/nginx/html
+COPY --from=builder /dist/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \

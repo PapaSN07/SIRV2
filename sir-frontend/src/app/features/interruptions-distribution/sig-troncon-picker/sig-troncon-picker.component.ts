@@ -28,11 +28,15 @@ export class SigTronconPickerComponent {
   readonly activeId = signal<number | null>(null);
 
   constructor() {
-    effect(() => {
-      if (this.open()) {
-        this.load();
-      }
-    });
+    // load() met à jour des signaux (chargement, liste) : écriture autorisée dans l'effet
+    effect(
+      () => {
+        if (this.open()) {
+          this.load();
+        }
+      },
+      { allowSignalWrites: true },
+    );
   }
 
   onBackdropClick(event: MouseEvent): void {
