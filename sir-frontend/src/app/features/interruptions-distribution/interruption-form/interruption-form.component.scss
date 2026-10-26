@@ -311,3 +311,28 @@
     transform: rotate(360deg);
   }
 }
+
+// ── Champs manquants après un essai d'envoi ─────────────────────────────────
+.form-missing {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #f3b8b4;
+  border-radius: 0.5rem;
+  background: #fef3f2;
+  color: #912018;
+  font-size: 14px;
+  line-height: 1.45;
+
+  p {
+    margin: 0;
+  }
+}
+
+.field__select.ng-invalid.ng-touched,
+.field__input.ng-invalid.ng-touched {
+  border-color: #d92d20;
+  box-shadow: 0 0 0 1px #d92d20;
+}

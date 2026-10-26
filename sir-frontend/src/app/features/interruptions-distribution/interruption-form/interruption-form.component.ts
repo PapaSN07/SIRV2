@@ -350,22 +350,54 @@ export class InterruptionFormComponent implements OnInit {
     });
   }
 
+  /** Champs obligatoires encore vides, affichés au-dessus du formulaire après un essai d'envoi. */
+  readonly missingFields = signal<string[]>([]);
+
+  /**
+   * Le bouton reste actif : un clic sur un formulaire incomplet indique ce qui
+   * manque et amène au premier champ, au lieu d'un bouton grisé sans explication.
+   */
   canSubmit(): boolean {
-    if (this.saving()) return false;
+    return !this.saving();
+  }
+
+  private missingRequiredFields(): { id: string; label: string }[] {
     const raw = this.form.getRawValue();
-    if (this.isEditMode()) return this.form.valid;
-    return (
-      this.form.valid &&
-      raw.poste_source_id >= 1 &&
-      raw.feeder_id >= 1 &&
-      (this.sousFeeders().length === 0 || raw.sous_feeder_id >= 1) &&
-      raw.type_end_id >= 1 &&
-      raw.type_reseau_id >= 1 &&
-      !!raw.date_apparition
-    );
+    const creating = !this.isEditMode();
+    const checks: { id: string; label: string; missing: boolean }[] = [
+      { id: 'poste-source', label: 'Poste source', missing: creating && raw.poste_source_id < 1 },
+      { id: 'feeder', label: 'Feeder', missing: creating && raw.feeder_id < 1 },
+      {
+        id: 'sous-feeder',
+        label: 'Sous-feeder',
+        missing: creating && this.sousFeeders().length > 0 && raw.sous_feeder_id < 1,
+      },
+      { id: 'date-apparition', label: "Date d'apparition", missing: !raw.date_apparition },
+      { id: 'cause', label: 'Cause', missing: raw.cause_id < 1 },
+      { id: 'nature', label: 'Nature', missing: raw.nature_id < 1 },
+      { id: 'siege', label: 'Siège', missing: raw.siege_id < 1 },
+      { id: 'signalisation', label: 'Signalisation', missing: raw.signalisation_id < 1 },
+      { id: 'type-end', label: 'Type END', missing: raw.type_end_id < 1 },
+      { id: 'type-reseau', label: 'Type réseau', missing: raw.type_reseau_id < 1 },
+    ];
+    return checks.filter((c) => c.missing);
+  }
+
+  private showMissingFields(missing: { id: string; label: string }[]): void {
+    this.missingFields.set(missing.map((m) => m.label));
+    this.form.markAllAsTouched();
+    const first = document.getElementById(missing[0].id);
+    first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    first?.focus({ preventScroll: true });
   }
 
   submit(): void {
+    const missing = this.missingRequiredFields();
+    if (missing.length > 0) {
+      this.showMissingFields(missing);
+      return;
+    }
+    this.missingFields.set([]);
     const raw = this.form.getRawValue();
     const invalid =
       this.form.invalid ||

@@ -24,7 +24,7 @@
         <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
         <select [value]="periode()" (change)="onPeriodeChange($any($event.target).value)" aria-label="Période">
           @for (p of periodeOptions(); track p.value) {
-            <option [value]="p.value">{{ p.label }}</option>
+            <option [value]="p.value" [selected]="p.value === periode()">{{ p.label }}</option>
           }
         </select>
       </label>
@@ -139,497 +139,527 @@
       </article>
     </div>
 
-    <section class="panel pilotage">
-      <div class="panel__head">
-        <h2 class="panel__title">Suivi des objectifs {{ pilotage()?.annee_objectif }}</h2>
-      </div>
-      <p class="pilotage__note">
-        Les jauges et les deux tableaux suivent l'année en cours, quel que soit le mois choisi en haut.
-        L'objectif journalier est l'objectif annuel divisé par les jours de l'année.
-        Le cumul compare le réalisé du 1<sup>er</sup> janvier à aujourd'hui avec la part d'objectif déjà écoulée.
-        Rester sous 100 % signifie que l'objectif n'est pas dépassé.
-        Les défauts aux 100 km comptent les interruptions distribution hors force majeure, divisées par la longueur SIG du réseau.
-      </p>
-      @if (pilotageLoading()) {
-        <p class="dashboard__hint">Chargement du suivi…</p>
-      } @else if (pilotageError()) {
-        <p class="dashboard__error" role="alert">{{ pilotageError() }}</p>
-      } @else if (pilotage()) {
-        @if (pilotage(); as board) {
-        <div class="gauge-row">
-          @for (item of board.indicateurs; track item.code) {
-            <article class="gauge-card">
-              <div [class]="gaugeClass(item.taux_cumul)" [style.--pct]="gaugePct(item.taux_cumul) + '%'">
-                <div class="gauge__hole">
-                  <strong>{{ formatTaux(item.taux_cumul) }}</strong>
-                  <span>cumul</span>
-                </div>
+    <nav class="dashboard-tabs" role="tablist" aria-label="Vues du tableau de bord">
+      @for (t of tabs; track t.id) {
+        <button
+          type="button"
+          role="tab"
+          class="dashboard-tabs__tab"
+          [class.dashboard-tabs__tab--active]="tab() === t.id"
+          [attr.aria-selected]="tab() === t.id"
+          (click)="selectTab(t.id)"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">{{ t.icon }}</span>
+          {{ t.label }}
+        </button>
+      }
+    </nav>
+
+    @if (tab() === 'synthese') {
+      <div class="charts-grid">
+        <section class="panel panel--chart">
+          <div class="panel__head">
+            <h2 class="panel__title">Évolution sur 12 mois</h2>
+          </div>
+          <!-- Deux échelles : SAIDI (minutes) et SAIFI (≈ 1) ne se comparent pas sur un même axe -->
+          <div class="evolution-charts">
+            <figure class="evolution-chart">
+              <figcaption>SAIDI <span>durée moyenne, min / client</span></figcaption>
+              <div class="bar-chart bar-chart--single">
+                @for (month of chartMonths(); track month.key) {
+                  <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.saidi) + ' min'">
+                    <div class="bar-chart__bars">
+                      <div class="bar-chart__bar bar-chart__bar--saidi" [style.height.%]="chartReady() ? month.saidiHeight : 0"></div>
+                    </div>
+                    <p class="bar-chart__label">{{ month.label }}</p>
+                  </div>
+                }
               </div>
-              <h3>{{ item.libelle }}</h3>
-              <p>Aujourd'hui {{ formatTaux(item.taux_jour) }}</p>
-            </article>
-          }
-        </div>
-
-        <div class="pilotage__tables">
-          <article>
-            <h3>Indicateur journalier — {{ board.jour | date: 'dd/MM/yyyy' }}</h3>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Indicateur</th>
-                  <th>Réalisé</th>
-                  <th>Objectif du jour</th>
-                  <th>Écart</th>
-                  <th>Atteinte</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of board.indicateurs; track item.code) {
-                  <tr>
-                    <td>{{ item.libelle }}<small>{{ item.note_jour }}</small></td>
-                    <td>{{ formatIndicateur(item.realise_jour, item.code) }} {{ item.unite }}</td>
-                    <td>{{ formatIndicateur(item.objectif_journalier, item.code) }} {{ item.unite }}</td>
-                    <td>{{ formatIndicateur(item.ecart_jour, item.code) }}</td>
-                    <td>{{ formatTaux(item.taux_jour) }}</td>
-                  </tr>
+            </figure>
+            <figure class="evolution-chart">
+              <figcaption>SAIFI <span>fréquence moyenne, interruptions / client</span></figcaption>
+              <div class="bar-chart bar-chart--single">
+                @for (month of chartMonths(); track month.key) {
+                  <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.saifi, 2)">
+                    <div class="bar-chart__bars">
+                      <div class="bar-chart__bar bar-chart__bar--saifi" [style.height.%]="chartReady() ? month.saifiHeight : 0"></div>
+                    </div>
+                    <p class="bar-chart__label">{{ month.label }}</p>
+                  </div>
                 }
-              </tbody>
-            </table>
-          </article>
-          <article>
-            <h3>Cumul du 1<sup>er</sup> janvier au {{ board.jour | date: 'dd/MM/yyyy' }}</h3>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Indicateur</th>
-                  <th>Réalisé</th>
-                  <th>Objectif à date</th>
-                  <th>Objectif annuel</th>
-                  <th>Atteinte</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (item of board.indicateurs; track item.code) {
-                  <tr>
-                    <td>{{ item.libelle }}<small>{{ item.note_cumul }}</small></td>
-                    <td>{{ formatIndicateur(item.realise_cumul, item.code) }} {{ item.unite }}</td>
-                    <td>{{ formatIndicateur(item.objectif_cumul, item.code) }} {{ item.unite }}</td>
-                    <td>{{ formatIndicateur(item.objectif_annuel, item.code) }} {{ item.unite }}</td>
-                    <td>{{ formatTaux(item.taux_cumul) }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </article>
-        </div>
+              </div>
+            </figure>
+          </div>
+        </section>
 
-        @if (board.peut_modifier_objectifs) {
-          <form class="objectif-form" (submit)="$event.preventDefault(); saveObjectifs()">
-            <h3>Objectifs annuels {{ board.annee_objectif }}</h3>
-            <label>END (MWh)<input type="number" min="0" step="0.01" [value]="objectifDraft().end_mwh" (input)="onObjectifInput('end_mwh', $any($event.target).value)" /></label>
-            <label>SAIFI<input type="number" min="0" step="0.001" [value]="objectifDraft().saifi" (input)="onObjectifInput('saifi', $any($event.target).value)" /></label>
-            <label>SAIDI (min)<input type="number" min="0" step="0.1" [value]="objectifDraft().saidi" (input)="onObjectifInput('saidi', $any($event.target).value)" /></label>
-            <label>Défauts / 100 km<input type="number" min="0" step="0.01" [value]="objectifDraft().defauts_100km" (input)="onObjectifInput('defauts_100km', $any($event.target).value)" /></label>
-            <button class="btn btn--primary" type="submit" [disabled]="objectifSaving()">Enregistrer</button>
-            @if (objectifMessage()) {
-              <p>{{ objectifMessage() }}</p>
+        <section class="panel panel--donut">
+          <h2 class="panel__title">Répartition par cause</h2>
+          @if (!hasCauseData()) {
+            <p class="panel__hint">Aucune interruption sur la période sélectionnée.</p>
+          }
+          <div class="donut">
+            <div
+              class="donut__ring"
+              [style.background]="causeGradient()"
+            >
+              <div class="donut__center">
+                <p class="donut__center-label">Total</p>
+                <p class="donut__center-value">{{ causeTotal() }}</p>
+              </div>
+            </div>
+          </div>
+          <ul class="donut__legend">
+            @for (item of causeRepartition(); track item.label) {
+              <li class="donut__legend-row">
+                <span class="donut__legend-left">
+                  <span class="donut__dot" [style.background]="item.color"></span>
+                  {{ item.label }}
+                </span>
+                <span class="donut__percent">{{ item.percent }}%</span>
+              </li>
             }
-          </form>
-        }
-        }
-      }
-    </section>
-
-    <section class="panel outage-map-panel">
-      <div class="panel__head">
-        <h2 class="panel__title">Postes impactés du mois</h2>
+          </ul>
+        </section>
       </div>
-      <p class="pilotage__note">Chaque point est un poste touché pendant le mois choisi. Les points rouges n'ont pas encore de date de remise.</p>
-      <div class="outage-layout">
-        <div class="outage-map" aria-label="Carte des postes encore coupés">
-          @for (pin of mapPins(); track pin.interruption_id + '-' + pin.poste_id) {
-            <a
-              class="outage-map__pin"
-              [class.outage-map__pin--open]="pin.sans_remise"
-              [style.left.%]="pin.left"
-              [style.top.%]="pin.top"
-              [routerLink]="['/interruptions/distribution', pin.interruption_id]"
-              [title]="pin.libelle + (pin.sans_remise ? ' — sans date de remise' : '')"
-            ></a>
-          }
-          @if (!mapPins().length) {
-            <p class="outage-map__empty">Aucun poste de ce mois n'a de coordonnée SIG.</p>
-          }
-        </div>
-        <div class="outage-list">
-          @if (!pilotage()?.postes_ouverts?.length) {
-            <p class="dashboard__hint">Aucun poste impacté sur ce mois.</p>
-          } @else {
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Poste</th>
-                  <th>Feeder</th>
-                  <th>Depuis</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (poste of pilotage()?.postes_ouverts ?? []; track poste.interruption_id + '-' + poste.poste_id) {
-                  <tr>
-                    <td>
-                      <a [routerLink]="['/interruptions/distribution', poste.interruption_id]">{{ poste.libelle }}</a>
-                    </td>
-                    <td>{{ poste.feeder_libelle ?? '—' }}</td>
-                    <td>{{ poste.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-            @if (postesSansCoord().length) {
-              <p class="dashboard__hint">{{ postesSansCoord().length }} poste(s) sans position sur la carte.</p>
-            }
-          }
-        </div>
-      </div>
-    </section>
 
-    <div class="pilotage__tables">
-      <section class="panel">
-        <div class="panel__head"><h2 class="panel__title">Postes les plus impactés</h2></div>
-        <p class="pilotage__note">Mois choisi en haut. L'END indiquée est celle des interruptions qui touchent le poste.</p>
-        <table class="data-table">
-          <thead>
-            <tr><th>Poste</th><th>Interruptions</th><th>Clients</th><th>END (MWh)</th></tr>
-          </thead>
-          <tbody>
-            @for (poste of pilotage()?.top_postes ?? []; track poste.poste_id) {
-              <tr>
-                <td>{{ poste.libelle }}</td>
-                <td>{{ poste.nombre }}</td>
-                <td>{{ poste.clients }}</td>
-                <td>{{ formatNumber(poste.end_mwh) }}</td>
-              </tr>
-            } @empty {
-              <tr><td colspan="4">Aucun poste impacté sur la période.</td></tr>
-            }
-          </tbody>
-        </table>
-      </section>
-      <section class="panel">
-        <div class="panel__head"><h2 class="panel__title">Feeders les plus impactés</h2></div>
-        <table class="data-table">
-          <thead>
-            <tr><th>Feeder</th><th>Interruptions</th><th>END (MWh)</th></tr>
-          </thead>
-          <tbody>
-            @for (feeder of pilotage()?.top_feeders ?? []; track feeder.feeder_id) {
-              <tr>
-                <td>{{ feeder.libelle }}</td>
-                <td>{{ feeder.nombre_interruptions }}</td>
-                <td>{{ formatNumber(feeder.end_mwh) }}</td>
-              </tr>
-            } @empty {
-              <tr><td colspan="3">Aucun feeder sur la période.</td></tr>
-            }
-          </tbody>
-        </table>
-      </section>
-    </div>
-
-    <section class="panel">
-      <div class="panel__head">
-        <h2 class="panel__title">
-          @if (pilotage()?.zone_niveau === 'region') {
-            Zones les plus perturbées
-          } @else {
-            Services les plus perturbés
-          }
-        </h2>
-      </div>
-      <table class="data-table">
-        <thead>
-          <tr><th>Zone</th><th>Interruptions</th><th>END (MWh)</th><th>SAIFI</th><th>SAIDI (min)</th></tr>
-        </thead>
-        <tbody>
-          @for (zone of pilotage()?.zones ?? []; track zone.zone_id) {
-            <tr>
-              <td>{{ zone.libelle }}</td>
-              <td>{{ zone.nombre }}</td>
-              <td>{{ formatNumber(zone.end_mwh) }}</td>
-              <td>{{ formatNumber(zone.saifi, 2) }}</td>
-              <td>{{ formatNumber(zone.saidi) }}</td>
-            </tr>
-          } @empty {
-            <tr><td colspan="5">Aucune zone à afficher pour la période.</td></tr>
-          }
-        </tbody>
-      </table>
-    </section>
-
-    <section class="panel trend-panel">
-      <div class="panel__head">
-        <h2 class="panel__title">Tendance d'un feeder ou d'un poste</h2>
-        <div class="trend-panel__filters">
-          <select [value]="tendanceCible()" (change)="onTendanceCibleChange($any($event.target).value)" aria-label="Type d'ouvrage">
-            <option value="feeder">Feeder</option>
-            <option value="poste">Poste</option>
-          </select>
-          <select [value]="tendanceId()" (change)="onTendanceIdChange($any($event.target).value)" aria-label="Ouvrage">
-            @if (tendanceCible() === 'feeder') {
-              @for (feeder of pilotage()?.top_feeders ?? []; track feeder.feeder_id) {
-                <option [value]="feeder.feeder_id">{{ feeder.libelle }}</option>
-              }
-            } @else {
-              @for (poste of pilotage()?.top_postes ?? []; track poste.poste_id) {
-                <option [value]="poste.poste_id">{{ poste.libelle }}</option>
-              }
-            }
-          </select>
-          <select [value]="tendanceAnnees()" (change)="onTendanceAnneesChange($any($event.target).value)" aria-label="Nombre d'années">
-            <option [value]="2">2 ans</option>
-            <option [value]="3">3 ans</option>
-          </select>
-        </div>
-      </div>
-      @if (tendanceLoading()) {
-        <p class="dashboard__hint">Calcul de la tendance…</p>
-      } @else if (tendanceError()) {
-        <p class="dashboard__error" role="alert">{{ tendanceError() }}</p>
-      } @else if (tendance()) {
-        @if (tendance(); as serie) {
-          <p class="pilotage__note">{{ serie.lecture }} Les trois derniers points en pointillé prolongent la droite.</p>
-          @if (trendChart(); as chart) {
-            <svg class="trend-chart" viewBox="0 0 640 160" role="img" [attr.aria-label]="serie.lecture">
-              <polyline class="trend-chart__history" [attr.points]="chart.historique" />
-              <polyline class="trend-chart__fit" [attr.points]="chart.courbe" />
-            </svg>
-          }
-        }
-      }
-    </section>
-
-    <div class="charts-grid">
-      <section class="panel panel--chart">
+      <section class="panel panel--table nature-matrix">
         <div class="panel__head">
-          <h2 class="panel__title">Évolution SAIDI / SAIFI (12 mois)</h2>
-          <div class="panel__legend">
-            <span class="legend-item">
-              <span class="legend-item__swatch legend-item__swatch--primary"></span>
-              SAIDI
-            </span>
-            <span class="legend-item">
-              <span class="legend-item__swatch legend-item__swatch--tertiary"></span>
-              SAIFI
-            </span>
+          <div>
+            <h2 class="panel__title">END et nombre d'interruptions par nature et par service</h2>
+            <p class="panel__hint">Période {{ periodLabel() }} — interruptions clôturées ou validées. END en kWh.</p>
           </div>
         </div>
-        <div class="bar-chart">
-          @for (month of chartMonths(); track month.key) {
-            <div class="bar-chart__group">
-              <div class="bar-chart__bars">
-                <div
-                  class="bar-chart__bar bar-chart__bar--saidi"
-                  [style.height.%]="chartReady() ? month.saidiHeight : 0"
-                ></div>
-                <div
-                  class="bar-chart__bar bar-chart__bar--saifi"
-                  [style.height.%]="chartReady() ? month.saifiHeight : 0"
-                ></div>
-              </div>
-              <p class="bar-chart__label">{{ month.label }}</p>
-            </div>
-          }
-        </div>
-      </section>
-
-      <section class="panel panel--donut">
-        <h2 class="panel__title">Répartition par cause</h2>
-        @if (!hasCauseData()) {
-          <p class="panel__hint">Aucune interruption sur la période sélectionnée.</p>
-        }
-        <div class="donut">
-          <div
-            class="donut__ring"
-            [style.background]="causeGradient()"
-          >
-            <div class="donut__center">
-              <p class="donut__center-label">Total</p>
-              <p class="donut__center-value">{{ causeTotal() }}</p>
-            </div>
-          </div>
-        </div>
-        <ul class="donut__legend">
-          @for (item of causeRepartition(); track item.label) {
-            <li class="donut__legend-row">
-              <span class="donut__legend-left">
-                <span class="donut__dot" [style.background]="item.color"></span>
-                {{ item.label }}
-              </span>
-              <span class="donut__percent">{{ item.percent }}%</span>
-            </li>
-          }
-        </ul>
-      </section>
-    </div>
-
-    <section class="panel panel--table nature-matrix">
-      <div class="panel__head">
-        <div>
-          <h2 class="panel__title">END et nombre d'interruptions par nature et par service</h2>
-          <p class="panel__hint">Période {{ periodLabel() }} — interruptions clôturées ou validées. END en kWh.</p>
-        </div>
-      </div>
-      @if (natureService(); as matrix) {
-        <div class="table-wrap">
-          <table class="data-table nature-matrix__table">
-            <thead>
-              <tr>
-                <th rowspan="2">Nature</th>
-                @for (service of matrix.services; track service.service_id) {
-                  <th class="nature-matrix__service" colspan="2" [title]="service.libelle">{{ service.code }}</th>
-                }
-                <th class="nature-matrix__total" colspan="2">Total</th>
-              </tr>
-              <tr>
-                @for (service of matrix.services; track service.service_id) {
+        @if (natureService(); as matrix) {
+          <div class="table-wrap">
+            <table class="data-table nature-matrix__table">
+              <thead>
+                <tr>
+                  <th rowspan="2">Nature</th>
+                  @for (service of matrix.services; track service.service_id) {
+                    <th class="nature-matrix__service" colspan="2" [title]="service.libelle">{{ service.code }}</th>
+                  }
+                  <th class="nature-matrix__total" colspan="2">Total</th>
+                </tr>
+                <tr>
+                  @for (service of matrix.services; track service.service_id) {
+                    <th class="nature-matrix__sub">Nombre</th>
+                    <th class="nature-matrix__sub">END</th>
+                  }
                   <th class="nature-matrix__sub">Nombre</th>
                   <th class="nature-matrix__sub">END</th>
-                }
-                <th class="nature-matrix__sub">Nombre</th>
-                <th class="nature-matrix__sub">END</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (ligne of matrix.lignes; track ligne.code) {
-                <tr>
-                  <th class="nature-matrix__nature" scope="row">{{ ligne.libelle }}</th>
-                  @for (cell of ligne.cellules; track $index) {
-                    <td class="data-table__num">{{ cell.nombre > 0 ? cell.nombre : '' }}</td>
-                    <td class="data-table__num">{{ cell.end_kwh > 0 ? formatEndKwh(cell.end_kwh) : '' }}</td>
-                  }
-                  <td class="data-table__num data-table__bold">{{ ligne.nombre }}</td>
-                  <td class="data-table__num data-table__bold">{{ formatEndKwh(ligne.end_kwh) }}</td>
                 </tr>
-              }
-              <tr class="nature-matrix__total-row">
-                <th scope="row">Total</th>
-                @for (service of matrix.services; track service.service_id) {
-                  <td class="data-table__num">{{ service.nombre }}</td>
-                  <td class="data-table__num">{{ formatEndKwh(service.end_kwh) }}</td>
+              </thead>
+              <tbody>
+                @for (ligne of matrix.lignes; track ligne.code) {
+                  <tr>
+                    <th class="nature-matrix__nature" scope="row">{{ ligne.libelle }}</th>
+                    @for (cell of ligne.cellules; track $index) {
+                      <td class="data-table__num">{{ cell.nombre > 0 ? cell.nombre : '' }}</td>
+                      <td class="data-table__num">{{ cell.end_kwh > 0 ? formatEndKwh(cell.end_kwh) : '' }}</td>
+                    }
+                    <td class="data-table__num data-table__bold">{{ ligne.nombre }}</td>
+                    <td class="data-table__num data-table__bold">{{ formatEndKwh(ligne.end_kwh) }}</td>
+                  </tr>
                 }
-                <td class="data-table__num">{{ matrix.total_nombre }}</td>
-                <td class="data-table__num">{{ formatEndKwh(matrix.total_end_kwh) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                <tr class="nature-matrix__total-row">
+                  <th scope="row">Total</th>
+                  @for (service of matrix.services; track service.service_id) {
+                    <td class="data-table__num">{{ service.nombre }}</td>
+                    <td class="data-table__num">{{ formatEndKwh(service.end_kwh) }}</td>
+                  }
+                  <td class="data-table__num">{{ matrix.total_nombre }}</td>
+                  <td class="data-table__num">{{ formatEndKwh(matrix.total_end_kwh) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-        <div class="nature-matrix__chart">
-          <div class="panel__head">
-            <h2 class="panel__title">Répartition par service</h2>
-            <div class="panel__legend">
-              <span class="legend-item">
-                <span class="legend-item__swatch legend-item__swatch--primary"></span>
-                END (kWh)
-              </span>
-              <span class="legend-item">
-                <span class="legend-item__swatch legend-item__swatch--tertiary"></span>
-                Nombre d'interruptions
-              </span>
+          <div class="nature-matrix__chart">
+            <div class="panel__head">
+              <h2 class="panel__title">Répartition par service</h2>
+              <div class="panel__legend">
+                <span class="legend-item">
+                  <span class="legend-item__swatch legend-item__swatch--primary"></span>
+                  END (kWh)
+                </span>
+                <span class="legend-item">
+                  <span class="legend-item__swatch legend-item__swatch--tertiary"></span>
+                  Nombre d'interruptions
+                </span>
+              </div>
+            </div>
+            <div class="bar-chart bar-chart--services">
+              @for (service of serviceBars(); track service.service_id) {
+                <div class="bar-chart__group">
+                  <div class="bar-chart__bars">
+                    <div
+                      class="bar-chart__bar bar-chart__bar--saidi"
+                      [style.height.%]="chartReady() ? service.endHeight : 0"
+                      [title]="service.libelle + ' — END ' + formatEndKwh(service.end_kwh) + ' kWh'"
+                    ></div>
+                    <div
+                      class="bar-chart__bar bar-chart__bar--saifi"
+                      [style.height.%]="chartReady() ? service.nombreHeight : 0"
+                      [title]="service.libelle + ' — ' + service.nombre + ' interruption(s)'"
+                    ></div>
+                  </div>
+                  <p class="bar-chart__label" [title]="service.libelle">
+                    {{ service.code }}
+                    <span>{{ formatEndKwh(service.end_kwh) }} · {{ service.nombre }}</span>
+                  </p>
+                </div>
+              }
             </div>
           </div>
-          <div class="bar-chart bar-chart--services">
-            @for (service of serviceBars(); track service.service_id) {
-              <div class="bar-chart__group">
-                <div class="bar-chart__bars">
-                  <div
-                    class="bar-chart__bar bar-chart__bar--saidi"
-                    [style.height.%]="chartReady() ? service.endHeight : 0"
-                    [title]="service.libelle + ' — END ' + formatEndKwh(service.end_kwh) + ' kWh'"
-                  ></div>
-                  <div
-                    class="bar-chart__bar bar-chart__bar--saifi"
-                    [style.height.%]="chartReady() ? service.nombreHeight : 0"
-                    [title]="service.libelle + ' — ' + service.nombre + ' interruption(s)'"
-                  ></div>
+        } @else {
+          <p class="dashboard__hint">Aucune interruption clôturée ou validée sur cette période.</p>
+        }
+      </section>
+
+      <section class="panel panel--table">
+        <div class="panel__head">
+          <h2 class="panel__title">Dernières interruptions</h2>
+          <a class="panel__link" routerLink="/interruptions/distribution">Voir tout</a>
+        </div>
+
+        @if (interruptionsLoading()) {
+          <p class="dashboard__hint">Chargement des interruptions…</p>
+        } @else if (interruptionsError()) {
+          <p class="dashboard__error" role="alert">{{ interruptionsError() }}</p>
+        } @else if (recentInterruptions().length === 0) {
+          <p class="dashboard__hint">Aucune interruption récente.</p>
+        } @else {
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Poste / Secteur</th>
+                  <th>Type</th>
+                  <th>Date début</th>
+                  <th>END (MWh)</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of recentInterruptions(); track row.id) {
+                  <tr>
+                    <td>
+                      <a class="data-table__id" [routerLink]="['/interruptions/distribution', row.id]">
+                        INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}
+                      </a>
+                    </td>
+                    <td>
+                      <p class="data-table__primary">{{ row.localisation || '—' }}</p>
+                      <p class="data-table__secondary">
+                        {{ row.feeder_libelle || 'Feeder #' + (row.feeder_id ?? '—') }}
+                      </p>
+                    </td>
+                    <td>{{ row.is_programme ? 'Programmé' : 'Accidentel' }}</td>
+                    <td>{{ row.date_apparition | date: 'dd/MM HH:mm' }}</td>
+                    <td class="data-table__bold">{{ formatNumber(row.end_mwh, 2) }}</td>
+                    <td>
+                      <span class="status-badge" [class]="'status-badge--' + row.statut">
+                        {{ statutLabel(row.statut) }}
+                      </span>
+                    </td>
+                    <td>
+                      <a
+                        class="data-table__action"
+                        [routerLink]="['/interruptions/distribution', row.id]"
+                        aria-label="Voir le détail"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                      </a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+    @if (tab() === 'objectifs') {
+      <section class="panel pilotage">
+        <div class="panel__head">
+          <h2 class="panel__title">Suivi des objectifs {{ pilotage()?.annee_objectif }}</h2>
+        </div>
+        <p class="pilotage__note">
+          Les jauges et les deux tableaux suivent l'année en cours, quel que soit le mois choisi en haut.
+          L'objectif journalier est l'objectif annuel divisé par les jours de l'année.
+          Le cumul compare le réalisé du 1<sup>er</sup> janvier à aujourd'hui avec la part d'objectif déjà écoulée.
+          Rester sous 100 % signifie que l'objectif n'est pas dépassé.
+          Les défauts aux 100 km comptent les interruptions distribution hors force majeure, divisées par la longueur SIG du réseau.
+        </p>
+        @if (pilotageLoading()) {
+          <p class="dashboard__hint">Chargement du suivi…</p>
+        } @else if (pilotageError()) {
+          <p class="dashboard__error" role="alert">{{ pilotageError() }}</p>
+        } @else if (pilotage()) {
+          @if (pilotage(); as board) {
+          <div class="gauge-row">
+            @for (item of board.indicateurs; track item.code) {
+              <article class="gauge-card">
+                <div [class]="gaugeClass(item.taux_cumul)" [style.--pct]="gaugePct(item.taux_cumul) + '%'">
+                  <div class="gauge__hole">
+                    <strong>{{ formatTaux(item.taux_cumul) }}</strong>
+                    <span>cumul</span>
+                  </div>
                 </div>
-                <p class="bar-chart__label" [title]="service.libelle">
-                  {{ service.code }}
-                  <span>{{ formatEndKwh(service.end_kwh) }} · {{ service.nombre }}</span>
+                <h3>{{ item.libelle }}</h3>
+                <p class="gauge-status gauge-status--{{ gaugeStatus(item.taux_cumul).tone }}">
+                  {{ gaugeStatus(item.taux_cumul).label }}
                 </p>
-              </div>
+                <p>Aujourd'hui {{ formatTaux(item.taux_jour) }}</p>
+              </article>
+            }
+          </div>
+          <p class="gauge-legend">
+            <span class="gauge-legend__item gauge-legend__item--ok">≤ 90 % : dans l'objectif</span>
+            <span class="gauge-legend__item gauge-legend__item--warn">90 à 100 % : à surveiller</span>
+            <span class="gauge-legend__item gauge-legend__item--over">&gt; 100 % : objectif dépassé (défavorable)</span>
+          </p>
+
+          <div class="pilotage__tables">
+            <article>
+              <h3>Indicateur journalier — {{ board.jour | date: 'dd/MM/yyyy' }}</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Indicateur</th>
+                    <th>Réalisé</th>
+                    <th>Objectif du jour</th>
+                    <th>Écart</th>
+                    <th>Atteinte</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of board.indicateurs; track item.code) {
+                    <tr>
+                      <td>{{ item.libelle }}<small>{{ item.note_jour }}</small></td>
+                      <td>{{ formatIndicateur(item.realise_jour, item.code) }} {{ item.unite }}</td>
+                      <td>{{ formatIndicateur(item.objectif_journalier, item.code) }} {{ item.unite }}</td>
+                      <td>{{ formatIndicateur(item.ecart_jour, item.code) }}</td>
+                      <td>{{ formatTaux(item.taux_jour) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </article>
+            <article>
+              <h3>Cumul du 1<sup>er</sup> janvier au {{ board.jour | date: 'dd/MM/yyyy' }}</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Indicateur</th>
+                    <th>Réalisé</th>
+                    <th>Objectif à date</th>
+                    <th>Objectif annuel</th>
+                    <th>Atteinte</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of board.indicateurs; track item.code) {
+                    <tr>
+                      <td>{{ item.libelle }}<small>{{ item.note_cumul }}</small></td>
+                      <td>{{ formatIndicateur(item.realise_cumul, item.code) }} {{ item.unite }}</td>
+                      <td>{{ formatIndicateur(item.objectif_cumul, item.code) }} {{ item.unite }}</td>
+                      <td>{{ formatIndicateur(item.objectif_annuel, item.code) }} {{ item.unite }}</td>
+                      <td>{{ formatTaux(item.taux_cumul) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </article>
+          </div>
+
+          @if (board.peut_modifier_objectifs) {
+            <form class="objectif-form" (submit)="$event.preventDefault(); saveObjectifs()">
+              <h3>Objectifs annuels {{ board.annee_objectif }}</h3>
+              <label>END (MWh)<input type="number" min="0" step="0.01" [value]="objectifDraft().end_mwh" (input)="onObjectifInput('end_mwh', $any($event.target).value)" /></label>
+              <label>SAIFI<input type="number" min="0" step="0.001" [value]="objectifDraft().saifi" (input)="onObjectifInput('saifi', $any($event.target).value)" /></label>
+              <label>SAIDI (min)<input type="number" min="0" step="0.1" [value]="objectifDraft().saidi" (input)="onObjectifInput('saidi', $any($event.target).value)" /></label>
+              <label>Défauts / 100 km<input type="number" min="0" step="0.01" [value]="objectifDraft().defauts_100km" (input)="onObjectifInput('defauts_100km', $any($event.target).value)" /></label>
+              <button class="btn btn--primary" type="submit" [disabled]="objectifSaving()">Enregistrer</button>
+              @if (objectifMessage()) {
+                <p>{{ objectifMessage() }}</p>
+              }
+            </form>
+          }
+          }
+        }
+      </section>
+    }
+    @if (tab() === 'reseau') {
+      <section class="panel outage-map-panel">
+        <div class="panel__head">
+          <h2 class="panel__title">Postes impactés du mois</h2>
+        </div>
+        <p class="pilotage__note">Chaque point est un poste touché pendant le mois choisi. Les points rouges n'ont pas encore de date de remise.</p>
+        <div class="outage-layout">
+          <div class="outage-map" aria-label="Carte des postes encore coupés">
+            @for (pin of mapPins(); track pin.interruption_id + '-' + pin.poste_id) {
+              <a
+                class="outage-map__pin"
+                [class.outage-map__pin--open]="pin.sans_remise"
+                [style.left.%]="pin.left"
+                [style.top.%]="pin.top"
+                [routerLink]="['/interruptions/distribution', pin.interruption_id]"
+                [title]="pin.libelle + (pin.sans_remise ? ' — sans date de remise' : '')"
+              ></a>
+            }
+            @if (!mapPins().length) {
+              <p class="outage-map__empty">Aucun poste de ce mois n'a de coordonnée SIG.</p>
+            }
+          </div>
+          <div class="outage-list">
+            @if (!pilotage()?.postes_ouverts?.length) {
+              <p class="dashboard__hint">Aucun poste impacté sur ce mois.</p>
+            } @else {
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Poste</th>
+                    <th>Feeder</th>
+                    <th>Depuis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (poste of pilotage()?.postes_ouverts ?? []; track poste.interruption_id + '-' + poste.poste_id) {
+                    <tr>
+                      <td>
+                        <a [routerLink]="['/interruptions/distribution', poste.interruption_id]">{{ poste.libelle }}</a>
+                      </td>
+                      <td>{{ poste.feeder_libelle ?? '—' }}</td>
+                      <td>{{ poste.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              @if (postesSansCoord().length) {
+                <p class="dashboard__hint">{{ postesSansCoord().length }} poste(s) sans position sur la carte.</p>
+              }
             }
           </div>
         </div>
-      } @else {
-        <p class="dashboard__hint">Aucune interruption clôturée ou validée sur cette période.</p>
-      }
-    </section>
+      </section>
 
-    <section class="panel panel--table">
-      <div class="panel__head">
-        <h2 class="panel__title">Dernières interruptions</h2>
-        <a class="panel__link" routerLink="/interruptions/distribution">Voir tout</a>
-      </div>
-
-      @if (interruptionsLoading()) {
-        <p class="dashboard__hint">Chargement des interruptions…</p>
-      } @else if (interruptionsError()) {
-        <p class="dashboard__error" role="alert">{{ interruptionsError() }}</p>
-      } @else if (recentInterruptions().length === 0) {
-        <p class="dashboard__hint">Aucune interruption récente.</p>
-      } @else {
-        <div class="table-wrap">
+      <div class="pilotage__tables">
+        <section class="panel">
+          <div class="panel__head"><h2 class="panel__title">Postes les plus impactés</h2></div>
+          <p class="pilotage__note">Mois choisi en haut. L'END indiquée est celle des interruptions qui touchent le poste.</p>
           <table class="data-table">
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Poste / Secteur</th>
-                <th>Type</th>
-                <th>Date début</th>
-                <th>END (MWh)</th>
-                <th>Statut</th>
-                <th>Actions</th>
-              </tr>
+              <tr><th>Poste</th><th>Interruptions</th><th>Clients</th><th>END (MWh)</th></tr>
             </thead>
             <tbody>
-              @for (row of recentInterruptions(); track row.id) {
+              @for (poste of pilotage()?.top_postes ?? []; track poste.poste_id) {
                 <tr>
-                  <td>
-                    <a class="data-table__id" [routerLink]="['/interruptions/distribution', row.id]">
-                      INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}
-                    </a>
-                  </td>
-                  <td>
-                    <p class="data-table__primary">{{ row.localisation || '—' }}</p>
-                    <p class="data-table__secondary">
-                      Feeder #{{ row.feeder_id ?? '—' }}
-                    </p>
-                  </td>
-                  <td>{{ row.is_programme ? 'Programmé' : 'Accidentel' }}</td>
-                  <td>{{ row.date_apparition | date: 'dd/MM HH:mm' }}</td>
-                  <td class="data-table__bold">{{ row.end_mwh ?? '—' }}</td>
-                  <td>
-                    <span class="status-badge" [class]="'status-badge--' + row.statut">
-                      {{ statutLabel(row.statut) }}
-                    </span>
-                  </td>
-                  <td>
-                    <a
-                      class="data-table__action"
-                      [routerLink]="['/interruptions/distribution', row.id]"
-                      aria-label="Voir le détail"
-                    >
-                      <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
-                    </a>
-                  </td>
+                  <td>{{ poste.libelle }}</td>
+                  <td>{{ poste.nombre }}</td>
+                  <td>{{ poste.clients }}</td>
+                  <td>{{ formatNumber(poste.end_mwh) }}</td>
                 </tr>
+              } @empty {
+                <tr><td colspan="4">Aucun poste impacté sur la période.</td></tr>
               }
             </tbody>
           </table>
+        </section>
+        <section class="panel">
+          <div class="panel__head"><h2 class="panel__title">Feeders les plus impactés</h2></div>
+          <table class="data-table">
+            <thead>
+              <tr><th>Feeder</th><th>Interruptions</th><th>END (MWh)</th></tr>
+            </thead>
+            <tbody>
+              @for (feeder of pilotage()?.top_feeders ?? []; track feeder.feeder_id) {
+                <tr>
+                  <td>{{ feeder.libelle }}</td>
+                  <td>{{ feeder.nombre_interruptions }}</td>
+                  <td>{{ formatNumber(feeder.end_mwh) }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="3">Aucun feeder sur la période.</td></tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel__head">
+          <h2 class="panel__title">
+            @if (pilotage()?.zone_niveau === 'region') {
+              Zones les plus perturbées
+            } @else {
+              Services les plus perturbés
+            }
+          </h2>
         </div>
-      }
-    </section>
+        <table class="data-table">
+          <thead>
+            <tr><th>Zone</th><th>Interruptions</th><th>END (MWh)</th><th>SAIFI</th><th>SAIDI (min)</th></tr>
+          </thead>
+          <tbody>
+            @for (zone of pilotage()?.zones ?? []; track zone.zone_id) {
+              <tr>
+                <td>{{ zone.libelle }}</td>
+                <td>{{ zone.nombre }}</td>
+                <td>{{ formatNumber(zone.end_mwh) }}</td>
+                <td>{{ formatNumber(zone.saifi, 2) }}</td>
+                <td>{{ formatNumber(zone.saidi) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="5">Aucune zone à afficher pour la période.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel trend-panel">
+        <div class="panel__head">
+          <h2 class="panel__title">Tendance d'un feeder ou d'un poste</h2>
+          <div class="trend-panel__filters">
+            <select [value]="tendanceCible()" (change)="onTendanceCibleChange($any($event.target).value)" aria-label="Type d'ouvrage">
+              <option value="feeder">Feeder</option>
+              <option value="poste">Poste</option>
+            </select>
+            <select [value]="tendanceId()" (change)="onTendanceIdChange($any($event.target).value)" aria-label="Ouvrage">
+              @if (tendanceCible() === 'feeder') {
+                @for (feeder of pilotage()?.top_feeders ?? []; track feeder.feeder_id) {
+                  <option [value]="feeder.feeder_id" [selected]="(feeder.feeder_id + '') === tendanceId()">{{ feeder.libelle }}</option>
+                }
+              } @else {
+                @for (poste of pilotage()?.top_postes ?? []; track poste.poste_id) {
+                  <option [value]="poste.poste_id" [selected]="(poste.poste_id + '') === tendanceId()">{{ poste.libelle }}</option>
+                }
+              }
+            </select>
+            <select [value]="tendanceAnnees()" (change)="onTendanceAnneesChange($any($event.target).value)" aria-label="Nombre d'années">
+              <option [value]="2">2 ans</option>
+              <option [value]="3">3 ans</option>
+            </select>
+          </div>
+        </div>
+        @if (tendanceLoading()) {
+          <p class="dashboard__hint">Calcul de la tendance…</p>
+        } @else if (tendanceError()) {
+          <p class="dashboard__error" role="alert">{{ tendanceError() }}</p>
+        } @else if (tendance()) {
+          @if (tendance(); as serie) {
+            <p class="pilotage__note">{{ serie.lecture }} Les trois derniers points en pointillé prolongent la droite.</p>
+            @if (trendChart(); as chart) {
+              <svg class="trend-chart" viewBox="0 0 640 160" role="img" [attr.aria-label]="serie.lecture">
+                <polyline class="trend-chart__history" [attr.points]="chart.historique" />
+                <polyline class="trend-chart__fit" [attr.points]="chart.courbe" />
+              </svg>
+            }
+          }
+        }
+      </section>
+    }
   }
 </section>

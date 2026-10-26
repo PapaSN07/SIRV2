@@ -425,3 +425,49 @@
     transform: rotate(360deg);
   }
 }
+
+// ── Bandeau résumé ──────────────────────────────────────────────────────────
+.incident-summary {
+  // flex-wrap : chaque ligne se remplit entièrement, sans case vide
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  margin: 0 0 1rem;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: $outline-variant;
+
+  &__item {
+    flex: 1 1 140px;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    background: #fff;
+
+    &--wide {
+      flex: 2 1 260px;
+    }
+
+    dt {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: $on-surface-variant;
+    }
+
+    dd {
+      margin: 0.25rem 0 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: $on-surface;
+      font-variant-numeric: tabular-nums;
+
+      span {
+        font-weight: 400;
+        color: $on-surface-variant;
+      }
+    }
+  }
+
+}

@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Service, Region } from '../../../shared/models/geo.models';
@@ -34,8 +34,13 @@ interface FilterChip {
   label: string;
 }
 
-const DATE_FILTER_HINT =
-  'Laissez vide pour afficher toutes les dates de votre périmètre.';
+const DATE_FILTER_HINT = 'Période vide = toutes les dates de votre périmètre.';
+
+/** Lecture d'un entier positif depuis l'URL (filtres partageables, retour arrière). */
+function positiveInt(value: string | null): number | null {
+  const n = value ? Number(value) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
 
 @Component({
   selector: 'sir-interruption-list',
@@ -57,6 +62,13 @@ export class InterruptionListComponent implements OnInit {
   private readonly geo = inject(GeoService);
   private readonly referentiel = inject(ReferentielService);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /** Panneau de filtres : ouvert par défaut sur grand écran, replié sur téléphone. */
+  readonly filtersOpen = signal(typeof window === 'undefined' || window.innerWidth >= 768);
+  /** Feeder, nature et ouverture : repliés tant qu'ils ne sont pas utilisés. */
+  readonly moreFilters = signal(false);
 
   readonly pageSizeOptions = [10, 20, 50];
   readonly dateFilterHint = DATE_FILTER_HINT;
@@ -103,6 +115,10 @@ export class InterruptionListComponent implements OnInit {
       !!this.dateFin(),
   );
 
+  readonly secondaryFilterCount = computed(
+    () => [this.feederId(), this.natureId(), this.ouverture()].filter((v) => v !== null).length,
+  );
+
   readonly activeFilterChips = computed<FilterChip[]>(() => {
     const chips: FilterChip[] = [];
     const region = this.regions().find((r) => r.id === this.regionId());
@@ -123,6 +139,7 @@ export class InterruptionListComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.readQueryParams();
     this.referentiel.list('natures', { page_size: 100 }).subscribe({
       next: (res) => this.natures.set(res.items),
       error: () => {},
@@ -156,30 +173,37 @@ export class InterruptionListComponent implements OnInit {
     this.feederId.set(null);
     this.loadServices(region);
     this.loadFeeders(region);
+    this.applyFilters();
   }
 
   onServiceChange(value: string): void {
     this.serviceId.set(value ? Number(value) : null);
+    this.applyFilters();
   }
 
   onFeederChange(value: string): void {
     this.feederId.set(value ? Number(value) : null);
+    this.applyFilters();
   }
 
   onNatureChange(value: string): void {
     this.natureId.set(value ? Number(value) : null);
+    this.applyFilters();
   }
 
   onOuvertureChange(value: string): void {
     this.ouverture.set(value ? (value as OuvertureInterruption) : null);
+    this.applyFilters();
   }
 
   onDateDebutChange(event: Event): void {
     this.dateDebut.set((event.target as HTMLInputElement).value);
+    this.applyFilters();
   }
 
   onDateFinChange(event: Event): void {
     this.dateFin.set((event.target as HTMLInputElement).value);
+    this.applyFilters();
   }
 
   applyFilters(): void {
@@ -291,8 +315,47 @@ export class InterruptionListComponent implements OnInit {
       this.load();
       return;
     }
-    this.loadFeeders(null);
+    // Région éventuellement reprise de l'URL (lien partagé, retour depuis une fiche)
+    this.loadServices(this.regionId());
+    this.loadFeeders(this.regionId());
     this.load();
+  }
+
+  /** Restaure filtres et pagination depuis l'URL. */
+  private readQueryParams(): void {
+    const q = this.route.snapshot.queryParamMap;
+    this.regionId.set(positiveInt(q.get('region')));
+    this.serviceId.set(positiveInt(q.get('service')));
+    this.feederId.set(positiveInt(q.get('feeder')));
+    this.natureId.set(positiveInt(q.get('nature')));
+    const ouverture = q.get('ouverture');
+    this.ouverture.set(ouverture === 'ouvert' || ouverture === 'ferme' ? ouverture : null);
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+    this.dateDebut.set(isoDate.test(q.get('du') ?? '') ? (q.get('du') as string) : '');
+    this.dateFin.set(isoDate.test(q.get('au') ?? '') ? (q.get('au') as string) : '');
+    this.page.set(positiveInt(q.get('page')) ?? 1);
+    const taille = positiveInt(q.get('taille'));
+    if (taille && this.pageSizeOptions.includes(taille)) this.pageSize.set(taille);
+    this.moreFilters.set(this.secondaryFilterCount() > 0);
+  }
+
+  /** Reflète filtres et page dans l'URL sans ajouter d'entrée d'historique. */
+  private writeQueryParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      replaceUrl: true,
+      queryParams: {
+        region: this.isRegionalScope() ? null : this.regionId(),
+        service: this.serviceId(),
+        feeder: this.feederId(),
+        nature: this.natureId(),
+        ouverture: this.ouverture(),
+        du: this.dateDebut() || null,
+        au: this.dateFin() || null,
+        page: this.page() > 1 ? this.page() : null,
+        taille: this.pageSize() !== 20 ? this.pageSize() : null,
+      },
+    });
   }
 
   private loadServices(regionId: number | null): void {
@@ -350,6 +413,7 @@ export class InterruptionListComponent implements OnInit {
   }
 
   private load(): void {
+    this.writeQueryParams();
     this.loading.set(true);
     this.error.set(null);
     this.emptyFilterHint.set(null);

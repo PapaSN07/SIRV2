@@ -39,7 +39,7 @@
         <select id="type-direction" class="field__select" [value]="typeDirection() ?? ''" (change)="onTypeDirectionChange($any($event.target).value)">
           <option value="">Tous</option>
           @for (t of typeDirections; track t) {
-            <option [value]="t">{{ typeDirectionLabel(t) }}</option>
+            <option [value]="t" [selected]="t === typeDirection()">{{ typeDirectionLabel(t) }}</option>
           }
         </select>
       </div>
@@ -48,7 +48,7 @@
         <select id="equipement" class="field__select" [value]="equipementId() ?? ''" (change)="onEquipementChange($any($event.target).value)">
           <option value="">Tous</option>
           @for (e of equipements(); track e.id) {
-            <option [value]="e.id">{{ e.libelle }} ({{ e.type_equipement }})</option>
+            <option [value]="e.id" [selected]="e.id === equipementId()">{{ e.libelle }} ({{ e.type_equipement }})</option>
           }
         </select>
       </div>
@@ -57,7 +57,7 @@
         <select id="statut" class="field__select" [value]="statut() ?? ''" (change)="onStatutChange($any($event.target).value)">
           <option value="">Tous les statuts</option>
           @for (s of statuts; track s) {
-            <option [value]="s">{{ statutLabel(s) }}</option>
+            <option [value]="s" [selected]="s === statut()">{{ statutLabel(s) }}</option>
           }
         </select>
       </div>

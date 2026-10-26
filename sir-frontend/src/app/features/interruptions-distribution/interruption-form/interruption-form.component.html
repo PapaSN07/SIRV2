@@ -31,6 +31,15 @@
       <p>Chargement…</p>
     </div>
   } @else {
+    @if (missingFields().length > 0) {
+      <div class="form-missing" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        <p>
+          <strong>{{ missingFields().length }} champ{{ missingFields().length > 1 ? 's' : '' }} obligatoire{{ missingFields().length > 1 ? 's' : '' }} à renseigner :</strong>
+          {{ missingFields().join(', ') }}.
+        </p>
+      </div>
+    }
     <form class="form-bento" [formGroup]="form" (ngSubmit)="submit()">
       <section class="form-card form-card--full">
         <header class="form-card__head">
@@ -49,7 +58,7 @@
             >
               <option value="">Sélectionner une région</option>
               @for (r of regions(); track r.id) {
-                <option [value]="r.id">{{ r.libelle }}</option>
+                <option [value]="r.id" [selected]="r.id === regionId()">{{ r.libelle }}</option>
               }
             </select>
             @if (!isEditMode()) {
@@ -123,7 +132,7 @@
         </div>
       </section>
 
-      <section class="form-card form-card--half">
+      <section class="form-card form-card--full">
         <header class="form-card__head">
           <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
           <h2>Chronologie</h2>
@@ -148,7 +157,7 @@
         </header>
         <div class="form-card__body form-card__body--grid">
           <div class="field">
-            <span class="field__label">Nature de l'interruption</span>
+            <span class="field__label">Type d'interruption</span>
             <div class="radio-group">
               <label class="radio-group__item">
                 <input type="radio" formControlName="is_programme" [value]="false" />

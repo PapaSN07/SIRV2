@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { from, of } from 'rxjs';
@@ -18,7 +18,7 @@ type PriorityLevel = 'critique' | 'elevee' | 'normale';
 @Component({
   selector: 'sir-validation-queue',
   standalone: true,
-  imports: [RouterLink, DatePipe, PaginatorComponent, StatusChipComponent],
+  imports: [RouterLink, DatePipe, DecimalPipe, PaginatorComponent, StatusChipComponent],
   templateUrl: './validation-queue.component.html',
   styleUrl: './validation-queue.component.scss',
 })
@@ -88,11 +88,9 @@ export class ValidationQueueComponent implements OnInit {
     }
   }
 
+  /** Tension affichée telle que saisie (« 30 kV ») : pas de classement HT/MT implicite. */
   tensionLabel(kv: number | null): string {
-    if (kv == null) return 'MT';
-    if (kv >= 30) return 'HT';
-    if (kv >= 15) return 'MT';
-    return 'BT';
+    return kv == null ? '—' : `${kv.toLocaleString('fr-FR')} kV`;
   }
 
   onRegionChange(value: string): void {

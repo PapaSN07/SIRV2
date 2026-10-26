@@ -1001,3 +1001,139 @@
     stroke-dasharray: 5 4;
   }
 }
+
+// ── Onglets du tableau de bord ──────────────────────────────────────────────
+.dashboard-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: 1.5rem 0 1rem;
+  border-bottom: 1px solid $outline-variant;
+  overflow-x: auto;
+
+  &__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0 1rem;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    font: 600 14px Inter, sans-serif;
+    color: $on-surface-variant;
+    cursor: pointer;
+    white-space: nowrap;
+
+    .material-symbols-outlined {
+      font-size: 20px;
+    }
+
+    &:hover {
+      color: $on-surface;
+    }
+
+    &--active {
+      border-bottom-color: $primary;
+      color: $primary;
+    }
+  }
+}
+
+// ── Deux graphiques d'évolution, une échelle chacun ─────────────────────────
+.evolution-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.evolution-chart {
+  margin: 0;
+
+  figcaption {
+    margin-bottom: 0.5rem;
+    font-size: 14px;
+    font-weight: 700;
+    color: $on-surface;
+
+    span {
+      font-weight: 400;
+      font-size: 12px;
+      color: $on-surface-variant;
+    }
+  }
+
+  .bar-chart {
+    height: 220px;
+    gap: 0.25rem;
+    padding: 0;
+  }
+
+  .bar-chart__bar {
+    width: 100%;
+    max-width: 22px;
+  }
+
+  .bar-chart__label {
+    font-size: 10px;
+  }
+}
+
+// ── Jauges : état écrit + légende ───────────────────────────────────────────
+.gauge-status {
+  margin: 0.25rem 0 0;
+  font-size: 13px;
+  font-weight: 700;
+
+  &--ok { color: #067647; }
+  &--warn { color: #b54708; }
+  &--over { color: #b42318; }
+  &--empty { color: $on-surface-variant; }
+}
+
+.gauge-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.5rem 0 1rem;
+  font-size: 12px;
+  color: $on-surface-variant;
+
+  &__item::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 0.375rem;
+    border-radius: 50%;
+    vertical-align: -1px;
+  }
+
+  &__item--ok::before { background: #2e7d32; }
+  &__item--warn::before { background: #f4811f; }
+  &__item--over::before { background: #c62828; }
+}
+
+// Libellé d'indicateur lisible sur une ligne dans les tableaux de suivi
+.pilotage__tables > article {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.pilotage__tables .data-table th:first-child,
+.pilotage__tables .data-table td:first-child {
+  min-width: 8.5rem;
+}
+
+// Marges intérieures des blocs Objectifs / Réseau (contenu collé au bord auparavant)
+.panel:not(.panel--table):not(.panel--chart):not(.panel--donut) {
+  padding: 1.5rem;
+}
+
+// Objectifs : tableaux journalier et cumul l'un sous l'autre, colonnes lisibles
+.pilotage .pilotage__tables {
+  grid-template-columns: 1fr;
+}

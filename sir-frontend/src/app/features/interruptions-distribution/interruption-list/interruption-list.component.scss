@@ -508,3 +508,85 @@
     transform: rotate(360deg);
   }
 }
+
+// ── Ergonomie des filtres ───────────────────────────────────────────────────
+.filters-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.25rem;
+  border: none;
+  background: transparent;
+  font: 600 14px Inter, sans-serif;
+  color: $on-surface;
+  cursor: pointer;
+
+  &__count {
+    min-width: 1.25rem;
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    background: $primary;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.25rem;
+    text-align: center;
+  }
+
+  &__chevron {
+    margin-left: auto;
+    transition: transform 0.2s ease;
+  }
+}
+
+.filters-hint {
+  margin: 0.75rem 0 0;
+  font-size: 12px;
+  color: $on-surface-variant;
+}
+
+.sir-btn--text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.5rem;
+  padding: 0 0.5rem;
+  border: none;
+  background: transparent;
+  color: $primary;
+  font: 600 13px Inter, sans-serif;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.stats-badge--link {
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(0.95);
+    text-decoration: underline;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .filters-toggle {
+    display: flex;
+  }
+
+  .filters-panel--collapsed {
+    .filters-grid,
+    .filters-hint,
+    .filter-chips {
+      display: none;
+    }
+  }
+
+  .filters-panel:not(.filters-panel--collapsed) .filters-toggle__chevron {
+    transform: rotate(180deg);
+  }
+}

@@ -65,7 +65,7 @@
       aria-label="Nombre de lignes par page"
     >
       @for (size of pageSizeOptions; track size) {
-        <option [value]="size">{{ size }} lignes</option>
+        <option [value]="size" [selected]="size === pageSize">{{ size }} lignes</option>
       }
     </select>
   </div>

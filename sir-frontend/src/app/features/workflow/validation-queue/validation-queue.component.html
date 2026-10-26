@@ -29,7 +29,7 @@
         >
           <option value="">Toutes les régions</option>
           @for (r of regions(); track r.id) {
-            <option [value]="r.id">{{ r.libelle }}</option>
+            <option [value]="r.id" [selected]="r.id === regionId()">{{ r.libelle }}</option>
           }
         </select>
       </div>
@@ -83,6 +83,11 @@
         <p class="validation-queue__error" role="alert">{{ error() }}</p>
       }
 
+      <p class="validation-help">
+        <span class="material-symbols-outlined" aria-hidden="true">touch_app</span>
+        Cliquez sur une ligne pour voir l'interruption et la valider, ou cochez plusieurs lignes pour les valider en une fois.
+      </p>
+
       <div class="validation-table-wrap">
         <div class="validation-table__head">
           <label class="validation-table__check">
@@ -97,7 +102,7 @@
           <span>Localisation</span>
           <span>Apparition</span>
           <span>Priorité</span>
-          <span>Statut</span>
+          <span>Durée · END</span>
         </div>
 
         @if (loading()) {
@@ -138,7 +143,8 @@
                 </span>
               </span>
               <span class="validation-table__status">
-                <span class="pending-badge">Validation requise</span>
+                {{ item.duree_minutes !== null ? item.duree_minutes + ' min' : '—' }}
+                · {{ item.end_mwh !== null ? (item.end_mwh | number: '1.0-2') + ' MWh' : '—' }}
               </span>
             </div>
           }

@@ -29,6 +29,34 @@
       </div>
     </sir-page-header>
 
+    <!-- Résumé : l'essentiel de l'incident avant les formulaires de suivi -->
+    <dl class="incident-summary" aria-label="Résumé de l'interruption">
+      <div class="incident-summary__item incident-summary__item--wide">
+        <dt>Feeder · service</dt>
+        <dd>{{ it.feeder_libelle || '—' }} <span>· {{ it.service_libelle || '—' }}</span></dd>
+      </div>
+      <div class="incident-summary__item">
+        <dt>Apparition</dt>
+        <dd>{{ it.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</dd>
+      </div>
+      <div class="incident-summary__item">
+        <dt>Durée</dt>
+        <dd>{{ it.duree_minutes !== null ? it.duree_minutes + ' min' : 'En cours' }}</dd>
+      </div>
+      <div class="incident-summary__item">
+        <dt>END</dt>
+        <dd>{{ it.end_mwh !== null ? (it.end_mwh | number: '1.0-2') + ' MWh' : '—' }}</dd>
+      </div>
+      <div class="incident-summary__item">
+        <dt>Clients touchés</dt>
+        <dd>{{ clientsTouches(it) | number }}</dd>
+      </div>
+      <div class="incident-summary__item incident-summary__item--wide">
+        <dt>Cause</dt>
+        <dd>{{ it.cause_libelle || '—' }} <span>· {{ it.nature_libelle || '—' }}</span></dd>
+      </div>
+    </dl>
+
     <article class="detail-card postes-card">
       <header class="detail-card__head">
         <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>

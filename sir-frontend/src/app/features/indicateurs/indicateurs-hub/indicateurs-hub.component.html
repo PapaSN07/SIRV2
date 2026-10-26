@@ -15,7 +15,7 @@
         <label class="field__label" for="ind-periode">Période</label>
         <select id="ind-periode" class="field__select" [value]="periode()" (change)="onPeriodeChange($any($event.target).value)">
           @for (p of periodeOptions(); track p.value) {
-            <option [value]="p.value">{{ p.label }}</option>
+            <option [value]="p.value" [selected]="p.value === periode()">{{ p.label }}</option>
           }
         </select>
       </div>
@@ -24,7 +24,7 @@
         <select id="ind-region" class="field__select" [value]="regionId() ?? ''" (change)="onRegionChange($any($event.target).value)">
           <option value="">National / périmètre utilisateur</option>
           @for (r of regions(); track r.id) {
-            <option [value]="r.id">{{ r.libelle }}</option>
+            <option [value]="r.id" [selected]="r.id === regionId()">{{ r.libelle }}</option>
           }
         </select>
       </div>

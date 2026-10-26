@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { HasRoleDirective } from '../../../core/auth/has-role.directive';
@@ -36,6 +36,7 @@ export interface PosteCheckboxRow {
     ReactiveFormsModule,
     RouterLink,
     DatePipe,
+    DecimalPipe,
     HasRoleDirective,
     PageHeaderComponent,
     StatusChipComponent,
@@ -138,6 +139,12 @@ export class InterruptionDetailComponent implements OnInit {
     }
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.load(id);
+  }
+
+  /** Total des clients des postes impactés (ou clients MT + BT saisis à défaut). */
+  clientsTouches(it: InterruptionDistributionDetail): number {
+    const fromPostes = it.postes_impactes.reduce((sum, p) => sum + (p.nombre_clients_touches ?? 0), 0);
+    return fromPostes || (it.nombre_clients_mt ?? 0) + (it.nombre_clients_bt ?? 0);
   }
 
   canEdit(it: InterruptionDistributionDetail): boolean {

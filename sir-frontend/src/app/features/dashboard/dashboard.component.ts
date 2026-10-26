@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
@@ -28,9 +28,13 @@ import { IndicateursService } from '../indicateurs/services/indicateurs.service'
 interface ChartMonth {
   key: string;
   label: string;
+  saidi: number;
+  saifi: number;
   saidiHeight: number;
   saifiHeight: number;
 }
+
+type DashboardTab = 'synthese' | 'objectifs' | 'reseau';
 
 interface ObjectifDraft {
   end_mwh: string;
@@ -69,6 +73,31 @@ export class DashboardComponent implements OnInit {
   private readonly dashboardService = inject(IndicateursService);
   private readonly interruptionService = inject(InterruptionDistributionService);
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  readonly tabs: { id: DashboardTab; label: string; icon: string }[] = [
+    { id: 'synthese', label: 'Synthèse', icon: 'monitoring' },
+    { id: 'objectifs', label: 'Objectifs', icon: 'flag' },
+    { id: 'reseau', label: 'Réseau', icon: 'hub' },
+  ];
+  /** Vue courante, conservée dans l'URL (?vue=) pour le retour arrière et les liens. */
+  readonly tab = signal<DashboardTab>(this.initialTab());
+
+  private initialTab(): DashboardTab {
+    const vue = this.route.snapshot.queryParamMap.get('vue');
+    return vue === 'objectifs' || vue === 'reseau' ? vue : 'synthese';
+  }
+
+  selectTab(tab: DashboardTab): void {
+    this.tab.set(tab);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      replaceUrl: true,
+      queryParams: { vue: tab === 'synthese' ? null : tab },
+      queryParamsHandling: 'merge',
+    });
+  }
   private readonly notifications = inject(NotificationService);
 
   readonly toastMessage = signal<string | null>(null);
@@ -236,6 +265,14 @@ export class DashboardComponent implements OnInit {
   gaugePct(value: number | null | undefined): number {
     if (value === null || value === undefined) return 0;
     return Math.max(0, Math.min(100, value));
+  }
+
+  /** Libellé lisible de la jauge (la couleur seule ne suffit pas). */
+  gaugeStatus(value: number | null | undefined): { tone: string; label: string } {
+    if (value === null || value === undefined) return { tone: 'empty', label: 'Pas d’objectif' };
+    if (value <= 90) return { tone: 'ok', label: 'Dans l’objectif' };
+    if (value <= 100) return { tone: 'warn', label: 'À surveiller' };
+    return { tone: 'over', label: 'Objectif dépassé' };
   }
 
   gaugeClass(value: number | null | undefined): string {
@@ -528,13 +565,17 @@ export class DashboardComponent implements OnInit {
             saifi: 0,
           }));
 
-    const maxValue = Math.max(...months.flatMap((m) => [m.saidi, m.saifi]), 1);
+    // Une échelle par indicateur : SAIDI en minutes, SAIFI autour de 1
+    const maxSaidi = Math.max(...months.map((m) => m.saidi), 0) || 1;
+    const maxSaifi = Math.max(...months.map((m) => m.saifi), 0) || 1;
 
     return months.map((month) => ({
       key: month.key,
       label: month.label,
-      saidiHeight: Math.round((month.saidi / maxValue) * 100),
-      saifiHeight: Math.round((month.saifi / maxValue) * 100),
+      saidi: month.saidi,
+      saifi: month.saifi,
+      saidiHeight: Math.round((month.saidi / maxSaidi) * 100),
+      saifiHeight: Math.round((month.saifi / maxSaifi) * 100),
     }));
   }
 

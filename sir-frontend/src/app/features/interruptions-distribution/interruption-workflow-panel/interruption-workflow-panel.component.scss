@@ -243,3 +243,9 @@
     transform: rotate(360deg);
   }
 }
+
+// Bouton à sa taille, aligné à droite : il n'enregistre qu'une étape
+.workflow-save {
+  align-self: flex-end;
+  width: auto;
+}

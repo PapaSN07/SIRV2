@@ -9,16 +9,19 @@
     <div actions>
       @if (stats(); as s) {
         @if (s.non_validees > 0) {
-          <span class="stats-badge" title="Interruptions non validées dans le périmètre filtré">
-            <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
-            {{ s.non_validees }} non validée{{ s.non_validees > 1 ? 's' : '' }}
-          </span>
+          @if (canValidate()) {
+            <a class="stats-badge stats-badge--link" routerLink="/workflow/validation" title="Ouvrir la file de validation">
+              <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
+              {{ s.non_validees }} à valider
+            </a>
+          } @else {
+            <span class="stats-badge" title="Interruptions non validées dans le périmètre filtré">
+              <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span>
+              {{ s.non_validees }} non validée{{ s.non_validees > 1 ? 's' : '' }}
+            </span>
+          }
         }
       }
-      <button type="button" class="sir-btn sir-btn--outline-primary" disabled title="Bientôt disponible">
-        <span class="material-symbols-outlined" aria-hidden="true">download</span>
-        Exporter Excel/PDF
-      </button>
       @if (canCreate()) {
         <a class="sir-btn sir-btn--primary" routerLink="/interruptions/distribution/nouveau">
           <span class="material-symbols-outlined" aria-hidden="true">add</span>
@@ -30,8 +33,22 @@
 
   <sir-interruptions-nav />
 
-  <div class="filters-panel">
-    <div class="filters-grid">
+  <div class="filters-panel" [class.filters-panel--collapsed]="!filtersOpen()">
+    <button
+      type="button"
+      class="filters-toggle"
+      [attr.aria-expanded]="filtersOpen()"
+      aria-controls="filters-grid"
+      (click)="filtersOpen.set(!filtersOpen())"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+      Filtres
+      @if (activeFilterChips().length > 0) {
+        <span class="filters-toggle__count">{{ activeFilterChips().length }}</span>
+      }
+      <span class="material-symbols-outlined filters-toggle__chevron" aria-hidden="true">expand_more</span>
+    </button>
+    <div class="filters-grid" id="filters-grid">
       <div class="field">
         <label class="field__label" for="date-debut">Période (début)</label>
         <div class="field__input-wrap">
@@ -44,7 +61,6 @@
             (change)="onDateDebutChange($event)"
           />
         </div>
-        <p class="field__hint">{{ dateFilterHint }}</p>
       </div>
 
       <div class="field">
@@ -72,7 +88,7 @@
         >
           <option value="">Toutes les régions</option>
           @for (r of regions(); track r.id) {
-            <option [value]="r.id">{{ r.libelle }}</option>
+            <option [value]="r.id" [selected]="r.id === regionId()">{{ r.libelle }}</option>
           }
         </select>
         @if (isRegionalScope()) {
@@ -98,12 +114,13 @@
           >
             <option value="">Tous les services</option>
             @for (s of services(); track s.id) {
-              <option [value]="s.id">{{ s.libelle }}</option>
+              <option [value]="s.id" [selected]="s.id === serviceId()">{{ s.libelle }}</option>
             }
           </select>
         </div>
       }
 
+      @if (moreFilters()) {
       <div class="field">
         <label class="field__label" for="feeder">Feeder</label>
         <select
@@ -114,7 +131,7 @@
         >
           <option value="">Tous les feeders</option>
           @for (f of feeders(); track f.id) {
-            <option [value]="f.id">{{ f.libelle }}</option>
+            <option [value]="f.id" [selected]="f.id === feederId()">{{ f.libelle }}</option>
           }
         </select>
       </div>
@@ -129,7 +146,7 @@
         >
           <option value="">Toutes les natures</option>
           @for (n of natures(); track n.id) {
-            <option [value]="n.id">{{ n.libelle }}</option>
+            <option [value]="n.id" [selected]="n.id === natureId()">{{ n.libelle }}</option>
           }
         </select>
       </div>
@@ -143,16 +160,26 @@
           (change)="onOuvertureChange($any($event.target).value)"
         >
           @for (opt of ouvertureOptions; track opt.value) {
-            <option [value]="opt.value">{{ opt.label }}</option>
+            <option [value]="opt.value" [selected]="opt.value === (ouverture() ?? '')">{{ opt.label }}</option>
           }
         </select>
       </div>
+      }
 
       <div class="filters-actions">
-        <button type="button" class="sir-btn sir-btn--secondary" (click)="resetFilters()">Réinitialiser</button>
-        <button type="button" class="sir-btn sir-btn--filter" (click)="applyFilters()">Filtrer</button>
+        <button type="button" class="sir-btn sir-btn--text" [attr.aria-expanded]="moreFilters()" (click)="moreFilters.set(!moreFilters())">
+          <span class="material-symbols-outlined" aria-hidden="true">{{ moreFilters() ? 'expand_less' : 'expand_more' }}</span>
+          {{ moreFilters() ? 'Moins de filtres' : 'Plus de filtres' }}
+          @if (!moreFilters() && secondaryFilterCount() > 0) {
+            ({{ secondaryFilterCount() }})
+          }
+        </button>
+        @if (hasActiveFilters()) {
+          <button type="button" class="sir-btn sir-btn--secondary" (click)="resetFilters()">Réinitialiser</button>
+        }
       </div>
     </div>
+    <p class="filters-hint">Les résultats se mettent à jour à chaque changement. {{ dateFilterHint }}</p>
 
     @if (activeFilterChips().length > 0) {
       <div class="filter-chips">
@@ -341,7 +368,3 @@
   }
 </section>
 
-<button type="button" class="fab" title="Support technique" aria-label="Besoin d'aide ?">
-  <span class="material-symbols-outlined" aria-hidden="true">help</span>
-  <span class="fab__tooltip">Besoin d'aide ?</span>
-</button>
