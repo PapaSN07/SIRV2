@@ -161,6 +161,8 @@ async def test_brc_create_with_write_permission_returns_201(
                 "nature_id": 1,
                 "siege_id": 1,
                 "signalisation_id": 1,
+                "type_end_id": 1,
+                "type_reseau_id": 1,
             },
             headers=_auth_headers(_token(brc_user)),
         )
@@ -183,6 +185,8 @@ async def test_brc_create_without_write_permission_returns_403(
                 "nature_id": 1,
                 "siege_id": 1,
                 "signalisation_id": 1,
+                "type_end_id": 1,
+                "type_reseau_id": 1,
             },
             headers=_auth_headers(_token(brc_readonly)),
         )
@@ -248,6 +252,8 @@ async def test_bcc_create_out_of_scope_returns_403_via_service(
                 "nature_id": 1,
                 "siege_id": 1,
                 "signalisation_id": 1,
+                "type_end_id": 1,
+                "type_reseau_id": 1,
             },
             headers=_auth_headers(_token(bcc_user)),
         )

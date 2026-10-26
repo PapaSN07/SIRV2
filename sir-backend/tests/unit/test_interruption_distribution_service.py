@@ -5,12 +5,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
-from fastapi import HTTPException
 
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
 from app.models.referentiel import Cause, Nature, Siege, Signalisation
 from app.models.reseau import Feeder, SousFeeder, Poste
-from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
+from app.models.utilisateurs import Role, UserRole, Utilisateur
 from app.schemas.interruption_distribution import (
     InterruptionDistributionCreate,
     InterruptionDistributionUpdate,
@@ -379,7 +378,6 @@ async def test_list_items_bcc_scope_passed_to_repository() -> None:
 async def test_get_item_wrong_service_raises_403() -> None:
     db = AsyncMock()
     user = _make_bcc(scope_service_id=1)
-    now = datetime(2026, 6, 12, 10, 30, 0)
 
     interruption = Interruption()
     interruption.id = 1

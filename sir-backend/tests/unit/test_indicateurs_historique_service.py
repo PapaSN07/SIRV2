@@ -1,7 +1,7 @@
 """Tests unitaires — historique indicateurs (phase 5.5)."""
 
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException

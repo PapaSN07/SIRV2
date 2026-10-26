@@ -6,8 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.geo import Agence, Delegation, Service
-from app.repositories.geo_scope_repository import get_region_id_for_service
+from app.models.geo import Agence, Service
 from app.models.indicateurs import EnergieNd
 from app.models.interruptions import (
     Interruption,
@@ -16,6 +15,8 @@ from app.models.interruptions import (
     PosteInterruption,
 )
 from app.models.referentiel import TypeEnd
+# Ré-export utilisé par les services (end_repo.get_region_id_for_service) : ne pas retirer
+from app.repositories.geo_scope_repository import get_region_id_for_service  # noqa: F401
 
 
 async def get_interruption_for_end(
@@ -45,7 +46,7 @@ async def get_interruption_for_end(
 
 async def get_type_end_by_code(db: AsyncSession, code: str) -> TypeEnd | None:
     result = await db.execute(
-        select(TypeEnd).where(TypeEnd.code == code, TypeEnd.is_active == True)
+        select(TypeEnd).where(TypeEnd.code == code, TypeEnd.is_active == True)  # noqa: E712
     )
     return result.scalar_one_or_none()
 

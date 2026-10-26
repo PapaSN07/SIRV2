@@ -19,8 +19,6 @@ def test_calcul_saifi_saidi_task_returns_calculated_status() -> None:
         "region_id": 2,
     }
 
-    mock_self = type("Task", (), {"retry": lambda *a, **k: None})()
-
     with patch(
         "app.workers.tasks.indicateurs._run_calcul_saifi_saidi",
         new_callable=AsyncMock,
@@ -37,8 +35,6 @@ def test_calcul_saifi_saidi_task_skipped_non_distribution() -> None:
         "status": "skipped_not_distribution",
         "service_id": None,
     }
-
-    mock_self = type("Task", (), {"retry": lambda *a, **k: None})()
 
     with patch(
         "app.workers.tasks.indicateurs._run_calcul_saifi_saidi",

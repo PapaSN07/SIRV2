@@ -102,6 +102,8 @@ def _valid_payload() -> dict[str, object]:
         "nature_id": 1,
         "siege_id": 1,
         "signalisation_id": 1,
+        "type_end_id": 1,
+        "type_reseau_id": 1,
     }
 
 

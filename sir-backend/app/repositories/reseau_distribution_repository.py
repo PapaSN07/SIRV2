@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.repositories.geo_scope_repository import service_ids_in_region_subquery
-from app.models.geo import Agence, Delegation, Service
 from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder, Troncon
 
 ModelT = Type[Any]
@@ -81,7 +80,7 @@ async def list_postes_sources(
     region_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[PosteSource]:
-    query = select(PosteSource).where(PosteSource.is_active == True).order_by(PosteSource.id)
+    query = select(PosteSource).where(PosteSource.is_active == True).order_by(PosteSource.id)  # noqa: E712
     effective_region = _effective_region_id(region_id, scope)
     if effective_region is not None:
         ps_in_region = _poste_source_ids_in_region_subquery(effective_region)
@@ -133,7 +132,7 @@ async def list_feeders(
     query = (
         select(Feeder)
         .options(joinedload(Feeder.service), joinedload(Feeder.poste_source))
-        .where(Feeder.is_active == True)
+        .where(Feeder.is_active == True)  # noqa: E712
         .order_by(Feeder.id)
     )
     if region_id is not None:
@@ -190,7 +189,7 @@ async def list_postes(
     service_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[Poste]:
-    query = select(Poste).where(Poste.is_active == True).order_by(Poste.id)
+    query = select(Poste).where(Poste.is_active == True).order_by(Poste.id)  # noqa: E712
     if feeder_id is not None:
         query = query.where(Poste.feeder_id == feeder_id)
     if service_id is not None:
@@ -234,7 +233,7 @@ async def list_troncons(
     feeder_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[Troncon]:
-    query = select(Troncon).where(Troncon.is_active == True).order_by(Troncon.id)
+    query = select(Troncon).where(Troncon.is_active == True).order_by(Troncon.id)  # noqa: E712
     if feeder_id is not None:
         from app.repositories.sig_repository import _feeder_sig_nom_aliases
 
@@ -292,7 +291,7 @@ async def list_sous_feeders(
     feeder_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[SousFeeder]:
-    query = select(SousFeeder).where(SousFeeder.is_active == True).order_by(SousFeeder.id)
+    query = select(SousFeeder).where(SousFeeder.is_active == True).order_by(SousFeeder.id)  # noqa: E712
     if feeder_id is not None:
         query = query.where(SousFeeder.feeder_id == feeder_id)
     if scope and (scope.service_id is not None or scope.region_id is not None):

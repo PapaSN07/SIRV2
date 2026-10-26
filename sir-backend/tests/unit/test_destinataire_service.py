@@ -1,7 +1,6 @@
 """Tests unitaires — service destinataires notifications."""
 
 import pytest
-from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.schemas.notifications import DestinataireCreate

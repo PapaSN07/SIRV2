@@ -1,6 +1,5 @@
 """Repository — interruptions réseau distribution."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -14,7 +13,6 @@ from app.repositories.geo_scope_repository import (
 )
 from app.models.geo import Agence, Delegation, Service
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
-from app.models.reseau import Poste
 from app.repositories.reseau_distribution_repository import ScopeFilter
 from app.schemas.common import PaginatedResponse
 from app.utils.pagination import paginate

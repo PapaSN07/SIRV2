@@ -3,7 +3,6 @@
 # TODO(CRSE): remplacer par les gabarits officiels SAQS.
 """
 
-from datetime import date
 from pathlib import Path
 
 from reportlab.lib.pagesizes import A4, landscape

@@ -15,8 +15,6 @@ def test_calcul_end_task_returns_calculated_status() -> None:
         "region_id": 2,
     }
 
-    mock_self = type("Task", (), {"retry": lambda *a, **k: None})()
-
     with patch(
         "app.workers.tasks.indicateurs._run_calcul_end",
         new_callable=AsyncMock,

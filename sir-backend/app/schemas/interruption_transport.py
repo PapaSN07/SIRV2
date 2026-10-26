@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from app.schemas.interruption_distribution import (
     EnergieNdSummaryResponse,
-    InterruptionClotureRequest,
     UtilisateurSummaryResponse,
 )
 

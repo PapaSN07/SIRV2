@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.geo import Agence, Delegation, Service
+from app.models.geo import Service
 from app.models.indicateurs import EnergieNd, SaifiSaidi
 from app.models.interruptions import Interruption, InterruptionDistribution
 from app.models.referentiel import Cause, Nature
@@ -193,7 +193,6 @@ async def list_all_service_ids(db: AsyncSession) -> list[int]:
     return await saifi_repo.list_all_service_ids(db)
 
 
-from app.repositories.geo_scope_repository import get_region_id_for_service
 
 async def list_saifi_saidi_for_services(
     db: AsyncSession,

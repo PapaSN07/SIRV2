@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, NVARCHAR, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, NVARCHAR, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import DECIMAL, Float
 

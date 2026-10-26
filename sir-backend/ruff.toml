@@ -1,0 +1,11 @@
+# Lint exécuté par la CI (.github/workflows/ci.yml)
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+
+[lint.per-file-ignores]
+# .env.test doit être chargé avant tout import de l'application
+"tests/conftest.py" = ["E402"]
+"tests/unit/test_migration_transforms.py" = ["E402"]

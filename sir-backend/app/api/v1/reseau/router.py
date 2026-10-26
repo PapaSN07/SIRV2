@@ -22,6 +22,8 @@ from app.schemas.reseau_distribution import (
     TronconResponse,
     TronconUpdate,
 )
+from app.api.v1.reseau.sig.router import router as sig_reseau_router
+from app.api.v1.reseau.transport.router import router as transport_reseau_router
 from app.services import reseau_distribution_service as svc
 
 router = APIRouter()
@@ -395,12 +397,8 @@ async def delete_sous_feeder(
 
 # ── Topologie SIG (phase C) ─────────────────────────────────────────────────
 
-from app.api.v1.reseau.sig.router import router as sig_reseau_router
-
 router.include_router(sig_reseau_router, prefix="/sig", tags=["sig"])
 
 # ── Réseau transport HTB (phase 2.4) ────────────────────────────────────────
-
-from app.api.v1.reseau.transport.router import router as transport_reseau_router
 
 router.include_router(transport_reseau_router, prefix="/transport")

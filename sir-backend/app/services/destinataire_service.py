@@ -3,7 +3,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import check_region_scope, check_service_scope
+from app.core.deps import check_service_scope
 from app.core.rbac_helpers import is_superadmin
 from app.models.notifications import Destinataire
 from app.models.utilisateurs import Utilisateur

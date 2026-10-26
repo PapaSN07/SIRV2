@@ -101,7 +101,6 @@ def test_resolve_interruption_date_remise():
 
 
 def test_fk_resolver_legacy_id_priority():
-    from scripts.migration.id_maps import IdMapStore
     from scripts.migration.transforms.fk_resolver import FkResolver
 
     class _Maps:

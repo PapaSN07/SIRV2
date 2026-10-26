@@ -65,7 +65,7 @@ def build_select_query(
     model = get_model(resource)
     query = select(model)
     if active_only and hasattr(model, "is_active"):
-        query = query.where(model.is_active == True)
+        query = query.where(model.is_active == True)  # noqa: E712
     if type_reseau and resource in RESOURCES_WITH_TYPE_RESEAU:
         query = query.where(model.type_reseau == type_reseau)
     if hasattr(model, "ordre"):

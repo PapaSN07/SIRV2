@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac_helpers import is_superadmin
-from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder, Troncon
+from app.models.reseau import Feeder, Poste, PosteSource
 from app.models.utilisateurs import Utilisateur
 from app.repositories import reseau_distribution_repository as repo
 from app.repositories.reseau_distribution_repository import ScopeFilter
@@ -31,7 +31,6 @@ from app.schemas.reseau_distribution import (
     TronconUpdate,
 )
 from app.utils.audit import ACTION_CREATE, ACTION_DELETE, ACTION_UPDATE, log_audit
-from app.utils.pagination import clamp_page_size
 
 
 def _user_role_names(user: Utilisateur) -> set[str]:

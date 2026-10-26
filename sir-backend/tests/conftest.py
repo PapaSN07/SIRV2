@@ -43,15 +43,14 @@ if _env_test_path.exists():
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.core.security import create_access_token, create_refresh_token, hash_password
-from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
+from app.models.utilisateurs import Role, UserRole, Utilisateur
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +216,21 @@ def access_token_expire() -> str:
 # ---------------------------------------------------------------------------
 # Fixtures Redis (fakeredis)
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _celery_sans_reseau():
+    """Broker Celery en mémoire : aucun test ne doit joindre un Redis réel.
+
+    Les tests qui vérifient un envoi patchent toujours send_task / delay ;
+    les autres ne doivent pas échouer faute de Redis local.
+    """
+    from app.workers.celery_app import celery_app
+
+    previous = (celery_app.conf.broker_url, celery_app.conf.result_backend)
+    celery_app.conf.update(broker_url="memory://", result_backend="cache+memory://")
+    yield
+    celery_app.conf.update(broker_url=previous[0], result_backend=previous[1])
 
 
 @pytest_asyncio.fixture

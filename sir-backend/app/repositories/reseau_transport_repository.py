@@ -15,7 +15,7 @@ async def list_equipements(
 ) -> list[EquipementTransport]:
     query = (
         select(EquipementTransport)
-        .where(EquipementTransport.is_active == True)
+        .where(EquipementTransport.is_active == True)  # noqa: E712
         .order_by(EquipementTransport.id)
     )
     if type_equipement is not None:
@@ -62,7 +62,7 @@ async def update_equipement(
 async def list_sources(db: AsyncSession) -> list[SourceTransport]:
     result = await db.execute(
         select(SourceTransport)
-        .where(SourceTransport.is_active == True)
+        .where(SourceTransport.is_active == True)  # noqa: E712
         .order_by(SourceTransport.id)
     )
     return list(result.scalars().all())
@@ -101,7 +101,7 @@ async def list_postes_lignes(
     poste_source_id: int | None = None,
     equipement_transport_id: int | None = None,
 ) -> list[PosteLigne]:
-    query = select(PosteLigne).where(PosteLigne.is_active == True).order_by(PosteLigne.id)
+    query = select(PosteLigne).where(PosteLigne.is_active == True).order_by(PosteLigne.id)  # noqa: E712
     if poste_source_id is not None:
         query = query.where(PosteLigne.poste_source_id == poste_source_id)
     if equipement_transport_id is not None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -190,10 +189,22 @@ def schedule_event(
     service_id: int | None,
     extra: dict | None = None,
 ) -> None:
-    """Enqueue dispatch Celery après commit transaction métier."""
+    """Enqueue dispatch Celery après commit transaction métier.
+
+    Une notification ne doit jamais faire échouer l'opération métier déjà
+    validée en base : si le broker est indisponible, on journalise et on continue.
+    """
     from app.workers.celery_app import celery_app
 
-    celery_app.send_task(
-        "dispatch_notification_event",
-        args=[event_type, entity_type, entity_id, service_id, json.dumps(extra or {})],
-    )
+    try:
+        celery_app.send_task(
+            "dispatch_notification_event",
+            args=[event_type, entity_type, entity_id, service_id, json.dumps(extra or {})],
+        )
+    except Exception:
+        logger.exception(
+            "Notification non planifiée (broker indisponible) event=%s entity=%s:%s",
+            event_type,
+            entity_type,
+            entity_id,
+        )

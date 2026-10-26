@@ -9,7 +9,7 @@ from app.models.geo import Agence, Delegation, Region, Service
 async def list_regions(db: AsyncSession, *, active_only: bool = True) -> list[Region]:
     query = select(Region).order_by(Region.id)
     if active_only:
-        query = query.where(Region.is_active == True)
+        query = query.where(Region.is_active == True)  # noqa: E712
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -27,7 +27,7 @@ async def list_delegations_by_region(
 ) -> list[Delegation]:
     query = select(Delegation).where(Delegation.region_id == region_id).order_by(Delegation.id)
     if active_only:
-        query = query.where(Delegation.is_active == True)
+        query = query.where(Delegation.is_active == True)  # noqa: E712
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -47,7 +47,7 @@ async def list_agences_by_delegation(
         select(Agence).where(Agence.delegation_id == delegation_id).order_by(Agence.id)
     )
     if active_only:
-        query = query.where(Agence.is_active == True)
+        query = query.where(Agence.is_active == True)  # noqa: E712
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -65,7 +65,7 @@ async def list_services_by_agence(
 ) -> list[Service]:
     query = select(Service).where(Service.agence_id == agence_id).order_by(Service.id)
     if active_only:
-        query = query.where(Service.is_active == True)
+        query = query.where(Service.is_active == True)  # noqa: E712
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -82,7 +82,7 @@ async def list_services_by_region(
         .order_by(Service.libelle)
     )
     if active_only:
-        query = query.where(Service.is_active == True)
+        query = query.where(Service.is_active == True)  # noqa: E712
     try:
         result = await db.execute(query)
         items = list(result.scalars().all())
@@ -99,6 +99,6 @@ async def list_services_by_region(
         .order_by(Service.libelle)
     )
     if active_only:
-        legacy_query = legacy_query.where(Service.is_active == True)
+        legacy_query = legacy_query.where(Service.is_active == True)  # noqa: E712
     result = await db.execute(legacy_query)
     return list(result.scalars().all())

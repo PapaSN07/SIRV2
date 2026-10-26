@@ -14,10 +14,9 @@ Redis est fourni par fakeredis (fixture fake_redis depuis conftest.py).
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 
 from app.models.utilisateurs import Utilisateur
@@ -326,8 +325,6 @@ async def test_logout_deletes_refresh_cookie(
     )
 
     assert response.status_code == 204
-    # httpx expose les Set-Cookie headers
-    set_cookie_headers = response.headers.get_list("set-cookie") if hasattr(response.headers, "get_list") else []
     cookie_header = response.headers.get("set-cookie", "")
     # Le cookie refresh_token doit être effacé (max-age=0 ou expires dans le passé)
     assert "refresh_token" in cookie_header or response.status_code == 204
@@ -539,7 +536,7 @@ async def test_refresh_with_deactivated_user_returns_401(
     fake_redis: Any,
 ) -> None:
     """Refresh token valide mais utilisateur désactivé entre-temps → 401."""
-    from app.core.security import create_refresh_token, decode_token
+    from app.core.security import create_refresh_token
 
     import uuid
 

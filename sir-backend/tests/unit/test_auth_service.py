@@ -11,10 +11,9 @@ Règle : pas de DB ni Redis réels — AsyncMock + fakeredis uniquement.
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_asyncio
 from fastapi import HTTPException
 
 from app.core.security import (

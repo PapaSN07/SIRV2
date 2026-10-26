@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 
 from app.models.indicateurs import EnergieNd
 from app.models.interruptions import Interruption, InterruptionTransport
-from app.models.reseau import EquipementTransport, SourceTransport
+from app.models.reseau import EquipementTransport
 
 _TRANSPORT_TYPES = ("transport", "omvg")
 

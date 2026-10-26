@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac_helpers import is_superadmin
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_permission
+from app.core.deps import require_permission
 from app.core.redis import get_redis
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse, PaginatedResponse
