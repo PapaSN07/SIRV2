@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -32,6 +32,17 @@ from app.services import interruption_workflow_service
 
 router = APIRouter()
 
+# Un fichier FIS mensuel réel pèse moins de 2 Mo ; au-delà de 10 Mo on refuse.
+_FIS_MAX_BYTES = 10 * 1024 * 1024
+_FIS_EXTENSIONS = (".xlsx", ".xlsm")
+
+
+def _fis_error(code: int, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=code,
+        detail={"status": "error", "data": None, "error": message},
+    )
+
 
 @router.post(
     "/import-fis",
@@ -51,7 +62,10 @@ async def import_fis(
     ),
 ) -> ApiResponse[FisImportResponse]:
     """Importe un fichier FIS Excel (BCC ou BRC) et crée les interruptions
-    distribution correspondantes en statut «valide».
+    distribution correspondantes.
+
+    - Lignes hors du périmètre de l'utilisateur : rejetées (comptées en erreur)
+    - Statut «valide» si l'utilisateur peut valider, sinon «cloture» (file de validation)
 
     - Lit la feuille «Détails interruptions»
     - Crée les référentiels manquants (Nature, Cause, Siège) à la volée
@@ -61,11 +75,19 @@ async def import_fis(
     Permissions requises : `interruptions_distribution:create`
     (rôles : BCC, ADMIN_SCR, ADMIN_SAQS)
     """
-    content = await file.read()
+    if not (file.filename or "").lower().endswith(_FIS_EXTENSIONS):
+        raise _fis_error(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Fichier FIS attendu au format .xlsx"
+        )
+    content = await file.read(_FIS_MAX_BYTES + 1)
+    if len(content) > _FIS_MAX_BYTES:
+        raise _fis_error(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Fichier FIS trop volumineux (10 Mo max)"
+        )
     result = await fis_import_service.import_fis_file(
         db,
         content,
-        created_by_id=current_user.id,
+        current_user=current_user,
         skip_existing=skip_existing,
     )
     await db.commit()

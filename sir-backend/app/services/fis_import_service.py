@@ -1,8 +1,14 @@
 """Service import FIS (Fiche d'Incidents et de Suivi) — BCC et BRC.
 
 Lit le fichier Excel FIS (format SENELEC), extrait la feuille
-«Détails interruptions» et crée les interruptions distribution en statut
-«valide» avec l'END déjà calculé (valeur issue du fichier FIS).
+«Détails interruptions» et crée les interruptions distribution avec l'END
+déjà calculé (valeur issue du fichier FIS).
+
+Règles d'accès (identiques à la saisie manuelle) :
+- chaque ligne doit appartenir au périmètre d'écriture de l'utilisateur
+  (BCC/BRC → sa région, Superviseur → son service) ; sinon elle est rejetée ;
+- statut « valide » seulement si l'utilisateur a le droit de valider,
+  sinon « cloture » : les interruptions passent par la file de validation.
 
 Formule END vérifiée sur données réelles :
     END (kWh) = Puissance_coupée (kW) × Durée (minutes) / 60
@@ -14,12 +20,14 @@ Correspondance FIS → SIRV2 :
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +36,7 @@ from app.models.interruptions import Interruption, InterruptionDistribution
 from app.models.referentiel import Cause, Nature, Siege
 from app.models.reseau import Feeder, PosteSource
 from app.models.utilisateurs import Utilisateur
+from app.services import interruption_distribution_service as distribution_rules
 
 logger = logging.getLogger(__name__)
 
@@ -480,15 +489,35 @@ async def _interruption_exists(db: AsyncSession, numero: int) -> bool:
     return result.scalar_one_or_none() is not None
 
 
+async def _rollback_savepoint(savepoint: Any) -> None:
+    if savepoint is not None and savepoint.is_active:
+        await savepoint.rollback()
+
+
 # ---------------------------------------------------------------------------
 # Import principal
 # ---------------------------------------------------------------------------
+
+def _can_validate(user: Utilisateur) -> bool:
+    try:
+        distribution_rules._ensure_can_validate(user)
+    except HTTPException:
+        return False
+    return True
+
+
+def _http_error_message(exc: HTTPException) -> str:
+    detail = exc.detail
+    if isinstance(detail, dict):
+        return str(detail.get("error") or detail)
+    return str(detail)
+
 
 async def import_fis_file(
     db: AsyncSession,
     file_bytes: bytes,
     *,
-    created_by_id: int,
+    current_user: Utilisateur,
     skip_existing: bool = True,
 ) -> FisImportResult:
     """Parse le fichier FIS et importe les interruptions en base.
@@ -496,7 +525,7 @@ async def import_fis_file(
     Args:
         db: session SQLAlchemy async.
         file_bytes: contenu brut du fichier Excel FIS.
-        created_by_id: ID de l'utilisateur qui déclenche l'import.
+        current_user: utilisateur qui déclenche l'import (périmètre + droit de valider).
         skip_existing: si True, ignore les numéros déjà présents en base.
 
     Returns:
@@ -505,9 +534,11 @@ async def import_fis_file(
     stats = FisImportStats()
     services_touches: set[str] = set()
     dates: list[datetime] = []
+    created_by_id = current_user.id
+    statut_import = "valide" if _can_validate(current_user) else "cloture"
 
-    # 1. Parser le fichier
-    rows = parse_fis_sheet(file_bytes)
+    # 1. Parser le fichier (openpyxl est synchrone : hors de la boucle d'événements)
+    rows = await asyncio.to_thread(parse_fis_sheet, file_bytes)
     stats.total_lignes = len(rows)
 
     if not rows:
@@ -521,8 +552,10 @@ async def import_fis_file(
     feeder_cache: dict[tuple[str, int | None], Feeder | None] = {}
     poste_source_cache: dict[str, PosteSource | None] = {}
 
-    # 3. Importer ligne par ligne
+    # 3. Importer ligne par ligne — chaque ligne dans un savepoint : une ligne
+    #    en erreur est annulée seule, sans laisser d'écriture partielle.
     for row in rows:
+        savepoint = None
         try:
             # Doublon
             if skip_existing and await _interruption_exists(db, row.numero):
@@ -534,6 +567,17 @@ async def import_fis_file(
                 service_cache[row.service_libelle] = await _find_service(db, row.service_libelle)
             service = service_cache[row.service_libelle]
             service_id = service.id if service else None
+
+            # Périmètre d'écriture : mêmes règles que la saisie manuelle
+            if service_id is None:
+                if distribution_rules._read_scope(current_user) is not None:
+                    raise ValueError(
+                        f"service « {row.service_libelle} » introuvable : périmètre invérifiable"
+                    )
+            else:
+                await distribution_rules._ensure_service_in_write_scope(
+                    db, current_user, service_id
+                )
 
             # Résolution poste source
             ps_key = row.source_libelle
@@ -574,11 +618,14 @@ async def import_fis_file(
             puissance_mw = row.puissance_kw / 1000.0
             end_mwh = row.end_kwh / 1000.0
 
+            savepoint = await db.begin_nested()
+
             # Créer l'interruption principale
             interruption = Interruption(
                 numero_interruption=row.numero,
                 type_direction="distribution",
-                statut="valide",
+                statut=statut_import,
+                validated_by_id=created_by_id if statut_import == "valide" else None,
                 service_id=service_id,
                 feeder_id=feeder.id if feeder else None,
                 poste_source_id=poste_source.id if poste_source else None,
@@ -607,6 +654,7 @@ async def import_fis_file(
             )
             db.add(distrib)
             await db.flush()
+            await savepoint.commit()
 
             # Statistiques
             stats.importees += 1
@@ -615,7 +663,14 @@ async def import_fis_file(
             if row.service_libelle:
                 services_touches.add(row.service_libelle)
 
+        except HTTPException as exc:
+            await _rollback_savepoint(savepoint)
+            msg = f"Ligne N°{row.numero}: {_http_error_message(exc)}"
+            stats.erreurs += 1
+            stats.erreurs_detail.append(msg)
+            continue
         except Exception as exc:
+            await _rollback_savepoint(savepoint)
             msg = f"Ligne N°{row.numero}: {exc}"
             logger.warning("FIS import error — %s", msg)
             stats.erreurs += 1
