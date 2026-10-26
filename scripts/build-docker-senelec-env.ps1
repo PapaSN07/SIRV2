@@ -31,7 +31,9 @@ function Get-EnvValue([string]$name) {
 }
 
 $secret = Get-EnvValue "SECRET_KEY"
-if (-not $secret) { $secret = "changeme_generate_with_openssl_rand_hex_32" }
+if (-not $secret -or $secret -like "changeme*") {
+    throw "SECRET_KEY absente ou valeur d'exemple dans .env.senelec (generer avec : openssl rand -hex 32)"
+}
 
 $accessTtl = Get-EnvValue "ACCESS_TOKEN_EXPIRE_MINUTES"
 if (-not $accessTtl) { $accessTtl = "30" }

@@ -1,11 +1,15 @@
 import os
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _REPO_ROOT = _BACKEND_DIR.parent
+
+# Valeurs d'exemple publiées dans les fichiers .env.*.example : jamais acceptées hors tests.
+_PLACEHOLDER_SECRET_PREFIX = "changeme"
+_MIN_SECRET_KEY_LENGTH = 32
 
 
 def _resolve_env_files() -> tuple[str, ...]:
@@ -94,6 +98,23 @@ class Settings(BaseSettings):
         validation_alias="LDAP_USER_SEARCH_FILTER",
     )
     ldap_timeout_seconds: int = Field(default=8, validation_alias="LDAP_TIMEOUT_SECONDS")
+
+    @model_validator(mode="after")
+    def _check_secret_key(self) -> "Settings":
+        """Refuse de démarrer avec une clé JWT d'exemple ou trop courte.
+
+        Avec une clé connue, n'importe qui peut signer un jeton valide pour
+        n'importe quel compte. Seul l'environnement « test » y échappe.
+        """
+        if self.environment == "test":
+            return self
+        key = self.secret_key.strip()
+        if key.lower().startswith(_PLACEHOLDER_SECRET_PREFIX) or len(key) < _MIN_SECRET_KEY_LENGTH:
+            raise ValueError(
+                "SECRET_KEY invalide : valeur d'exemple ou moins de "
+                f"{_MIN_SECRET_KEY_LENGTH} caractères. Générer avec : openssl rand -hex 32"
+            )
+        return self
 
     @property
     def is_production(self) -> bool:
