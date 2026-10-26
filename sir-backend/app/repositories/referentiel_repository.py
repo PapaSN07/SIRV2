@@ -2,7 +2,8 @@
 
 from typing import Any, Type
 
-from sqlalchemy import Select, select, update
+from sqlalchemy import Select, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.referentiel import (
@@ -148,7 +149,7 @@ async def update(
 
     if values:
         model = get_model(resource)
-        await db.execute(update(model).where(model.id == item_id).values(**values))
+        await db.execute(sa_update(model).where(model.id == item_id).values(**values))
         await db.flush()
 
     return await get_by_id(db, resource, item_id)
