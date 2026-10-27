@@ -10,6 +10,7 @@ import {
 } from '../../../shared/models/interruption.models';
 import { PaginatorComponent } from '../../../shared/ui/paginator/paginator.component';
 import { StatusChipComponent } from '../../../shared/ui/status-chip/status-chip.component';
+import { AuthService } from '../../../core/auth/auth.service';
 import { GeoService } from '../../geo/services/geo.service';
 import { InterruptionDistributionService } from '../../interruptions-distribution/services/interruption-distribution.service';
 
@@ -25,6 +26,15 @@ type PriorityLevel = 'critique' | 'elevee' | 'normale';
 export class ValidationQueueComponent implements OnInit {
   private readonly service = inject(InterruptionDistributionService);
   private readonly geo = inject(GeoService);
+  private readonly auth = inject(AuthService);
+
+  /** Seuil d'alerte SENELEC (27/10) : clôturée non validée depuis plus de 24 h. */
+  private readonly seuilRetardMs = 24 * 3600 * 1000;
+
+  /** Renvoi en correction depuis le panneau : Admin SCR, motif obligatoire. */
+  readonly canRenvoyer = computed(() => this.auth.hasRole('ADMIN_SCR', 'SUPERADMIN'));
+  readonly renvoiOuvert = signal(false);
+  readonly renvoiMotif = signal('');
 
   readonly pageSizeOptions = [10, 20, 50];
 
@@ -86,6 +96,47 @@ export class ValidationQueueComponent implements OnInit {
       default:
         return 'Normale';
     }
+  }
+
+  /** Temps écoulé depuis la clôture (« 3 h », « 2 j ») et dépassement du seuil de 24 h. */
+  enAttente(item: InterruptionDistribution): { label: string; retard: boolean } {
+    const depuis = item.date_cloture ?? item.updated_at;
+    if (!depuis) return { label: '—', retard: false };
+    const ms = Date.now() - new Date(depuis).getTime();
+    const heures = Math.max(0, Math.floor(ms / 3600000));
+    const label = heures < 1 ? '< 1 h' : heures < 48 ? `${heures} h` : `${Math.floor(heures / 24)} j`;
+    return { label, retard: ms > this.seuilRetardMs };
+  }
+
+  readonly enRetardCount = computed(
+    () => this.items().filter((i) => this.enAttente(i).retard).length,
+  );
+
+  onRenvoiMotifInput(event: Event): void {
+    this.renvoiMotif.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  renvoyer(id: number): void {
+    const motif = this.renvoiMotif().trim();
+    if (motif.length < 5) {
+      this.actionError.set('Motif obligatoire (5 caractères minimum).');
+      return;
+    }
+    this.actionError.set(null);
+    this.validating.set(true);
+    this.service.renvoyer(id, { motif }).subscribe({
+      next: () => {
+        this.actionMessage.set('Interruption renvoyée en correction ; le saisisseur est prévenu.');
+        this.renvoiOuvert.set(false);
+        this.renvoiMotif.set('');
+        this.closeDetail();
+        this.load();
+      },
+      error: (err: Error) => {
+        this.actionError.set(err.message);
+        this.validating.set(false);
+      },
+    });
   }
 
   /** Tension affichée telle que saisie (« 30 kV ») : pas de classement HT/MT implicite. */
@@ -173,6 +224,8 @@ export class ValidationQueueComponent implements OnInit {
   }
 
   closeDetail(): void {
+    this.renvoiOuvert.set(false);
+    this.renvoiMotif.set('');
     this.focusedId.set(null);
     this.detail.set(null);
   }

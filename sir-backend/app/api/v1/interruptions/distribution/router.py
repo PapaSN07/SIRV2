@@ -8,6 +8,12 @@ from app.core.deps import require_permission
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.fis_import import FisImportResponse, FisImportStatsResponse
+from app.schemas.interruption_statut import (
+    ArchivageRequest,
+    ArchivageResponse,
+    MotifRequest,
+    StatutHistoriqueResponse,
+)
 from app.schemas.interruption_distribution import (
     InterruptionDistributionCreate,
     InterruptionClotureRequest,
@@ -42,6 +48,23 @@ def _fis_error(code: int, message: str) -> HTTPException:
         status_code=code,
         detail={"status": "error", "data": None, "error": message},
     )
+
+
+@router.post(
+    "/archiver",
+    response_model=ApiResponse[ArchivageResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Archiver (geler) les interruptions validées d'un mois, après le rapport CRSE",
+)
+async def archiver_mois_distribution(
+    body: ArchivageRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "validate")
+    ),
+) -> ApiResponse[ArchivageResponse]:
+    result = await interruption_distribution_service.archiver_mois(db, body, current_user)
+    return ApiResponse.success(result)
 
 
 @router.post(
@@ -375,6 +398,63 @@ async def cloturer_interruption_distribution(
     ),
 ) -> ApiResponse[InterruptionDistributionResponse]:
     result = await interruption_distribution_service.cloturer(
+        db, interruption_id, body, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/{interruption_id}/historique-statuts",
+    response_model=ApiResponse[list[StatutHistoriqueResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Historique des statuts (saisie, clôture, validation, renvois…)",
+)
+async def historique_statuts_distribution(
+    interruption_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("interruptions_distribution", "read")),
+) -> ApiResponse[list[StatutHistoriqueResponse]]:
+    result = await interruption_distribution_service.historique_statuts(
+        db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.patch(
+    "/{interruption_id}/renvoyer",
+    response_model=ApiResponse[InterruptionDistributionResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Renvoyer en correction une interruption clôturée (Admin SCR, motif obligatoire)",
+)
+async def renvoyer_interruption_distribution(
+    interruption_id: int,
+    body: MotifRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "validate")
+    ),
+) -> ApiResponse[InterruptionDistributionResponse]:
+    result = await interruption_distribution_service.renvoyer_en_correction(
+        db, interruption_id, body, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.patch(
+    "/{interruption_id}/devalider",
+    response_model=ApiResponse[InterruptionDistributionResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Dévalider une interruption validée (Admin SCR, motif obligatoire)",
+)
+async def devalider_interruption_distribution(
+    interruption_id: int,
+    body: MotifRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "validate")
+    ),
+) -> ApiResponse[InterruptionDistributionResponse]:
+    result = await interruption_distribution_service.devalider(
         db, interruption_id, body, current_user
     )
     return ApiResponse.success(result)

@@ -17,6 +17,10 @@ import {
   PosteImpacteFromSigRequest,
   PosteInterruptionCreate,
   WorkflowEtapeUpdate,
+  ArchivageRequest,
+  ArchivageResponse,
+  MotifRequest,
+  StatutHistorique,
 } from '../../../shared/models/interruption.models';
 
 @Injectable({ providedIn: 'root' })
@@ -90,6 +94,33 @@ export class InterruptionDistributionService {
   valider(id: number): Observable<InterruptionDistribution> {
     return this.http
       .patch<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}/valider`, {})
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  /** Admin SCR : clôturée → en cours, motif affiché au saisisseur. */
+  renvoyer(id: number, body: MotifRequest): Observable<InterruptionDistribution> {
+    return this.http
+      .patch<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}/renvoyer`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  /** Admin SCR : validée → clôturée (impossible après archivage). */
+  devalider(id: number, body: MotifRequest): Observable<InterruptionDistribution> {
+    return this.http
+      .patch<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}/devalider`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  historiqueStatuts(id: number): Observable<StatutHistorique[]> {
+    return this.http
+      .get<ApiResponse<StatutHistorique[]>>(`${this.apiUrl}/${id}/historique-statuts`)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  /** Gel des interruptions validées d'un mois, après le rapport mensuel CRSE. */
+  archiverMois(body: ArchivageRequest): Observable<ArchivageResponse> {
+    return this.http
+      .post<ApiResponse<ArchivageResponse>>(`${this.apiUrl}/archiver`, body)
       .pipe(map((res) => this.unwrap(res)));
   }
 

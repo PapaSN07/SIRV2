@@ -21,6 +21,9 @@ from app.models.referentiel import DIRECTION_SOURCE_IDS, STATUT_IDS
 # Valid discriminant values
 TYPE_DIRECTION_VALUES = ("distribution", "transport", "omvg")
 STATUT_VALUES = ("en_cours", "cloture", "valide", "archive")
+# Une interruption archivée (gelée après le rapport mensuel CRSE) reste validée : elle compte partout.
+STATUTS_CLOTURES = ("cloture", "valide", "archive")
+STATUTS_VALIDES = ("valide", "archive")
 
 
 class Interruption(Base):

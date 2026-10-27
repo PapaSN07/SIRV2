@@ -156,7 +156,7 @@
   &__head,
   &__row {
     display: grid;
-    grid-template-columns: 40px 80px 72px minmax(0, 1fr) 140px 100px 150px;
+    grid-template-columns: 40px 80px 72px minmax(0, 1fr) 140px 100px 96px 150px;
     gap: 0.5rem;
     align-items: center;
     padding: 0.75rem 1rem;
@@ -463,4 +463,57 @@
 // Unité affichée telle quelle (kV, pas KV)
 .validation-table__domain {
   text-transform: none;
+}
+
+// Ancienneté dans la file (seuil SENELEC : 24 h)
+.validation-table__wait {
+  font-variant-numeric: tabular-nums;
+  color: $on-surface-variant;
+
+  &--late {
+    color: $error;
+    font-weight: 700;
+  }
+}
+
+.validation-queue__late {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: rgba($error, 0.1);
+  color: $error;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.validation-detail__renvoi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+  }
+}
+
+// Panneau de détail ouvert : tableau resserré sur ce qui sert à décider (n°, date, priorité, attente)
+.validation-main--with-panel {
+  .validation-table__head,
+  .validation-table__row {
+    grid-template-columns: 32px 72px minmax(0, 1fr) 84px 72px;
+  }
+
+  .validation-table__head > :nth-child(3),
+  .validation-table__head > :nth-child(4),
+  .validation-table__head > :nth-child(8),
+  .validation-table__domain,
+  .validation-table__loc,
+  .validation-table__status {
+    display: none;
+  }
 }

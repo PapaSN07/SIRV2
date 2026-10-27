@@ -90,3 +90,19 @@ async def count_clients_workflow(
     postes = int(row[0])
     clients_sum = int(row[1]) if row[1] is not None else None
     return postes, clients_sum if postes > 0 else None
+
+
+async def synchroniser_remise(db: AsyncSession, interruption_id: int, date_remise) -> None:
+    """L'étape « Remise » prend la date de clôture : une seule date de réalimentation."""
+    from app.models.interruption_workflow import ETAPE_REMISE
+
+    etape = (
+        await db.execute(select(EtapeWorkflow).where(EtapeWorkflow.code == ETAPE_REMISE))
+    ).scalar_one_or_none()
+    if etape is None:
+        return
+    existing = await get_workflow(db, interruption_id, etape.id)
+    values = {"date_fin": date_remise}
+    if existing is None or existing.date_debut is None:
+        values["date_debut"] = date_remise
+    await upsert_workflow(db, interruption_id, etape.id, values)

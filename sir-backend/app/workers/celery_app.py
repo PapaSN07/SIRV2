@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.workers.tasks.rapports",
         "app.workers.tasks.notifications",
         "app.workers.tasks.assistant_ml",
+        "app.workers.tasks.alertes",
     ],
 )
 
@@ -22,4 +23,8 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     result_expires=86400,  # 24h
+    # Tâches planifiées : le worker est lancé avec -B (beat intégré, un seul worker)
+    beat_schedule={
+        "alertes-retard-24h": {"task": "alertes_retard_24h", "schedule": 3600.0},
+    },
 )

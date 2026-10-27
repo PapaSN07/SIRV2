@@ -133,7 +133,7 @@ async def calculer_et_persister_end(
     if interruption is None:
         raise ValueError(f"Interruption {interruption_id} introuvable")
 
-    if interruption.statut not in ("cloture", "valide"):
+    if interruption.statut not in ("cloture", "valide", "archive"):
         raise ValueError(
             f"Interruption {interruption_id} non clôturée (statut={interruption.statut})"
         )

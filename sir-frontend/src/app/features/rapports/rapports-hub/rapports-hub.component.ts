@@ -7,6 +7,8 @@ import {
 } from '../../../shared/models/rapports.models';
 import { AnalyticsNavComponent } from '../../../shared/ui/analytics-nav/analytics-nav.component';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
+import { ArchivageResponse } from '../../../shared/models/interruption.models';
+import { InterruptionDistributionService } from '../../interruptions-distribution/services/interruption-distribution.service';
 import { RapportsService } from '../services/rapports.service';
 
 type RapportKind = 'journalier' | 'mensuel_dist' | 'mensuel_trans' | 'annuel';
@@ -21,6 +23,12 @@ type RapportKind = 'journalier' | 'mensuel_dist' | 'mensuel_trans' | 'annuel';
 export class RapportsHubComponent implements OnInit {
   private readonly rapports = inject(RapportsService);
   private readonly auth = inject(AuthService);
+  private readonly interruptions = inject(InterruptionDistributionService);
+
+  /** Archivage du mois après le rapport mensuel CRSE (décision SENELEC du 27/10). */
+  readonly archivageConfirme = signal(false);
+  readonly archivageEnCours = signal(false);
+  readonly archivage = signal<ArchivageResponse | null>(null);
 
   readonly generating = signal(false);
   readonly error = signal<string | null>(null);
@@ -48,7 +56,34 @@ export class RapportsHubComponent implements OnInit {
     return this.auth.hasRole('ADMIN_SAQS');
   }
 
+  canArchiver(): boolean {
+    return this.auth.hasRole('ADMIN_SCR', 'ADMIN_SAQS', 'SUPERADMIN');
+  }
+
+  archiverMois(): void {
+    if (!this.archivageConfirme()) {
+      this.archivageConfirme.set(true);
+      return;
+    }
+    this.archivageEnCours.set(true);
+    this.error.set(null);
+    this.interruptions.archiverMois({ annee: this.annee(), mois: this.mois() }).subscribe({
+      next: (res) => {
+        this.archivage.set(res);
+        this.archivageEnCours.set(false);
+        this.archivageConfirme.set(false);
+      },
+      error: (err: Error) => {
+        this.error.set(err.message);
+        this.archivageEnCours.set(false);
+        this.archivageConfirme.set(false);
+      },
+    });
+  }
+
   setKind(value: RapportKind): void {
+    this.archivageConfirme.set(false);
+    this.archivage.set(null);
     this.kind.set(value);
     this.status.set(null);
     this.error.set(null);

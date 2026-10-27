@@ -65,3 +65,30 @@ def calcul_saifi_saidi_task(
             "calcul_saifi_saidi failed for interruption_id=%s", interruption_id
         )
         raise self.retry(exc=exc, countdown=60, max_retries=3) from exc
+
+
+async def _run_recalcul_periode(service_id: int, annee: int, mois: int) -> dict[str, int | str | None]:
+    from app.services import saifi_saidi_service
+
+    async with WorkerSessionLocal() as db:
+        try:
+            result = await saifi_saidi_service.recalculer_periode(
+                db, service_id=service_id, annee=annee, mois=mois
+            )
+            await db.commit()
+            return result
+        except Exception:
+            await db.rollback()
+            raise
+
+
+@celery_app.task(name="recalcul_saifi_saidi_periode", bind=True)
+def recalcul_saifi_saidi_periode_task(
+    self, service_id: int, annee: int, mois: int
+) -> dict[str, int | str | None]:
+    """Recalcule SAIFI/SAIDI d'un mois de service (après dévalidation d'une interruption)."""
+    try:
+        return asyncio.run(_run_recalcul_periode(service_id, annee, mois))
+    except Exception as exc:
+        logger.exception("recalcul periode failed service=%s %s/%s", service_id, mois, annee)
+        raise self.retry(exc=exc, countdown=60, max_retries=3) from exc

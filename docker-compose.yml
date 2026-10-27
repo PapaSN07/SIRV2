@@ -57,7 +57,7 @@ services:
     build:
       context: ./sir-backend
       target: production
-    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4 -B --schedule /tmp/celerybeat-schedule
     env_file:
       - .env
     depends_on:

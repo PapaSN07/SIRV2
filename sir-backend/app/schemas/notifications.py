@@ -10,6 +10,8 @@ class NotificationEventType(StrEnum):
     INTERRUPTION_CREEE = "interruption_creee"
     INTERRUPTION_CLOTUREE = "interruption_cloturee"
     INTERRUPTION_VALIDEE = "interruption_validee"
+    INTERRUPTION_RENVOYEE = "interruption_renvoyee"
+    INTERRUPTION_ALERTE_24H = "interruption_alerte_24h"
     RAPPORT_PRET = "rapport_pret"
     NAPT_SOUMIS = "napt_soumis"
 

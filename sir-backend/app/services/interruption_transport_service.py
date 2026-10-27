@@ -1,11 +1,16 @@
 """Service métier — interruptions réseau transport (Sprint 4)."""
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac_helpers import is_superadmin
+from app.models.interruption_statut_historique import (
+    ACTION_CLOTURE,
+    ACTION_CREATION,
+    ACTION_VALIDATION,
+)
 from app.models.interruptions import Interruption, InterruptionTransport
 from app.models.utilisateurs import Utilisateur
 from app.repositories import interruption_transport_repository as repo
@@ -13,6 +18,13 @@ from app.repositories import referentiel_repository as ref_repo
 from app.repositories import reseau_transport_repository as reseau_repo
 from app.repositories import end_repository as end_repo
 from app.schemas.common import PaginatedResponse
+from app.schemas.interruption_statut import (
+    ArchivageRequest,
+    ArchivageResponse,
+    MotifRequest,
+    StatutHistoriqueResponse,
+)
+from app.services import interruption_cycle_service
 from app.schemas.interruption_distribution import (
     EnergieNdSummaryResponse,
     InterruptionClotureRequest,
@@ -381,6 +393,9 @@ async def create(
             "equipement_transport_id": body.equipement_transport_id,
         },
     )
+    await interruption_cycle_service.enregistrer(
+        db, interruption, action=ACTION_CREATION, ancien_statut=None, user=current_user
+    )
 
     await db.commit()
 
@@ -591,6 +606,22 @@ def _snapshot_interruption(interruption: Interruption) -> dict[str, object]:
     return snapshot
 
 
+def _ensure_remise_pas_dans_le_futur(date_remise: datetime) -> None:
+    # Tolérance d'horloge de 5 minutes entre le poste de saisie et le serveur
+    remise = date_remise
+    if remise.tzinfo is not None and remise.utcoffset() is not None:
+        remise = remise.astimezone(timezone.utc).replace(tzinfo=None)
+    if remise > datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "La date de remise ne peut pas être dans le futur",
+            },
+        )
+
+
 def _compute_duree_minutes(date_apparition: datetime, date_remise: datetime) -> int:
     delta = date_remise - date_apparition
     minutes = int(delta.total_seconds() // 60)
@@ -719,6 +750,7 @@ async def cloturer(
     _ensure_can_modify(current_user, interruption)
 
     duree_minutes = _compute_duree_minutes(interruption.date_apparition, body.date_remise)
+    _ensure_remise_pas_dans_le_futur(body.date_remise)
 
     old_values = {"statut": interruption.statut, "date_remise": None, "duree_minutes": None}
 
@@ -744,6 +776,9 @@ async def cloturer(
         )
 
     interruption, transport = result
+    await interruption_cycle_service.enregistrer(
+        db, interruption, action=ACTION_CLOTURE, ancien_statut="en_cours", user=current_user
+    )
 
     await log_audit(
         db,
@@ -814,6 +849,9 @@ async def valider(
         )
 
     interruption, transport = result
+    await interruption_cycle_service.enregistrer(
+        db, interruption, action=ACTION_VALIDATION, ancien_statut="cloture", user=current_user
+    )
 
     await log_audit(
         db,
@@ -850,3 +888,45 @@ async def valider(
     )
 
     return _to_response(interruption, transport)
+
+
+# ---------------------------------------------------------------------------
+# Cycle de vie : historique, renvoi en correction, dévalidation, archivage
+# ---------------------------------------------------------------------------
+
+
+async def historique_statuts(
+    db: AsyncSession, interruption_id: int, current_user: Utilisateur
+) -> list[StatutHistoriqueResponse]:
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    return await interruption_cycle_service.historique(db, interruption.id)
+
+
+async def renvoyer_en_correction(
+    db: AsyncSession, interruption_id: int, body: MotifRequest, current_user: Utilisateur
+):
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    await interruption_cycle_service.renvoyer_en_correction(db, interruption, body.motif, current_user)
+    return await get_item(db, interruption_id, current_user)
+
+
+async def devalider(
+    db: AsyncSession, interruption_id: int, body: MotifRequest, current_user: Utilisateur
+):
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    await interruption_cycle_service.devalider(db, interruption, body.motif, current_user)
+    return await get_item(db, interruption_id, current_user)
+
+
+async def archiver_mois(
+    db: AsyncSession, body: ArchivageRequest, current_user: Utilisateur
+) -> ArchivageResponse:
+    _ensure_not_distribution_role(current_user)
+    total = ArchivageResponse(annee=body.annee, mois=body.mois, archivees=0, non_validees_restantes=0)
+    for type_direction in ("transport", "omvg"):
+        res = await interruption_cycle_service.archiver_mois(
+            db, type_direction=type_direction, annee=body.annee, mois=body.mois, user=current_user
+        )
+        total.archivees += res.archivees
+        total.non_validees_restantes += res.non_validees_restantes
+    return total

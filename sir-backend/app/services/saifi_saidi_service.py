@@ -135,7 +135,7 @@ async def calculer_et_persister_saifi_saidi(
             "service_id": None,
         }
 
-    if interruption.statut != "valide":
+    if interruption.statut not in ("valide", "archive"):
         raise ValueError(
             f"Interruption {interruption_id} non validée (statut={interruption.statut})"
         )
@@ -219,3 +219,22 @@ async def get_aggregate_national(
         db, service_ids=service_ids, annee=annee, mois=mois
     )
     return aggregate_saifi_saidi_weighted(records)
+
+
+async def recalculer_periode(
+    db: AsyncSession,
+    *,
+    service_id: int,
+    annee: int,
+    mois: int,
+) -> dict[str, int | str | None]:
+    """Recalcule un mois de service sans partir d'une interruption validée (après une dévalidation)."""
+    await recalculate_service_period(db, service_id=service_id, annee=annee, mois=mois)
+    region_id = await repo.get_region_id_for_service(db, service_id)
+    if region_id is not None:
+        invalidate_indicateurs_cache(
+            region_id,
+            datetime(annee, mois, 1),
+            indicateurs=("saifi", "saidi", "tableau-de-bord"),
+        )
+    return {"status": "calculated", "service_id": service_id, "annee": annee, "mois": mois}

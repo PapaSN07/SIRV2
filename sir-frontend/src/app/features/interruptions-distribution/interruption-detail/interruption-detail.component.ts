@@ -1,14 +1,16 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { HasRoleDirective } from '../../../core/auth/has-role.directive';
 import {
+  ActionStatut,
   InterruptionDistributionDetail,
   InterruptionWorkflow,
   PosteImpacte,
+  StatutHistorique,
   tronconSigIdFromWorkflow,
 } from '../../../shared/models/interruption.models';
 import { Poste } from '../../../shared/models/reseau.models';
@@ -37,6 +39,7 @@ export interface PosteCheckboxRow {
     RouterLink,
     DatePipe,
     DecimalPipe,
+    NgTemplateOutlet,
     HasRoleDirective,
     PageHeaderComponent,
     StatusChipComponent,
@@ -57,7 +60,26 @@ export class InterruptionDetailComponent implements OnInit {
     { key: 'en_cours', label: 'En cours' },
     { key: 'cloture', label: 'Clôturée' },
     { key: 'valide', label: 'Validée' },
+    { key: 'archive', label: 'Archivée' },
   ] as const;
+
+  /** Libellés de la frise des statuts. */
+  readonly actionLabels: Record<ActionStatut, string> = {
+    creation: 'Saisie',
+    cloture: 'Clôturée',
+    validation: 'Validée',
+    renvoi_correction: 'Renvoyée en correction',
+    devalidation: 'Dévalidée',
+    archivage: 'Archivée (rapport mensuel)',
+  };
+
+  readonly historique = signal<StatutHistorique[]>([]);
+  /** Renvoi / dévalidation : formulaire de motif ouvert. */
+  readonly motifAction = signal<'renvoi' | 'devalidation' | null>(null);
+  readonly motifSaving = signal(false);
+  readonly motifForm = this.fb.nonNullable.group({
+    motif: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(1000)]],
+  });
 
   readonly item = signal<InterruptionDistributionDetail | null>(null);
   readonly workflow = signal<InterruptionWorkflow | null>(null);
@@ -129,9 +151,71 @@ export class InterruptionDetailComponent implements OnInit {
     () => this.item()?.postes_impactes.length ?? 0,
   );
 
+  /** Renvoi en correction et dévalidation : Admin SCR (décision SENELEC du 27/10). */
+  readonly canCorriger = computed(() => this.auth.hasRole('ADMIN_SCR', 'SUPERADMIN'));
+
+  /** Dernier renvoi en correction, affiché en tête tant que l'interruption est à corriger. */
+  readonly dernierRenvoi = computed((): StatutHistorique | null => {
+    if (this.item()?.statut !== 'en_cours') return null;
+    const h = this.historique();
+    const last = h.at(-1);
+    return last?.action === 'renvoi_correction' ? last : null;
+  });
+
+  /** Date de remise maximale acceptée (pas de date future). */
+  readonly maxRemise = this.toDatetimeLocal(new Date(Date.now() + 5 * 60000).toISOString());
+
+  /** Contrôles affichés avant la clôture, au lieu d'une erreur après le clic. */
+  readonly clotureChecks = computed(() => {
+    const it = this.item();
+    const remise = this.clotureRemise();
+    const minutes =
+      it && remise
+        ? Math.floor((new Date(remise).getTime() - new Date(it.date_apparition).getTime()) / 60000)
+        : null;
+    const etapes = this.workflow()?.etapes ?? [];
+    const etapesFaites = etapes.filter((e) => e.etat === 'terminee').length;
+    return [
+      {
+        ok: minutes !== null && minutes > 0 && new Date(remise).getTime() <= Date.now() + 5 * 60000,
+        label:
+          minutes === null
+            ? 'Date de remise à saisir'
+            : minutes <= 0
+              ? "Date de remise antérieure à l'apparition"
+              : new Date(remise).getTime() > Date.now() + 5 * 60000
+                ? 'Date de remise dans le futur'
+                : `Durée : ${minutes} min`,
+        bloquant: true,
+      },
+      {
+        ok: minutes === null || minutes <= 5 || this.postesCheckedCount() > 0,
+        label: `${this.postesCheckedCount()} poste(s) impacté(s) coché(s)${
+          minutes !== null && minutes > 5 ? ' — au moins 1 exigé au-delà de 5 min' : ''
+        }`,
+        bloquant: true,
+      },
+      {
+        ok: etapes.length > 0 && etapesFaites === etapes.length,
+        label: `${etapesFaites}/${etapes.length} étapes terrain renseignées`,
+        bloquant: false,
+      },
+    ];
+  });
+
+  readonly clotureBloquee = computed(() =>
+    this.clotureChecks().some((c) => c.bloquant && !c.ok),
+  );
+
+  private readonly clotureRemise = signal('');
+
   readonly clotureForm = this.fb.nonNullable.group({
     date_remise: ['', Validators.required],
   });
+
+  constructor() {
+    this.clotureForm.controls.date_remise.valueChanges.subscribe((v) => this.clotureRemise.set(v));
+  }
 
   ngOnInit(): void {
     if (!this.auth.currentUser()) {
@@ -284,6 +368,62 @@ export class InterruptionDetailComponent implements OnInit {
     });
   }
 
+  /** L'étape « Remise » du workflow pré-remplit la date de clôture (une seule date). */
+  private prefillRemise(workflow: InterruptionWorkflow): void {
+    const remise = workflow.etapes.find((e) => e.code === 'remise')?.date_fin;
+    if (remise && !this.clotureForm.controls.date_remise.value) {
+      this.clotureForm.controls.date_remise.setValue(this.toDatetimeLocal(remise));
+    }
+  }
+
+  private loadHistorique(id: number): void {
+    this.service.historiqueStatuts(id).subscribe({
+      next: (h) => this.historique.set(h),
+      error: () => this.historique.set([]),
+    });
+  }
+
+  private toDatetimeLocal(iso: string): string {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  ouvrirMotif(action: 'renvoi' | 'devalidation'): void {
+    this.motifForm.reset();
+    this.actionError.set(null);
+    this.motifAction.set(action);
+  }
+
+  annulerMotif(): void {
+    this.motifAction.set(null);
+  }
+
+  confirmerMotif(): void {
+    const it = this.item();
+    const action = this.motifAction();
+    if (!it || !action) return;
+    if (this.motifForm.invalid) {
+      this.motifForm.markAllAsTouched();
+      return;
+    }
+    const body = { motif: this.motifForm.getRawValue().motif.trim() };
+    this.motifSaving.set(true);
+    const call =
+      action === 'renvoi' ? this.service.renvoyer(it.id, body) : this.service.devalider(it.id, body);
+    call.subscribe({
+      next: () => {
+        this.motifSaving.set(false);
+        this.motifAction.set(null);
+        this.load(it.id);
+      },
+      error: (err: Error) => {
+        this.motifSaving.set(false);
+        this.actionError.set(err.message);
+      },
+    });
+  }
+
   valider(): void {
     const it = this.item();
     if (!it) return;
@@ -321,6 +461,8 @@ export class InterruptionDetailComponent implements OnInit {
         this.workflow.set(workflow);
         this.loading.set(false);
         this.workflowLoading.set(false);
+        this.prefillRemise(workflow);
+        this.loadHistorique(id);
         if (detail.feeder_id) {
           this.loadPostesCatalog(detail.feeder_id);
         } else {

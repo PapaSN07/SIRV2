@@ -36,6 +36,7 @@ from app.models.interruptions import (  # noqa: F401
     PosteInterruption,
 )
 from app.models.interruption_workflow import EtapeWorkflow, Workflow  # noqa: F401
+from app.models.interruption_statut_historique import InterruptionStatutHistorique  # noqa: F401
 from app.models.indicateurs import EnergieNd, NombreClientMois, ObjectifIndicateur, SaifiSaidi  # noqa: F401
 from app.models.napt import Consignation, Napt  # noqa: F401
 from app.models.notifications import Destinataire, EmailEnvoye, SmsEnvoye  # noqa: F401
@@ -48,6 +49,7 @@ from app.models.assistant_ml import (  # noqa: F401
 )
 
 __all__ = [
+    "InterruptionStatutHistorique",
     # Geo
     "Region",
     "Delegation",

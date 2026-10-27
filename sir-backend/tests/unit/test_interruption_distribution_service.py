@@ -21,6 +21,18 @@ from app.services import interruption_distribution_service as svc
 pytestmark = pytest.mark.asyncio
 
 
+
+@pytest.fixture(autouse=True)
+def _cycle_de_vie_neutre():
+    """Historique des statuts et étape « Remise » : hors du périmètre de ces tests unitaires."""
+    with patch(
+        "app.services.interruption_cycle_service.enregistrer", new_callable=AsyncMock
+    ), patch(
+        "app.repositories.interruption_workflow_repository.synchroniser_remise",
+        new_callable=AsyncMock,
+    ):
+        yield
+
 def _make_bcc(scope_service_id: int = 1) -> Utilisateur:
     role = Role()
     role.id = 1

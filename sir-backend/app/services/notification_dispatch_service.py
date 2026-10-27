@@ -23,6 +23,8 @@ _SMS_EVENTS = frozenset(
         NotificationEventType.INTERRUPTION_CREEE,
         NotificationEventType.INTERRUPTION_CLOTUREE,
         NotificationEventType.INTERRUPTION_VALIDEE,
+        NotificationEventType.INTERRUPTION_RENVOYEE,
+        NotificationEventType.INTERRUPTION_ALERTE_24H,
     }
 )
 
@@ -59,9 +61,33 @@ async def _resolve_destinataires(
             return [virtual]
         return []
 
+    destinataires: list[Destinataire] = []
+    if event_type == NotificationEventType.INTERRUPTION_RENVOYEE and extra.get("user_id"):
+        # Le saisisseur est prévenu en premier : c'est à lui de corriger
+        createur = await utilisateur_repository.get_by_id(db, int(extra["user_id"]))
+        if createur is not None:
+            linked = await dest_repo.get_by_utilisateur_id(db, createur.id)
+            if linked is not None:
+                destinataires.append(linked)
+            elif createur.email:
+                destinataires.append(
+                    Destinataire(
+                        id=0,
+                        nom=f"{createur.prenom} {createur.nom}",
+                        telephone=createur.telephone,
+                        email=createur.email,
+                        utilisateur_id=createur.id,
+                        service_id=service_id,
+                        is_active=True,
+                    )
+                )
     if service_id is None:
-        return []
-    return await dest_repo.list_active_for_service(db, service_id)
+        return destinataires
+    deja = {d.id for d in destinataires if d.id}
+    destinataires += [
+        d for d in await dest_repo.list_active_for_service(db, service_id) if d.id not in deja
+    ]
+    return destinataires
 
 
 async def dispatch_event(

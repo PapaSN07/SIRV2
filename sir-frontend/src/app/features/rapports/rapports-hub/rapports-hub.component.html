@@ -107,6 +107,42 @@
           }
         </article>
       }
+
+      @if (kind() === 'mensuel_dist' && canArchiver()) {
+        <article class="rapports-archive">
+          <h3>
+            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+            Archiver le mois {{ mois().toString().padStart(2, '0') }}/{{ annee() }}
+          </h3>
+          <p>
+            Une fois le rapport mensuel CRSE transmis, gelez les interruptions validées de ce mois :
+            elles ne pourront plus être dévalidées. Les interruptions non validées restent modifiables.
+          </p>
+          @if (archivage(); as a) {
+            <p class="rapports-archive__result" role="status">
+              {{ a.archivees }} interruption(s) archivée(s).
+              @if (a.non_validees_restantes > 0) {
+                {{ a.non_validees_restantes }} interruption(s) du mois ne sont pas encore validées.
+              }
+            </p>
+          }
+          <button
+            type="button"
+            class="sir-btn"
+            [class.sir-btn--outline-primary]="!archivageConfirme()"
+            [class.sir-btn--primary]="archivageConfirme()"
+            [disabled]="archivageEnCours()"
+            (click)="archiverMois()"
+          >
+            {{ archivageConfirme() ? 'Confirmer l’archivage (définitif)' : 'Archiver le mois' }}
+          </button>
+          @if (archivageConfirme()) {
+            <button type="button" class="sir-btn sir-btn--outline-primary" (click)="archivageConfirme.set(false)">
+              Annuler
+            </button>
+          }
+        </article>
+      }
     </div>
   </div>
 </section>

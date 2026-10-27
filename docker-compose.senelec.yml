@@ -47,7 +47,7 @@ services:
         condition: service_healthy
     volumes:
       - ./sir-backend:/app
-    command: celery -A app.workers.celery_app worker --loglevel=debug --concurrency=2
+    command: celery -A app.workers.celery_app worker --loglevel=debug --concurrency=2 -B --schedule /tmp/celerybeat-schedule
 
   frontend:
     build:

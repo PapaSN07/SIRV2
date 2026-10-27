@@ -131,6 +131,9 @@ class InterruptionDistributionResponse(BaseModel):
     type_reseau_libelle: str | None = None
     region_libelle: str | None = None
 
+    # Renseignée dans les listes pour les interruptions clôturées (file de validation)
+    date_cloture: datetime | None = None
+
     model_config = {"from_attributes": True}
 
 

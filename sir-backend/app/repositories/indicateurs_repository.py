@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Service
 from app.models.indicateurs import EnergieNd, SaifiSaidi
-from app.models.interruptions import Interruption, InterruptionDistribution
+from app.models.interruptions import Interruption, InterruptionDistribution, STATUTS_CLOTURES
 from app.models.referentiel import Cause, Nature
 from app.models.reseau import Feeder
 from app.repositories import saifi_saidi_repository as saifi_repo
@@ -72,7 +72,7 @@ async def aggregate_end_by_services(
         .where(
             Interruption.service_id.in_(service_ids),
             Interruption.type_direction == "distribution",
-            Interruption.statut.in_(("cloture", "valide")),
+            Interruption.statut.in_(STATUTS_CLOTURES),
             Interruption.is_force_majeure == False,  # noqa: E712
             Interruption.date_remise.isnot(None),
             extract("year", Interruption.date_remise) == annee,
@@ -103,7 +103,7 @@ async def aggregate_end_by_services(
         .join(EnergieNd, EnergieNd.interruption_id == Interruption.id)
         .where(
             Interruption.service_id.in_(service_ids),
-            Interruption.statut.in_(("cloture", "valide")),
+            Interruption.statut.in_(STATUTS_CLOTURES),
             EnergieNd.est_force_majeure == False,  # noqa: E712
             Interruption.date_remise.isnot(None),
             extract("year", Interruption.date_remise) == annee,
@@ -160,7 +160,7 @@ async def aggregate_end_by_feeders(
             Interruption.type_direction == "distribution",
             Interruption.feeder_id.isnot(None),
             Interruption.service_id.in_(service_ids),
-            Interruption.statut.in_(("cloture", "valide")),
+            Interruption.statut.in_(STATUTS_CLOTURES),
             Interruption.is_force_majeure == False,  # noqa: E712
             Interruption.date_remise.isnot(None),
             extract("year", Interruption.date_remise) == annee,
@@ -304,7 +304,7 @@ async def aggregate_interruptions_by_nature(
         .where(
             Interruption.type_direction == "distribution",
             Interruption.service_id.in_(service_ids),
-            Interruption.statut.in_(("cloture", "valide")),
+            Interruption.statut.in_(STATUTS_CLOTURES),
             extract("year", Interruption.date_apparition) == annee,
             extract("month", Interruption.date_apparition) == mois,
         )
@@ -357,7 +357,7 @@ async def aggregate_interruptions_by_nature_and_service(
         .where(
             Interruption.type_direction == "distribution",
             Interruption.service_id.in_(service_ids),
-            Interruption.statut.in_(("cloture", "valide")),
+            Interruption.statut.in_(STATUTS_CLOTURES),
             extract("year", Interruption.date_apparition) == annee,
             extract("month", Interruption.date_apparition) == mois,
         )

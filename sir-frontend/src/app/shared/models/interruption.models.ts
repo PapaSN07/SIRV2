@@ -4,6 +4,8 @@ export type OuvertureInterruption = 'ouvert' | 'ferme';
 
 export interface InterruptionDistribution {
   id: number;
+  /** Listes : date de clôture des interruptions en attente de validation. */
+  date_cloture?: string | null;
   numero_interruption: number;
   type_direction: 'distribution';
   direction_source_id?: number | null;
@@ -231,4 +233,40 @@ export const ETAPE_TRONCONNEMENT = 'tronconnement';
 
 export function tronconSigIdFromWorkflow(wf: InterruptionWorkflow | null): number | null {
   return wf?.etapes.find((e) => e.code === ETAPE_TRONCONNEMENT)?.troncon_sig_id ?? null;
+}
+
+/** Cycle de vie : une ligne par changement de statut (frise de la fiche). */
+export type ActionStatut =
+  | 'creation'
+  | 'cloture'
+  | 'validation'
+  | 'renvoi_correction'
+  | 'devalidation'
+  | 'archivage';
+
+export interface StatutHistorique {
+  id: number;
+  action: ActionStatut;
+  ancien_statut: StatutInterruption | null;
+  nouveau_statut: StatutInterruption;
+  motif: string | null;
+  utilisateur_id: number;
+  utilisateur_nom: string | null;
+  created_at: string;
+}
+
+export interface MotifRequest {
+  motif: string;
+}
+
+export interface ArchivageRequest {
+  annee: number;
+  mois: number;
+}
+
+export interface ArchivageResponse {
+  annee: number;
+  mois: number;
+  archivees: number;
+  non_validees_restantes: number;
 }

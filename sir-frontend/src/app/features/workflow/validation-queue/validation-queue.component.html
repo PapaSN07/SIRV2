@@ -7,6 +7,9 @@
           Chargement…
         } @else {
           {{ total() }} interruption(s) clôturée(s) en attente de validation.
+          @if (enRetardCount() > 0) {
+            <span class="validation-queue__late">{{ enRetardCount() }} depuis plus de 24 h sur cette page</span>
+          }
         }
       </p>
     </div>
@@ -102,6 +105,7 @@
           <span>Localisation</span>
           <span>Apparition</span>
           <span>Priorité</span>
+          <span>En attente</span>
           <span>Durée · END</span>
         </div>
 
@@ -141,6 +145,13 @@
                 <span class="priority-badge priority-badge--{{ priority(item) }}">
                   {{ priorityLabel(priority(item)) }}
                 </span>
+              </span>
+              <span
+                class="validation-table__wait"
+                [class.validation-table__wait--late]="enAttente(item).retard"
+                [title]="enAttente(item).retard ? 'Clôturée depuis plus de 24 h' : 'Temps depuis la clôture'"
+              >
+                {{ enAttente(item).label }}
               </span>
               <span class="validation-table__status">
                 {{ item.duree_minutes !== null ? item.duree_minutes + ' min' : '—' }}
@@ -206,6 +217,16 @@
               >
                 Voir le détail complet
               </a>
+              @if (canRenvoyer() && !renvoiOuvert()) {
+                <button
+                  type="button"
+                  class="sir-btn sir-btn--outline-primary"
+                  [disabled]="validating()"
+                  (click)="renvoiOuvert.set(true)"
+                >
+                  Renvoyer en correction
+                </button>
+              }
               <button
                 type="button"
                 class="sir-btn sir-btn--primary"
@@ -215,6 +236,32 @@
                 Valider
               </button>
             </div>
+            @if (renvoiOuvert()) {
+              <div class="validation-detail__renvoi">
+                <label class="field__label" for="vq-motif">Motif du renvoi (envoyé au saisisseur)</label>
+                <textarea
+                  id="vq-motif"
+                  class="field__select"
+                  rows="3"
+                  placeholder="Ex. : feeder erroné, postes impactés manquants…"
+                  [value]="renvoiMotif()"
+                  (input)="onRenvoiMotifInput($event)"
+                ></textarea>
+                <div class="validation-detail__actions">
+                  <button type="button" class="sir-btn sir-btn--outline-primary" (click)="renvoiOuvert.set(false)">
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    class="sir-btn sir-btn--primary"
+                    [disabled]="validating() || renvoiMotif().trim().length < 5"
+                    (click)="renvoyer(detailId)"
+                  >
+                    Confirmer le renvoi
+                  </button>
+                </div>
+              </div>
+            }
           </div>
           }
         }

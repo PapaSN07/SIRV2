@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Region, Service
 from app.models.indicateurs import NombreClientMois, ObjectifIndicateur
-from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
+from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption, STATUTS_CLOTURES
 from app.models.reseau import Feeder, Poste, Troncon
 from app.models.sig import NoeudSig, TronconSig
 
-_CLOSED = ("cloture", "valide")
+_CLOSED = STATUTS_CLOTURES
 
 
 @dataclass(frozen=True)
@@ -106,7 +106,6 @@ async def compter_defauts(
         select(func.count(Interruption.id)).where(
             Interruption.service_id.in_(service_ids),
             Interruption.type_direction == "distribution",
-            Interruption.statut != "archive",
             Interruption.is_force_majeure == False,  # noqa: E712
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
@@ -291,7 +290,6 @@ async def list_postes_impactes(
         .where(
             Interruption.service_id.in_(service_ids),
             Interruption.type_direction == "distribution",
-            Interruption.statut != "archive",
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
         )
@@ -441,7 +439,6 @@ async def top_postes(
         .where(
             Interruption.service_id.in_(service_ids),
             Interruption.type_direction == "distribution",
-            Interruption.statut != "archive",
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
         )
@@ -577,7 +574,6 @@ async def serie_mensuelle(
         )
         .where(
             Interruption.type_direction == "distribution",
-            Interruption.statut != "archive",
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
         )

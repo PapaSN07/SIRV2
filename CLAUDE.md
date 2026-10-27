@@ -133,6 +133,10 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | Juin 2026 | Référentiels unifiés — une seule table `causes` avec `type_reseau` | Validé |
 | Juin 2026 | Scope RBAC dans `user_roles.scope_service_id` | Validé |
 | Juin 2026 | Mode de migration Big Bang vs Progressif | **En attente** |
+| 27/10/2026 | Renvoi en correction et dévalidation : Admin SCR (distribution) / Admin Dispatching (transport), motif obligatoire | Validé |
+| 27/10/2026 | Une même personne peut saisir et valider une interruption | Validé |
+| 27/10/2026 | Archivage (gel) des interruptions validées du mois après le rapport mensuel CRSE | Validé |
+| 27/10/2026 | Alertes : en cours > 24 h, clôturée non validée > 24 h | Validé |
 
 ---
 
@@ -167,6 +171,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Contexte** : Assistant (`/api/v1/assistant/risk`) en erreur 500 sur SQL Server ; tests verts car SQLite accepte `IS 1`.
 **Erreur** : `colonne.is_(True)` est compilé en `colonne IS 1` par le dialecte mssql → « Syntaxe incorrecte vers '1' ». Côté écran, le message brut « Http failure response for … » s'affichait.
 **Règles** : écrire `colonne == true()` (import `from sqlalchemy import true`), jamais `.is_(True)` / `.is_(False)` — un test (`tests/unit/test_sql_server_booleens.py`) le vérifie ; l'intercepteur `error.interceptor.ts` remplace `err.message` par un message français (texte métier de l'API ou message selon le code HTTP).
+
+### 27/10/2026 — Statut « archive » exclu des indicateurs
+**Contexte** : mise en service du statut Archivée (gel après le rapport CRSE).
+**Erreur** : le pilotage filtrait `statut != 'archive'` et SAIFI/SAIDI ne prenaient que `statut == 'valide'` : archiver un mois l'aurait fait disparaître des indicateurs.
+**Règle** : une interruption archivée reste validée ; filtrer avec `STATUTS_CLOTURES` / `STATUTS_VALIDES` (`app/models/interruptions.py`), jamais avec une liste de statuts écrite à la main.
 
 ---
 
