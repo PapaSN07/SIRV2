@@ -64,12 +64,28 @@
               <div class="workflow-form__grid">
                 <label class="field">
                   <span class="field__label">Début</span>
-                  <input class="field__input" type="datetime-local" formControlName="date_debut" />
+                  <input
+                    class="field__input"
+                    type="datetime-local"
+                    formControlName="date_debut"
+                    [min]="minDebut()"
+                    [max]="maxDate()"
+                  />
                 </label>
                 <label class="field">
                   <span class="field__label">Fin</span>
-                  <input class="field__input" type="datetime-local" formControlName="date_fin" />
+                  <input
+                    class="field__input"
+                    type="datetime-local"
+                    formControlName="date_fin"
+                    [min]="minFin()"
+                    [max]="maxDate()"
+                    [class.field__input--error]="erreurDates()"
+                  />
                 </label>
+                @if (erreurDates(); as e) {
+                  <p class="workflow-dates-error" role="alert">{{ e }}</p>
+                }
                 <label class="field">
                   <span class="field__label">Matricule responsable</span>
                   <input class="field__input" type="number" min="1" formControlName="responsable_matricule" />
@@ -148,7 +164,7 @@
                   }
                 </p>
               }
-              <button type="submit" class="sir-btn sir-btn--primary workflow-save" [disabled]="saving()">Enregistrer l'étape</button>
+              <button type="submit" class="sir-btn sir-btn--primary workflow-save" [disabled]="saving() || !!erreurDates()">Enregistrer l'étape</button>
             </form>
           } @else {
             <dl class="workflow-dl">

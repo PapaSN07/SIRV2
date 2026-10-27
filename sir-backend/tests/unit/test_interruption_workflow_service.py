@@ -89,7 +89,16 @@ def test_compute_etats_without_date_fin_does_not_lock_next() -> None:
 
 @pytest.fixture
 def interruption() -> SimpleNamespace:
-    return SimpleNamespace(id=1, statut="en_cours", localisation=None)
+    return SimpleNamespace(
+        id=1, statut="en_cours", localisation=None, date_apparition=datetime(2026, 6, 12, 8, 0)
+    )
+
+
+@pytest.fixture(autouse=True)
+def _aucune_etape_enregistree():
+    """Par défaut, l'étape n'a pas encore de dates en base."""
+    with patch(f"{_SVC}.workflow_repo.get_workflow", AsyncMock(return_value=None)) as get_wf:
+        yield get_wf
 
 
 def _patch_common(interruption: SimpleNamespace, rows: list[Workflow]):
@@ -149,3 +158,38 @@ async def test_update_etape_active_strips_troncon_fields(interruption: SimpleNam
     values = upsert.await_args.args[3]
     assert values == {"observation": "PDM appelé"}
     db.commit.assert_awaited_once()
+
+
+async def test_fin_seule_comparee_au_debut_enregistre(interruption, _aucune_etape_enregistree) -> None:
+    """Saisie de la fin seule : comparée à la date de début déjà enregistrée."""
+    _aucune_etape_enregistree.return_value = SimpleNamespace(
+        date_debut=datetime(2026, 6, 12, 10, 0), date_fin=None
+    )
+    patches = _patch_common(interruption, [])
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+        with pytest.raises(HTTPException) as exc:
+            await svc.update_etape(
+                MagicMock(), 1, 3, WorkflowEtapeUpdate(date_fin=datetime(2026, 6, 12, 9, 0)), MagicMock(id=7)
+            )
+    assert exc.value.status_code == 422
+    assert "antérieure" in exc.value.detail["error"]
+
+
+async def test_date_avant_apparition_refusee(interruption) -> None:
+    patches = _patch_common(interruption, [])
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+        with pytest.raises(HTTPException) as exc:
+            await svc.update_etape(
+                MagicMock(), 1, 3, WorkflowEtapeUpdate(date_debut=datetime(2026, 6, 12, 7, 0)), MagicMock(id=7)
+            )
+    assert "apparition" in exc.value.detail["error"]
+
+
+async def test_fin_egale_au_debut_acceptee(interruption) -> None:
+    db = MagicMock()
+    db.commit = AsyncMock()
+    patches = _patch_common(interruption, [])
+    t = datetime(2026, 6, 12, 9, 0)
+    with patches[0], patches[1], patches[2], patches[3], patches[4] as upsert, patches[5], patches[6]:
+        await svc.update_etape(db, 1, 3, WorkflowEtapeUpdate(date_debut=t, date_fin=t), MagicMock(id=7))
+    upsert.assert_awaited_once()

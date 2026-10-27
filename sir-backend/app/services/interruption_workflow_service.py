@@ -4,7 +4,7 @@ Les étapes peuvent être renseignées dans n'importe quel ordre : une étape
 précédente sans date de fin ne bloque pas la suivante.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -201,6 +201,52 @@ async def _validate_troncons(db: AsyncSession, body: WorkflowEtapeUpdate) -> Non
             )
 
 
+def _naif_utc(value: datetime | None) -> datetime | None:
+    """Dates reçues en ISO « Z » ou naïves (DATETIME2) : on compare tout en UTC naïf."""
+    if value is None:
+        return None
+    if value.tzinfo is not None and value.utcoffset() is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _verifier_dates_etape(
+    body: WorkflowEtapeUpdate,
+    existant: Workflow | None,
+    interruption,
+    libelle: str,
+) -> None:
+    """Sur chaque étape : fin ≥ début, rien avant l'apparition, rien dans le futur.
+
+    Une saisie partielle (seulement la fin, ou seulement le début) est comparée à la date
+    déjà enregistrée pour l'autre borne.
+    """
+    champs = body.model_fields_set
+    debut = _naif_utc(body.date_debut if "date_debut" in champs else (existant.date_debut if existant else None))
+    fin = _naif_utc(body.date_fin if "date_fin" in champs else (existant.date_fin if existant else None))
+    if debut and fin and fin < debut:
+        raise _error(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"{libelle} : la date de fin ({fin:%d/%m/%Y %H:%M}) ne peut pas être antérieure "
+            f"à la date de début ({debut:%d/%m/%Y %H:%M})",
+        )
+    apparition = _naif_utc(interruption.date_apparition)
+    for nom, valeur in (("début", debut), ("fin", fin)):
+        if valeur is None:
+            continue
+        if apparition and valeur < apparition:
+            raise _error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"{libelle} : la date de {nom} ne peut pas précéder l'apparition de l'interruption "
+                f"({apparition:%d/%m/%Y %H:%M})",
+            )
+        if valeur > datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5):
+            raise _error(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"{libelle} : la date de {nom} ne peut pas être dans le futur",
+            )
+
+
 async def get_workflow(
     db: AsyncSession,
     interruption_id: int,
@@ -232,11 +278,8 @@ async def update_etape(
     if etape is None:
         raise _error(status.HTTP_404_NOT_FOUND, f"Étape workflow {etape_id} introuvable")
 
-    if body.date_debut and body.date_fin and body.date_fin < body.date_debut:
-        raise _error(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "La date de fin doit être postérieure à la date de début",
-        )
+    existant = await workflow_repo.get_workflow(db, interruption_id, etape.id)
+    _verifier_dates_etape(body, existant, interruption, etape.libelle_etape_workflow)
 
     values = body.model_dump(exclude_unset=True)
     if etape.code == ETAPE_TRONCONNEMENT:

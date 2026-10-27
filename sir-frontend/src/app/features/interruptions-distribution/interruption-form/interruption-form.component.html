@@ -366,6 +366,7 @@
         [canEdit]="canEditWorkflow()"
         [interruptionId]="id"
         [feederId]="detailFeederId()"
+        [dateApparition]="form.controls.date_apparition.value || null"
         (saved)="onWorkflowSaved()"
       />
     }

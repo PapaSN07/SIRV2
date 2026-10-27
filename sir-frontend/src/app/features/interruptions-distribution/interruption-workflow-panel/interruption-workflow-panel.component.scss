@@ -249,3 +249,15 @@
   align-self: flex-end;
   width: auto;
 }
+
+.workflow-dates-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: $error;
+}
+
+.field__input--error {
+  border-color: $error !important;
+}

@@ -55,6 +55,35 @@ export class InterruptionWorkflowPanelComponent {
   readonly canEdit = input(false);
   readonly interruptionId = input.required<number>();
   readonly feederId = input<number | null>(null);
+  /** Aucune date d'étape ne peut précéder l'apparition de l'interruption. */
+  readonly dateApparition = input<string | null>(null);
+
+  /** Dates saisies dans le formulaire de l'étape (suivies pour un contrôle immédiat). */
+  private readonly saisieDates = signal<{ debut: string; fin: string }>({ debut: '', fin: '' });
+
+  readonly minDebut = computed(() => toDatetimeLocal(this.dateApparition()));
+  readonly maxDate = computed(() => toDatetimeLocal(new Date(Date.now() + 5 * 60000).toISOString()));
+  /** La fin ne peut pas précéder le début ; le début ne peut pas précéder l'apparition. */
+  readonly minFin = computed(() => this.saisieDates().debut || this.minDebut());
+
+  readonly erreurDates = computed((): string | null => {
+    const { debut, fin } = this.saisieDates();
+    const apparition = this.dateApparition() ? new Date(this.dateApparition()!).getTime() : null;
+    const t = (v: string) => (v ? new Date(v).getTime() : null);
+    const tDebut = t(debut);
+    const tFin = t(fin);
+    const futur = Date.now() + 5 * 60000;
+    if (tDebut !== null && tFin !== null && tFin < tDebut) {
+      return 'La date de fin ne peut pas être antérieure à la date de début.';
+    }
+    if (apparition !== null && ((tDebut !== null && tDebut < apparition) || (tFin !== null && tFin < apparition))) {
+      return "Une date d'étape ne peut pas précéder l'apparition de l'interruption.";
+    }
+    if ((tDebut !== null && tDebut > futur) || (tFin !== null && tFin > futur)) {
+      return 'Une date d\'étape ne peut pas être dans le futur.';
+    }
+    return null;
+  });
 
   readonly saved = output<void>();
 
@@ -102,6 +131,9 @@ export class InterruptionWorkflowPanelComponent {
   });
 
   constructor() {
+    this.etapeForm.valueChanges.subscribe((v) =>
+      this.saisieDates.set({ debut: v.date_debut ?? '', fin: v.date_fin ?? '' }),
+    );
     effect(
       () => {
         const etapes = this.visibleEtapes();
@@ -233,7 +265,7 @@ export class InterruptionWorkflowPanelComponent {
 
   saveEtape(): void {
     const etape = this.currentEtape();
-    if (!etape) return;
+    if (!etape || this.erreurDates()) return;
     const raw = this.etapeForm.getRawValue();
     const body: WorkflowEtapeUpdate = {
       date_debut: fromDatetimeLocal(raw.date_debut),
