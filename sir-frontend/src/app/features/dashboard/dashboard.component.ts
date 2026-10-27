@@ -85,6 +85,14 @@ interface ServiceBar {
 
 const MONTH_LABELS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
 
+const MONTH_NAMES = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
+
+/** Première année proposée dans le sélecteur de période (historique SIR v1 migré). */
+const PREMIERE_ANNEE = 2010;
+
 const CAUSE_COLORS = ['#3c1053', '#ad1457', '#f4811f', '#c62828', '#5a1a72'];
 
 @Component({
@@ -140,16 +148,23 @@ export class DashboardComponent implements OnInit {
 
   readonly periode = signal(this.currentPeriode());
 
-  readonly periodeOptions = computed(() => {
-    const options: { value: string; label: string }[] = [];
-    const now = new Date();
-    for (let i = 0; i < 6; i += 1) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      options.push({ value, label: `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` });
-    }
-    return options;
+  readonly periodeAnnee = computed(() => Number(this.periode().slice(0, 4)));
+  readonly periodeMois = computed(() => Number(this.periode().slice(5, 7)));
+
+  /** Années proposées : de l'année en cours jusqu'au début de l'historique. */
+  readonly anneeOptions = computed(() => {
+    const courante = new Date().getFullYear();
+    return Array.from({ length: courante - PREMIERE_ANNEE + 1 }, (_, i) => courante - i);
   });
+
+  /** Mois de l'année choisie ; les mois futurs ne sont pas proposés. */
+  readonly moisOptions = computed(() => {
+    const now = new Date();
+    const dernier = this.periodeAnnee() === now.getFullYear() ? now.getMonth() + 1 : 12;
+    return MONTH_NAMES.slice(0, dernier).map((label, i) => ({ value: i + 1, label }));
+  });
+
+  readonly isPeriodeCourante = computed(() => this.periode() === this.currentPeriode());
 
   /** Répartition par cause — données API tableau de bord. */
   readonly causeRepartition = computed((): CauseRepartitionItem[] => {
@@ -253,9 +268,34 @@ export class DashboardComponent implements OnInit {
   }
 
   onPeriodeChange(value: string): void {
+    if (value === this.periode()) return;
     this.periode.set(value);
     this.loadDashboard();
     this.loadPilotage();
+  }
+
+  onAnneeChange(valeur: string): void {
+    const annee = Number(valeur);
+    const now = new Date();
+    // Année en cours : on ne dépasse pas le mois actuel
+    const mois = annee === now.getFullYear() ? Math.min(this.periodeMois(), now.getMonth() + 1) : this.periodeMois();
+    this.onPeriodeChange(`${annee}-${String(mois).padStart(2, '0')}`);
+  }
+
+  onMoisChange(valeur: string): void {
+    this.onPeriodeChange(`${this.periodeAnnee()}-${valeur.padStart(2, '0')}`);
+  }
+
+  /** Décale la période d'un mois (−1 = précédent, +1 = suivant), bornée à l'historique et au mois courant. */
+  decalerPeriode(delta: -1 | 1): void {
+    const d = new Date(this.periodeAnnee(), this.periodeMois() - 1 + delta, 1);
+    const now = new Date();
+    if (d.getFullYear() < PREMIERE_ANNEE || d > now) return;
+    this.onPeriodeChange(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  peutReculer(): boolean {
+    return !(this.periodeAnnee() === PREMIERE_ANNEE && this.periodeMois() === 1);
   }
 
   canCreateInterruption(): boolean {
@@ -446,10 +486,10 @@ export class DashboardComponent implements OnInit {
         }),
       ),
       stats: this.interruptionService.stats().pipe(catchError(() => of(null))),
-      saidi: this.dashboardService.getHistorique('saidi', 1).pipe(
+      saidi: this.dashboardService.getHistorique('saidi', 1, undefined, this.periode()).pipe(
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
-      saifi: this.dashboardService.getHistorique('saifi', 1).pipe(
+      saifi: this.dashboardService.getHistorique('saifi', 1, undefined, this.periode()).pipe(
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
     }).subscribe({
@@ -570,10 +610,12 @@ export class DashboardComponent implements OnInit {
     const months =
       sortedKeys.length > 0
         ? sortedKeys.slice(-12).map((key) => {
-            const [, mois] = key.split('-').map(Number);
+            const [annee, mois] = key.split('-').map(Number);
+            const nom = MONTH_LABELS[mois - 1] ?? String(mois);
             return {
               key,
-              label: MONTH_LABELS[mois - 1] ?? String(mois),
+              // Janvier porte l'année : repère quand la courbe chevauche deux années
+              label: mois === 1 ? `${nom} ${String(annee).slice(2)}` : nom,
               saidi: saidiMap.get(key) ?? 0,
               saifi: saifiMap.get(key) ?? 0,
             };
@@ -598,6 +640,8 @@ export class DashboardComponent implements OnInit {
       saifiHeight: Math.round((month.saifi / maxSaifi) * 100),
     }));
   }
+
+  readonly currentPeriodeValue = this.currentPeriode();
 
   private currentPeriode(): string {
     const d = new Date();

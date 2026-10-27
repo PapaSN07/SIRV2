@@ -35,9 +35,12 @@ export class IndicateursService {
     type: IndicateurHistoriqueType,
     annees = 1,
     regionId?: number,
+    fin?: string,
   ): Observable<HistoriqueResponse> {
     let params = new HttpParams().set('type', type).set('annees', annees);
     if (regionId) params = params.set('region_id', regionId);
+    // fin (AAAA-MM) : dernier mois de la série ; par défaut le mois courant
+    if (fin) params = params.set('fin', fin);
     return this.http
       .get<ApiResponse<HistoriqueResponse>>(`${this.apiUrl}/historique`, { params })
       .pipe(map((res) => this.unwrap(res)));

@@ -159,6 +159,9 @@ async def get_historique(
     type: Literal["end", "saifi", "saidi"] = Query(..., description="Type d'indicateur"),
     annees: int = Query(1, ge=1, le=3, description="Nombre d'années (max 3)"),
     region_id: int | None = Query(None, ge=1, description="Région (admins nationaux)"),
+    fin: str | None = Query(
+        None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="Dernier mois de la série (AAAA-MM)"
+    ),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
     current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
@@ -170,6 +173,7 @@ async def get_historique(
         indicateur_type=type,
         annees=annees,
         region_id=region_id,
+        fin=fin,
     )
     return ApiResponse.success(result)
 

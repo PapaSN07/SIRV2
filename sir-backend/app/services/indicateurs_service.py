@@ -665,7 +665,9 @@ async def get_historique(
     indicateur_type: str,
     annees: int = 1,
     region_id: int | None = None,
+    fin: str | None = None,
 ) -> HistoriqueResponse:
+    """Série mensuelle sur `annees` ans, se terminant au mois `fin` (AAAA-MM, défaut : mois courant)."""
     if indicateur_type not in _HISTORIQUE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -678,13 +680,25 @@ async def get_historique(
 
     clamped_annees = max(1, min(annees, _MAX_HISTORIQUE_ANNEES))
     scope = _resolve_scope(user, region_id=region_id)
+    end: datetime | None = None
+    if fin:
+        try:
+            end = datetime.strptime(fin, "%Y-%m")
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"status": "error", "data": None, "error": "fin invalide : format AAAA-MM attendu"},
+            ) from None
+        if end > datetime.now():
+            end = None  # mois futur : on s'arrête au mois courant
+            fin = None
 
     async def _loader() -> dict:
         if scope.niveau == "service" and scope.scope_id is not None:
             check_service_scope(user, scope.scope_id)
         service_ids = await _load_service_ids(db, scope)
         points: list[HistoriquePointResponse] = []
-        for point_annee, point_mois in _iter_months_back(clamped_annees):
+        for point_annee, point_mois in _iter_months_back(clamped_annees, end=end):
             valeur = await _historique_valeur_for_month(
                 db,
                 indicateur_type=indicateur_type,
@@ -713,6 +727,7 @@ async def get_historique(
         scope.cache_region_id,
         clamped_annees,
         _loader,
+        fin=fin,
     )
     return HistoriqueResponse.model_validate(cached)
 

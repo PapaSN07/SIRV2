@@ -22,8 +22,11 @@ def build_cache_key(indicateur_type: str, region_id: int, annee: int, mois: int)
     return f"indicateurs:{indicateur_type}:{region_id}:{annee}:{mois}"
 
 
-def build_historique_cache_key(indicateur_type: str, region_id: int, annees: int) -> str:
-    return f"indicateurs:historique:{indicateur_type}:{region_id}:{annees}"
+def build_historique_cache_key(
+    indicateur_type: str, region_id: int, annees: int, fin: str | None = None
+) -> str:
+    base = f"indicateurs:historique:{indicateur_type}:{region_id}:{annees}"
+    return f"{base}:{fin}" if fin else base
 
 
 def build_top_feeders_cache_key(region_id: int, annee: int, mois: int, limit: int) -> str:
@@ -96,9 +99,10 @@ async def get_or_load_historique(
     region_id: int,
     annees: int,
     loader: Callable[[], Awaitable[T]],
+    fin: str | None = None,
 ) -> T:
-    """Cache-aside pour séries historiques mensuelles."""
-    key = build_historique_cache_key(indicateur_type, region_id, annees)
+    """Cache-aside pour séries historiques mensuelles (fin = mois « AAAA-MM » de la série)."""
+    key = build_historique_cache_key(indicateur_type, region_id, annees, fin)
     cached = await get_cached(redis, key)
     if cached is not None:
         return cached

@@ -20,14 +20,44 @@
       }
     </div>
     <div class="dashboard__actions">
-      <label class="dashboard__period">
-        <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
-        <select [value]="periode()" (change)="onPeriodeChange($any($event.target).value)" aria-label="Période">
-          @for (p of periodeOptions(); track p.value) {
-            <option [value]="p.value" [selected]="p.value === periode()">{{ p.label }}</option>
+      <div class="dashboard__period" role="group" aria-label="Période affichée">
+        <button
+          type="button"
+          class="dashboard__period-step"
+          (click)="decalerPeriode(-1)"
+          [disabled]="!peutReculer()"
+          aria-label="Mois précédent"
+          title="Mois précédent"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+        </button>
+        <span class="material-symbols-outlined dashboard__period-icon" aria-hidden="true">calendar_today</span>
+        <select (change)="onMoisChange($any($event.target).value)" aria-label="Mois">
+          @for (m of moisOptions(); track m.value) {
+            <option [value]="m.value" [selected]="m.value === periodeMois()">{{ m.label }}</option>
           }
         </select>
-      </label>
+        <select (change)="onAnneeChange($any($event.target).value)" aria-label="Année">
+          @for (a of anneeOptions(); track a) {
+            <option [value]="a" [selected]="a === periodeAnnee()">{{ a }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          class="dashboard__period-step"
+          (click)="decalerPeriode(1)"
+          [disabled]="isPeriodeCourante()"
+          aria-label="Mois suivant"
+          title="Mois suivant"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        </button>
+        @if (!isPeriodeCourante()) {
+          <button type="button" class="dashboard__period-today" (click)="onPeriodeChange(currentPeriodeValue)">
+            Mois en cours
+          </button>
+        }
+      </div>
       @if (canCreateInterruption()) {
         <a class="btn btn--primary" routerLink="/interruptions/distribution/nouveau">
           <span class="material-symbols-outlined" aria-hidden="true">add</span>
