@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,7 +22,7 @@ from app.schemas.common import PaginatedResponse
 async def list_roles(db: AsyncSession) -> list[RoleDetailResponse]:
     result = await db.execute(
         select(Role)
-        .where(Role.is_active.is_(True))
+        .where(Role.is_active == true())
         .options(
             selectinload(Role.role_permissions)
             .selectinload(RolePermission.permission)

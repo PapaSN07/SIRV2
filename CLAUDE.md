@@ -163,6 +163,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : les tâches Celery (un `asyncio.run()` par tâche) partageaient le pool de connexions de l'API ; l'image Docker copiait `/dist` alors que le builder Angular `application` écrit dans `/dist/browser` (site introuvable) ; un `effect()` écrivait un signal sans `allowSignalWrites` (NG0600, toast temps réel jamais affiché) ; nginx limitait les envois à 1 Mo (import FIS refusé).
 **Règles** : tâche Celery → `app.workers.db.WorkerSessionLocal` (NullPool), jamais `app.core.database` ; tout `effect()` qui écrit un signal déclare `{ allowSignalWrites: true }` ; tester l'image de production (build + nginx) et pas seulement `ng serve`.
 
+### 27/10/2026 — Booléens SQL Server (`IS 1`) et messages d'erreur HTTP
+**Contexte** : Assistant (`/api/v1/assistant/risk`) en erreur 500 sur SQL Server ; tests verts car SQLite accepte `IS 1`.
+**Erreur** : `colonne.is_(True)` est compilé en `colonne IS 1` par le dialecte mssql → « Syntaxe incorrecte vers '1' ». Côté écran, le message brut « Http failure response for … » s'affichait.
+**Règles** : écrire `colonne == true()` (import `from sqlalchemy import true`), jamais `.is_(True)` / `.is_(False)` — un test (`tests/unit/test_sql_server_booleens.py`) le vérifie ; l'intercepteur `error.interceptor.ts` remplace `err.message` par un message français (texte métier de l'API ou message selon le code HTTP).
+
 ---
 
 *Dernière mise à jour : Juin 2026*

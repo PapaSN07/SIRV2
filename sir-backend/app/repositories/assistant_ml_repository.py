@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assistant_ml import AssistantConversation, MlFeatureSnapshot, MlPrediction
@@ -159,7 +159,7 @@ async def deactivate_predictions(
             MlPrediction.entity_type == entity_type,
             MlPrediction.horizon_days == horizon_days,
             MlPrediction.model_version == model_version,
-            MlPrediction.is_active.is_(True),
+            MlPrediction.is_active == true(),
         )
         .values(is_active=False)
     )
@@ -188,7 +188,7 @@ async def list_active_predictions(
 ) -> list[MlPrediction]:
     stmt = (
         select(MlPrediction)
-        .where(MlPrediction.is_active.is_(True))
+        .where(MlPrediction.is_active == true())
         .order_by(MlPrediction.risk_score.desc(), MlPrediction.calculated_at.desc())
         .offset(0)
         .limit(limit)
@@ -220,7 +220,7 @@ async def get_latest_feeder_prediction(
     stmt = (
         select(MlPrediction)
         .where(
-            MlPrediction.is_active.is_(True),
+            MlPrediction.is_active == true(),
             MlPrediction.entity_type == "feeder",
             MlPrediction.entity_id == feeder_id,
         )

@@ -1,6 +1,6 @@
 """Repository — destinataires notifications."""
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Agence, Delegation, Service
@@ -82,7 +82,7 @@ def build_list_query(
 async def list_active_for_service(db: AsyncSession, service_id: int) -> list[Destinataire]:
     result = await db.execute(
         select(Destinataire).where(
-            Destinataire.is_active.is_(True),
+            Destinataire.is_active == true(),
             Destinataire.service_id == service_id,
         )
     )
@@ -93,7 +93,7 @@ async def get_by_utilisateur_id(db: AsyncSession, utilisateur_id: int) -> Destin
     result = await db.execute(
         select(Destinataire).where(
             Destinataire.utilisateur_id == utilisateur_id,
-            Destinataire.is_active.is_(True),
+            Destinataire.is_active == true(),
         )
     )
     return result.scalar_one_or_none()
