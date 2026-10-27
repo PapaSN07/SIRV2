@@ -14,24 +14,27 @@
       <p class="sidebar__tagline">Gestion du réseau</p>
     </div>
 
-    <nav class="sidebar__nav">
-      @for (item of navItems(); track item.route) {
-        @if (item.enabled) {
-          <a
-            class="sidebar__link"
-            [routerLink]="item.route"
-            routerLinkActive="sidebar__link--active"
-            [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
-            (click)="closeMenu()"
-          >
-            <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
-          </a>
-        } @else {
-          <span class="sidebar__link sidebar__link--disabled">
-            <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
-          </span>
+    <nav class="sidebar__nav" aria-label="Menu principal">
+      @for (section of navSections(); track section.title) {
+        <p class="sidebar__section">{{ section.title }}</p>
+        @for (item of section.items; track item.route) {
+          @if (item.enabled) {
+            <a
+              class="sidebar__link"
+              [routerLink]="item.route"
+              routerLinkActive="sidebar__link--active"
+              [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+              (click)="closeMenu()"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </a>
+          } @else {
+            <span class="sidebar__link sidebar__link--disabled">
+              <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </span>
+          }
         }
       }
     </nav>

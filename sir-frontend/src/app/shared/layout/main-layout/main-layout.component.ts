@@ -16,6 +16,11 @@ interface NavItem {
   exact?: boolean;
 }
 
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
 @Component({
   selector: 'sir-main-layout',
   standalone: true,
@@ -51,7 +56,7 @@ export class MainLayoutComponent implements OnDestroy {
         route: '/interruptions/distribution',
         enabled: true,
       },
-      { label: 'Workflow', icon: 'assignment', route: '/workflow/validation', enabled: true },
+      { label: 'Validation', icon: 'fact_check', route: '/workflow/validation', enabled: true },
       { label: 'Assistant', icon: 'psychology', route: '/assistant', enabled: true },
       { label: 'Rapports', icon: 'assessment', route: '/rapports', enabled: true },
       { label: 'Administration', icon: 'admin_panel_settings', route: '/admin/referentiel', enabled: true },
@@ -66,6 +71,18 @@ export class MainLayoutComponent implements OnDestroy {
       });
     }
     return items;
+  });
+
+  /** Menu regroupé par usage : repères visuels pour parcourir la liste plus vite. */
+  readonly navSections = computed<NavSection[]>(() => {
+    const byRoute = new Map(this.navItems().map((item) => [item.route, item]));
+    const pick = (...routes: string[]) =>
+      routes.map((r) => byRoute.get(r)).filter((item): item is NavItem => !!item);
+    return [
+      { title: 'Exploitation', items: pick('/', '/interruptions/distribution', '/workflow/validation') },
+      { title: 'Analyse', items: pick('/rapports', '/assistant', '/notifications/sms') },
+      { title: 'Administration', items: pick('/admin/referentiel', '/admin/utilisateurs') },
+    ].filter((section) => section.items.length > 0);
   });
 
   constructor() {
