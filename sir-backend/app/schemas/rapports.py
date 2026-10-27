@@ -19,6 +19,16 @@ class RapportJournalierRequest(BaseModel):
     output_format: Literal["pdf", "xlsx"] = Field("pdf", alias="format")
 
 
+class RapportHebdomadaireRequest(BaseModel):
+    """Semaine du lundi contenant `date_debut` (défaut : semaine précédente)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    date_debut: DateType | None = None
+    region_id: int | None = Field(None, ge=1)
+    output_format: Literal["pdf", "xlsx"] = Field("pdf", alias="format")
+
+
 class RapportEnqueueResponse(BaseModel):
     task_id: str
     type_rapport: str

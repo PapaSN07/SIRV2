@@ -7,6 +7,7 @@ import { ApiResponse } from '../../../shared/models/api.models';
 import {
   RapportAnnuelParams,
   RapportEnqueueResponse,
+  RapportHebdomadaireRequest,
   RapportJournalierRequest,
   RapportMensuelParams,
   RapportStatusResponse,
@@ -21,6 +22,12 @@ export class RapportsService {
   enqueueJournalier(body: RapportJournalierRequest): Observable<RapportEnqueueResponse> {
     return this.http
       .post<ApiResponse<RapportEnqueueResponse>>(`${this.apiUrl}/journalier`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  enqueueHebdomadaire(body: RapportHebdomadaireRequest): Observable<RapportEnqueueResponse> {
+    return this.http
+      .post<ApiResponse<RapportEnqueueResponse>>(`${this.apiUrl}/hebdomadaire`, body)
       .pipe(map((res) => this.unwrap(res)));
   }
 

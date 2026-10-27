@@ -65,3 +65,26 @@ async def update_statut(
         record.error_message = error_message
     await db.flush()
     return record
+
+
+async def get_compte_systeme(db: AsyncSession):
+    """Compte national (Admin SAQS, sinon super-administrateur) au nom duquel tournent les rapports planifiés."""
+    from sqlalchemy import true
+    from sqlalchemy.orm import selectinload
+
+    from app.models.utilisateurs import Role, UserRole, Utilisateur
+
+    for role_nom in ("ADMIN_SAQS", "SUPERADMIN"):
+        result = await db.execute(
+            select(Utilisateur)
+            .join(UserRole, UserRole.utilisateur_id == Utilisateur.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .options(selectinload(Utilisateur.user_roles).selectinload(UserRole.role))
+            .where(Role.nom == role_nom, Utilisateur.is_active == true())
+            .order_by(Utilisateur.id)
+            .limit(1)
+        )
+        user = result.scalars().first()
+        if user is not None:
+            return user
+    return None

@@ -11,7 +11,7 @@ import { ArchivageResponse } from '../../../shared/models/interruption.models';
 import { InterruptionDistributionService } from '../../interruptions-distribution/services/interruption-distribution.service';
 import { RapportsService } from '../services/rapports.service';
 
-type RapportKind = 'journalier' | 'mensuel_dist' | 'mensuel_trans' | 'annuel';
+type RapportKind = 'journalier' | 'hebdomadaire' | 'mensuel_dist' | 'mensuel_trans' | 'annuel';
 
 @Component({
   selector: 'sir-rapports-hub',
@@ -115,6 +115,17 @@ export class RapportsHubComponent implements OnInit {
             region_id: this.regionId(),
             format: fmt,
           })
+          .subscribe({
+            next: (r) => onEnqueue(r.task_id),
+            error: (err: Error) => {
+              this.error.set(err.message);
+              this.generating.set(false);
+            },
+          });
+        break;
+      case 'hebdomadaire':
+        this.rapports
+          .enqueueHebdomadaire({ date_debut: this.date(), region_id: this.regionId(), format: fmt })
           .subscribe({
             next: (r) => onEnqueue(r.task_id),
             error: (err: Error) => {

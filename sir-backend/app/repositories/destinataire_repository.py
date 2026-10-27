@@ -97,3 +97,17 @@ async def get_by_utilisateur_id(db: AsyncSession, utilisateur_id: int) -> Destin
         )
     )
     return result.scalar_one_or_none()
+
+
+async def list_actifs_avec_email(db: AsyncSession) -> list[Destinataire]:
+    """Destinataires des rapports planifiés : actifs et joignables par e-mail."""
+    result = await db.execute(
+        select(Destinataire)
+        .where(
+            Destinataire.is_active == true(),
+            Destinataire.email.is_not(None),
+            Destinataire.email != "",
+        )
+        .order_by(Destinataire.id)
+    )
+    return list(result.scalars().all())

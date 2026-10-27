@@ -32,7 +32,7 @@ def export_journalier_xlsx(path: Path, data: JournalierReportData) -> None:
 
     summary = workbook.active
     summary.title = "Synthèse"
-    summary["A1"] = f"Rapport journalier — {data.report_date.isoformat()}"
+    summary["A1"] = data.titre_periode
     summary["A2"] = f"Périmètre : {_journalier_scope_label(data)}"
     summary["A3"] = f"Interruptions : {data.nombre_interruptions}"
     summary["A4"] = f"END cumulée (MWh) : {data.end_cumulee_mwh:.4f}"

@@ -4,8 +4,10 @@ import asyncio
 import logging
 import smtplib
 from datetime import datetime
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,15 +17,21 @@ from app.repositories import email_repository as repo
 logger = logging.getLogger(__name__)
 
 
-def _send_smtp_sync(*, to_email: str, sujet: str, corps: str) -> None:
+def _send_smtp_sync(
+    *, to_email: str, sujet: str, corps: str, piece_jointe: Path | None = None
+) -> None:
     if not settings.smtp_host:
         raise RuntimeError("SMTP non configuré")
 
-    message = MIMEMultipart("alternative")
+    message = MIMEMultipart("mixed" if piece_jointe else "alternative")
     message["Subject"] = sujet
     message["From"] = settings.smtp_user or "sir@senelec.sn"
     message["To"] = to_email
     message.attach(MIMEText(corps, "html", "utf-8"))
+    if piece_jointe is not None:
+        part = MIMEApplication(piece_jointe.read_bytes(), Name=piece_jointe.name)
+        part["Content-Disposition"] = f'attachment; filename="{piece_jointe.name}"'
+        message.attach(part)
 
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
         if settings.smtp_user:
@@ -49,6 +57,19 @@ async def send_direct(*, to_email: str, sujet: str, corps: str) -> dict[str, str
         raise RuntimeError(str(exc)) from exc
 
 
+async def _piece_jointe(db: AsyncSession, record) -> Path | None:
+    """Les e-mails de rapports planifiés (entity_type « rapport ») portent le fichier généré."""
+    if record.entity_type != "rapport" or record.entity_id is None:
+        return None
+    from app.repositories import rapport_repository
+
+    rapport = await rapport_repository.get_by_id(db, record.entity_id)
+    if rapport is None or not rapport.file_path:
+        return None
+    path = Path(rapport.file_path)
+    return path if path.is_file() else None
+
+
 async def send_email_record(db: AsyncSession, email_id: int) -> dict[str, str]:
     record = await repo.get_by_id(db, email_id)
     if record is None:
@@ -64,6 +85,7 @@ async def send_email_record(db: AsyncSession, email_id: int) -> dict[str, str]:
         )
         return {"statut": "echec"}
 
+    piece_jointe = await _piece_jointe(db, record)
     try:
         if settings.smtp_host:
             await asyncio.to_thread(
@@ -71,6 +93,7 @@ async def send_email_record(db: AsyncSession, email_id: int) -> dict[str, str]:
                 to_email=destinataire.email,
                 sujet=record.sujet,
                 corps=record.corps,
+                piece_jointe=piece_jointe,
             )
         else:
             logger.warning(

@@ -137,6 +137,8 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | 27/10/2026 | Une même personne peut saisir et valider une interruption | Validé |
 | 27/10/2026 | Archivage (gel) des interruptions validées du mois après le rapport mensuel CRSE | Validé |
 | 27/10/2026 | Alertes : en cours > 24 h, clôturée non validée > 24 h | Validé |
+| 27/10/2026 | Aucune étape terrain obligatoire avant clôture (le BCC contrôle à distance) | Validé |
+| 27/10/2026 | Rapports envoyés par e-mail aux destinataires de Notifications : hebdomadaire le lundi 8 h, mensuel le 1er à 8 h (heure de Dakar) | Validé |
 
 ---
 

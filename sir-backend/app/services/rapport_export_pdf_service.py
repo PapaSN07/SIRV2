@@ -34,7 +34,7 @@ def export_journalier_pdf(path: Path, data: JournalierReportData) -> None:
     y = height - 40
 
     pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(40, y, f"Rapport journalier SIR — {data.report_date.isoformat()}")
+    pdf.drawString(40, y, data.titre_periode)
     y -= 20
     pdf.setFont("Helvetica", 10)
     pdf.drawString(40, y, f"Périmètre : {_journalier_scope_label(data)}")
@@ -69,7 +69,9 @@ def export_journalier_pdf(path: Path, data: JournalierReportData) -> None:
         pdf.drawString(col_x[0], y, str(row.numero_interruption))
         pdf.drawString(col_x[1], y, row.type_direction[:12])
         pdf.drawString(col_x[2], y, row.statut)
-        pdf.drawString(col_x[3], y, row.date_apparition.strftime("%H:%M"))
+        pdf.drawString(
+            col_x[3], y, row.date_apparition.strftime("%d/%m %H:%M" if data.multi_jours else "%H:%M")
+        )
         pdf.drawString(col_x[4], y, str(reseau)[:28])
         pdf.drawString(col_x[5], y, f"{row.end_mwh:.4f}")
         pdf.drawString(col_x[6], y, str(row.nombre_clients or "-"))

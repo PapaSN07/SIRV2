@@ -16,6 +16,9 @@
         <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'journalier'" (click)="setKind('journalier')">
           Journalier
         </button>
+        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'hebdomadaire'" (click)="setKind('hebdomadaire')">
+          Hebdomadaire
+        </button>
         <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_dist'" (click)="setKind('mensuel_dist')">
           Mensuel distribution
         </button>
@@ -32,6 +35,13 @@
 
     <div class="rapports-form">
       <h2>Paramètres</h2>
+      @if (kind() === 'hebdomadaire' || kind() === 'mensuel_dist') {
+        <p class="rapports-auto">
+          <span class="material-symbols-outlined" aria-hidden="true">schedule_send</span>
+          Envoi automatique par e-mail aux destinataires de Notifications :
+          {{ kind() === 'hebdomadaire' ? 'chaque lundi à 8 h (semaine précédente)' : 'le 1er du mois à 8 h (mois précédent)' }}.
+        </p>
+      }
 
       <div class="field">
         <label class="field__label" for="format">Format</label>
@@ -41,10 +51,13 @@
         </select>
       </div>
 
-      @if (kind() === 'journalier') {
+      @if (kind() === 'journalier' || kind() === 'hebdomadaire') {
         <div class="field">
-          <label class="field__label" for="date">Date</label>
+          <label class="field__label" for="date">{{ kind() === 'hebdomadaire' ? 'Un jour de la semaine voulue' : 'Date' }}</label>
           <input id="date" class="field__select" type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
+          @if (kind() === 'hebdomadaire') {
+            <p class="rapports-hint">Le rapport couvre la semaine du lundi au dimanche contenant cette date.</p>
+          }
         </div>
       } @else {
         <div class="form-row">

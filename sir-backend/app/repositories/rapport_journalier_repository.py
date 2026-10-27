@@ -13,9 +13,10 @@ from app.models.interruptions import Interruption, InterruptionTransport
 from app.models.reseau import Feeder
 
 
-def _day_bounds(report_date: date) -> tuple[datetime, datetime]:
+def _day_bounds(report_date: date, date_fin: date | None = None) -> tuple[datetime, datetime]:
+    """Du début de `report_date` à la fin de `date_fin` (inclus) — un jour si pas de fin."""
     start = datetime.combine(report_date, datetime.min.time())
-    end = start + timedelta(days=1)
+    end = datetime.combine(date_fin or report_date, datetime.min.time()) + timedelta(days=1)
     return start, end
 
 
@@ -75,8 +76,9 @@ async def list_interruptions_for_day(
     service_id: int | None = None,
     region_id: int | None = None,
     include_transport: bool = False,
+    date_fin: date | None = None,
 ) -> list[JournalierInterruptionRow]:
-    start, end = _day_bounds(report_date)
+    start, end = _day_bounds(report_date, date_fin)
     type_values = ["distribution"]
     if include_transport:
         type_values.extend(["transport", "omvg"])
@@ -141,8 +143,9 @@ async def aggregate_feeders_for_day(
     report_date: date,
     service_id: int | None = None,
     region_id: int | None = None,
+    date_fin: date | None = None,
 ) -> list[JournalierFeederRow]:
-    start, end = _day_bounds(report_date)
+    start, end = _day_bounds(report_date, date_fin)
 
     query = (
         select(

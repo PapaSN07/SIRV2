@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import settings
 
@@ -12,6 +13,7 @@ celery_app = Celery(
         "app.workers.tasks.notifications",
         "app.workers.tasks.assistant_ml",
         "app.workers.tasks.alertes",
+        "app.workers.tasks.rapports_planifies",
     ],
 )
 
@@ -26,5 +28,16 @@ celery_app.conf.update(
     # Tâches planifiées : le worker est lancé avec -B (beat intégré, un seul worker)
     beat_schedule={
         "alertes-retard-24h": {"task": "alertes_retard_24h", "schedule": 3600.0},
+        # Heure de Dakar (timezone ci-dessus) — décision SENELEC du 27/10/2026
+        "rapport-hebdomadaire-lundi-8h": {
+            "task": "rapports_planifies",
+            "schedule": crontab(hour=8, minute=0, day_of_week=1),
+            "args": ("hebdomadaire",),
+        },
+        "rapport-mensuel-1er-8h": {
+            "task": "rapports_planifies",
+            "schedule": crontab(hour=8, minute=0, day_of_month=1),
+            "args": ("mensuel_distribution",),
+        },
     },
 )

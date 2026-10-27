@@ -10,6 +10,13 @@ export interface RapportJournalierRequest {
   format?: RapportFormat;
 }
 
+/** Semaine du lundi qui contient `date_debut` (défaut : semaine précédente). */
+export interface RapportHebdomadaireRequest {
+  date_debut?: string;
+  region_id?: number | null;
+  format?: RapportFormat;
+}
+
 export interface RapportEnqueueResponse {
   task_id: string;
   type_rapport: string;

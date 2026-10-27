@@ -19,6 +19,7 @@ from app.models.utilisateurs import Utilisateur
 from app.repositories import rapport_repository as repo
 from app.schemas.rapports import (
     RapportEnqueueResponse,
+    RapportHebdomadaireRequest,
     RapportJournalierRequest,
     RapportStatusResponse,
 )
@@ -266,6 +267,61 @@ async def enqueue_journalier(
     )
 
 
+def semaine_precedente(reference: date) -> tuple[date, date]:
+    """Lundi et dimanche de la semaine qui précède `reference`."""
+    lundi = reference - timedelta(days=reference.weekday() + 7)
+    return lundi, lundi + timedelta(days=6)
+
+
+async def enqueue_hebdomadaire(
+    db: AsyncSession,
+    user: Utilisateur,
+    body: RapportHebdomadaireRequest,
+) -> RapportEnqueueResponse:
+    """Rapport sur 7 jours (lundi → dimanche) : même contenu que le journalier, sur la semaine."""
+    from app.workers.tasks.rapports import generer_rapport_task
+
+    _assert_distribution_rapport_role(user)
+    if body.date_debut is not None:
+        lundi = body.date_debut - timedelta(days=body.date_debut.weekday())
+        dimanche = lundi + timedelta(days=6)
+    else:
+        lundi, dimanche = semaine_precedente(date.today())
+    region_id = _resolve_region_id(user, body.region_id)
+    roles = _user_role_names(user)
+    service_id: int | None = None
+    if roles.intersection(_SERVICE_ROLES):
+        service_id = user.user_roles[0].scope_service_id
+    include_transport = (is_superadmin(user) or "ADMIN_SAQS" in roles) and region_id is None
+    task_id = str(uuid.uuid4())
+    record = await repo.create_rapport(
+        db,
+        task_id=task_id,
+        type_rapport="hebdomadaire",
+        format=body.output_format,
+        user_id=user.id,
+        region_id=region_id,
+        params_json=json.dumps(
+            {
+                "date": lundi.isoformat(),
+                "date_fin": dimanche.isoformat(),
+                "region_id": region_id,
+                "service_id": service_id,
+                "include_transport": include_transport,
+            }
+        ),
+        expires_at=_expires_at(),
+    )
+    await db.commit()
+    generer_rapport_task.delay(record.id)
+    return RapportEnqueueResponse(
+        task_id=task_id,
+        type_rapport=record.type_rapport,
+        statut=record.statut,
+        format=record.format,
+    )
+
+
 async def enqueue_mensuel_distribution(
     db: AsyncSession,
     user: Utilisateur,
@@ -483,7 +539,10 @@ async def resolve_download(
     return path, record.file_name, media_type
 
 
-async def execute_generation(db: AsyncSession, rapport_id: int) -> dict[str, str]:
+async def execute_generation(
+    db: AsyncSession, rapport_id: int, *, notifier: bool = True
+) -> dict[str, str]:
+    """Génère le fichier. `notifier=False` : envoi planifié, les e-mails partent avec la pièce jointe."""
     from redis.asyncio import from_url
 
     record = await repo.get_by_id(db, rapport_id)
@@ -502,13 +561,14 @@ async def execute_generation(db: AsyncSession, rapport_id: int) -> dict[str, str
         file_name = f"{record.type_rapport}_{record.task_id}.{extension}"
         file_path = storage_dir / file_name
 
-        if record.type_rapport == "journalier" and report_date is not None:
+        if record.type_rapport in ("journalier", "hebdomadaire") and report_date is not None:
             data = await rapport_journalier_service.collect_journalier_data(
                 db,
                 report_date=report_date,
                 region_id=params.get("region_id"),
                 service_id=params.get("service_id"),
                 include_transport=bool(params.get("include_transport")),
+                date_fin=date.fromisoformat(params["date_fin"]) if params.get("date_fin") else None,
             )
             export_journalier(file_path, format=record.format, data=data)
         elif record.type_rapport == "mensuel_distribution":
@@ -562,7 +622,8 @@ async def execute_generation(db: AsyncSession, rapport_id: int) -> dict[str, str
             file_path=str(file_path),
             file_name=file_name,
         )
-        await _notify_rapport_ready(record)
+        if notifier:
+            await _notify_rapport_ready(record)
         return {"task_id": record.task_id, "statut": "success"}
     except Exception as exc:
         await repo.update_statut(
