@@ -40,6 +40,26 @@
         }
       </div>
 
+      @if (dernierRenvoi(); as renvoi) {
+        <div class="renvoi-banner" role="status">
+          <span class="material-symbols-outlined" aria-hidden="true">undo</span>
+          <div>
+            <p class="renvoi-banner__title">
+              Renvoyée en correction{{ renvoi.utilisateur_nom ? ' par ' + renvoi.utilisateur_nom : '' }}
+              le {{ renvoi.created_at | date: 'dd/MM/yyyy à HH:mm' }}
+            </p>
+            <p class="renvoi-banner__motif">{{ renvoi.motif }}</p>
+            <p class="renvoi-banner__hint">Corrigez la saisie puis clôturez à nouveau.</p>
+          </div>
+        </div>
+      }
+      @if (it.statut === 'archive') {
+        <div class="archive-banner" role="status">
+          <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+          <p>Archivée après le rapport mensuel CRSE : cette interruption est gelée et ne peut plus être modifiée ni dévalidée.</p>
+        </div>
+      }
+
       <div class="detail-bento">
         <div class="detail-bento__main">
           <div class="detail-grid">
@@ -96,7 +116,7 @@
               <form class="cloture-form" [formGroup]="clotureForm" (ngSubmit)="cloturer()">
                 <div class="field">
                   <label class="field__label" for="date-remise">Date de remise</label>
-                  <input id="date-remise" class="field__select" type="datetime-local" formControlName="date_remise" />
+                  <input id="date-remise" class="field__select" type="datetime-local" formControlName="date_remise" [max]="maxRemise" />
                 </div>
                 <button type="submit" class="sir-btn sir-btn--primary" [disabled]="clotureForm.invalid">Clôturer</button>
               </form>
@@ -109,9 +129,54 @@
                 <span class="material-symbols-outlined" aria-hidden="true">verified</span>
                 <h2>Validation chef d'unité</h2>
               </header>
-              <button type="button" class="sir-btn sir-btn--primary" (click)="valider()">Valider l'interruption</button>
+              <div class="decision-actions">
+                <button type="button" class="sir-btn sir-btn--primary" (click)="valider()">Valider l'interruption</button>
+                @if (canCorriger() && motifAction() !== 'renvoi') {
+                  <button type="button" class="sir-btn sir-btn--outline-primary" (click)="ouvrirMotif('renvoi')">
+                    Renvoyer en correction
+                  </button>
+                }
+              </div>
+              @if (motifAction() === 'renvoi') {
+                <ng-container [ngTemplateOutlet]="motifTpl" />
+              }
             </article>
           }
+
+          @if (it.statut === 'valide' && canCorriger()) {
+            <article class="detail-card detail-card--full detail-card--action">
+              <header class="detail-card__head">
+                <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                <h2>Dévalider</h2>
+              </header>
+              <p class="form-hint">L'interruption repasse en « Clôturée ». Impossible après l'archivage du mois.</p>
+              @if (motifAction() === 'devalidation') {
+                <ng-container [ngTemplateOutlet]="motifTpl" />
+              } @else {
+                <button type="button" class="sir-btn sir-btn--outline-primary" (click)="ouvrirMotif('devalidation')">
+                  Dévalider l'interruption
+                </button>
+              }
+            </article>
+          }
+
+          <ng-template #motifTpl>
+            <form class="motif-form" [formGroup]="motifForm" (ngSubmit)="confirmerMotif()">
+              <label class="field__label" for="motif">
+                Motif {{ motifAction() === 'renvoi' ? 'du renvoi (envoyé au saisisseur)' : 'de la dévalidation' }}
+              </label>
+              <textarea id="motif" class="field__select motif-form__input" rows="3" formControlName="motif"></textarea>
+              @if (motifForm.controls.motif.touched && motifForm.controls.motif.invalid) {
+                <p class="form-error">Motif obligatoire (5 caractères minimum).</p>
+              }
+              <div class="decision-actions">
+                <button type="submit" class="sir-btn sir-btn--primary" [disabled]="motifSaving()">
+                  {{ motifAction() === 'renvoi' ? 'Confirmer le renvoi' : 'Confirmer la dévalidation' }}
+                </button>
+                <button type="button" class="sir-btn sir-btn--outline-primary" (click)="annulerMotif()">Annuler</button>
+              </div>
+            </form>
+          </ng-template>
         </div>
 
         <aside class="detail-bento__side">
@@ -121,6 +186,22 @@
               <h2>Historique</h2>
             </header>
             <ol class="history-timeline">
+              @if (historique().length > 0) {
+                @for (h of historique().slice().reverse(); track h.id) {
+                  <li
+                    class="history-timeline__item"
+                    [class.history-timeline__item--valid]="h.action === 'validation' || h.action === 'archivage'"
+                    [class.history-timeline__item--warn]="h.action === 'renvoi_correction' || h.action === 'devalidation'"
+                  >
+                    <p class="history-timeline__title">{{ actionLabels[h.action] }}</p>
+                    <p class="history-timeline__user">{{ h.utilisateur_nom ?? '—' }}</p>
+                    <p class="history-timeline__date">{{ h.created_at | date: 'dd/MM/yyyy HH:mm' }}</p>
+                    @if (h.motif && h.action !== 'archivage') {
+                      <p class="history-timeline__motif">« {{ h.motif }} »</p>
+                    }
+                  </li>
+                }
+              } @else {
               @if (it.validated_by) {
                 <li class="history-timeline__item history-timeline__item--valid">
                   <p class="history-timeline__title">Validée par</p>
@@ -136,6 +217,7 @@
                 }
                 <p class="history-timeline__date">{{ it.created_at | date: 'dd/MM/yyyy HH:mm' }}</p>
               </li>
+              }
             </ol>
             <footer class="detail-meta">
               <span class="detail-meta__label">Dernière mise à jour</span>

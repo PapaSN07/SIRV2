@@ -138,3 +138,19 @@ async def test_date_de_remise_future_refusee() -> None:
     with pytest.raises(HTTPException) as exc:
         _ensure_remise_pas_dans_le_futur(datetime.utcnow() + timedelta(hours=2))
     assert exc.value.status_code == 422
+
+
+async def test_validation_en_lot_resultat_par_ligne() -> None:
+    from app.schemas.interruption_statut import ValidationLotRequest
+    from app.services import interruption_distribution_service as svc
+
+    async def faux_valider(db, interruption_id, user):
+        if interruption_id == 2:
+            raise HTTPException(status_code=422, detail={"error": "Validation autorisée uniquement pour une interruption cloture"})
+
+    db = AsyncMock()
+    with patch.object(svc, "valider", side_effect=faux_valider):
+        res = await svc.valider_lot(db, ValidationLotRequest(ids=[1, 2, 3, 1]), _user("ADMIN_SCR"))
+    assert res.validees == [1, 3]
+    assert [e.id for e in res.echecs] == [2]
+    db.rollback.assert_awaited_once()

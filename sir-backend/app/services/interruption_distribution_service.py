@@ -28,6 +28,9 @@ from app.schemas.interruption_statut import (
     ArchivageResponse,
     MotifRequest,
     StatutHistoriqueResponse,
+    ValidationLotEchec,
+    ValidationLotRequest,
+    ValidationLotResponse,
 )
 from app.services import interruption_cycle_service
 from app.schemas.interruption_distribution import (
@@ -1664,3 +1667,21 @@ async def archiver_mois(
     return await interruption_cycle_service.archiver_mois(
         db, type_direction="distribution", annee=body.annee, mois=body.mois, user=current_user
     )
+
+
+async def valider_lot(
+    db: AsyncSession, body: ValidationLotRequest, current_user: Utilisateur
+) -> ValidationLotResponse:
+    """Valide plusieurs interruptions en une requête ; chaque ligne réussit ou échoue seule."""
+    _ensure_can_validate(current_user)
+    validees: list[int] = []
+    echecs: list[ValidationLotEchec] = []
+    for interruption_id in dict.fromkeys(body.ids):  # sans doublon, ordre conservé
+        try:
+            await valider(db, interruption_id, current_user)
+            validees.append(interruption_id)
+        except HTTPException as exc:
+            await db.rollback()
+            detail = exc.detail if isinstance(exc.detail, dict) else {"error": str(exc.detail)}
+            echecs.append(ValidationLotEchec(id=interruption_id, erreur=str(detail.get("error"))))
+    return ValidationLotResponse(validees=validees, echecs=echecs)

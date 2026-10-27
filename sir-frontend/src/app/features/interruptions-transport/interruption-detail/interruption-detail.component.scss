@@ -289,6 +289,10 @@
       border: 2px solid #fff;
     }
 
+    &--warn::before {
+      background: $secondary;
+    }
+
     &--valid::before {
       background: #15803d;
     }
@@ -336,5 +340,93 @@
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+.history-timeline__motif {
+  margin: 0.25rem 0 0;
+  font-size: 12px;
+  font-style: italic;
+  color: $on-surface;
+}
+
+.form-hint {
+  margin: 0 0 0.75rem;
+  font-size: 13px;
+  color: $on-surface-variant;
+}
+
+// Cycle de vie : bandeaux, contrôles avant clôture, motif
+.renvoi-banner,
+.archive-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 14px;
+
+  .material-symbols-outlined {
+    font-size: 22px;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.renvoi-banner {
+  background: #fff4ea;
+  border: 1px solid #f3b37a;
+  color: #7a2e0b;
+
+  &__title {
+    font-weight: 700;
+  }
+
+  &__motif {
+    margin-top: 0.25rem !important;
+    font-size: 15px;
+    color: $on-surface;
+  }
+
+  &__hint {
+    margin-top: 0.25rem !important;
+    font-size: 13px;
+  }
+}
+
+.archive-banner {
+  background: $surface-container;
+  border: 1px solid $outline-variant;
+  color: $on-surface;
+}
+
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.motif-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+
+  &__input {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+  }
+
+  .form-error {
+    margin: 0;
+    font-size: 13px;
+    color: $error;
   }
 }

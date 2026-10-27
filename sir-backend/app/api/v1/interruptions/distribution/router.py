@@ -13,6 +13,8 @@ from app.schemas.interruption_statut import (
     ArchivageResponse,
     MotifRequest,
     StatutHistoriqueResponse,
+    ValidationLotRequest,
+    ValidationLotResponse,
 )
 from app.schemas.interruption_distribution import (
     InterruptionDistributionCreate,
@@ -48,6 +50,23 @@ def _fis_error(code: int, message: str) -> HTTPException:
         status_code=code,
         detail={"status": "error", "data": None, "error": message},
     )
+
+
+@router.post(
+    "/valider-lot",
+    response_model=ApiResponse[ValidationLotResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Valider plusieurs interruptions clôturées (résultat ligne par ligne)",
+)
+async def valider_lot_distribution(
+    body: ValidationLotRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "validate")
+    ),
+) -> ApiResponse[ValidationLotResponse]:
+    result = await interruption_distribution_service.valider_lot(db, body, current_user)
+    return ApiResponse.success(result)
 
 
 @router.post(

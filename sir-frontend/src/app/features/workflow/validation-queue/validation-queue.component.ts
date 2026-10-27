@@ -1,8 +1,7 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { from, of } from 'rxjs';
-import { catchError, concatMap, finalize, toArray } from 'rxjs/operators';
+import { finalize } from 'rxjs/operators';
 import { Region } from '../../../shared/models/geo.models';
 import {
   InterruptionDistribution,
@@ -258,30 +257,25 @@ export class ValidationQueueComponent implements OnInit {
     this.actionError.set(null);
     this.validating.set(true);
 
-    from(ids)
-      .pipe(
-        concatMap((id) =>
-          this.service.valider(id).pipe(
-            catchError((err: Error) => of({ error: err.message, id })),
-          ),
-        ),
-        toArray(),
-        finalize(() => this.validating.set(false)),
-      )
-      .subscribe((results) => {
-        const failures = results.filter((r) => 'error' in r) as { error: string; id: number }[];
-        const successCount = ids.length - failures.length;
-        if (failures.length === 0) {
-          this.actionMessage.set(`${successCount} interruption(s) validée(s).`);
-          this.selectedIds.set(new Set());
-          this.closeDetail();
+    this.service
+      .validerLot(ids)
+      .pipe(finalize(() => this.validating.set(false)))
+      .subscribe({
+        next: (res) => {
+          const successCount = res.validees.length;
+          this.selectedIds.set(new Set(res.echecs.map((e) => e.id)));
+          if (res.echecs.length === 0) {
+            this.actionMessage.set(`${successCount} interruption(s) validée(s).`);
+            this.closeDetail();
+          } else {
+            const first = res.echecs[0];
+            this.actionError.set(
+              `${successCount} validée(s), ${res.echecs.length} échec(s) — n° ${first.id} : ${first.erreur}`,
+            );
+          }
           this.load();
-          return;
-        }
-        this.actionError.set(
-          `${successCount} validée(s), ${failures.length} échec(s) : ${failures[0].error}`,
-        );
-        this.load();
+        },
+        error: (err: Error) => this.actionError.set(err.message),
       });
   }
 

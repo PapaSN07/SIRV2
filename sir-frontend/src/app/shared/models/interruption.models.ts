@@ -259,6 +259,11 @@ export interface MotifRequest {
   motif: string;
 }
 
+export interface ValidationLotResponse {
+  validees: number[];
+  echecs: { id: number; erreur: string }[];
+}
+
 export interface ArchivageRequest {
   annee: number;
   mois: number;

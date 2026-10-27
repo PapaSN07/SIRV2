@@ -19,6 +19,7 @@ import {
   WorkflowEtapeUpdate,
   ArchivageRequest,
   ArchivageResponse,
+  ValidationLotResponse,
   MotifRequest,
   StatutHistorique,
 } from '../../../shared/models/interruption.models';
@@ -94,6 +95,13 @@ export class InterruptionDistributionService {
   valider(id: number): Observable<InterruptionDistribution> {
     return this.http
       .patch<ApiResponse<InterruptionDistribution>>(`${this.apiUrl}/${id}/valider`, {})
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  /** Validation de plusieurs interruptions en une requête, résultat ligne par ligne. */
+  validerLot(ids: number[]): Observable<ValidationLotResponse> {
+    return this.http
+      .post<ApiResponse<ValidationLotResponse>>(`${this.apiUrl}/valider-lot`, { ids })
       .pipe(map((res) => this.unwrap(res)));
   }
 

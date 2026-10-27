@@ -4,6 +4,8 @@ const LABELS: Record<string, string> = {
   interruption_creee: 'Nouvelle interruption',
   interruption_cloturee: 'Interruption clôturée',
   interruption_validee: 'Interruption validée',
+  interruption_renvoyee: 'Interruption renvoyée en correction',
+  interruption_alerte_24h: 'Interruption en attente depuis plus de 24 h',
   rapport_pret: 'Rapport disponible',
   napt_soumis: 'NAPT soumis',
 };

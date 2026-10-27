@@ -28,6 +28,11 @@
             >
               <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
               <span>{{ item.label }}</span>
+              @if (item.badge) {
+                <span class="sidebar__badge" [attr.aria-label]="item.badge + ' en attente'">{{
+                  item.badge > 99 ? '99+' : item.badge
+                }}</span>
+              }
             </a>
           } @else {
             <span class="sidebar__link sidebar__link--disabled">

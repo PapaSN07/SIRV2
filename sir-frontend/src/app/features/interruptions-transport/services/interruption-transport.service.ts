@@ -11,6 +11,7 @@ import {
   InterruptionTransportListParams,
   InterruptionTransportUpdate,
 } from '../../../shared/models/interruption-transport.models';
+import { MotifRequest, StatutHistorique } from '../../../shared/models/interruption.models';
 
 @Injectable({ providedIn: 'root' })
 export class InterruptionTransportService {
@@ -69,6 +70,33 @@ export class InterruptionTransportService {
   }
 
   private unwrap<T>(res: ApiResponse<T>): T {
+    if (res.status === 'error' || res.data === null) {
+      throw new Error(res.error ?? 'Erreur API');
+    }
+    return res.data;
+  }
+
+  /** Admin Dispatching : clôturée → en cours, motif envoyé au saisisseur. */
+  renvoyer(id: number, body: MotifRequest): Observable<InterruptionTransportDetail> {
+    return this.http
+      .patch<ApiResponse<InterruptionTransportDetail>>(`${this.apiUrl}/${id}/renvoyer`, body)
+      .pipe(map((res) => this.unwrapResponse(res)));
+  }
+
+  /** Admin Dispatching : validée → clôturée (impossible après archivage). */
+  devalider(id: number, body: MotifRequest): Observable<InterruptionTransportDetail> {
+    return this.http
+      .patch<ApiResponse<InterruptionTransportDetail>>(`${this.apiUrl}/${id}/devalider`, body)
+      .pipe(map((res) => this.unwrapResponse(res)));
+  }
+
+  historiqueStatuts(id: number): Observable<StatutHistorique[]> {
+    return this.http
+      .get<ApiResponse<StatutHistorique[]>>(`${this.apiUrl}/${id}/historique-statuts`)
+      .pipe(map((res) => this.unwrapResponse(res)));
+  }
+
+  private unwrapResponse<T>(res: ApiResponse<T>): T {
     if (res.status === 'error' || res.data === null) {
       throw new Error(res.error ?? 'Erreur API');
     }

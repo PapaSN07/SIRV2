@@ -1,5 +1,7 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Subscription, filter, interval } from 'rxjs';
+import { InterruptionDistributionService } from '../../../features/interruptions-distribution/services/interruption-distribution.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotificationService } from '../../../core/notifications/notification.service';
 import {
@@ -14,6 +16,8 @@ interface NavItem {
   route: string;
   enabled: boolean;
   exact?: boolean;
+  /** Pastille de compteur (ex. interruptions en attente de validation). */
+  badge?: number;
 }
 
 interface NavSection {
@@ -31,6 +35,12 @@ interface NavSection {
 export class MainLayoutComponent implements OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly notifications = inject(NotificationService);
+  private readonly router = inject(Router);
+  private readonly interruptions = inject(InterruptionDistributionService);
+  private readonly abonnements = new Subscription();
+
+  /** Interruptions clôturées en attente de validation dans le périmètre du valideur. */
+  readonly enAttenteValidation = signal(0);
 
   readonly user = this.auth.currentUser;
   readonly panelOpen = signal(false);
@@ -56,7 +66,13 @@ export class MainLayoutComponent implements OnDestroy {
         route: '/interruptions/distribution',
         enabled: true,
       },
-      { label: 'Validation', icon: 'fact_check', route: '/workflow/validation', enabled: true },
+      {
+        label: 'Validation',
+        icon: 'fact_check',
+        route: '/workflow/validation',
+        enabled: true,
+        badge: this.enAttenteValidation(),
+      },
       { label: 'Assistant', icon: 'psychology', route: '/assistant', enabled: true },
       { label: 'Rapports', icon: 'assessment', route: '/rapports', enabled: true },
       { label: 'Administration', icon: 'admin_panel_settings', route: '/admin/referentiel', enabled: true },
@@ -88,11 +104,33 @@ export class MainLayoutComponent implements OnDestroy {
   constructor() {
     if (!this.auth.currentUser()) {
       this.auth.fetchMe().subscribe({
-        next: () => this.notifications.connect(),
+        next: () => {
+          this.notifications.connect();
+          this.rafraichirCompteur();
+        },
       });
     } else {
       this.notifications.connect();
+      this.rafraichirCompteur();
     }
+    // Compteur à jour après chaque navigation (ex. retour de la file) et toutes les 2 minutes
+    this.abonnements.add(
+      this.router.events
+        .pipe(filter((e) => e instanceof NavigationEnd))
+        .subscribe(() => this.rafraichirCompteur()),
+    );
+    this.abonnements.add(interval(120_000).subscribe(() => this.rafraichirCompteur()));
+  }
+
+  private rafraichirCompteur(): void {
+    if (!this.auth.hasRole('SUPERVISEUR', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERADMIN')) {
+      this.enAttenteValidation.set(0);
+      return;
+    }
+    this.interruptions.stats({ statut: 'cloture' }).subscribe({
+      next: (s) => this.enAttenteValidation.set(s.total),
+      error: () => {},
+    });
   }
 
   userInitials(user: MeResponse): string {
@@ -127,6 +165,7 @@ export class MainLayoutComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.abonnements.unsubscribe();
     this.notifications.disconnect();
   }
 }

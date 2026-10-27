@@ -40,3 +40,17 @@ class ArchivageResponse(BaseModel):
     mois: int
     archivees: int
     non_validees_restantes: int
+
+
+class ValidationLotRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=200)
+
+
+class ValidationLotEchec(BaseModel):
+    id: int
+    erreur: str
+
+
+class ValidationLotResponse(BaseModel):
+    validees: list[int]
+    echecs: list[ValidationLotEchec]

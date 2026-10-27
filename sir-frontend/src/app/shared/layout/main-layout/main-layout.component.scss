@@ -128,6 +128,19 @@
     }
   }
 
+  &__badge {
+    margin-left: auto;
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: $secondary;
+    color: #1d1b20;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+
   &__user {
     margin-top: 1rem;
     padding: 1rem 0.75rem 0;
