@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.repositories.geo_scope_repository import service_ids_in_region_subquery
+from app.models.interruptions import PosteInterruption
 from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder, Troncon
 
 ModelT = Type[Any]
@@ -25,13 +26,30 @@ def _service_ids_in_region_subquery(region_id: int) -> Select[Any]:
     return service_ids_in_region_subquery(region_id)
 
 
+def _feeder_ids_in_region_subquery(region_id: int) -> Select[Any]:
+    """Feeders d'une région : service dans la région, ou poste source rattaché à la région.
+
+    Un feeder sans service (données migrées) reste ainsi visible via son poste source.
+    """
+    return (
+        select(Feeder.id)
+        .join(PosteSource, PosteSource.id == Feeder.poste_source_id)
+        .where(
+            or_(
+                Feeder.service_id.in_(_service_ids_in_region_subquery(region_id)),
+                PosteSource.region_id == region_id,
+            )
+        )
+    )
+
+
 def _apply_feeder_scope(query: Select[Any], scope: ScopeFilter | None) -> Select[Any]:
     if scope is None:
         return query
     if scope.service_id is not None:
         return query.where(Feeder.service_id == scope.service_id)
     if scope.region_id is not None:
-        return query.where(Feeder.service_id.in_(_service_ids_in_region_subquery(scope.region_id)))
+        return query.where(Feeder.id.in_(_feeder_ids_in_region_subquery(scope.region_id)))
     return query
 
 
@@ -45,7 +63,7 @@ def _apply_feeder_join_scope(
     if scope.service_id is not None:
         return query.where(Feeder.service_id == scope.service_id)
     if scope.region_id is not None:
-        return query.where(Feeder.service_id.in_(_service_ids_in_region_subquery(scope.region_id)))
+        return query.where(Feeder.id.in_(_feeder_ids_in_region_subquery(scope.region_id)))
     return query
 
 
@@ -80,7 +98,7 @@ async def list_postes_sources(
     region_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[PosteSource]:
-    query = select(PosteSource).where(PosteSource.is_active == True).order_by(PosteSource.id)  # noqa: E712
+    query = select(PosteSource).where(PosteSource.is_active == True).order_by(PosteSource.libelle, PosteSource.id)  # noqa: E712
     effective_region = _effective_region_id(region_id, scope)
     if effective_region is not None:
         ps_in_region = _poste_source_ids_in_region_subquery(effective_region)
@@ -133,12 +151,10 @@ async def list_feeders(
         select(Feeder)
         .options(joinedload(Feeder.service), joinedload(Feeder.poste_source))
         .where(Feeder.is_active == True)  # noqa: E712
-        .order_by(Feeder.id)
+        .order_by(Feeder.libelle, Feeder.id)
     )
     if region_id is not None:
-        query = query.join(PosteSource, Feeder.poste_source_id == PosteSource.id).where(
-            PosteSource.region_id == region_id
-        )
+        query = query.where(Feeder.id.in_(_feeder_ids_in_region_subquery(region_id)))
     if poste_source_id is not None:
         query = query.where(Feeder.poste_source_id == poste_source_id)
     if service_id is not None:
@@ -189,15 +205,44 @@ async def list_postes(
     service_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[Poste]:
-    query = select(Poste).where(Poste.is_active == True).order_by(Poste.id)  # noqa: E712
+    query = select(Poste).where(Poste.is_active == True).order_by(Poste.libelle, Poste.id)  # noqa: E712
     if feeder_id is not None:
-        query = query.where(Poste.feeder_id == feeder_id)
+        # Postes rattachés au feeder, plus ceux sans feeder (migration) déjà impactés sur ce feeder
+        historique = (
+            select(PosteInterruption.poste_id)
+            .where(PosteInterruption.feeder_id == feeder_id)
+            .distinct()
+        )
+        query = query.where(
+            or_(
+                Poste.feeder_id == feeder_id,
+                (Poste.feeder_id.is_(None)) & (Poste.id.in_(historique)),
+            )
+        )
     if service_id is not None:
         query = query.where(Poste.service_id == service_id)
     if scope and scope.service_id is not None:
-        query = query.where(Poste.service_id == scope.service_id)
+        query = query.where(
+            or_(
+                Poste.service_id == scope.service_id,
+                (Poste.service_id.is_(None))
+                & Poste.feeder_id.in_(select(Feeder.id).where(Feeder.service_id == scope.service_id)),
+            )
+        )
     elif scope and scope.region_id is not None:
-        query = query.where(Poste.service_id.in_(_service_ids_in_region_subquery(scope.region_id)))
+        region_feeders = _feeder_ids_in_region_subquery(scope.region_id)
+        query = query.where(
+            or_(
+                Poste.service_id.in_(_service_ids_in_region_subquery(scope.region_id)),
+                Poste.feeder_id.in_(region_feeders),
+                (Poste.feeder_id.is_(None))
+                & Poste.id.in_(
+                    select(PosteInterruption.poste_id).where(
+                        PosteInterruption.feeder_id.in_(region_feeders)
+                    )
+                ),
+            )
+        )
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -291,7 +336,7 @@ async def list_sous_feeders(
     feeder_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[SousFeeder]:
-    query = select(SousFeeder).where(SousFeeder.is_active == True).order_by(SousFeeder.id)  # noqa: E712
+    query = select(SousFeeder).where(SousFeeder.is_active == True).order_by(SousFeeder.libelle, SousFeeder.id)  # noqa: E712
     if feeder_id is not None:
         query = query.where(SousFeeder.feeder_id == feeder_id)
     if scope and (scope.service_id is not None or scope.region_id is not None):

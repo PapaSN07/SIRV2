@@ -123,7 +123,10 @@ export class InterruptionFormComponent implements OnInit {
     }
 
     this.geo.getRegions().subscribe({
-      next: (r) => this.regions.set(r),
+      next: (r) => {
+        this.regions.set(r);
+        this.matchEditRegion();
+      },
       error: () => {},
     });
 
@@ -138,18 +141,17 @@ export class InterruptionFormComponent implements OnInit {
 
     if (editId) {
       forkJoin({
-        feeders: this.reseau.listFeeders({ page: 1, page_size: 100 }),
         detail: this.interruptionService.get(editId),
         workflow: this.interruptionService.getWorkflow(editId),
       }).subscribe({
-        next: ({ feeders, detail, workflow }) => {
-          this.feeders.set(feeders.items);
+        next: ({ detail, workflow }) => {
           this.detailFeederId.set(detail.feeder_id);
           this.workflow.set(workflow);
+          this.applyEditNetwork(detail);
           this.applyEditDetail(detail);
           if (detail.feeder_id) {
             this.reseau
-              .listSousFeeders({ page: 1, page_size: 100, feeder_id: detail.feeder_id })
+              .listSousFeeders({ page: 1, page_size: 500, feeder_id: detail.feeder_id })
               .subscribe({
                 next: (res) => this.sousFeeders.set(res.items),
                 error: () => {},
@@ -219,7 +221,7 @@ export class InterruptionFormComponent implements OnInit {
       return;
     }
     this.regionId.set(regionId);
-    this.reseau.listPostesSources({ page: 1, page_size: 100, region_id: regionId }).subscribe({
+    this.reseau.listPostesSources({ page: 1, page_size: 500, region_id: regionId }).subscribe({
       next: (res) => this.applyPostesSources(res.items),
       error: (err: Error) => this.error.set(err.message),
     });
@@ -331,7 +333,7 @@ export class InterruptionFormComponent implements OnInit {
       return;
     }
 
-    this.reseau.listPostesSources({ page: 1, page_size: 100, region_id: region }).subscribe({
+    this.reseau.listPostesSources({ page: 1, page_size: 500, region_id: region }).subscribe({
       next: (res) => this.applyPostesSources(res.items),
       error: (err: Error) => this.error.set(err.message),
     });
@@ -484,6 +486,47 @@ export class InterruptionFormComponent implements OnInit {
           this.saving.set(false);
         },
       });
+  }
+
+  /**
+   * Édition : le réseau est verrouillé, mais chaque liste doit afficher la valeur enregistrée
+   * (région, poste source, feeders du même poste source).
+   */
+  private editRegionLibelle: string | null = null;
+
+  /** Les régions et la fiche arrivent dans un ordre quelconque : on rapproche dès que les deux sont là. */
+  private matchEditRegion(): void {
+    if (!this.editRegionLibelle) return;
+    const region = this.regions().find((r) => r.libelle === this.editRegionLibelle);
+    if (region) this.regionId.set(region.id);
+  }
+
+  private applyEditNetwork(detail: InterruptionDistributionDetail): void {
+    this.editRegionLibelle = detail.region_libelle ?? null;
+    this.matchEditRegion();
+    const region = this.regions().find((r) => r.libelle === detail.region_libelle);
+    if (detail.poste_source_id) {
+      this.postesSources.set([
+        {
+          id: detail.poste_source_id,
+          code: '',
+          libelle: detail.poste_source_libelle ?? `Poste source ${detail.poste_source_id}`,
+          region_id: region?.id ?? null,
+          puissance_mva: null,
+          is_active: true,
+        },
+      ]);
+      this.reseau
+        .listFeeders({ page: 1, page_size: 500, poste_source_id: detail.poste_source_id })
+        .subscribe({
+          next: (res) => {
+            this.feeders.set(res.items);
+            const feeder = res.items.find((f) => f.id === detail.feeder_id);
+            if (feeder?.service_libelle) this.serviceLibelle.set(feeder.service_libelle);
+          },
+          error: () => {},
+        });
+    }
   }
 
   private applyEditDetail(detail: InterruptionDistributionDetail): void {

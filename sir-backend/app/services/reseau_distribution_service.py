@@ -148,7 +148,8 @@ def _check_feeder_scope(user: Utilisateur, record: Feeder) -> None:
         )
     if scope.region_id is not None:
         svc_region = record.service.region_id if record.service is not None else None
-        if svc_region != scope.region_id:
+        ps_region = record.poste_source.region_id if record.poste_source is not None else None
+        if scope.region_id not in (svc_region, ps_region):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"status": "error", "data": None, "error": "Hors périmètre régional"},
@@ -187,7 +188,9 @@ async def list_resources(
 
     if slug == "postes-sources":
         items = await repo.list_postes_sources(db, region_id=region_id, scope=scope)
-        return _paginate_list(items, page, page_size, PosteSourceResponse.model_validate)
+        return _paginate_list(
+            items, page, page_size, PosteSourceResponse.model_validate, max_page_size=500
+        )
 
     if slug == "feeders":
         items = await repo.list_feeders(

@@ -109,7 +109,14 @@
       @if (postesCatalogLoading()) {
         <p class="detail-empty">Chargement des postes du feeder…</p>
       } @else if (postesRows().length === 0) {
-        <p class="detail-empty">Aucun poste à afficher pour ce feeder.</p>
+        <p class="detail-empty">
+          Aucun poste n'est rattaché à ce feeder dans le référentiel.
+          @if (hasSigTroncon()) {
+            Utilisez « Postes du tronçon SIG » pour les retrouver par la topologie.
+          } @else {
+            Renseignez le tronçon SIG à l'étape Tronçonnement, ou faites compléter le référentiel des postes.
+          }
+        </p>
       } @else {
         <ul class="postes-check-list" role="list">
           @for (row of postesRows(); track row.posteId) {

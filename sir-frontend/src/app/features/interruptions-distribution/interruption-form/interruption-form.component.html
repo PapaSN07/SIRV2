@@ -83,7 +83,7 @@
               >
                 <option [ngValue]="0">Sélectionner</option>
                 @for (ps of postesSources(); track ps.id) {
-                  <option [ngValue]="ps.id">{{ ps.libelle }} ({{ ps.code }})</option>
+                  <option [ngValue]="ps.id">{{ ps.libelle }}{{ ps.code ? ' (' + ps.code + ')' : '' }}</option>
                 }
               </select>
             </div>

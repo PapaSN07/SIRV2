@@ -39,7 +39,7 @@ router = APIRouter()
 )
 async def list_postes_sources(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     region_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),

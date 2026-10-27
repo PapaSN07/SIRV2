@@ -36,6 +36,38 @@ def _feeder_match_clause(feeder: Feeder):
     return or_(*clauses)
 
 
+async def feeder_troncons_clause(db: AsyncSession, feeder: Feeder):
+    """Tronçons SIG d'un feeder, sans doublons ni tronçons d'autres départs.
+
+    1. Rattachement par identifiant (feeder_id) s'il existe pour ce feeder ; sinon par nom,
+       en écartant les départs homonymes d'une autre tension (ex. « HANN 30KV » / « HANN 6.6 »).
+    2. Seul le dernier chargement SIG est retenu : chaque import ajoute un instantané
+       (date_chargement), les anciens ne doivent pas rallonger la liste.
+    """
+    by_id = TronconSigOrm.feeder_id == feeder.id
+    has_id = (
+        await db.execute(select(func.count()).select_from(TronconSigOrm).where(by_id))
+    ).scalar_one()
+    if has_id:
+        clause = by_id
+    else:
+        clause = _feeder_match_clause(feeder)
+        if feeder.tension_kv is not None:
+            clause = clause & or_(
+                TronconSigOrm.tension_kv.is_(None),
+                TronconSigOrm.tension_kv == feeder.tension_kv,
+            )
+    dernier = (
+        await db.execute(select(func.max(TronconSigOrm.date_chargement)).where(clause))
+    ).scalar_one()
+    if dernier is not None:
+        clause = clause & or_(
+            TronconSigOrm.date_chargement == dernier,
+            TronconSigOrm.date_chargement.is_(None),
+        )
+    return clause
+
+
 async def get_feeder(db: AsyncSession, feeder_id: int) -> Feeder | None:
     result = await db.execute(select(Feeder).where(Feeder.id == feeder_id))
     return result.scalar_one_or_none()
@@ -56,7 +88,7 @@ async def list_troncons_sig_by_feeder(
 ) -> PaginatedResponse:
     query = (
         select(TronconSigOrm)
-        .where(_feeder_match_clause(feeder))
+        .where(await feeder_troncons_clause(db, feeder))
         .order_by(TronconSigOrm.nom_troncon.asc(), TronconSigOrm.id.asc())
     )
     if search:
@@ -89,7 +121,7 @@ async def find_next_troncon_aval(
 ) -> TronconSigOrm | None:
     if not code_aval and not nom_aval:
         return None
-    conditions = [_feeder_match_clause(feeder)]
+    conditions = [await feeder_troncons_clause(db, feeder)]
     match_parts = []
     if code_aval:
         match_parts.append(TronconSigOrm.code_noeud_amont == code_aval)
