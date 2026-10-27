@@ -602,3 +602,28 @@
   outline: 2px solid #1849a9;
   outline-offset: 1px;
 }
+
+.export-group {
+  display: inline-flex;
+  gap: 0.375rem;
+
+  .sir-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+}
+
+.import-fis-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+}

@@ -98,6 +98,10 @@ async def import_fis(
         True,
         description="Ignorer les numéros d'interruption déjà présents en base",
     ),
+    simulation: bool = Query(
+        False,
+        description="Contrôler le fichier sans rien enregistrer (aperçu avant import)",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(
         require_permission("interruptions_distribution", "create")
@@ -132,9 +136,13 @@ async def import_fis(
         current_user=current_user,
         skip_existing=skip_existing,
     )
-    await db.commit()
+    if simulation:
+        await db.rollback()  # aperçu : mêmes contrôles, rien n'est conservé
+    else:
+        await db.commit()
 
     response = FisImportResponse(
+        simulation=simulation,
         stats=FisImportStatsResponse(
             total_lignes=result.stats.total_lignes,
             importees=result.stats.importees,
@@ -149,6 +157,47 @@ async def import_fis(
         erreurs_detail=result.stats.erreurs_detail[:50],
     )
     return ApiResponse.success(response)
+
+
+@router.get(
+    "/export",
+    status_code=status.HTTP_200_OK,
+    summary="Exporter la liste filtrée (Excel ou PDF, 5 000 lignes max.)",
+    response_class=Response,
+)
+async def export_interruptions_distribution(
+    format: str = Query("xlsx", pattern="^(xlsx|pdf)$"),
+    region_id: int | None = Query(default=None, ge=1),
+    service_id: int | None = Query(default=None, ge=1),
+    feeder_id: int | None = Query(default=None, ge=1),
+    nature_id: int | None = Query(default=None, ge=1),
+    ouverture: OuvertureInterruption | None = Query(default=None),
+    statut: StatutInterruption | None = Query(default=None),
+    date_debut: datetime | None = Query(default=None),
+    date_fin: datetime | None = Query(default=None),
+    libelle: str = Query("Tous filtres", max_length=300, description="Filtres lisibles, repris en tête du fichier"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("interruptions_distribution", "read")),
+) -> Response:
+    contenu, media_type, nom = await interruption_distribution_service.exporter_liste(
+        db,
+        current_user,
+        format=format,
+        filtres_libelle=libelle,
+        region_id=region_id,
+        service_id=service_id,
+        feeder_id=feeder_id,
+        nature_id=nature_id,
+        ouverture=ouverture,
+        statut=statut,
+        date_debut=date_debut,
+        date_fin=date_fin,
+    )
+    return Response(
+        content=contenu,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{nom}"'},
+    )
 
 
 @router.get(

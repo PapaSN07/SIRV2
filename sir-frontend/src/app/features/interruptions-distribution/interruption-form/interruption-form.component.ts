@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -18,10 +19,16 @@ import { ReseauDistributionService } from '../services/reseau-distribution.servi
 import { InterruptionDistributionService } from '../services/interruption-distribution.service';
 import { InterruptionWorkflowPanelComponent } from '../interruption-workflow-panel/interruption-workflow-panel.component';
 
+interface BrouillonSaisie {
+  enregistreLe: string;
+  regionId: number | null;
+  valeurs: Record<string, unknown>;
+}
+
 @Component({
   selector: 'sir-interruption-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, PageHeaderComponent, InterruptionWorkflowPanelComponent],
+  imports: [ReactiveFormsModule, RouterLink, PageHeaderComponent, InterruptionWorkflowPanelComponent, DatePipe],
   templateUrl: './interruption-form.component.html',
   styleUrl: './interruption-form.component.scss',
 })
@@ -111,6 +118,11 @@ export class InterruptionFormComponent implements OnInit {
     has_extension_bt: [false],
   });
 
+  /** Brouillon de saisie conservé dans ce navigateur (coupure réseau, session expirée…). */
+  readonly brouillonTrouve = signal<{ enregistreLe: string } | null>(null);
+  private brouillonARestaurer: BrouillonSaisie | null = null;
+  private brouillonTimer: number | undefined;
+
   readonly canEditWorkflow = computed(
     () => this.isEditMode() && this.canWrite(),
   );
@@ -174,6 +186,7 @@ export class InterruptionFormComponent implements OnInit {
         error: () => this.ensureUserThenInitCreateScope(),
       });
       this.bindNetworkValueChanges();
+      this.preparerBrouillon();
       this.syncNetworkControls();
       this.loadingRef.set(false);
     }
@@ -229,6 +242,7 @@ export class InterruptionFormComponent implements OnInit {
 
   private applyPostesSources(items: PosteSource[]): void {
     this.postesSources.set(items);
+    if (this.restaurerCascade('poste_source_id', items)) return;
     if (this.isEditMode() || items.length !== 1) {
       return;
     }
@@ -261,6 +275,7 @@ export class InterruptionFormComponent implements OnInit {
     this.feeders.set(items);
     this.sousFeeders.set([]);
     this.form.controls.sous_feeder_id.setValue(0, { emitEvent: false });
+    if (this.restaurerCascade('feeder_id', items)) return;
     if (this.isEditMode() || items.length !== 1) {
       return;
     }
@@ -304,6 +319,91 @@ export class InterruptionFormComponent implements OnInit {
       }
     }
     control.updateValueAndValidity({ emitEvent: false });
+    this.restaurerCascade('sous_feeder_id', items);
+  }
+
+  // --- Brouillon -----------------------------------------------------------
+
+  private cleBrouillon(): string {
+    return `sir:brouillon:interruption-distribution:${this.auth.currentUser()?.id ?? 'anonyme'}`;
+  }
+
+  private lireBrouillon(): BrouillonSaisie | null {
+    try {
+      const brut = localStorage.getItem(this.cleBrouillon());
+      return brut ? (JSON.parse(brut) as BrouillonSaisie) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  supprimerBrouillon(): void {
+    this.brouillonTrouve.set(null);
+    try {
+      localStorage.removeItem(this.cleBrouillon());
+    } catch {
+      /* stockage indisponible : rien à effacer */
+    }
+  }
+
+  /** Création seulement : propose le brouillon existant, puis sauvegarde à chaque modification. */
+  private preparerBrouillon(): void {
+    const existant = this.lireBrouillon();
+    if (existant && Object.values(existant.valeurs).some((v) => v && v !== 0)) {
+      this.brouillonTrouve.set({ enregistreLe: existant.enregistreLe });
+    }
+    this.form.valueChanges.subscribe(() => {
+      if (this.brouillonTrouve()) return; // ne pas écraser un brouillon non encore traité
+      window.clearTimeout(this.brouillonTimer);
+      this.brouillonTimer = window.setTimeout(() => this.ecrireBrouillon(), 800);
+    });
+  }
+
+  private ecrireBrouillon(): void {
+    const brouillon: BrouillonSaisie = {
+      enregistreLe: new Date().toISOString(),
+      regionId: this.regionId(),
+      valeurs: this.form.getRawValue(),
+    };
+    try {
+      localStorage.setItem(this.cleBrouillon(), JSON.stringify(brouillon));
+    } catch {
+      /* navigation privée ou stockage plein : la saisie continue sans brouillon */
+    }
+  }
+
+  restaurerBrouillon(): void {
+    const brouillon = this.lireBrouillon();
+    this.brouillonTrouve.set(null);
+    if (!brouillon) return;
+    const reseau = new Set(['poste_source_id', 'feeder_id', 'sous_feeder_id']);
+    const autres = Object.fromEntries(Object.entries(brouillon.valeurs).filter(([k]) => !reseau.has(k)));
+    this.form.patchValue(autres, { emitEvent: false });
+    // Réseau : chaque liste dépend de la précédente, on rejoue la cascade au fil des chargements
+    this.brouillonARestaurer = brouillon;
+    if (brouillon.regionId && !this.regionSelectDisabled()) {
+      this.onRegionChange(String(brouillon.regionId));
+    } else if (this.postesSources().length) {
+      this.restaurerCascade('poste_source_id', this.postesSources());
+    }
+  }
+
+  /** Sélectionne la valeur du brouillon dès que sa liste est chargée ; true si appliquée. */
+  private restaurerCascade(champ: 'poste_source_id' | 'feeder_id' | 'sous_feeder_id', items: { id: number }[]): boolean {
+    const brouillon = this.brouillonARestaurer;
+    if (!brouillon) return false;
+    const id = Number(brouillon.valeurs[champ] ?? 0);
+    if (!id || !items.some((i) => i.id === id)) {
+      this.brouillonARestaurer = null;
+      return false;
+    }
+    if (champ === 'sous_feeder_id') {
+      this.brouillonARestaurer = null;
+      this.form.controls.sous_feeder_id.setValue(id, { emitEvent: false });
+      return true;
+    }
+    this.form.controls[champ].setValue(id, { emitEvent: true });
+    return true;
   }
 
   private onSousFeederIdChanged(_sousFeederId: number): void {
@@ -479,6 +579,7 @@ export class InterruptionFormComponent implements OnInit {
       })
       .subscribe({
         next: (created) => {
+          this.supprimerBrouillon();
           void this.router.navigate(['/interruptions/distribution', created.id]);
         },
         error: (err: Error) => {

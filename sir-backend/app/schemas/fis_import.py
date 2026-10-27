@@ -20,6 +20,7 @@ class FisImportResponse(BaseModel):
     """Réponse après import d'un fichier FIS."""
 
     stats: FisImportStatsResponse
+    simulation: bool = Field(False, description="Aperçu : rien n'a été enregistré")
     periode_debut: datetime | None = Field(None, description="Date de la première interruption importée")
     periode_fin: datetime | None = Field(None, description="Date de la dernière interruption importée")
     services_touches: list[str] = Field(

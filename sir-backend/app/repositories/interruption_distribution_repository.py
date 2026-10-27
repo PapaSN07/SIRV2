@@ -273,6 +273,7 @@ async def list_interruptions_paginated(
     statut: str | None = None,
     date_debut: datetime | None = None,
     date_fin: datetime | None = None,
+    max_page_size: int | None = None,
 ) -> PaginatedResponse:
     query = _base_distribution_query()
     query = _apply_scope(query, scope)
@@ -287,6 +288,10 @@ async def list_interruptions_paginated(
         date_debut=date_debut,
         date_fin=date_fin,
     )
+    if max_page_size is not None:
+        return await paginate(
+            db, query, page, page_size, scalar_type=Interruption, max_page_size=max_page_size
+        )
     return await paginate(db, query, page, page_size, scalar_type=Interruption)
 
 

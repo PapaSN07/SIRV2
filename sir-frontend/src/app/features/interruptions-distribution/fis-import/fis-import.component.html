@@ -1,0 +1,114 @@
+<section class="fis-import">
+  <sir-page-header
+    title="Importer un fichier FIS"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Interruptions', route: '/interruptions/distribution' },
+      { label: 'Import FIS' },
+    ]"
+  />
+
+  <ol class="fis-steps" aria-label="Étapes">
+    <li [class.fis-steps__item--active]="etape() === 'choix'" [class.fis-steps__item--done]="etape() !== 'choix'">1. Fichier</li>
+    <li [class.fis-steps__item--active]="etape() === 'apercu'" [class.fis-steps__item--done]="etape() === 'termine'">2. Contrôle</li>
+    <li [class.fis-steps__item--active]="etape() === 'termine'">3. Import</li>
+  </ol>
+
+  <article class="fis-card">
+    @if (etape() !== 'termine') {
+      <label
+        class="fis-drop"
+        [class.fis-drop--over]="survol()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="survol.set(false)"
+        (drop)="onDrop($event)"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>
+        @if (fichier(); as f) {
+          <strong>{{ f.name }}</strong>
+          <span>{{ taille(f.size) }} · cliquez pour changer de fichier</span>
+        } @else {
+          <strong>Déposez le fichier FIS ici ou cliquez pour le choisir</strong>
+          <span>Excel .xlsx, feuille « Détails interruptions », 10 Mo maximum</span>
+        }
+        <input type="file" accept=".xlsx" (change)="onFichier($event)" />
+      </label>
+
+      <label class="fis-option">
+        <input type="checkbox" [checked]="ignorerDoublons()" (change)="ignorerDoublons.set($any($event.target).checked)" />
+        Ignorer les interruptions dont le numéro existe déjà
+      </label>
+
+      <p class="fis-hint">
+        Seules les lignes de votre périmètre sont importées. Les interruptions arrivent clôturées
+        et passent par la file de validation (validées directement si vous avez le droit de valider).
+      </p>
+    }
+
+    @if (erreur()) {
+      <p class="fis-error" role="alert">{{ erreur() }}</p>
+    }
+
+    @if (resultat(); as r) {
+      <div class="fis-result" [class.fis-result--done]="!r.simulation">
+        <h2>
+          <span class="material-symbols-outlined" aria-hidden="true">{{ r.simulation ? 'fact_check' : 'task_alt' }}</span>
+          {{ r.simulation ? 'Contrôle du fichier — rien n’a encore été enregistré' : 'Import terminé' }}
+        </h2>
+        <dl class="fis-stats">
+          <div><dt>Lignes lues</dt><dd>{{ r.stats.total_lignes }}</dd></div>
+          <div class="fis-stats--ok"><dt>{{ r.simulation ? 'À importer' : 'Importées' }}</dt><dd>{{ r.stats.importees }}</dd></div>
+          <div><dt>Doublons ignorés</dt><dd>{{ r.stats.doublons_ignores }}</dd></div>
+          <div [class.fis-stats--ko]="r.stats.erreurs > 0"><dt>Rejetées</dt><dd>{{ r.stats.erreurs }}</dd></div>
+          <div><dt>END</dt><dd>{{ r.stats.end_total_mwh | number: '1.0-2' }} MWh</dd></div>
+        </dl>
+        @if (r.periode_debut) {
+          <p class="fis-meta">
+            Période : du {{ r.periode_debut | date: 'dd/MM/yyyy' }} au {{ r.periode_fin | date: 'dd/MM/yyyy' }}
+            @if (r.services_touches.length) {
+              · Services : {{ r.services_touches.join(', ') }}
+            }
+          </p>
+        }
+        @if (r.erreurs_detail.length) {
+          <details class="fis-errors" [open]="r.stats.importees === 0">
+            <summary>{{ r.erreurs_detail.length }} ligne(s) rejetée(s) — voir le détail</summary>
+            <ul>
+              @for (e of r.erreurs_detail; track $index) {
+                <li>{{ e }}</li>
+              }
+            </ul>
+            @if (r.stats.erreurs > r.erreurs_detail.length) {
+              <p class="fis-hint">Seules les 50 premières sont listées.</p>
+            }
+          </details>
+        }
+      </div>
+    }
+
+    <div class="fis-actions">
+      @switch (etape()) {
+        @case ('choix') {
+          <button type="button" class="sir-btn sir-btn--primary" [disabled]="!fichier() || enCours()" (click)="apercu()">
+            {{ enCours() ? 'Contrôle en cours…' : 'Contrôler le fichier' }}
+          </button>
+        }
+        @case ('apercu') {
+          <button type="button" class="sir-btn sir-btn--outline-primary" (click)="recommencer()">Changer de fichier</button>
+          <button
+            type="button"
+            class="sir-btn sir-btn--primary"
+            [disabled]="enCours() || (resultat()?.stats?.importees ?? 0) === 0"
+            (click)="importer()"
+          >
+            {{ enCours() ? 'Import en cours…' : 'Importer ' + (resultat()?.stats?.importees ?? 0) + ' interruption(s)' }}
+          </button>
+        }
+        @case ('termine') {
+          <button type="button" class="sir-btn sir-btn--outline-primary" (click)="recommencer()">Importer un autre fichier</button>
+          <a class="sir-btn sir-btn--primary" routerLink="/interruptions/distribution">Voir la liste</a>
+        }
+      }
+    </div>
+  </article>
+</section>

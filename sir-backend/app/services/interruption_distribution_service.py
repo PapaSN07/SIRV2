@@ -687,6 +687,7 @@ async def list_items(
     statut: str | None = None,
     date_debut: datetime | None = None,
     date_fin: datetime | None = None,
+    _max_page_size: int | None = None,
 ) -> PaginatedResponse[InterruptionDistributionResponse]:
     """Liste paginée des interruptions distribution avec scope RBAC automatique."""
     _ensure_can_read(current_user)
@@ -727,6 +728,7 @@ async def list_items(
         statut=statut,
         date_debut=date_debut,
         date_fin=date_fin,
+        max_page_size=_max_page_size,
     )
 
     items: list[InterruptionDistributionResponse] = []
@@ -1685,3 +1687,48 @@ async def valider_lot(
             detail = exc.detail if isinstance(exc.detail, dict) else {"error": str(exc.detail)}
             echecs.append(ValidationLotEchec(id=interruption_id, erreur=str(detail.get("error"))))
     return ValidationLotResponse(validees=validees, echecs=echecs)
+
+
+async def exporter_liste(
+    db: AsyncSession,
+    current_user: Utilisateur,
+    *,
+    format: str,
+    filtres_libelle: str,
+    **filtres: object,
+) -> tuple[bytes, str, str]:
+    """Liste filtrée (même périmètre que l'écran) en Excel ou PDF : (contenu, type MIME, nom)."""
+    import asyncio
+
+    from app.services import interruption_export_service as export
+
+    page = await list_items(
+        db,
+        current_user,
+        page=1,
+        page_size=export.MAX_LIGNES_EXPORT,
+        _max_page_size=export.MAX_LIGNES_EXPORT,
+        **filtres,  # type: ignore[arg-type]
+    )
+    if page.total > export.MAX_LIGNES_EXPORT:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": (
+                    f"{page.total} interruptions : l'export est limité à {export.MAX_LIGNES_EXPORT} lignes. "
+                    "Réduisez la période ou ajoutez un filtre."
+                ),
+            },
+        )
+    horodatage = datetime.now().strftime("%Y%m%d_%H%M")
+    if format == "pdf":
+        contenu = await asyncio.to_thread(export.construire_pdf, page.items, filtres_libelle)
+        return contenu, "application/pdf", f"interruptions_{horodatage}.pdf"
+    contenu = await asyncio.to_thread(export.construire_xlsx, page.items, filtres_libelle)
+    return (
+        contenu,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        f"interruptions_{horodatage}.xlsx",
+    )

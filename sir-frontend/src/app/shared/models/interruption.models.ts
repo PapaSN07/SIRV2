@@ -275,3 +275,20 @@ export interface ArchivageResponse {
   archivees: number;
   non_validees_restantes: number;
 }
+
+/** Import d'un fichier FIS (Excel) : statistiques renvoyées par l'API. */
+export interface FisImportResponse {
+  simulation: boolean;
+  stats: {
+    total_lignes: number;
+    importees: number;
+    doublons_ignores: number;
+    erreurs: number;
+    end_total_kwh: number;
+    end_total_mwh: number;
+  };
+  periode_debut: string | null;
+  periode_fin: string | null;
+  services_touches: string[];
+  erreurs_detail: string[];
+}

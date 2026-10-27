@@ -403,6 +403,47 @@ export class InterruptionListComponent implements OnInit {
     );
   }
 
+  readonly exporting = signal<'xlsx' | 'pdf' | null>(null);
+
+  /** Filtres en clair, repris en tête du fichier exporté. */
+  private filtresLibelle(): string {
+    const parts: string[] = [];
+    const region = this.regions().find((r) => r.id === this.regionId());
+    const service = this.services().find((s) => s.id === this.serviceId());
+    const feeder = this.feeders().find((f) => f.id === this.feederId());
+    const nature = this.natures().find((n) => n.id === this.natureId());
+    if (this.dateDebut() || this.dateFin()) {
+      parts.push(`du ${this.dateDebut() || '…'} au ${this.dateFin() || '…'}`);
+    }
+    if (region) parts.push(`région ${region.libelle}`);
+    if (service) parts.push(`service ${service.libelle}`);
+    if (feeder) parts.push(`feeder ${feeder.libelle}`);
+    if (nature) parts.push(`nature ${nature.libelle}`);
+    if (this.ouverture() === 'ouvert') parts.push('en cours seulement');
+    return parts.length ? parts.join(', ') : 'Tous filtres';
+  }
+
+  exporter(format: 'xlsx' | 'pdf'): void {
+    if (this.exporting()) return;
+    this.exporting.set(format);
+    this.error.set(null);
+    this.service.exporter(this.listParams(), format, this.filtresLibelle()).subscribe({
+      next: ({ blob, nom }) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nom;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.exporting.set(null);
+      },
+      error: (err: Error) => {
+        this.error.set(err.message);
+        this.exporting.set(null);
+      },
+    });
+  }
+
   private listParams() {
     const dateDebut = this.dateDebut();
     const dateFin = this.dateFin();

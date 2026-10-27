@@ -66,6 +66,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'interruptions/distribution/import-fis',
+        canActivate: [roleGuard],
+        data: { roles: DISTRIBUTION_WRITE_ROLES },
+        loadComponent: () =>
+          import('./features/interruptions-distribution/fis-import/fis-import.component').then(
+            (m) => m.FisImportComponent,
+          ),
+      },
+      {
         path: 'interruptions/distribution/:id/modifier',
         canActivate: [roleGuard],
         data: { roles: DISTRIBUTION_WRITE_ROLES },

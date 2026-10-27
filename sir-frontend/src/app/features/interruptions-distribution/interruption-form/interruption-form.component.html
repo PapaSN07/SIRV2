@@ -31,6 +31,14 @@
       <p>Chargement…</p>
     </div>
   } @else {
+    @if (brouillonTrouve(); as b) {
+      <div class="form-draft" role="status">
+        <span class="material-symbols-outlined" aria-hidden="true">history_edu</span>
+        <p>Une saisie non envoyée du {{ b.enregistreLe | date: 'dd/MM/yyyy à HH:mm' }} a été retrouvée sur ce poste.</p>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="restaurerBrouillon()">Reprendre</button>
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="supprimerBrouillon()">Ignorer</button>
+      </div>
+    }
     @if (missingFields().length > 0) {
       <div class="form-missing" role="alert">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
