@@ -442,3 +442,13 @@ async def update_interruption_distribution(
     await db.refresh(interruption)
     await db.refresh(distribution)
     return interruption, distribution
+
+
+async def poste_deja_impacte_sur_feeder(db: AsyncSession, poste_id: int, feeder_id: int) -> bool:
+    """Poste sans feeder (migration) déjà coupé sur ce feeder : il en fait partie de fait."""
+    result = await db.execute(
+        select(PosteInterruption.id)
+        .where(PosteInterruption.poste_id == poste_id, PosteInterruption.feeder_id == feeder_id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None

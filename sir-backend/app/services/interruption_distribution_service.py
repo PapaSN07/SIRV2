@@ -844,6 +844,18 @@ def _poste_in_perimeter(poste: Poste, interruption: Interruption) -> bool:
     return False
 
 
+async def _poste_dans_perimetre(db: AsyncSession, poste: Poste, interruption: Interruption) -> bool:
+    """Comme `_poste_in_perimeter`, plus les postes sans feeder déjà coupés sur ce feeder.
+
+    Même règle que la liste « Postes impactés » (reseau_distribution_repository.list_postes).
+    """
+    if _poste_in_perimeter(poste, interruption):
+        return True
+    if poste.feeder_id is None and interruption.feeder_id is not None:
+        return await repo.poste_deja_impacte_sur_feeder(db, poste.id, interruption.feeder_id)
+    return False
+
+
 def _ensure_statut_en_cours(interruption: Interruption) -> None:
     if interruption.statut != "en_cours":
         raise HTTPException(
@@ -934,7 +946,7 @@ async def add_poste(
             },
         )
 
-    if not _poste_in_perimeter(poste, interruption):
+    if not await _poste_dans_perimetre(db, poste, interruption):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
@@ -1033,7 +1045,7 @@ async def _bulk_link_postes(
         if poste.id in linked_ids:
             skipped += 1
             continue
-        if not _poste_in_perimeter(poste, interruption):
+        if not await _poste_dans_perimetre(db, poste, interruption):
             skipped += 1
             continue
         feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(
