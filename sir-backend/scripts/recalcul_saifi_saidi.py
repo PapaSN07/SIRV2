@@ -52,6 +52,7 @@ async def main(depuis: str) -> None:
                 erreurs += 1
                 print(f"  service {service_id} {int(mois):02d}/{annee} : {str(exc).splitlines()[0][:160]}")
     print(f"{faits} service-mois recalculé(s), {sans_base} sans base clients, {erreurs} en erreur.")
+    await engine.dispose()  # ferme les connexions du pool (sinon « Unclosed connection »)
 
 
 if __name__ == "__main__":
