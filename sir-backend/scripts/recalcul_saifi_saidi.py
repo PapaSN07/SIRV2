@@ -14,11 +14,12 @@ from datetime import date
 
 from sqlalchemy import text
 
-from app.core.database import AsyncSessionLocal
+from app.core.database import AsyncSessionLocal, engine
 from app.services import saifi_saidi_service
 
 
 async def main(depuis: str) -> None:
+    engine.echo = False  # pas le détail SQL de chaque requête
     annee0, mois0 = (int(x) for x in depuis.split("-"))
     async with AsyncSessionLocal() as db:
         periodes = (
@@ -33,8 +34,10 @@ async def main(depuis: str) -> None:
                 {"debut": annee0 * 100 + mois0, "fin": date.today().year * 100 + date.today().month},
             )
         ).all()
-        faits, sans_base = 0, 0
-        for service_id, annee, mois in periodes:
+    faits, sans_base, erreurs = 0, 0, 0
+    # Une session par service-mois : une erreur n'empêche pas de traiter les suivants.
+    for service_id, annee, mois in periodes:
+        async with AsyncSessionLocal() as db:
             try:
                 await saifi_saidi_service.recalculer_periode(
                     db, service_id=int(service_id), annee=int(annee), mois=int(mois)
@@ -44,7 +47,11 @@ async def main(depuis: str) -> None:
             except ValueError:
                 await db.rollback()
                 sans_base += 1
-        print(f"{faits} service-mois recalculé(s), {sans_base} sans base clients.")
+            except Exception as exc:  # noqa: BLE001 — on signale et on continue
+                await db.rollback()
+                erreurs += 1
+                print(f"  service {service_id} {int(mois):02d}/{annee} : {str(exc).splitlines()[0][:160]}")
+    print(f"{faits} service-mois recalculé(s), {sans_base} sans base clients, {erreurs} en erreur.")
 
 
 if __name__ == "__main__":

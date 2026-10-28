@@ -5,12 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
+from app.core.db_url import url_sql_server
 
 # Schéma SQL Server explicite — évite la création dans le schéma par défaut du login
 metadata = MetaData(schema="dbo")
 
 engine = create_async_engine(
-    settings.database_url,
+    url_sql_server(settings.database_url),
     echo=settings.environment == "development",
     pool_pre_ping=True,
     # Le serveur SQL distant / pare-feu coupe les connexions inactives (TCP 10054)

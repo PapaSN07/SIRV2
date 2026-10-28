@@ -15,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
+from app.core.db_url import url_sql_server
 
-worker_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+worker_engine = create_async_engine(url_sql_server(settings.database_url), poolclass=NullPool)
 
 WorkerSessionLocal = async_sessionmaker(
     worker_engine,

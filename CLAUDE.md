@@ -179,6 +179,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : le pilotage filtrait `statut != 'archive'` et SAIFI/SAIDI ne prenaient que `statut == 'valide'` : archiver un mois l'aurait fait disparaître des indicateurs.
 **Règle** : une interruption archivée reste validée ; filtrer avec `STATUTS_CLOTURES` / `STATUTS_VALIDES` (`app/models/interruptions.py`), jamais avec une liste de statuts écrite à la main.
 
+### 28/10/2026 — « Connection is busy » et coupure TCP 10054 (SQL Server)
+**Contexte** : `scripts/recalcul_saifi_saidi.py` arrêté au premier mois contenant des interruptions ; login en 500 après le redémarrage du conteneur `db`.
+**Erreurs** : sans MARS, pyodbc refuse une requête tant que la précédente garde des résultats ouverts (`HY000 Connection is busy`) ; le script réutilisait une seule session, donc une erreur arrêtait tout. Le 10054 venait d'une connexion du pool coupée par le redémarrage de SQL Server.
+**Règles** : les moteurs passent par `app.core.db_url.url_sql_server()` (ajoute `MARS_Connection=yes`, test `tests/unit/test_db_url.py`) ; un script de recalcul en masse ouvre une session par unité de travail et continue après une erreur ; après un redémarrage de `db`, redémarrer `api` et `worker`.
+
 ---
 
 *Dernière mise à jour : Juin 2026*
