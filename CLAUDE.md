@@ -184,6 +184,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : sans MARS, pyodbc refuse une requête tant que la précédente garde des résultats ouverts (`HY000 Connection is busy`) ; le script réutilisait une seule session, donc une erreur arrêtait tout. Le 10054 venait d'une connexion du pool coupée par le redémarrage de SQL Server.
 **Règles** : les moteurs passent par `app.core.db_url.url_sql_server()` (ajoute `MARS_Connection=yes`, test `tests/unit/test_db_url.py`) ; un script de recalcul en masse ouvre une session par unité de travail et continue après une erreur ; après un redémarrage de `db`, redémarrer `api` et `worker`.
 
+### 28/10/2026 — SAIFI/SAIDI à 0 au tableau de bord
+**Contexte** : après l'import NombreClientMois et le recalcul, SAIFI/SAIDI restaient à 0 (cartes et évolution 12 mois).
+**Erreur** : le tableau de bord agrégeait la table `saifi_saidi` calculée service par service. La base clients HFSQL est portée par un service représentatif de la région, les interruptions par chaque service : numérateur et dénominateur ne se rencontraient jamais (0).
+**Règle** : SAIFI/SAIDI d'un périmètre = `saifi_saidi_service.calculer_perimetre` (sommes sur tous les services du périmètre), jamais une moyenne de valeurs par service.
+
 ---
 
 *Dernière mise à jour : Juin 2026*

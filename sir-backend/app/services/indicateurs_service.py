@@ -148,6 +148,12 @@ async def _load_service_ids(db: AsyncSession, scope: _ScopeContext) -> list[int]
     return await repo.list_all_service_ids(db)
 
 
+def _bornes_mois(annee: int, mois: int) -> tuple[datetime, datetime]:
+    debut = datetime(annee, mois, 1)
+    fin = datetime(annee + (mois == 12), mois % 12 + 1, 1)
+    return debut, fin
+
+
 def _paginate_items(items: list, page: int, page_size: int):
     page_size = clamp_page_size(page_size)
     page = max(1, page)
@@ -263,18 +269,15 @@ async def get_saifi(
         service_ids = await _load_service_ids(db, scope)
         if scope.niveau == "service" and scope.scope_id is not None:
             check_service_scope(user, scope.scope_id)
-        records = await repo.list_saifi_saidi_for_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
-        saifi, _, nb, total_clients = saifi_saidi_service.aggregate_saifi_saidi_weighted(
-            records
-        )
+        debut, fin = _bornes_mois(annee, mois)
+        calcul = await saifi_saidi_service.calculer_perimetre(db, service_ids, debut, fin)
+        nb, total_clients = calcul.nombre_interruptions, calcul.total_clients_reference
         aggregate = SaifiSaidiAggregateResponse(
             niveau=scope.niveau,
             scope_id=scope.scope_id,
             annee=annee,
             mois=mois,
-            saifi=float(saifi),
+            saifi=calcul.saifi,
             saidi=0.0,
             nombre_interruptions=nb,
             total_clients_reference=total_clients,
@@ -328,19 +331,16 @@ async def get_saidi(
         service_ids = await _load_service_ids(db, scope)
         if scope.niveau == "service" and scope.scope_id is not None:
             check_service_scope(user, scope.scope_id)
-        records = await repo.list_saifi_saidi_for_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
-        _, saidi, nb, total_clients = saifi_saidi_service.aggregate_saifi_saidi_weighted(
-            records
-        )
+        debut, fin = _bornes_mois(annee, mois)
+        calcul = await saifi_saidi_service.calculer_perimetre(db, service_ids, debut, fin)
+        nb, total_clients = calcul.nombre_interruptions, calcul.total_clients_reference
         aggregate = SaifiSaidiAggregateResponse(
             niveau=scope.niveau,
             scope_id=scope.scope_id,
             annee=annee,
             mois=mois,
             saifi=0.0,
-            saidi=float(saidi),
+            saidi=calcul.saidi,
             nombre_interruptions=nb,
             total_clients_reference=total_clients,
         )
@@ -648,13 +648,9 @@ async def _historique_valeur_for_month(
         )
         return sum(r.end_mwh for r in rows)
 
-    records = await repo.list_saifi_saidi_for_services(
-        db, service_ids=service_ids, annee=annee, mois=mois
-    )
-    saifi, saidi, _, _ = saifi_saidi_service.aggregate_saifi_saidi_weighted(records)
-    if indicateur_type == "saifi":
-        return float(saifi)
-    return float(saidi)
+    debut, fin = _bornes_mois(annee, mois)
+    calcul = await saifi_saidi_service.calculer_perimetre(db, service_ids, debut, fin)
+    return calcul.saifi if indicateur_type == "saifi" else calcul.saidi
 
 
 async def get_historique(

@@ -11,13 +11,15 @@ Aucune exclusion (force majeure comprise) : la formule SENELEC n'en prévoit pas
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.indicateurs import SaifiSaidi
 from app.models.interruptions import Interruption
+from app.repositories import pilotage_repository
 from app.repositories import saifi_saidi_repository as repo
 from app.services.indicateurs_cache_service import invalidate_indicateurs_cache
 
@@ -239,3 +241,40 @@ async def recalculer_periode(
             indicateurs=("saifi", "saidi", "tableau-de-bord"),
         )
     return {"status": "calculated", "service_id": service_id, "annee": annee, "mois": mois}
+
+
+@dataclass(frozen=True)
+class SaifiSaidiPerimetre:
+    saifi: float
+    saidi: float
+    nombre_interruptions: int
+    total_clients_reference: int
+
+
+async def calculer_perimetre(
+    db: AsyncSession,
+    service_ids: list[int],
+    debut: datetime,
+    fin: datetime,
+    today: date | None = None,
+) -> SaifiSaidiPerimetre:
+    """SAIFI/SAIDI d'un périmètre (service, région, national) sur [debut, fin[.
+
+    Le numérateur et le dénominateur sont sommés sur tout le périmètre, comme la mesure
+    Power BI : le nombre de clients HFSQL est souvent porté par un service représentatif de
+    la région, alors que les interruptions sont rattachées à chaque service. Un calcul
+    service par service donnerait 0 partout où ces deux rattachements diffèrent.
+    """
+    totaux = await pilotage_repository.sommer_clients(db, service_ids, debut, fin)
+    mois = await pilotage_repository.mois_derniere_apparition(db, service_ids, debut, fin)
+    if mois is None:
+        jour = today or date.today()
+        borne = min(fin - timedelta(seconds=1), datetime(jour.year, jour.month, jour.day))
+        mois = (borne.year, borne.month)
+    reference = await pilotage_repository.clients_reference_exacte(db, service_ids, *mois)
+    return SaifiSaidiPerimetre(
+        saifi=float(calcul_saifi(totaux.clients, reference)),
+        saidi=float(calcul_saidi(totaux.client_heures, reference)),
+        nombre_interruptions=totaux.nombre,
+        total_clients_reference=reference,
+    )

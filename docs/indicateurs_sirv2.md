@@ -151,9 +151,13 @@ SAIDI = DIVIDE(SUMX('Interruptions', [NombreClient] * [TotalDureeInterruption]),
 - **SAIDI en heures** (client-heures / clients).
 - **Aucune exclusion** : la force majeure est comptée (la formule SENELEC n'en prévoit pas).
 - Datation par `date_apparition`.
-- Indicateurs officiels (`/indicateurs/saifi|saidi`, tableau de bord, rapports) : interruptions validées
-  et archivées, table `saifi_saidi` par service et mois, recalculée à la validation et à la dévalidation.
-- Pilotage (réalisé du jour / cumul) : interruptions clôturées, validées ou archivées, calcul direct.
+- Tableau de bord, `/indicateurs/saifi|saidi`, historique 12 mois, rapports et pilotage : calcul direct
+  par périmètre (`saifi_saidi_service.calculer_perimetre`) sur les interruptions clôturées, validées
+  ou archivées. Le numérateur et la base clients sont sommés sur **tous les services du périmètre** :
+  la base HFSQL est surtout portée par un service représentatif de la région (ID_Service = 0),
+  alors que les interruptions sont rattachées à chaque service.
+- La table `saifi_saidi` (par service et mois) ne sert plus qu'au détail par service
+  (`include_services=true`) ; elle donne 0 pour un service sans ligne NombreClientMois.
 - Sans ligne `NombreClientMois` pour le mois de référence, l'indicateur est vide (comme `DIVIDE`).
 
 Code : `app/services/saifi_saidi_service.py`, `app/repositories/pilotage_repository.py`
