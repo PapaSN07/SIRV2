@@ -99,6 +99,27 @@ def duration_minutes(
     return None
 
 
+def duree_minutes_interruption(
+    duree_heure: int | float | str | None,
+    date_debut: datetime | None,
+    date_fin: datetime | None,
+) -> int | None:
+    """Durée d'une interruption HFSQL en minutes.
+
+    Source : ``dureeHeure`` (heures, la colonne utilisée par Power BI pour SAIDI), sinon
+    l'écart entre apparition et remise. ``DureeInterruption`` n'est pas utilisée : c'est
+    une durée WinDev dont l'unité n'est pas la minute (constat du 28/10/2026, des
+    durées de 0,08 h devenaient 8 333 h).
+    """
+    try:
+        heures = float(str(duree_heure).replace(",", ".")) if duree_heure not in (None, "") else 0.0
+    except (TypeError, ValueError):
+        heures = 0.0
+    if 0 < heures <= 8760:
+        return max(1, round(heures * 60))
+    return duration_minutes(None, date_debut, date_fin)
+
+
 def resolve_interruption_date_apparition(row: dict) -> datetime | None:
     """Date d'apparition interruption (distribution / transport / OMVG).
 

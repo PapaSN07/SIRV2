@@ -150,3 +150,15 @@ def test_backfill_filter_invalid_fk_ids() -> None:
     assert filtered[1] == {"cause_id": 42}
     assert filtered[2] == {"siege_id": 3, "cause_id": 99}
     assert rejected["siege_id"] == 1
+
+
+def test_duree_minutes_interruption_depuis_duree_heure() -> None:
+    """dureeHeure (heures) fait foi ; DureeInterruption n'est plus lue (unité WinDev)."""
+    from scripts.migration.transforms.dates import duree_minutes_interruption
+
+    assert duree_minutes_interruption(0.08, None, None) == 5
+    assert duree_minutes_interruption("0,05", None, None) == 3
+    assert duree_minutes_interruption(0.001, None, None) == 1
+    debut, fin = datetime(2026, 5, 1, 8), datetime(2026, 5, 1, 9, 30)
+    assert duree_minutes_interruption(0, debut, fin) == 90
+    assert duree_minutes_interruption(None, None, None) is None

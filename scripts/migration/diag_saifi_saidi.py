@@ -56,7 +56,8 @@ def lire_hfsql(debut: str, fin: str) -> dict[str, dict[str, Any]]:
     conn = connect_hfsql()
     try:
         requetes = [
-            f"SELECT NInterruption, NumeroInterruption, DateApparition, dureeHeure, IDService "
+            f"SELECT NInterruption, NumeroInterruption, DateApparition, dureeHeure, IDService, "
+            f"Nature, casforcemajeur, Validation, Directionimputable, Duree_Jrs, DureeInterruption "
             f"FROM Interruptions WHERE DateApparition >= '{d}' AND DateApparition < '{f}'"
             for d, f in ((debut, fin), (f"{debut[:4]}-{debut[4:6]}-01", f"{fin[:4]}-{fin[4:6]}-01"))
         ]
@@ -73,6 +74,12 @@ def lire_hfsql(debut: str, fin: str) -> dict[str, dict[str, Any]]:
             interruptions[cle] = {
                 "numero": row_get(row, "NumeroInterruption"),
                 "duree_h": _f(row_get(row, "dureeHeure")),
+                "nature": str(row_get(row, "Nature") or "?").strip() or "?",
+                "force_majeure": str(row_get(row, "casforcemajeur")),
+                "validation": str(row_get(row, "Validation")),
+                "imputable": str(row_get(row, "Directionimputable") or "?").strip() or "?",
+                "duree_jrs": _f(row_get(row, "Duree_Jrs")),
+                "duree_brute": _f(row_get(row, "DureeInterruption")),
                 "clients": 0.0,
                 "postes": 0,
             }
@@ -144,6 +151,32 @@ def _resume(titre: str, lignes: list[dict[str, Any]], base: int) -> None:
         print(f"  SAIFI = {clients / base:.4f}   SAIDI = {ch / base:.4f}")
 
 
+def _ventilations(lignes: list[dict[str, Any]], base: int) -> None:
+    """Pistes pour retrouver la valeur Power BI : sous-ensembles et autres durées."""
+    if not base or not lignes:
+        return
+    print("\n  Ventilation HFSQL (SAIFI / SAIDI de chaque sous-ensemble) :")
+    for champ in ("nature", "force_majeure", "validation", "imputable"):
+        groupes: dict[str, list[dict[str, Any]]] = {}
+        for x in lignes:
+            groupes.setdefault(x[champ], []).append(x)
+        for valeur, groupe in sorted(groupes.items(), key=lambda kv: -len(kv[1]))[:8]:
+            cli = sum(x["clients"] for x in groupe)
+            ch = sum(x["clients"] * x["duree_h"] for x in groupe)
+            print(f"    {champ:<14} {valeur[:24]:<24} {len(groupe):>6} interr.  SAIFI {cli / base:.4f}  SAIDI {ch / base:.4f}")
+    for seuil in (3, 5):
+        longues = [x for x in lignes if x["duree_h"] * 60 > seuil]
+        cli = sum(x["clients"] for x in longues)
+        ch = sum(x["clients"] * x["duree_h"] for x in longues)
+        print(f"    durée > {seuil} min       {len(longues):>6} interr.  SAIFI {cli / base:.4f}  SAIDI {ch / base:.4f}")
+    ch_jrs = sum(x["clients"] * x["duree_jrs"] * 24 for x in lignes)
+    print(f"    SAIDI avec Duree_Jrs × 24 : {ch_jrs / base:.4f}")
+    paires = [(x["duree_brute"], x["duree_h"]) for x in lignes if x["duree_h"] > 0 and x["duree_brute"] > 0]
+    if paires:
+        ratios = sorted(b / h for b, h in paires)
+        print(f"    DureeInterruption / dureeHeure (médiane) : {ratios[len(ratios) // 2]:.1f}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--mois", required=True, help="AAAA-MM")
@@ -167,6 +200,7 @@ def main() -> int:
 
     print(f"Base clients (NombreClientMois) : {base:,}".replace(",", " "))
     _resume("HFSQL (formule Power BI)", list(hfsql.values()), base)
+    _ventilations(list(hfsql.values()), base)
     comptees = [x for x in sirv2.values() if x["statut"] in _STATUTS_COMPTES and x["remise"] is not None]
     _resume("SIRV2 — interruptions comptées (clôturées/validées/archivées)", comptees, base)
     _resume("SIRV2 — toutes les interruptions du mois", list(sirv2.values()), base)

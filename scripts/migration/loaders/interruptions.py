@@ -22,7 +22,7 @@ from scripts.migration.hfsql_odbc import (
 )
 from scripts.migration.loaders.base import BaseLoader
 from scripts.migration.transforms.dates import (
-    duration_minutes,
+    duree_minutes_interruption,
     resolve_interruption_date_apparition,
     resolve_interruption_date_remise,
 )
@@ -205,8 +205,8 @@ class InterruptionsLoader(BaseLoader):
             ),
             "date_apparition": date_app,
             "date_remise": date_remise,
-            "duree_minutes": duration_minutes(
-                row_get(row, "DureeInterruption", "dureeinterruption"), date_app, date_remise
+            "duree_minutes": duree_minutes_interruption(
+                row_get(row, "dureeHeure", "dureeheure"), date_app, date_remise
             ),
             "cause_id": self.fk.resolve_cause_id(row, type_reseau),
             "siege_id": self.fk.resolve_siege_id(row, type_reseau),

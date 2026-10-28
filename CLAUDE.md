@@ -194,6 +194,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : `SUM(nombre_clients)` et `clients × durée` sur une année nationale dépassent 2 147 483 647 → « dépassement arithmétique … type int ». En plus, chaque mois de l'historique regroupait toute la table `poste_interruptions`.
 **Règles** : caster en `BigInteger` avant `SUM` et en `Float` avant un produit (`pilotage_repository._clients_poste`, `_sommes_clients`) ; joindre directement les postes des interruptions filtrées plutôt qu'une sous-requête groupée sur toute la table ; historique = une requête groupée par mois (`saifi_saidi_service.serie_perimetre`).
 
+### 28/10/2026 — Durées migrées fausses (SAIDI 5 942 h au lieu de ~0,4)
+**Contexte** : comparaison mai 2026 SIRV2 / HFSQL (`scripts/migration/diag_saifi_saidi.py`) : clients identiques, 1 571 durées sur 2 659 aberrantes (8 333 h au lieu de 0,08 h).
+**Erreur** : la migration lisait `DureeInterruption` (durée WinDev, autre unité) comme des minutes.
+**Règles** : la durée migrée vient de `dureeHeure` (heures, colonne de Power BI), sinon des dates (`transforms.dates.duree_minutes_interruption`) ; correction des données : `scripts/migration/backfill_duree_interruptions.py` ; toujours rapprocher un indicateur de Power BI interruption par interruption avant de conclure sur la formule.
+
 ---
 
 *Dernière mise à jour : Juin 2026*
