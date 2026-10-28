@@ -38,3 +38,15 @@ async def test_mois_sans_interruption_base_du_mois() -> None:
         )
     ref.assert_awaited_once_with(None, [1], 2025, 3)
     assert r.saifi == 0.0 and r.total_clients_reference == 8_000
+
+
+def test_sommes_clients_en_bigint_et_float() -> None:
+    """Σ clients sur une année nationale dépasse un INT SQL Server (erreur 8115)."""
+    from sqlalchemy import select
+    from sqlalchemy.dialects import mssql
+
+    from app.models.interruptions import Interruption
+    from app.repositories import pilotage_repository as repo
+
+    sql = str(select(*repo._sommes_clients()).select_from(Interruption).compile(dialect=mssql.dialect()))
+    assert "AS BIGINT" in sql and "AS FLOAT" in sql

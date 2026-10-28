@@ -278,3 +278,34 @@ async def calculer_perimetre(
         nombre_interruptions=totaux.nombre,
         total_clients_reference=reference,
     )
+
+
+async def serie_perimetre(
+    db: AsyncSession,
+    service_ids: list[int],
+    mois: list[tuple[int, int]],
+) -> dict[tuple[int, int], SaifiSaidiPerimetre]:
+    """SAIFI/SAIDI mois par mois (historique), en deux requêtes au lieu de trois par mois.
+
+    Sur un seul mois, le mois de la dernière apparition est ce mois-là : la base clients
+    est celle du mois lui-même.
+    """
+    if not mois:
+        return {}
+    premier, dernier = min(mois), max(mois)
+    debut = datetime(premier[0], premier[1], 1)
+    fin = datetime(dernier[0] + (dernier[1] == 12), dernier[1] % 12 + 1, 1)
+    totaux = await pilotage_repository.sommer_clients_par_mois(db, service_ids, debut, fin)
+    bases = await pilotage_repository.clients_reference_par_mois(db, service_ids, premier, dernier)
+    vide = pilotage_repository.ClientsDureeRow(0, 0.0, 0)
+    serie: dict[tuple[int, int], SaifiSaidiPerimetre] = {}
+    for cle in mois:
+        t = totaux.get(cle, vide)
+        base = bases.get(cle, 0)
+        serie[cle] = SaifiSaidiPerimetre(
+            saifi=float(calcul_saifi(t.clients, base)),
+            saidi=float(calcul_saidi(t.client_heures, base)),
+            nombre_interruptions=t.nombre,
+            total_clients_reference=base,
+        )
+    return serie

@@ -189,6 +189,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : le tableau de bord agrégeait la table `saifi_saidi` calculée service par service. La base clients HFSQL est portée par un service représentatif de la région, les interruptions par chaque service : numérateur et dénominateur ne se rencontraient jamais (0).
 **Règle** : SAIFI/SAIDI d'un périmètre = `saifi_saidi_service.calculer_perimetre` (sommes sur tous les services du périmètre), jamais une moyenne de valeurs par service.
 
+### 28/10/2026 — Dépassement INT SQL Server (8115) sur les sommes de clients
+**Contexte** : tableau de bord et pilotage sans données après le passage au calcul SAIFI/SAIDI par périmètre.
+**Erreur** : `SUM(nombre_clients)` et `clients × durée` sur une année nationale dépassent 2 147 483 647 → « dépassement arithmétique … type int ». En plus, chaque mois de l'historique regroupait toute la table `poste_interruptions`.
+**Règles** : caster en `BigInteger` avant `SUM` et en `Float` avant un produit (`pilotage_repository._clients_poste`, `_sommes_clients`) ; joindre directement les postes des interruptions filtrées plutôt qu'une sous-requête groupée sur toute la table ; historique = une requête groupée par mois (`saifi_saidi_service.serie_perimetre`).
+
 ---
 
 *Dernière mise à jour : Juin 2026*

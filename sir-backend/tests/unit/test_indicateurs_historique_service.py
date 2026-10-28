@@ -47,7 +47,7 @@ async def test_get_historique_fin_termine_la_serie_au_mois_choisi() -> None:
         resolve.return_value = MagicMock(niveau="service", scope_id=None)
         result = await get_historique(
             AsyncMock(), AsyncMock(), AsyncMock(user_roles=[]),
-            indicateur_type="saifi", annees=1, fin="2024-03",
+            indicateur_type="end", annees=1, fin="2024-03",
         )
     keys = [(p.annee, p.mois) for p in result.points]
     assert keys[0] == (2023, 4)

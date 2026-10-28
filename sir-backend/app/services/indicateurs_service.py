@@ -693,15 +693,25 @@ async def get_historique(
         if scope.niveau == "service" and scope.scope_id is not None:
             check_service_scope(user, scope.scope_id)
         service_ids = await _load_service_ids(db, scope)
+        mois_serie = _iter_months_back(clamped_annees, end=end)
+        serie = (
+            await saifi_saidi_service.serie_perimetre(db, service_ids, mois_serie)
+            if indicateur_type != "end"
+            else {}
+        )
         points: list[HistoriquePointResponse] = []
-        for point_annee, point_mois in _iter_months_back(clamped_annees, end=end):
-            valeur = await _historique_valeur_for_month(
-                db,
-                indicateur_type=indicateur_type,
-                service_ids=service_ids,
-                annee=point_annee,
-                mois=point_mois,
-            )
+        for point_annee, point_mois in mois_serie:
+            if indicateur_type == "end":
+                valeur = await _historique_valeur_for_month(
+                    db,
+                    indicateur_type=indicateur_type,
+                    service_ids=service_ids,
+                    annee=point_annee,
+                    mois=point_mois,
+                )
+            else:
+                calcul = serie[(point_annee, point_mois)]
+                valeur = calcul.saifi if indicateur_type == "saifi" else calcul.saidi
             points.append(
                 HistoriquePointResponse(annee=point_annee, mois=point_mois, valeur=valeur)
             )

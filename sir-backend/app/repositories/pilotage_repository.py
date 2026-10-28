@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import BigInteger, Float, cast, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Region, Service
@@ -70,13 +70,7 @@ def _clients_par_interruption():
     return (
         select(
             PosteInterruption.interruption_id.label("interruption_id"),
-            func.sum(
-                func.coalesce(
-                    PosteInterruption.nombre_clients_estime,
-                    PosteInterruption.nombre_clients_touches,
-                    0,
-                )
-            ).label("clients"),
+            func.sum(_clients_poste()).label("clients"),
         )
         .group_by(PosteInterruption.interruption_id)
         .subquery()
@@ -166,6 +160,33 @@ async def sommer_end_mwh(
     return float(total or 0)
 
 
+def _clients_poste():
+    """NombreClient d'une ligne PosteInterruption (estimé, sinon touchés saisis)."""
+    # BIGINT : sur une année nationale, Σ clients dépasse la capacité d'un INT SQL Server
+    return cast(
+        func.coalesce(
+            PosteInterruption.nombre_clients_estime, PosteInterruption.nombre_clients_touches, 0
+        ),
+        BigInteger,
+    )
+
+
+def _sommes_clients():
+    """Σ NombreClient, Σ NombreClient × dureeHeure et nombre d'interruptions.
+
+    Jointure directe sur les postes des seules interruptions filtrées : pas de regroupement
+    de toute la table poste_interruptions (trop lourd quand la requête est répétée).
+    """
+    nb = _clients_poste()
+    return (
+        func.coalesce(func.sum(nb), 0).label("clients"),
+        func.coalesce(
+            func.sum(cast(nb, Float) * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0
+        ).label("client_heures"),
+        func.count(func.distinct(Interruption.id)).label("nombre"),
+    )
+
+
 async def sommer_clients(
     db: AsyncSession,
     service_ids: list[int],
@@ -175,19 +196,11 @@ async def sommer_clients(
     """NombreClient et Σ(NombreClient × dureeHeure), datés par l'apparition (formule SENELEC)."""
     if not service_ids:
         return ClientsDureeRow(0, 0.0, 0)
-    clients = _clients_par_interruption()
-    nb = func.coalesce(clients.c.clients, 0)
     row = (
         await db.execute(
-            select(
-                func.coalesce(func.sum(nb), 0).label("clients"),
-                func.coalesce(
-                    func.sum(nb * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0
-                ).label("client_heures"),
-                func.count(Interruption.id).label("nombre"),
-            )
+            select(*_sommes_clients())
             .select_from(Interruption)
-            .outerjoin(clients, clients.c.interruption_id == Interruption.id)
+            .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
             .where(
                 Interruption.service_id.in_(service_ids),
                 *_distribution_saifi_saidi(),
@@ -201,6 +214,65 @@ async def sommer_clients(
         client_heures=float(row.client_heures or 0),
         nombre=int(row.nombre or 0),
     )
+
+
+async def sommer_clients_par_mois(
+    db: AsyncSession,
+    service_ids: list[int],
+    debut: datetime,
+    fin: datetime,
+) -> dict[tuple[int, int], ClientsDureeRow]:
+    """Même calcul que sommer_clients, regroupé par mois d'apparition (une seule requête)."""
+    if not service_ids:
+        return {}
+    annee = extract("year", Interruption.date_apparition)
+    mois = extract("month", Interruption.date_apparition)
+    result = await db.execute(
+        select(annee.label("annee"), mois.label("mois"), *_sommes_clients())
+        .select_from(Interruption)
+        .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
+        .where(
+            Interruption.service_id.in_(service_ids),
+            *_distribution_saifi_saidi(),
+            Interruption.date_apparition >= debut,
+            Interruption.date_apparition < fin,
+        )
+        .group_by(annee, mois)
+    )
+    return {
+        (int(r.annee), int(r.mois)): ClientsDureeRow(
+            clients=int(r.clients or 0),
+            client_heures=float(r.client_heures or 0),
+            nombre=int(r.nombre or 0),
+        )
+        for r in result.all()
+    }
+
+
+async def clients_reference_par_mois(
+    db: AsyncSession,
+    service_ids: list[int],
+    debut: tuple[int, int],
+    fin: tuple[int, int],
+) -> dict[tuple[int, int], int]:
+    """Σ NombreClientMois par (année, mois), bornes (année, mois) incluses."""
+    if not service_ids:
+        return {}
+    cle = NombreClientMois.annee * 100 + NombreClientMois.mois
+    result = await db.execute(
+        select(
+            NombreClientMois.annee,
+            NombreClientMois.mois,
+            func.coalesce(func.sum(NombreClientMois.nombre_clients), 0).label("clients"),
+        )
+        .where(
+            NombreClientMois.service_id.in_(service_ids),
+            cle >= debut[0] * 100 + debut[1],
+            cle <= fin[0] * 100 + fin[1],
+        )
+        .group_by(NombreClientMois.annee, NombreClientMois.mois)
+    )
+    return {(int(r.annee), int(r.mois)): int(r.clients or 0) for r in result.all()}
 
 
 async def mois_derniere_apparition(
@@ -495,7 +567,7 @@ async def top_postes(
             Poste.code,
             Poste.libelle,
             func.count(func.distinct(Interruption.id)).label("nombre"),
-            func.coalesce(func.sum(PosteInterruption.nombre_clients_touches), 0).label("clients"),
+            func.coalesce(func.sum(cast(PosteInterruption.nombre_clients_touches, BigInteger)), 0).label("clients"),
             func.coalesce(func.sum(InterruptionDistribution.end_mwh), 0).label("end_mwh"),
         )
         .join(PosteInterruption, PosteInterruption.poste_id == Poste.id)
@@ -552,7 +624,7 @@ async def zones_perturbees(
             func.coalesce(func.sum(func.coalesce(clients.c.clients, 0)), 0).label("clients"),
             func.coalesce(
                 func.sum(
-                    func.coalesce(clients.c.clients, 0)
+                    cast(func.coalesce(clients.c.clients, 0), Float)
                     * func.coalesce(Interruption.duree_minutes, 0)
                     / 60.0
                 ),
@@ -606,19 +678,18 @@ async def clients_par_zone(
     if not service_ids:
         return {}
     zone_id = Service.region_id if par_region else Service.id
-    clients = _clients_par_interruption()
-    nb = func.coalesce(clients.c.clients, 0)
+    nb = _clients_poste()
     result = await db.execute(
         select(
             zone_id,
             func.coalesce(func.sum(nb), 0).label("clients"),
-            func.coalesce(func.sum(nb * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0).label(
+            func.coalesce(func.sum(cast(nb, Float) * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0).label(
                 "client_heures"
             ),
         )
         .select_from(Interruption)
         .join(Service, Service.id == Interruption.service_id)
-        .outerjoin(clients, clients.c.interruption_id == Interruption.id)
+        .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
         .where(
             Interruption.service_id.in_(service_ids),
             *_distribution_saifi_saidi(),
