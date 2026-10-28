@@ -19,7 +19,7 @@ _CLOSED = STATUTS_CLOTURES
 @dataclass(frozen=True)
 class ClientsDureeRow:
     clients: int
-    client_minutes: float
+    client_heures: float
     nombre: int
 
 
@@ -54,7 +54,7 @@ class ZoneRow:
     nombre: int
     end_mwh: float
     clients: int
-    client_minutes: float
+    client_heures: float
 
 
 @dataclass(frozen=True)
@@ -63,6 +63,33 @@ class MoisPointRow:
     mois: int
     nombre: int
     end_mwh: float
+
+
+def _clients_par_interruption():
+    """NombreClient (formule SENELEC) : Σ clients estimés des postes impactés, par interruption."""
+    return (
+        select(
+            PosteInterruption.interruption_id.label("interruption_id"),
+            func.sum(
+                func.coalesce(
+                    PosteInterruption.nombre_clients_estime,
+                    PosteInterruption.nombre_clients_touches,
+                    0,
+                )
+            ).label("clients"),
+        )
+        .group_by(PosteInterruption.interruption_id)
+        .subquery()
+    )
+
+
+def _distribution_saifi_saidi():
+    """Interruptions comptées dans SAIFI/SAIDI : clôturées (durée connue), sans exclusion."""
+    return (
+        Interruption.type_direction == "distribution",
+        Interruption.statut.in_(_CLOSED),
+        Interruption.date_remise.isnot(None),
+    )
 
 
 def _closed_distribution():
@@ -145,33 +172,74 @@ async def sommer_clients(
     debut: datetime,
     fin: datetime,
 ) -> ClientsDureeRow:
+    """NombreClient et Σ(NombreClient × dureeHeure), datés par l'apparition (formule SENELEC)."""
     if not service_ids:
         return ClientsDureeRow(0, 0.0, 0)
+    clients = _clients_par_interruption()
+    nb = func.coalesce(clients.c.clients, 0)
     row = (
         await db.execute(
             select(
-                func.coalesce(func.sum(Interruption.nombre_clients_touches), 0).label("clients"),
+                func.coalesce(func.sum(nb), 0).label("clients"),
                 func.coalesce(
-                    func.sum(
-                        func.coalesce(Interruption.nombre_clients_touches, 0)
-                        * func.coalesce(Interruption.duree_minutes, 0)
-                    ),
-                    0,
-                ).label("client_minutes"),
+                    func.sum(nb * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0
+                ).label("client_heures"),
                 func.count(Interruption.id).label("nombre"),
-            ).where(
+            )
+            .select_from(Interruption)
+            .outerjoin(clients, clients.c.interruption_id == Interruption.id)
+            .where(
                 Interruption.service_id.in_(service_ids),
-                *_closed_distribution(),
-                Interruption.date_remise >= debut,
-                Interruption.date_remise < fin,
+                *_distribution_saifi_saidi(),
+                Interruption.date_apparition >= debut,
+                Interruption.date_apparition < fin,
             )
         )
     ).one()
     return ClientsDureeRow(
         clients=int(row.clients or 0),
-        client_minutes=float(row.client_minutes or 0),
+        client_heures=float(row.client_heures or 0),
         nombre=int(row.nombre or 0),
     )
+
+
+async def mois_derniere_apparition(
+    db: AsyncSession,
+    service_ids: list[int],
+    debut: datetime,
+    fin: datetime,
+) -> tuple[int, int] | None:
+    """(année, mois) de MAX(DateApparition) sur la période — mois du dénominateur SENELEC."""
+    if not service_ids:
+        return None
+    derniere = await db.scalar(
+        select(func.max(Interruption.date_apparition)).where(
+            Interruption.service_id.in_(service_ids),
+            *_distribution_saifi_saidi(),
+            Interruption.date_apparition >= debut,
+            Interruption.date_apparition < fin,
+        )
+    )
+    return (derniere.year, derniere.month) if derniere else None
+
+
+async def clients_reference_exacte(
+    db: AsyncSession,
+    service_ids: list[int],
+    annee: int,
+    mois: int,
+) -> int:
+    """Σ NombreClientMois du mois demandé, sans repli (comme la mesure Power BI SENELEC)."""
+    if not service_ids:
+        return 0
+    total = await db.scalar(
+        select(func.coalesce(func.sum(NombreClientMois.nombre_clients), 0)).where(
+            NombreClientMois.service_id.in_(service_ids),
+            NombreClientMois.annee == annee,
+            NombreClientMois.mois == mois,
+        )
+    )
+    return int(total or 0)
 
 
 async def clients_reference(
@@ -473,6 +541,7 @@ async def zones_perturbees(
     zone_id = Region.id if par_region else Service.id
     zone_code = Region.code if par_region else Service.code
     zone_libelle = Region.libelle if par_region else Service.libelle
+    clients = _clients_par_interruption()
     stmt = (
         select(
             zone_id,
@@ -480,16 +549,18 @@ async def zones_perturbees(
             zone_libelle,
             func.count(Interruption.id).label("nombre"),
             func.coalesce(func.sum(InterruptionDistribution.end_mwh), 0).label("end_mwh"),
-            func.coalesce(func.sum(Interruption.nombre_clients_touches), 0).label("clients"),
+            func.coalesce(func.sum(func.coalesce(clients.c.clients, 0)), 0).label("clients"),
             func.coalesce(
                 func.sum(
-                    func.coalesce(Interruption.nombre_clients_touches, 0)
+                    func.coalesce(clients.c.clients, 0)
                     * func.coalesce(Interruption.duree_minutes, 0)
+                    / 60.0
                 ),
                 0,
-            ).label("client_minutes"),
+            ).label("client_heures"),
         )
         .join(Service, Service.id == Interruption.service_id)
+        .outerjoin(clients, clients.c.interruption_id == Interruption.id)
         .outerjoin(
             InterruptionDistribution,
             InterruptionDistribution.interruption_id == Interruption.id,
@@ -517,10 +588,47 @@ async def zones_perturbees(
             nombre=int(row.nombre or 0),
             end_mwh=float(row.end_mwh or 0),
             clients=int(row.clients or 0),
-            client_minutes=float(row.client_minutes or 0),
+            client_heures=float(row.client_heures or 0),
         )
         for row in result.all()
     ]
+
+
+async def clients_par_zone(
+    db: AsyncSession,
+    service_ids: list[int],
+    debut: datetime,
+    fin: datetime,
+    *,
+    par_region: bool,
+) -> dict[int, tuple[int, float]]:
+    """Par zone : (NombreClient, Σ NombreClient × dureeHeure), règles de la formule SENELEC."""
+    if not service_ids:
+        return {}
+    zone_id = Service.region_id if par_region else Service.id
+    clients = _clients_par_interruption()
+    nb = func.coalesce(clients.c.clients, 0)
+    result = await db.execute(
+        select(
+            zone_id,
+            func.coalesce(func.sum(nb), 0).label("clients"),
+            func.coalesce(func.sum(nb * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0).label(
+                "client_heures"
+            ),
+        )
+        .select_from(Interruption)
+        .join(Service, Service.id == Interruption.service_id)
+        .outerjoin(clients, clients.c.interruption_id == Interruption.id)
+        .where(
+            Interruption.service_id.in_(service_ids),
+            *_distribution_saifi_saidi(),
+            Interruption.date_apparition >= debut,
+            Interruption.date_apparition < fin,
+            zone_id.isnot(None),
+        )
+        .group_by(zone_id)
+    )
+    return {int(r[0]): (int(r.clients or 0), float(r.client_heures or 0)) for r in result.all()}
 
 
 async def clients_reference_par_zone(

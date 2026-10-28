@@ -122,118 +122,48 @@ Paramètres : `annee`, `mois`, `region_id` (optionnel), `include_services`, `pag
 
 ---
 
-## 2. SAIFI — System Average Interruption Frequency Index
+## 2. SAIFI et SAIDI — formule SENELEC (Power BI SIR, 28/10/2026)
 
-### Définition
+Formule communiquée par SENELEC le 28/10/2026 (mesures DAX du rapport Power BI SIR) :
 
-Nombre moyen d'interruptions subies par un client sur la période.
-
-### Formule
-
-```
-SAIFI = Σ(clients_interrompus_par_interruption) / total_clients_reference
-```
-
-### Paramètres
-
-| Paramètre | Source | Table | Colonne |
-|---|---|---|---|
-| Clients interrompus par interruption | Somme postes impactés | `poste_interruptions` | `nombre_clients_touches` |
-| Total clients de référence | Snapshot mensuel | `nombre_client_mois` | `nombre_clients` |
-
-### Règles d'exclusion
-
-- `is_force_majeure = true` → exclu du numérateur
-- Seules les interruptions `valide` sont comptées (pas `cloture`, pas `en_cours`)
-- Période : basée sur `date_apparition` de l'interruption (mois/année)
-
-### Algorithme de calcul par service
-
-```python
-# 1. Récupérer la base clients de référence du mois
-total_clients = nombre_client_mois.nombre_clients  # pour service_id, annee, mois
-
-# 2. Pour chaque interruption validée du service sur la période
-for interruption in interruptions_validees:
-    if not interruption.is_force_majeure:
-        clients = sum(poste.nombre_clients_touches for poste in interruption.postes_interrompus)
-        clients_total += clients
-
-# 3. Calculer SAIFI
-SAIFI = clients_total / total_clients
+```dax
+NombreClient = SUM('PosteInterruption'[nombreclientposteEstime])
+TotalDureeInterruption = SUM(Interruptions[dureeHeure])
+NbClients_DateFin_Interuption =
+    VAR DateFin = MAX('Interruptions'[DateApparition])
+    RETURN CALCULATE(SUM('NombreClientMois'[Nombreclient]),
+        FILTER('NombreClientMois', 'NombreClientMois'[Annee] = YEAR(DateFin)
+            && VALUE('NombreClientMois'[MoisNumerique]) = MONTH(DateFin)))
+SAIFI = DIVIDE([NombreClient], [NbClients_DateFin_Interuption])
+SAIDI = DIVIDE(SUMX('Interruptions', [NombreClient] * [TotalDureeInterruption]),
+               [NbClients_DateFin_Interuption])
 ```
 
-### Agrégation multi-niveaux (pondération)
+### Correspondance SIRV2
 
-L'agrégation régionale/nationale est pondérée par le nombre de clients :
+| Mesure Power BI | SIRV2 |
+|---|---|
+| `nombreclientposteEstime` | `poste_interruptions.nombre_clients_estime` (repli : `nombre_clients_touches`) |
+| `dureeHeure` | `interruptions.duree_minutes / 60` |
+| `NombreClientMois[Nombreclient]` | `nombre_client_mois.nombre_clients` (import : `scripts/migration/import_nombre_client_mois.py`) |
+| Mois de `MAX(DateApparition)` | mois de la dernière apparition de la période, dans le périmètre (service, région, national) |
 
-```
-SAIFI_agrégé = Σ(SAIFI_service × clients_reference_service) / Σ(clients_reference_service)
-```
+- **SAIDI en heures** (client-heures / clients).
+- **Aucune exclusion** : la force majeure est comptée (la formule SENELEC n'en prévoit pas).
+- Datation par `date_apparition`.
+- Indicateurs officiels (`/indicateurs/saifi|saidi`, tableau de bord, rapports) : interruptions validées
+  et archivées, table `saifi_saidi` par service et mois, recalculée à la validation et à la dévalidation.
+- Pilotage (réalisé du jour / cumul) : interruptions clôturées, validées ou archivées, calcul direct.
+- Sans ligne `NombreClientMois` pour le mois de référence, l'indicateur est vide (comme `DIVIDE`).
 
-```python
-# Stocké en table saifi_saidi par service/période
-# Agrégation à la lecture :
-saifi = sum(r.saifi * r.total_clients_reference for r in records) / sum(r.total_clients_reference for r in records)
-```
+Code : `app/services/saifi_saidi_service.py`, `app/repositories/pilotage_repository.py`
+(`sommer_clients`, `mois_derniere_apparition`, `clients_reference_exacte`).
+Recalcul après import : `docker compose exec api python -m scripts.recalcul_saifi_saidi --depuis 2024-01`.
 
-### Persistance
+### Agrégation service → région → national (un mois)
 
-Table : `saifi_saidi`  
-Clé : `(service_id, annee, mois)` — contrainte UNIQUE  
-Recalculé à chaque validation d'interruption (tâche Celery)
-
-### Endpoint API
-
-```
-GET /api/v1/indicateurs/saifi?annee=2024&mois=5&region_id=1
-```
-
----
-
-## 3. SAIDI — System Average Interruption Duration Index
-
-### Définition
-
-Durée moyenne cumulée des interruptions subies par un client sur la période (en minutes).
-
-### Formule
-
-```
-SAIDI = Σ(clients_interrompus × durée_minutes) / total_clients_reference
-```
-
-### Paramètres
-
-| Paramètre | Source | Table | Colonne |
-|---|---|---|---|
-| Clients interrompus | Somme postes impactés | `poste_interruptions` | `nombre_clients_touches` |
-| Durée (minutes) | Calculé à la clôture | `interruptions` | `duree_minutes` |
-| Total clients de référence | Snapshot mensuel | `nombre_client_mois` | `nombre_clients` |
-
-### Algorithme de calcul par service
-
-```python
-# Pour chaque interruption validée du service sur la période
-for interruption in interruptions_validees:
-    if not interruption.is_force_majeure:
-        clients = sum(poste.nombre_clients_touches for poste in interruption.postes_interrompus)
-        duree = interruption.duree_minutes or 0
-        client_minutes += clients * duree
-
-# SAIDI en minutes
-SAIDI = client_minutes / total_clients
-```
-
-### Agrégation multi-niveaux (même pondération que SAIFI)
-
-```
-SAIDI_agrégé = Σ(SAIDI_service × clients_reference_service) / Σ(clients_reference_service)
-```
-
-### Persistance
-
-Même table `saifi_saidi` que SAIFI — calculés simultanément.
+`Σ(SAIFI_service × clients_service) / Σ clients_service` = `Σ NombreClient / Σ NombreClientMois`,
+identique à la mesure Power BI sur un mois.
 
 ### Endpoint API
 
@@ -584,7 +514,7 @@ Aligné sur `seed_rbac.py` et `indicateurs_service._resolve_scope` (BCC/BRC : `u
 ## Points en attente de validation SENELEC/CRSE
 
 1. **Coefficients de pondération END** : les coefficients par nature (INCIDENT, DELESTAGE, MAINTENANCE) sont provisoirement à 1.0 — les vrais coefficients CRSE doivent être saisis dans la table `types_end`.
-2. **Exclusions SAIFI/SAIDI** : confirmer si les délestages et coupures travaux doivent être exclus du numérateur.
-3. **Base clients de référence** : confirmer si c'est le nombre de clients en début de mois, fin de mois, ou moyenne.
-4. **Unité SAIDI** : confirmer si SAIDI s'exprime en minutes ou en heures dans les rapports CRSE.
+2. ~~Exclusions SAIFI/SAIDI~~ — tranché le 28/10/2026 : aucune exclusion (formule Power BI SENELEC).
+3. ~~Base clients de référence~~ — tranché : NombreClientMois du mois de la dernière apparition.
+4. ~~Unité SAIDI~~ — tranché : heures.
 5. **Objectifs annuels** : les seuils CRSE cibles (END max, SAIFI max, SAIDI max) ne sont pas encore configurés.

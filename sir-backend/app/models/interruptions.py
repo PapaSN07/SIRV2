@@ -305,6 +305,9 @@ class PosteInterruption(Base):
         Integer, ForeignKey("postes_sources.id", ondelete="NO ACTION"), nullable=True, index=True
     )
     nombre_clients_touches: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Clients estimés du poste au moment de la coupure (SIR v1 : nombreclientposteEstime).
+    # Numérateur SAIFI/SAIDI de la formule SENELEC ; repli sur nombre_clients_touches.
+    nombre_clients_estime: Mapped[int | None] = mapped_column(Integer, nullable=True)
     date_interruption: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=False), nullable=True
     )

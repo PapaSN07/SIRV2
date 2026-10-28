@@ -76,13 +76,13 @@ def export_mensuel_distribution_xlsx(path: Path, data: MensuelDistributionReport
     summary["A2"] = f"Périmètre : {_mensuel_scope_label(data)}"
     summary["A3"] = f"END (MWh) : {data.end.aggregate.end_mwh:.4f}"
     summary["A4"] = f"SAIFI : {data.saifi.aggregate.saifi:.4f}"
-    summary["A5"] = f"SAIDI : {data.saidi.aggregate.saidi:.4f}"
+    summary["A5"] = f"SAIDI (h) : {data.saidi.aggregate.saidi:.4f}"
     summary["A6"] = f"Interruptions : {data.end.aggregate.nombre_interruptions}"
     summary["A7"] = "Template placeholder CRSE — validation SAQS requise."
 
     services_sheet = workbook.create_sheet("Services")
     services_sheet.append(
-        ["Service ID", "END (MWh)", "Interruptions", "SAIFI", "SAIDI"]
+        ["Service ID", "END (MWh)", "Interruptions", "SAIFI", "SAIDI (h)"]
     )
 
     saifi_by_service = {
@@ -186,7 +186,7 @@ def export_annuel_xlsx(path: Path, data: AnnuelReportData) -> None:
     summary["A4"] = "Template placeholder CRSE — validation SAQS requise."
 
     serie_sheet = workbook.create_sheet("Série mensuelle")
-    serie_sheet.append(["Mois", "END (MWh)", "SAIFI", "SAIDI"])
+    serie_sheet.append(["Mois", "END (MWh)", "SAIFI", "SAIDI (h)"])
     for point in data.serie_civile:
         serie_sheet.append([point.mois, point.end_mwh, point.saifi, point.saidi])
 

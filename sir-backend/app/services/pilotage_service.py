@@ -184,6 +184,22 @@ async def _objectifs_map(
     return {row.code: float(row.valeur_annuelle) for row in rows}
 
 
+async def _reference_senelec(
+    db: AsyncSession,
+    service_ids: list[int],
+    debut: datetime,
+    fin: datetime,
+    today: date,
+) -> int:
+    """NbClients_DateFin_Interuption : NombreClientMois du mois de MAX(DateApparition).
+
+    Sans interruption sur la période, le mois courant sert de référence.
+    """
+    mois = await repo.mois_derniere_apparition(db, service_ids, debut, fin)
+    annee_ref, mois_ref = mois or (today.year, today.month)
+    return await repo.clients_reference_exacte(db, service_ids, annee_ref, mois_ref)
+
+
 async def _build_pilotage(
     db: AsyncSession,
     user: Utilisateur,
@@ -215,17 +231,19 @@ async def _build_pilotage(
     end_cumul = await repo.sommer_end_mwh(db, service_ids, debut_annee, fin_jour)
     clients_jour = await repo.sommer_clients(db, service_ids, debut_jour, fin_jour)
     clients_cumul = await repo.sommer_clients(db, service_ids, debut_annee, fin_jour)
-    reference = await repo.clients_reference(db, service_ids, today.year, today.month)
+    # Dénominateur SENELEC : clients du mois de la dernière apparition de la période
+    ref_jour = await _reference_senelec(db, service_ids, debut_jour, fin_jour, today)
+    ref_cumul = await _reference_senelec(db, service_ids, debut_annee, fin_jour, today)
 
-    def _ratio(numerateur: float) -> float | None:
-        if reference <= 0:
+    def _ratio(numerateur: float, base: int) -> float | None:
+        if base <= 0:
             return None
-        return numerateur / reference
+        return numerateur / base
 
-    saifi_jour = _ratio(clients_jour.clients)
-    saidi_jour = _ratio(clients_jour.client_minutes)
-    saifi_cumul = _ratio(clients_cumul.clients)
-    saidi_cumul = _ratio(clients_cumul.client_minutes)
+    saifi_jour = _ratio(clients_jour.clients, ref_jour)
+    saidi_jour = _ratio(clients_jour.client_heures, ref_jour)
+    saifi_cumul = _ratio(clients_cumul.clients, ref_cumul)
+    saidi_cumul = _ratio(clients_cumul.client_heures, ref_cumul)
 
     region_objectif = await _region_objectif(db, scope.niveau, scope.scope_id)
     objectifs = await _objectifs_map(db, annee_objectif, region_objectif)
@@ -252,8 +270,8 @@ async def _build_pilotage(
             annuel=objectifs.get("SAIFI"),
             realise_jour=saifi_jour,
             realise_cumul=saifi_cumul,
-            note_jour=f"{_fmt_int(clients_jour.clients)} clients / {_fmt_int(reference)}",
-            note_cumul=f"{_fmt_int(clients_cumul.clients)} clients / {_fmt_int(reference)}",
+            note_jour=f"{_fmt_int(clients_jour.clients)} clients / {_fmt_int(ref_jour)}",
+            note_cumul=f"{_fmt_int(clients_cumul.clients)} clients / {_fmt_int(ref_cumul)}",
             jours_ecoules=jours_ecoules,
             jours_annee=jours_annee,
             digits=3,
@@ -261,15 +279,15 @@ async def _build_pilotage(
         _suivi(
             code="SAIDI",
             libelle="SAIDI",
-            unite="min",
+            unite="h",
             annuel=objectifs.get("SAIDI"),
             realise_jour=saidi_jour,
             realise_cumul=saidi_cumul,
-            note_jour=f"{_fmt(clients_jour.client_minutes, 0)} clients × min",
-            note_cumul=f"{_fmt(clients_cumul.client_minutes, 0)} clients × min",
+            note_jour=f"{_fmt(clients_jour.client_heures, 0)} clients × h",
+            note_cumul=f"{_fmt(clients_cumul.client_heures, 0)} clients × h",
             jours_ecoules=jours_ecoules,
             jours_annee=jours_annee,
-            digits=1,
+            digits=2,
         ),
         _suivi(
             code="DEFAUTS_100KM",
@@ -324,16 +342,22 @@ async def _build_pilotage(
         fin_mois,
         par_region=par_region,
     )
+    mois_ref = await repo.mois_derniere_apparition(db, service_ids, debut_mois, fin_mois)
+    ref_annee, ref_mois = mois_ref or (annee, mois)
     refs = await repo.clients_reference_par_zone(
         db,
         service_ids,
-        annee,
-        mois,
+        ref_annee,
+        ref_mois,
         par_region=par_region,
+    )
+    clients_zones = await repo.clients_par_zone(
+        db, service_ids, debut_mois, fin_mois, par_region=par_region
     )
     zones = []
     for zone in zone_rows:
         ref = refs.get(zone.zone_id, 0)
+        clients_zone, heures_zone = clients_zones.get(zone.zone_id, (0, 0.0))
         zones.append(
             ZonePerturbeeResponse(
                 zone_id=zone.zone_id,
@@ -341,8 +365,8 @@ async def _build_pilotage(
                 libelle=zone.libelle,
                 nombre=zone.nombre,
                 end_mwh=round(zone.end_mwh, 3),
-                saifi=round(zone.clients / ref, 3) if ref else None,
-                saidi=round(zone.client_minutes / ref, 1) if ref else None,
+                saifi=round(clients_zone / ref, 3) if ref else None,
+                saidi=round(heures_zone / ref, 3) if ref else None,
             )
         )
 

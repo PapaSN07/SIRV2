@@ -47,7 +47,7 @@ class SaifiSaidi(Base):
     """Résultats agrégés SAIFI/SAIDI par service et période (mois/année).
 
     SAIFI = Σ(clients_interrompus) / total_clients_reference
-    SAIDI = Σ(clients_interrompus × durée_minutes) / total_clients_reference
+    SAIDI = Σ(clients_interrompus × durée_heures) / total_clients_reference  (heures, formule SENELEC)
     # TODO(CRSE): les pondérations exactes doivent être confirmées avec SENELEC.
     """
 

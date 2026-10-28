@@ -100,9 +100,9 @@ export class IndicateursHubComponent implements OnInit {
     this.load();
   }
 
-  formatNumber(value: number | null | undefined): string {
+  formatNumber(value: number | null | undefined, digits = 2): string {
     if (value === null || value === undefined) return '—';
-    return value.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    return value.toLocaleString('fr-FR', { maximumFractionDigits: digits });
   }
 
   private load(): void {

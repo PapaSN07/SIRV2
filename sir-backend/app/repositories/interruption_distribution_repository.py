@@ -392,11 +392,13 @@ async def add_poste_interruption(
     feeder_id: int | None = None,
     service_id: int | None = None,
     poste_source_id: int | None = None,
+    nombre_clients_estime: int | None = None,
 ) -> PosteInterruption:
     link = PosteInterruption(
         interruption_id=interruption_id,
         poste_id=poste_id,
         nombre_clients_touches=nombre_clients_touches,
+        nombre_clients_estime=nombre_clients_estime,
         date_interruption=date_interruption,
         feeder_id=feeder_id,
         service_id=service_id,

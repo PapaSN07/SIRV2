@@ -1004,6 +1004,7 @@ async def add_poste(
         feeder_id=feeder_id,
         service_id=service_id,
         poste_source_id=poste_source_id,
+        nombre_clients_estime=poste.nombre_clients,
     )
     link.poste = poste
 
@@ -1087,6 +1088,7 @@ async def _bulk_link_postes(
             feeder_id=feeder_id,
             service_id=service_id,
             poste_source_id=poste_source_id,
+            nombre_clients_estime=poste.nombre_clients,
         )
         link.poste = poste
         linked_ids.add(poste.id)

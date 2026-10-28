@@ -13,8 +13,8 @@ from app.services.saifi_saidi_service import (
     calcul_saifi,
     calcul_saidi,
     calculer_et_persister_saifi_saidi,
+    clients_estimes,
     compute_period_totals,
-    sum_clients_interrompus,
 )
 
 def test_calcul_saifi_basic() -> None:
@@ -26,39 +26,36 @@ def test_calcul_saifi_zero_denominator() -> None:
 
 
 def test_calcul_saidi_basic() -> None:
-    assert calcul_saidi(50000, 50000) == Decimal("1")
+    assert calcul_saidi(50000.0, 50000) == Decimal("1")
 
 
-def test_sum_clients_interrompus() -> None:
-    link1 = PosteInterruption()
-    link1.nombre_clients_touches = 100
-    link2 = PosteInterruption()
-    link2.nombre_clients_touches = 50
-
+def test_clients_estimes_prend_l_estimation_du_poste() -> None:
+    """NombreClient = Σ nombreclientposteEstime ; repli sur les clients touchés saisis."""
+    estime = PosteInterruption(nombre_clients_estime=120, nombre_clients_touches=100)
+    sans_estimation = PosteInterruption(nombre_clients_estime=None, nombre_clients_touches=50)
     interruption = Interruption()
-    interruption.postes_interrompus = [link1, link2]
+    interruption.postes_interrompus = [estime, sans_estimation]
+    assert clients_estimes(interruption) == 170
 
-    assert sum_clients_interrompus(interruption) == 150
 
+def test_formule_senelec_sur_un_exemple() -> None:
+    """Deux coupures : 300 clients × 1,5 h et 200 clients × 0,5 h, base de 10 000 clients.
 
-def test_compute_period_totals_excludes_force_majeure() -> None:
-    link = PosteInterruption()
-    link.nombre_clients_touches = 200
-
-    normal = Interruption()
-    normal.is_force_majeure = False
-    normal.duree_minutes = 60
-    normal.postes_interrompus = [link]
-
-    fm = Interruption()
-    fm.is_force_majeure = True
-    fm.duree_minutes = 120
-    fm.postes_interrompus = [PosteInterruption(nombre_clients_touches=999)]
-
-    clients, minutes, count = compute_period_totals([normal, fm])
-    assert clients == 200
-    assert minutes == 200 * 60
-    assert count == 1
+    SAIFI = (300 + 200) / 10 000 = 0,05
+    SAIDI = (300 × 1,5 + 200 × 0,5) / 10 000 = 0,055 h
+    La force majeure n'est pas exclue (la formule SENELEC n'en prévoit pas).
+    """
+    a = Interruption(is_force_majeure=False, duree_minutes=90)
+    a.postes_interrompus = [PosteInterruption(nombre_clients_estime=300)]
+    b = Interruption(is_force_majeure=True, duree_minutes=30)
+    b.postes_interrompus = [
+        PosteInterruption(nombre_clients_estime=150),
+        PosteInterruption(nombre_clients_estime=50),
+    ]
+    clients, client_heures, count = compute_period_totals([a, b])
+    assert (clients, client_heures, count) == (500, 550.0, 2)
+    assert calcul_saifi(clients, 10000) == Decimal("0.05")
+    assert calcul_saidi(client_heures, 10000) == Decimal("0.055")
 
 
 def test_aggregate_saifi_saidi_weighted() -> None:

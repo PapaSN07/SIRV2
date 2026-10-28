@@ -123,7 +123,7 @@ def export_mensuel_distribution_pdf(path: Path, data: MensuelDistributionReportD
         y,
         f"END : {data.end.aggregate.end_mwh:.4f} MWh · "
         f"SAIFI : {data.saifi.aggregate.saifi:.4f} · "
-        f"SAIDI : {data.saidi.aggregate.saidi:.4f}",
+        f"SAIDI : {data.saidi.aggregate.saidi:.4f} h",
     )
     y -= 14
     pdf.drawString(
@@ -138,7 +138,7 @@ def export_mensuel_distribution_pdf(path: Path, data: MensuelDistributionReportD
 
     if data.end.services and data.end.services.items:
         pdf.setFont("Helvetica-Bold", 9)
-        headers = ["Service", "END (MWh)", "Interruptions", "SAIFI", "SAIDI"]
+        headers = ["Service", "END (MWh)", "Interruptions", "SAIFI", "SAIDI (h)"]
         col_x = [40, 120, 220, 320, 420]
         for idx, header in enumerate(headers):
             pdf.drawString(col_x[idx], y, header)
@@ -294,7 +294,7 @@ def export_annuel_pdf(path: Path, data: AnnuelReportData) -> None:
         for point in data.serie_civile:
             line = f"M{point.mois:02d} — END {point.end_mwh:.4f} MWh"
             if point.saifi is not None:
-                line += f" · SAIFI {point.saifi:.4f} · SAIDI {point.saidi:.4f}"
+                line += f" · SAIFI {point.saifi:.4f} · SAIDI {point.saidi:.4f} h"
             pdf.drawString(40, y, line)
             y -= 10
             if y < 40:

@@ -311,9 +311,10 @@ export class DashboardComponent implements OnInit {
     return value.toLocaleString('fr-FR', { maximumFractionDigits: digits });
   }
 
-  /** SAIFI : 2 décimales (valeurs proches de 1) ; END, SAIDI et autres : 1 décimale. */
+  /** SAIFI : 2 décimales ; SAIDI en heures : 3 décimales ; END et autres : 1 décimale. */
   formatIndicateur(value: number | null | undefined, code: string): string {
-    return this.formatNumber(value, code.toUpperCase() === 'SAIFI' ? 2 : 1);
+    const c = code.toUpperCase();
+    return this.formatNumber(value, c === 'SAIFI' ? 2 : c === 'SAIDI' ? 3 : 1);
   }
 
   formatTaux(value: number | null | undefined): string {
@@ -627,7 +628,7 @@ export class DashboardComponent implements OnInit {
             saifi: 0,
           }));
 
-    // Une échelle par indicateur : SAIDI en minutes, SAIFI autour de 1
+    // Une échelle par indicateur : SAIDI en heures, SAIFI en interruptions par client
     const maxSaidi = Math.max(...months.map((m) => m.saidi), 0) || 1;
     const maxSaifi = Math.max(...months.map((m) => m.saifi), 0) || 1;
 

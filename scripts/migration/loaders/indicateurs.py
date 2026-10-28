@@ -48,7 +48,8 @@ class IndicateursLoader(BaseLoader):
         return self.fk.service_id(str(row_get(row, "Service", "service") or ""))
 
     def _parse_mois(self, row: dict) -> int:
-        raw = row_get(row, "Mois", "mois", "moisnumerique", "MoisNum")
+        # MoisNumerique d'abord : « Mois » peut être le libellé (« Janvier »)
+        raw = row_get(row, "MoisNumerique", "MoisNum", "Mois")
         if raw is None:
             return 0
         try:
@@ -102,7 +103,8 @@ class IndicateursLoader(BaseLoader):
                 {"nombre_clients": 0, "saifi": 0.0, "saidi": 0.0, "rows": 0},
             )
             nb = int(row_get(row, "NombreClient", "nombreclient") or 0)
-            bucket["nombre_clients"] = max(int(bucket["nombre_clients"]), nb)
+            # Somme, comme la mesure Power BI SENELEC (SUM(NombreClientMois[Nombreclient]))
+            bucket["nombre_clients"] = int(bucket["nombre_clients"]) + nb
             saifi = float(row_get(row, "SAIFI", "saifi") or 0)
             saidi = float(row_get(row, "SAIDI", "saidi") or 0)
             if saifi or saidi:

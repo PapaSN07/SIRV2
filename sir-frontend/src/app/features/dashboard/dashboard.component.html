@@ -144,8 +144,8 @@
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">timer</span>
         </div>
         <div class="kpi-card__value-row">
-          <p class="kpi-card__value">{{ formatNumber(kpi()?.saidi) }}</p>
-          <span class="kpi-card__unit">min</span>
+          <p class="kpi-card__value">{{ formatNumber(kpi()?.saidi, 3) }}</p>
+          <span class="kpi-card__unit">h</span>
         </div>
         <p class="kpi-card__hint">Durée moyenne d'interruption</p>
       </article>
@@ -191,13 +191,13 @@
           <div class="panel__head">
             <h2 class="panel__title">Évolution sur 12 mois</h2>
           </div>
-          <!-- Deux échelles : SAIDI (minutes) et SAIFI (≈ 1) ne se comparent pas sur un même axe -->
+          <!-- Deux échelles : SAIDI (heures) et SAIFI ne se comparent pas sur un même axe -->
           <div class="evolution-charts">
             <figure class="evolution-chart">
-              <figcaption>SAIDI <span>durée moyenne, min / client</span></figcaption>
+              <figcaption>SAIDI <span>durée moyenne, heures / client</span></figcaption>
               <div class="bar-chart bar-chart--single">
                 @for (month of chartMonths(); track month.key) {
-                  <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.saidi) + ' min'">
+                  <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.saidi, 3) + ' h'">
                     <div class="bar-chart__bars">
                       <div class="bar-chart__bar bar-chart__bar--saidi" [style.height.%]="chartReady() ? month.saidiHeight : 0"></div>
                     </div>
@@ -510,7 +510,7 @@
               <h3>Objectifs annuels {{ board.annee_objectif }}</h3>
               <label>END (MWh)<input type="number" min="0" step="0.01" [value]="objectifDraft().end_mwh" (input)="onObjectifInput('end_mwh', $any($event.target).value)" /></label>
               <label>SAIFI<input type="number" min="0" step="0.001" [value]="objectifDraft().saifi" (input)="onObjectifInput('saifi', $any($event.target).value)" /></label>
-              <label>SAIDI (min)<input type="number" min="0" step="0.1" [value]="objectifDraft().saidi" (input)="onObjectifInput('saidi', $any($event.target).value)" /></label>
+              <label>SAIDI (h)<input type="number" min="0" step="0.001" [value]="objectifDraft().saidi" (input)="onObjectifInput('saidi', $any($event.target).value)" /></label>
               <label>Défauts / 100 km<input type="number" min="0" step="0.01" [value]="objectifDraft().defauts_100km" (input)="onObjectifInput('defauts_100km', $any($event.target).value)" /></label>
               <button class="btn btn--primary" type="submit" [disabled]="objectifSaving()">Enregistrer</button>
               @if (objectifMessage()) {
@@ -635,7 +635,7 @@
         </div>
         <table class="data-table">
           <thead>
-            <tr><th>Zone</th><th>Interruptions</th><th>END (MWh)</th><th>SAIFI</th><th>SAIDI (min)</th></tr>
+            <tr><th>Zone</th><th>Interruptions</th><th>END (MWh)</th><th>SAIFI</th><th>SAIDI (h)</th></tr>
           </thead>
           <tbody>
             @for (zone of pilotage()?.zones ?? []; track zone.zone_id) {
@@ -644,7 +644,7 @@
                 <td>{{ zone.nombre }}</td>
                 <td>{{ formatNumber(zone.end_mwh) }}</td>
                 <td>{{ formatNumber(zone.saifi, 2) }}</td>
-                <td>{{ formatNumber(zone.saidi) }}</td>
+                <td>{{ formatNumber(zone.saidi, 3) }}</td>
               </tr>
             } @empty {
               <tr><td colspan="5">Aucune zone à afficher pour la période.</td></tr>

@@ -1,10 +1,13 @@
-"""Service SAIFI/SAIDI — calcul et persistance (Sprint 5.1).
+"""Service SAIFI/SAIDI — formule SENELEC (Power BI SIR, communiquée le 28/10/2026).
 
-Formules placeholder CRSE (à valider SENELEC) :
-  SAIFI = Σ(clients_interrompus) / total_clients_reference
-  SAIDI = Σ(clients_interrompus × durée_minutes) / total_clients_reference
+    NombreClient                 = Σ PosteInterruption.nombreclientposteEstime
+    TotalDureeInterruption       = Σ Interruptions.dureeHeure                      (heures)
+    NbClients_DateFin_Interuption = Σ NombreClientMois.Nombreclient du mois (année, mois)
+                                   de la dernière DateApparition de la période
+    SAIFI = NombreClient / NbClients_DateFin_Interuption
+    SAIDI = Σ_interruptions (NombreClient × dureeHeure) / NbClients_DateFin_Interuption   (heures)
 
-Les interruptions force majeure sont exclues du numérateur.
+Aucune exclusion (force majeure comprise) : la formule SENELEC n'en prévoit pas.
 """
 
 from collections.abc import Sequence
@@ -18,50 +21,48 @@ from app.models.interruptions import Interruption
 from app.repositories import saifi_saidi_repository as repo
 from app.services.indicateurs_cache_service import invalidate_indicateurs_cache
 
-# TODO(CRSE): pondérations et règles d'exclusion à confirmer avec SENELEC.
-
 
 def calcul_saifi(clients_interrompus: int, total_clients: int) -> Decimal:
-    """SAIFI = clients interrompus / base clients de référence."""
+    """SAIFI = NombreClient / NbClients_DateFin_Interuption (0 si pas de base clients)."""
     if total_clients <= 0:
         return Decimal("0")
     return Decimal(clients_interrompus) / Decimal(total_clients)
 
 
-def calcul_saidi(client_minutes: int, total_clients: int) -> Decimal:
-    """SAIDI = client-minutes / base clients de référence."""
+def calcul_saidi(client_heures: float, total_clients: int) -> Decimal:
+    """SAIDI = Σ(NombreClient × dureeHeure) / NbClients_DateFin_Interuption, en heures."""
     if total_clients <= 0:
         return Decimal("0")
-    return Decimal(client_minutes) / Decimal(total_clients)
+    return Decimal(str(client_heures)) / Decimal(total_clients)
 
 
-def sum_clients_interrompus(interruption: Interruption) -> int:
+def clients_estimes(interruption: Interruption) -> int:
+    """NombreClient : clients estimés des postes impactés (repli : clients touchés saisis)."""
     total = 0
     for link in interruption.postes_interrompus:
-        if link.nombre_clients_touches is not None:
-            total += link.nombre_clients_touches
+        valeur = link.nombre_clients_estime
+        if valeur is None:
+            valeur = link.nombre_clients_touches
+        total += valeur or 0
     return total
+
+
+def duree_heures(interruption: Interruption) -> float:
+    """dureeHeure : durée de l'interruption en heures."""
+    return (interruption.duree_minutes or 0) / 60.0
 
 
 def compute_period_totals(
     interruptions: Sequence[Interruption],
-) -> tuple[int, int, int]:
-    """Retourne (clients_interrompus, client_minutes, nombre_interruptions)."""
+) -> tuple[int, float, int]:
+    """Retourne (NombreClient, Σ NombreClient × dureeHeure, nombre d'interruptions)."""
     clients_total = 0
-    client_minutes = 0
-    count = 0
-
+    client_heures = 0.0
     for interruption in interruptions:
-        if interruption.is_force_majeure:
-            continue
-
-        clients = sum_clients_interrompus(interruption)
-        duree = interruption.duree_minutes or 0
+        clients = clients_estimes(interruption)
         clients_total += clients
-        client_minutes += clients * duree
-        count += 1
-
-    return clients_total, client_minutes, count
+        client_heures += clients * duree_heures(interruption)
+    return clients_total, client_heures, len(interruptions)
 
 
 def aggregate_saifi_saidi_weighted(
@@ -105,10 +106,10 @@ async def recalculate_service_period(
     interruptions = await repo.list_validated_interruptions_for_service_period(
         db, service_id=service_id, annee=annee, mois=mois
     )
-    clients_total, client_minutes, count = compute_period_totals(interruptions)
+    clients_total, client_heures, count = compute_period_totals(interruptions)
 
     saifi_val = float(calcul_saifi(clients_total, total_clients))
-    saidi_val = float(calcul_saidi(client_minutes, total_clients))
+    saidi_val = float(calcul_saidi(client_heures, total_clients))
 
     return await repo.upsert_saifi_saidi(
         db,

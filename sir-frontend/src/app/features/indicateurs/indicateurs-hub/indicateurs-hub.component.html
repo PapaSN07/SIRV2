@@ -64,7 +64,7 @@
           <p class="kpi-card__label">SAIDI</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">timer</span>
         </div>
-        <p class="kpi-card__value">{{ formatNumber(kpi()?.saidi) }} <span class="kpi-card__unit">min</span></p>
+        <p class="kpi-card__value">{{ formatNumber(kpi()?.saidi, 3) }} <span class="kpi-card__unit">h</span></p>
       </article>
       <article class="kpi-card kpi-card--error">
         <div class="kpi-card__head">

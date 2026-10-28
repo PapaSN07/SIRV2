@@ -57,7 +57,6 @@ Répertoires cibles : `sir-backend/` (FastAPI) et `sir-frontend/` (Angular 17+).
 | Sujet | Raison du blocage |
 |---|---|
 | Formules de pondération END (CRSE) | Règles exactes non confirmées par l'équipe SENELEC |
-| Exclusions/pondérations SAIFI/SAIDI | Idem |
 | Format des rapports réglementaires | À fournir par l'équipe SAQS |
 | Scripts ETL sur données réelles | Tester sur dump HFSQL avant toute exécution |
 
@@ -139,6 +138,7 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | 27/10/2026 | Alertes : en cours > 24 h, clôturée non validée > 24 h | Validé |
 | 27/10/2026 | Aucune étape terrain obligatoire avant clôture (le BCC contrôle à distance) | Validé |
 | 27/10/2026 | Rapports envoyés par e-mail aux destinataires de Notifications : hebdomadaire le lundi 8 h, mensuel le 1er à 8 h (heure de Dakar) | Validé |
+| 28/10/2026 | SAIFI/SAIDI = formule Power BI SENELEC (clients estimés des postes, SAIDI en heures, base NombreClientMois du mois de la dernière apparition, sans exclusion) — voir `docs/indicateurs_sirv2.md` | Validé |
 
 ---
 
