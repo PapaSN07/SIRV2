@@ -28,6 +28,37 @@ def _dest(i: int, service_id: int | None) -> SimpleNamespace:
     return SimpleNamespace(id=i, service_id=service_id, email=f"d{i}@senelec.sn")
 
 
+async def test_periode_hebdo_dd_samedi_au_vendredi() -> None:
+    # Samedi 31 octobre 2026 → semaine du samedi 24 au vendredi 30 octobre
+    assert svc.periode(svc.HEBDOMADAIRE, date(2026, 10, 31)) == (date(2026, 10, 24), date(2026, 10, 30))
+    # Un vendredi donne la semaine complète précédente
+    assert svc.periode(svc.HEBDOMADAIRE, date(2026, 10, 30)) == (date(2026, 10, 17), date(2026, 10, 23))
+
+
+async def test_hebdo_dd_un_rapport_national_pour_tous() -> None:
+    db = AsyncMock()
+    destinataires = [_dest(1, 10), _dest(2, 20), _dest(3, None)]
+    emails = iter(range(500, 600))
+
+    async def creer_rapport(db, **kw):
+        return SimpleNamespace(id=100, **kw)
+
+    async def creer_email(db, **kw):
+        return SimpleNamespace(id=next(emails), **kw)
+
+    with patch.object(svc.dest_repo, "list_actifs_avec_email", AsyncMock(return_value=destinataires)), patch.object(
+        svc.rapport_repository, "get_compte_systeme", AsyncMock(return_value=SimpleNamespace(id=9))
+    ), patch.object(svc.rapport_repository, "create_rapport", side_effect=creer_rapport) as cr, patch.object(
+        svc.rapport_generation_service, "execute_generation", AsyncMock()
+    ), patch.object(svc.email_repository, "create_pending", side_effect=creer_email):
+        bilan = await svc.envoyer(db, svc.HEBDOMADAIRE, date(2026, 10, 31))
+
+    assert bilan.rapports == 1 and len(bilan.emails) == 3
+    assert cr.call_args.kwargs["region_id"] is None
+    assert cr.call_args.kwargs["format"] == "docx"
+    assert '"date_fin": "2026-10-30"' in cr.call_args.kwargs["params_json"]
+
+
 async def test_un_rapport_par_region_et_un_email_par_destinataire() -> None:
     db = AsyncMock()
     destinataires = [_dest(1, 10), _dest(2, 11), _dest(3, 20), _dest(4, None)]
@@ -48,7 +79,7 @@ async def test_un_rapport_par_region_et_un_email_par_destinataire() -> None:
     ), patch.object(svc.rapport_repository, "create_rapport", side_effect=creer_rapport) as cr, patch.object(
         svc.rapport_generation_service, "execute_generation", AsyncMock()
     ) as gen, patch.object(svc.email_repository, "create_pending", side_effect=creer_email) as ce:
-        bilan = await svc.envoyer(db, svc.HEBDOMADAIRE, date(2026, 11, 2))
+        bilan = await svc.envoyer(db, svc.MENSUEL, date(2026, 11, 1))
 
     assert bilan.rapports == 3  # région 1, région 2, national
     assert len(bilan.emails) == 4
@@ -74,10 +105,22 @@ async def test_piece_jointe_du_rapport(tmp_path) -> None:
     record = SimpleNamespace(entity_type="rapport", entity_id=100)
     with patch(
         "app.repositories.rapport_repository.get_by_id",
-        AsyncMock(return_value=SimpleNamespace(file_path=str(fichier))),
+        AsyncMock(return_value=SimpleNamespace(file_path=str(fichier), type_rapport="mensuel_distribution")),
     ):
-        assert await email_service._piece_jointe(AsyncMock(), record) == fichier
-    assert await email_service._piece_jointe(AsyncMock(), SimpleNamespace(entity_type="interruption", entity_id=1)) is None
+        assert await email_service._piece_jointe(AsyncMock(), record) == [fichier]
+    assert await email_service._piece_jointe(AsyncMock(), SimpleNamespace(entity_type="interruption", entity_id=1)) == []
+
+
+async def test_pieces_jointes_hebdo_dd_word_excel_pdf(tmp_path) -> None:
+    from app.services import email_service
+
+    for ext in ("docx", "xlsx", "pdf"):
+        (tmp_path / f"Rapport hebdo DD S43.{ext}").write_bytes(b"x")
+    record = SimpleNamespace(entity_type="rapport", entity_id=100)
+    rapport = SimpleNamespace(file_path=str(tmp_path / "Rapport hebdo DD S43.docx"), type_rapport="hebdo_dd")
+    with patch("app.repositories.rapport_repository.get_by_id", AsyncMock(return_value=rapport)):
+        pieces = await email_service._piece_jointe(AsyncMock(), record)
+    assert [p.suffix for p in pieces] == [".docx", ".xlsx", ".pdf"]
 
 
 async def test_export_hebdomadaire_pdf_et_excel(tmp_path) -> None:

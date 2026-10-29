@@ -137,7 +137,8 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | 27/10/2026 | Archivage (gel) des interruptions validées du mois après le rapport mensuel CRSE | Validé |
 | 27/10/2026 | Alertes : en cours > 24 h, clôturée non validée > 24 h | Validé |
 | 27/10/2026 | Aucune étape terrain obligatoire avant clôture (le BCC contrôle à distance) | Validé |
-| 27/10/2026 | Rapports envoyés par e-mail aux destinataires de Notifications : hebdomadaire le lundi 8 h, mensuel le 1er à 8 h (heure de Dakar) | Validé |
+| 27/10/2026 | Rapports envoyés par e-mail aux destinataires de Notifications : hebdomadaire le lundi 8 h, mensuel le 1er à 8 h (heure de Dakar) | Remplacé le 29/10 (hebdo) |
+| 29/10/2026 | Rapport hebdomadaire d'exploitation DD (modèle « Rapport Hebdo DD » + « TB suivi qualité HTA ») : semaine samedi → vendredi, envoi samedi 8 h, national, Word + Excel + PDF, textes générés automatiquement, partie BT retirée (données hors SIR) — voir `docs/rapport_hebdo_dd.md` | Validé |
 | 28/10/2026 | SAIFI/SAIDI = formule Power BI SENELEC (clients estimés des postes, SAIDI en heures, base NombreClientMois du mois de la dernière apparition, sans exclusion) — voir `docs/indicateurs_sirv2.md` | Validé |
 
 ---

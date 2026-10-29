@@ -29,6 +29,17 @@ class RapportHebdomadaireRequest(BaseModel):
     output_format: Literal["pdf", "xlsx"] = Field("pdf", alias="format")
 
 
+class RapportHebdoDDRequest(BaseModel):
+    """Rapport hebdomadaire d'exploitation DD : semaine samedi → vendredi se terminant par
+    le vendredi `date_fin` (défaut : dernière semaine complète). Les trois fichiers (Word,
+    Excel, PDF) sont produits ; `format` choisit celui qui est téléchargé."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    date_fin: DateType | None = None
+    output_format: Literal["docx", "xlsx", "pdf"] = Field("docx", alias="format")
+
+
 class RapportEnqueueResponse(BaseModel):
     task_id: str
     type_rapport: str

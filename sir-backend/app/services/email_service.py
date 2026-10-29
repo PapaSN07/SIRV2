@@ -18,19 +18,20 @@ logger = logging.getLogger(__name__)
 
 
 def _send_smtp_sync(
-    *, to_email: str, sujet: str, corps: str, piece_jointe: Path | None = None
+    *, to_email: str, sujet: str, corps: str, piece_jointe: Path | list[Path] | None = None
 ) -> None:
     if not settings.smtp_host:
         raise RuntimeError("SMTP non configuré")
 
-    message = MIMEMultipart("mixed" if piece_jointe else "alternative")
+    pieces = piece_jointe if isinstance(piece_jointe, list) else ([piece_jointe] if piece_jointe else [])
+    message = MIMEMultipart("mixed" if pieces else "alternative")
     message["Subject"] = sujet
     message["From"] = settings.smtp_user or "sir@senelec.sn"
     message["To"] = to_email
     message.attach(MIMEText(corps, "html", "utf-8"))
-    if piece_jointe is not None:
-        part = MIMEApplication(piece_jointe.read_bytes(), Name=piece_jointe.name)
-        part["Content-Disposition"] = f'attachment; filename="{piece_jointe.name}"'
+    for piece in pieces:
+        part = MIMEApplication(piece.read_bytes(), Name=piece.name)
+        part.add_header("Content-Disposition", "attachment", filename=("utf-8", "", piece.name))
         message.attach(part)
 
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
@@ -57,17 +58,25 @@ async def send_direct(*, to_email: str, sujet: str, corps: str) -> dict[str, str
         raise RuntimeError(str(exc)) from exc
 
 
-async def _piece_jointe(db: AsyncSession, record) -> Path | None:
-    """Les e-mails de rapports planifiés (entity_type « rapport ») portent le fichier généré."""
+async def _piece_jointe(db: AsyncSession, record) -> list[Path]:
+    """Les e-mails de rapports planifiés (entity_type « rapport ») portent le(s) fichier(s) généré(s).
+
+    Rapport hebdomadaire DD : Word, Excel et PDF, rangés ensemble dans le dossier du rapport.
+    """
     if record.entity_type != "rapport" or record.entity_id is None:
-        return None
+        return []
     from app.repositories import rapport_repository
 
     rapport = await rapport_repository.get_by_id(db, record.entity_id)
     if rapport is None or not rapport.file_path:
-        return None
+        return []
     path = Path(rapport.file_path)
-    return path if path.is_file() else None
+    if not path.is_file():
+        return []
+    if rapport.type_rapport == "hebdo_dd":
+        freres = [path.with_suffix(f".{ext}") for ext in ("docx", "xlsx", "pdf")]
+        return [f for f in freres if f.is_file()]
+    return [path]
 
 
 async def send_email_record(db: AsyncSession, email_id: int) -> dict[str, str]:

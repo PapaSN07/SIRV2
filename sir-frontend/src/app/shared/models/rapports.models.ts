@@ -1,4 +1,4 @@
-export type RapportFormat = 'pdf' | 'xlsx';
+export type RapportFormat = 'pdf' | 'xlsx' | 'docx';
 
 export type RapportStatut = 'pending' | 'started' | 'success' | 'failure';
 
@@ -14,6 +14,13 @@ export interface RapportJournalierRequest {
 export interface RapportHebdomadaireRequest {
   date_debut?: string;
   region_id?: number | null;
+  format?: RapportFormat;
+}
+
+/** Rapport hebdomadaire d'exploitation DD : semaine samedi → vendredi se terminant le `date_fin`
+ * (défaut : dernière semaine complète). Word, Excel et PDF sont produits ; `format` choisit le téléchargement. */
+export interface RapportHebdoDDRequest {
+  date_fin?: string;
   format?: RapportFormat;
 }
 

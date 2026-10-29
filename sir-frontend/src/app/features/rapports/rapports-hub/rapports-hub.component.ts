@@ -11,7 +11,7 @@ import { ArchivageResponse } from '../../../shared/models/interruption.models';
 import { InterruptionDistributionService } from '../../interruptions-distribution/services/interruption-distribution.service';
 import { RapportsService } from '../services/rapports.service';
 
-type RapportKind = 'journalier' | 'hebdomadaire' | 'mensuel_dist' | 'mensuel_trans' | 'annuel';
+type RapportKind = 'journalier' | 'hebdomadaire' | 'hebdo_dd' | 'mensuel_dist' | 'mensuel_trans' | 'annuel';
 
 @Component({
   selector: 'sir-rapports-hub',
@@ -52,6 +52,11 @@ export class RapportsHubComponent implements OnInit {
     return this.auth.hasRole('BCC', 'BRC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR');
   }
 
+  /** Rapport national de la Direction de la Distribution (envoyé chaque samedi à 8 h). */
+  canHebdoDD(): boolean {
+    return this.auth.hasRole('ADMIN_SCR', 'ADMIN_SAQS', 'SUPERADMIN');
+  }
+
   canConsolide(): boolean {
     return this.auth.hasRole('ADMIN_SAQS');
   }
@@ -85,6 +90,12 @@ export class RapportsHubComponent implements OnInit {
     this.archivageConfirme.set(false);
     this.archivage.set(null);
     this.kind.set(value);
+    if (value === 'hebdo_dd') {
+      this.format.set('docx');
+      this.date.set(this.dernierVendrediIso());
+    } else if (this.format() === 'docx') {
+      this.format.set('pdf');
+    }
     this.status.set(null);
     this.error.set(null);
   }
@@ -133,6 +144,15 @@ export class RapportsHubComponent implements OnInit {
               this.generating.set(false);
             },
           });
+        break;
+      case 'hebdo_dd':
+        this.rapports.enqueueHebdoDD({ date_fin: this.date(), format: fmt }).subscribe({
+          next: (r) => onEnqueue(r.task_id),
+          error: (err: Error) => {
+            this.error.set(err.message);
+            this.generating.set(false);
+          },
+        });
         break;
       case 'mensuel_dist':
         this.rapports
@@ -209,6 +229,14 @@ export class RapportsHubComponent implements OnInit {
       default:
         return statut;
     }
+  }
+
+  /** Vendredi de la dernière semaine complète (samedi → vendredi). */
+  private dernierVendrediIso(): string {
+    const d = new Date();
+    const recul = (d.getDay() - 5 + 7) % 7 || 7;
+    d.setDate(d.getDate() - recul);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   private todayIso(): string {

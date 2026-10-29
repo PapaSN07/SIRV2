@@ -1,4 +1,4 @@
-"""Rapports planifiés : hebdomadaire (lundi 8 h) et mensuel (le 1er à 8 h), heure de Dakar."""
+"""Rapports planifiés : hebdomadaire DD (samedi 8 h) et mensuel (le 1er à 8 h), heure de Dakar."""
 
 from __future__ import annotations
 

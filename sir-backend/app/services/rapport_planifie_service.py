@@ -1,11 +1,13 @@
-"""Rapports planifiés (décision SENELEC du 27/10/2026).
+"""Rapports planifiés (décisions SENELEC du 27/10/2026 et du 29/10/2026).
 
-- Chaque lundi à 8 h : rapport hebdomadaire de la semaine précédente (lundi → dimanche).
-- Chaque 1er du mois à 8 h : rapport mensuel distribution du mois précédent.
+- Chaque samedi à 8 h : rapport hebdomadaire d'exploitation de la Direction de la Distribution
+  (modèle « Rapport Hebdo DD »), semaine du samedi au vendredi précédents, national, en Word,
+  Excel et PDF — le même pour tous les destinataires.
+- Chaque 1er du mois à 8 h : rapport mensuel distribution du mois précédent, en PDF ; chacun
+  reçoit le rapport de la région de son service (national s'il n'a pas de service).
 
-Destinataires : ceux déjà enregistrés dans Notifications (actifs, avec e-mail). Chacun reçoit le
-rapport de la région de son service, en pièce jointe PDF ; un destinataire sans service reçoit
-le rapport national. Les rapports sont générés au nom d'un compte national (Admin SAQS).
+Destinataires : ceux déjà enregistrés dans Notifications (actifs, avec e-mail). Les rapports
+sont générés au nom d'un compte national (Admin SAQS).
 """
 
 from __future__ import annotations
@@ -24,11 +26,11 @@ from app.repositories import destinataire_repository as dest_repo
 from app.repositories import email_repository
 from app.repositories import end_repository
 from app.repositories import rapport_repository
-from app.services import rapport_generation_service
+from app.services import rapport_generation_service, rapport_hebdo_dd_service
 
 logger = logging.getLogger(__name__)
 
-HEBDOMADAIRE = "hebdomadaire"
+HEBDOMADAIRE = rapport_generation_service.HEBDO_DD
 MENSUEL = "mensuel_distribution"
 
 
@@ -44,14 +46,15 @@ class EnvoiPlanifie:
 def periode(type_rapport: str, aujourd_hui: date) -> tuple[date, date]:
     """Période couverte : semaine précédente (lundi → dimanche) ou mois précédent."""
     if type_rapport == HEBDOMADAIRE:
-        return rapport_generation_service.semaine_precedente(aujourd_hui)
+        return rapport_hebdo_dd_service.semaine_samedi_vendredi(aujourd_hui)
     fin = aujourd_hui.replace(day=1) - timedelta(days=1)
     return fin.replace(day=1), fin
 
 
 def _libelle(type_rapport: str, debut: date, fin: date) -> str:
     if type_rapport == HEBDOMADAIRE:
-        return f"hebdomadaire du {debut:%d/%m/%Y} au {fin:%d/%m/%Y}"
+        semaine = rapport_hebdo_dd_service.numero_semaine(fin)
+        return f"hebdomadaire d'exploitation DD S{semaine:02d}-{fin.year} du {debut:%d/%m/%Y} au {fin:%d/%m/%Y}"
     return f"mensuel distribution {debut:%m/%Y}"
 
 
@@ -83,15 +86,12 @@ async def envoyer(db: AsyncSession, type_rapport: str, aujourd_hui: date) -> Env
         return bilan
 
     libelle = _libelle(type_rapport, debut, fin)
-    for region_id, groupe in (await _par_region(db, destinataires)).items():
+    groupes = (
+        {None: destinataires} if type_rapport == HEBDOMADAIRE else await _par_region(db, destinataires)
+    )
+    for region_id, groupe in groupes.items():
         if type_rapport == HEBDOMADAIRE:
-            params = {
-                "date": debut.isoformat(),
-                "date_fin": fin.isoformat(),
-                "region_id": region_id,
-                "service_id": None,
-                "include_transport": region_id is None,
-            }
+            params: dict[str, object] = {"date": debut.isoformat(), "date_fin": fin.isoformat()}
         else:
             params = {"annee": debut.year, "mois": debut.month, "region_id": region_id, "top_feeders_limit": 10}
 
@@ -99,7 +99,7 @@ async def envoyer(db: AsyncSession, type_rapport: str, aujourd_hui: date) -> Env
             db,
             task_id=str(uuid.uuid4()),
             type_rapport=type_rapport,
-            format="pdf",
+            format="docx" if type_rapport == HEBDOMADAIRE else "pdf",
             user_id=compte.id,
             region_id=region_id,
             params_json=json.dumps(params),
@@ -118,10 +118,19 @@ async def envoyer(db: AsyncSession, type_rapport: str, aujourd_hui: date) -> Env
 
         perimetre = "national" if region_id is None else "de votre région"
         sujet = f"[rapport_planifie] SIR — Rapport {libelle}"
-        corps = (
-            f"<html><body><p>Bonjour,</p><p>Veuillez trouver en pièce jointe le rapport {libelle} "
-            f"({perimetre}).</p><p>Envoi automatique SIR — SENELEC.</p></body></html>"
-        )
+        if type_rapport == HEBDOMADAIRE:
+            corps = (
+                "<html><body><p>Bonjour,</p><p>Trouvez ci-joint le rapport hebdomadaire d'exploitation "
+                f"de la Direction de la Distribution, semaine S{rapport_hebdo_dd_service.numero_semaine(fin):02d}-{fin.year} "
+                f"du {debut:%d/%m/%Y} au {fin:%d/%m/%Y}, "
+                "en Word, Excel (tableau de bord jour par jour) et PDF.</p>"
+                "<p>Envoi automatique SIR — SENELEC.</p></body></html>"
+            )
+        else:
+            corps = (
+                f"<html><body><p>Bonjour,</p><p>Veuillez trouver en pièce jointe le rapport {libelle} "
+                f"({perimetre}).</p><p>Envoi automatique SIR — SENELEC.</p></body></html>"
+            )
         for d in groupe:
             email = await email_repository.create_pending(
                 db, destinataire_id=d.id, entity_type="rapport", entity_id=record.id, sujet=sujet, corps=corps

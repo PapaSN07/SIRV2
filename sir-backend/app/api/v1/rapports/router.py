@@ -8,6 +8,7 @@ from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse
 from app.schemas.rapports import (
     RapportEnqueueResponse,
+    RapportHebdoDDRequest,
     RapportHebdomadaireRequest,
     RapportJournalierRequest,
     RapportStatusResponse,
@@ -44,6 +45,21 @@ async def post_rapport_hebdomadaire(
     current_user: Utilisateur = Depends(require_permission("rapports", "read")),
 ) -> ApiResponse[RapportEnqueueResponse]:
     result = await rapport_generation_service.enqueue_hebdomadaire(db, current_user, body)
+    return ApiResponse.success(result)
+
+
+@router.post(
+    "/hebdo-dd",
+    response_model=ApiResponse[RapportEnqueueResponse],
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Rapport hebdomadaire d'exploitation DD (samedi → vendredi : Word, Excel, PDF)",
+)
+async def post_rapport_hebdo_dd(
+    body: RapportHebdoDDRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("rapports", "read")),
+) -> ApiResponse[RapportEnqueueResponse]:
+    result = await rapport_generation_service.enqueue_hebdo_dd(db, current_user, body)
     return ApiResponse.success(result)
 
 

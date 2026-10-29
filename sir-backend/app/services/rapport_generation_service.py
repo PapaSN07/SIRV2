@@ -19,6 +19,7 @@ from app.models.utilisateurs import Utilisateur
 from app.repositories import rapport_repository as repo
 from app.schemas.rapports import (
     RapportEnqueueResponse,
+    RapportHebdoDDRequest,
     RapportHebdomadaireRequest,
     RapportJournalierRequest,
     RapportStatusResponse,
@@ -32,6 +33,7 @@ from app.services.rapport_export_service import (
 )
 from app.services import (
     rapport_annuel_service,
+    rapport_hebdo_dd_service,
     rapport_journalier_service,
     rapport_mensuel_service,
     rapport_mensuel_transport_service,
@@ -48,6 +50,13 @@ _TRANSPORT_RAPPORT_ROLES = frozenset({"DISPATCHER", "ADMIN_DISPATCHING", "ADMIN_
 _DISTRIBUTION_RAPPORT_ROLES = frozenset({"ADMIN_SAQS", "ADMIN_SCR", "BRC", "BCC", "SUPERVISEUR"})
 _CONSOLIDE_RAPPORT_ROLES = frozenset({"ADMIN_SAQS"})
 _ANNUEL_DIRECTIONS = frozenset({"distribution", "transport", "consolide"})
+HEBDO_DD = "hebdo_dd"
+_HEBDO_DD_ROLES = frozenset({"ADMIN_SAQS", "ADMIN_SCR"})
+_MEDIA_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
 
 
 def _user_role_names(user: Utilisateur) -> set[str]:
@@ -322,6 +331,45 @@ async def enqueue_hebdomadaire(
     )
 
 
+async def enqueue_hebdo_dd(
+    db: AsyncSession,
+    user: Utilisateur,
+    body: RapportHebdoDDRequest,
+) -> RapportEnqueueResponse:
+    """Rapport national de la Direction de la Distribution (samedi → vendredi)."""
+    from app.workers.tasks.rapports import generer_rapport_task
+
+    if not (is_superadmin(user) or _user_role_names(user) & _HEBDO_DD_ROLES):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Rapport hebdomadaire DD réservé à l'Admin SCR et à l'Admin SAQS (rapport national)",
+            },
+        )
+    if body.date_fin is not None:
+        debut, fin = rapport_hebdo_dd_service.semaine_samedi_vendredi(body.date_fin + timedelta(days=1))
+    else:
+        debut, fin = rapport_hebdo_dd_service.semaine_samedi_vendredi(date.today())
+    task_id = str(uuid.uuid4())
+    record = await repo.create_rapport(
+        db,
+        task_id=task_id,
+        type_rapport=HEBDO_DD,
+        format=body.output_format,
+        user_id=user.id,
+        region_id=None,
+        params_json=json.dumps({"date": debut.isoformat(), "date_fin": fin.isoformat()}),
+        expires_at=_expires_at(),
+    )
+    await db.commit()
+    generer_rapport_task.delay(record.id)
+    return RapportEnqueueResponse(
+        task_id=task_id, type_rapport=record.type_rapport, statut=record.statut, format=record.format
+    )
+
+
 async def enqueue_mensuel_distribution(
     db: AsyncSession,
     user: Utilisateur,
@@ -531,11 +579,7 @@ async def resolve_download(
             },
         )
 
-    media_type = (
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        if record.format == "xlsx"
-        else "application/pdf"
-    )
+    media_type = _MEDIA_TYPES.get(path.suffix.lstrip("."), "application/pdf")
     return path, record.file_name, media_type
 
 
@@ -561,7 +605,20 @@ async def execute_generation(
         file_name = f"{record.type_rapport}_{record.task_id}.{extension}"
         file_path = storage_dir / file_name
 
-        if record.type_rapport in ("journalier", "hebdomadaire") and report_date is not None:
+        if record.type_rapport == HEBDO_DD:
+            from app.services.rapport_hebdo_dd_export import exporter_tout
+
+            debut = date.fromisoformat(params["date"])
+            fin = date.fromisoformat(params["date_fin"])
+            data = await rapport_hebdo_dd_service.collecter(db, debut, fin)
+            # Un dossier par rapport : les pièces jointes gardent un nom lisible
+            dossier = storage_dir / record.task_id
+            dossier.mkdir(parents=True, exist_ok=True)
+            nom = f"Rapport hebdo DD S{data.semaine.numero:02d}-{fin.year} du {debut:%d-%m} au {fin:%d-%m-%Y}"
+            fichiers = exporter_tout(dossier, nom, data)
+            file_path = fichiers.get(record.format, fichiers["docx"])
+            file_name = file_path.name
+        elif record.type_rapport in ("journalier", "hebdomadaire") and report_date is not None:
             data = await rapport_journalier_service.collect_journalier_data(
                 db,
                 report_date=report_date,

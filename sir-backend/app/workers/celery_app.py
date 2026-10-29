@@ -29,10 +29,11 @@ celery_app.conf.update(
     beat_schedule={
         "alertes-retard-24h": {"task": "alertes_retard_24h", "schedule": 3600.0},
         # Heure de Dakar (timezone ci-dessus) — décision SENELEC du 27/10/2026
-        "rapport-hebdomadaire-lundi-8h": {
+        # Rapport hebdomadaire d'exploitation DD (samedi → vendredi) — décision du 29/10/2026
+        "rapport-hebdo-dd-samedi-8h": {
             "task": "rapports_planifies",
-            "schedule": crontab(hour=8, minute=0, day_of_week=1),
-            "args": ("hebdomadaire",),
+            "schedule": crontab(hour=8, minute=0, day_of_week=6),
+            "args": ("hebdo_dd",),
         },
         "rapport-mensuel-1er-8h": {
             "task": "rapports_planifies",

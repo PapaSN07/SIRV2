@@ -19,6 +19,11 @@
         <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'hebdomadaire'" (click)="setKind('hebdomadaire')">
           Hebdomadaire
         </button>
+        @if (canHebdoDD()) {
+          <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'hebdo_dd'" (click)="setKind('hebdo_dd')">
+            Hebdomadaire d'exploitation DD
+          </button>
+        }
         <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_dist'" (click)="setKind('mensuel_dist')">
           Mensuel distribution
         </button>
@@ -35,28 +40,39 @@
 
     <div class="rapports-form">
       <h2>Paramètres</h2>
-      @if (kind() === 'hebdomadaire' || kind() === 'mensuel_dist') {
+      @if (kind() === 'hebdo_dd' || kind() === 'mensuel_dist') {
         <p class="rapports-auto">
           <span class="material-symbols-outlined" aria-hidden="true">schedule_send</span>
           Envoi automatique par e-mail aux destinataires de Notifications :
-          {{ kind() === 'hebdomadaire' ? 'chaque lundi à 8 h (semaine précédente)' : 'le 1er du mois à 8 h (mois précédent)' }}.
+          {{ kind() === 'hebdo_dd' ? 'chaque samedi à 8 h (semaine du samedi au vendredi), en Word, Excel et PDF' : 'le 1er du mois à 8 h (mois précédent)' }}.
         </p>
       }
 
       <div class="field">
         <label class="field__label" for="format">Format</label>
         <select id="format" class="field__select" [value]="format()" (change)="format.set($any($event.target).value)">
-          <option value="pdf">PDF</option>
-          <option value="xlsx">Excel (XLSX)</option>
+          @if (kind() === 'hebdo_dd') {
+            <option value="docx" [selected]="format() === 'docx'">Word (DOCX)</option>
+          }
+          <option value="pdf" [selected]="format() === 'pdf'">PDF</option>
+          <option value="xlsx" [selected]="format() === 'xlsx'">Excel (XLSX)</option>
         </select>
       </div>
 
-      @if (kind() === 'journalier' || kind() === 'hebdomadaire') {
+      @if (kind() === 'journalier' || kind() === 'hebdomadaire' || kind() === 'hebdo_dd') {
         <div class="field">
-          <label class="field__label" for="date">{{ kind() === 'hebdomadaire' ? 'Un jour de la semaine voulue' : 'Date' }}</label>
+          <label class="field__label" for="date">
+            {{ kind() === 'hebdomadaire' ? 'Un jour de la semaine voulue' : kind() === 'hebdo_dd' ? 'Vendredi de fin de semaine' : 'Date' }}
+          </label>
           <input id="date" class="field__select" type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
           @if (kind() === 'hebdomadaire') {
             <p class="rapports-hint">Le rapport couvre la semaine du lundi au dimanche contenant cette date.</p>
+          }
+          @if (kind() === 'hebdo_dd') {
+            <p class="rapports-hint">
+              Semaine du samedi au vendredi se terminant à cette date (sinon la dernière semaine complète avant).
+              Les trois fichiers sont produits ; le format choisit celui à télécharger.
+            </p>
           }
         </div>
       } @else {
