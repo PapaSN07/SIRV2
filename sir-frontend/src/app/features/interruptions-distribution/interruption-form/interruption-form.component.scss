@@ -51,6 +51,34 @@
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 1rem;
+  max-width: 1180px;
+}
+
+// Identification : région et service n'ont pas besoin de toute la largeur
+.form-card--full > .form-card__body > .field {
+  max-width: 420px;
+}
+
+.form-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: $on-surface-variant;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(#fff, 0.96);
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .form-hint-banner {

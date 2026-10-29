@@ -63,7 +63,7 @@
         }
       </mat-menu>
       @if (canCreate()) {
-        <a class="sir-btn sir-btn--primary" routerLink="/interruptions/distribution/nouveau">
+        <a class="sir-btn sir-btn--primary list-cta" routerLink="/interruptions/distribution/nouveau" aria-label="Nouvelle saisie">
           <span class="material-symbols-outlined" aria-hidden="true">add</span>
           Nouvelle saisie
         </a>
@@ -354,6 +354,28 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Téléphone : une carte par interruption à la place du tableau -->
+      <ul class="card-list" role="list">
+        @for (row of items(); track row.id) {
+          <li>
+            <a class="int-card" [routerLink]="['/interruptions/distribution', row.id]">
+              <span class="int-card__top">
+                <span class="int-card__num">INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}</span>
+                <sir-status-chip [statut]="row.statut" />
+              </span>
+              <span class="int-card__feeder">{{ row.feeder_libelle || '—' }}</span>
+              <span class="int-card__meta">{{ row.service_libelle || '—' }}</span>
+              <span class="int-card__bottom">
+                <span>{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</span>
+                <span>{{ row.cause_libelle || '' }}</span>
+              </span>
+            </a>
+          </li>
+        } @empty {
+          <li class="card-list__empty">Aucune interruption à afficher.</li>
+        }
+      </ul>
 
       <sir-paginator
         [total]="total()"

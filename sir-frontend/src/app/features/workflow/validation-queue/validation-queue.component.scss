@@ -517,3 +517,52 @@
     display: none;
   }
 }
+
+// --- Filtres en barre au-dessus de la table : la table garde toute la largeur ---
+.validation-queue__layout {
+  flex-direction: column;
+}
+
+.validation-filters {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
+  border-right: none;
+  border-bottom: 1px solid $outline-variant;
+  overflow: visible;
+
+  &__title {
+    flex-basis: 100%;
+    margin: 0;
+  }
+
+  .field {
+    flex: 1 1 180px;
+    max-width: 240px;
+    margin-bottom: 0;
+  }
+
+  &__actions {
+    flex-direction: row;
+    margin-top: 0;
+  }
+}
+
+.validation-table__head {
+  font-size: 12px;
+}
+
+.validation-table__head > *,
+.validation-table__row > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priority-badge {
+  font-size: 12px;
+}

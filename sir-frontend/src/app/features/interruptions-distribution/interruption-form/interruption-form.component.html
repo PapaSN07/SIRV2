@@ -3,26 +3,6 @@
     [title]="pageTitle()"
     [breadcrumbs]="breadcrumbs()"
   >
-    <div actions>
-      <a class="sir-btn sir-btn--outline-primary" routerLink="/interruptions/distribution">
-        {{ isReadOnly() ? 'Retour' : 'Annuler' }}
-      </a>
-      @if (!isReadOnly()) {
-        <button
-          type="button"
-          class="sir-btn sir-btn--primary"
-          [disabled]="!canSubmit()"
-          (click)="submit()"
-        >
-          @if (saving()) {
-            <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
-          } @else {
-            <span class="material-symbols-outlined" aria-hidden="true">send</span>
-          }
-          {{ isEditMode() ? 'Enregistrer' : 'Soumettre' }}
-        </button>
-      }
-    </div>
   </sir-page-header>
 
   @if (loadingRef()) {
@@ -140,13 +120,13 @@
         </div>
       </section>
 
-      <section class="form-card form-card--full">
+      <section class="form-card form-card--wide">
         <header class="form-card__head">
-          <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
-          <h2>Chronologie</h2>
+          <span class="material-symbols-outlined" aria-hidden="true">category</span>
+          <h2>Chronologie et classification</h2>
         </header>
-        <div class="form-card__body">
-          <div class="field field--inline">
+        <div class="form-card__body form-card__body--grid">
+          <div class="field">
             <label class="field__label" for="date-apparition">Apparition</label>
             <input
               id="date-apparition"
@@ -155,15 +135,6 @@
               formControlName="date_apparition"
             />
           </div>
-        </div>
-      </section>
-
-      <section class="form-card form-card--wide">
-        <header class="form-card__head">
-          <span class="material-symbols-outlined" aria-hidden="true">category</span>
-          <h2>Classification</h2>
-        </header>
-        <div class="form-card__body form-card__body--grid">
           <div class="field">
             <span class="field__label">Type d'interruption</span>
             <div class="radio-group">
@@ -269,15 +240,6 @@
               formControlName="puissance_coupee_mw"
             />
           </div>
-          <div class="impact-display">
-            <div class="impact-display__item">
-              <span class="impact-display__label">Puissance saisie</span>
-              <span class="impact-display__value">
-                {{ form.value.puissance_coupee_mw ?? '—' }}
-                <small>MW</small>
-              </span>
-            </div>
-          </div>
           <p class="form-hint">
             L'END est calculée automatiquement à la clôture : puissance coupée × durée de l'interruption
             (sans puissance saisie, la puissance des postes impactés est utilisée).
@@ -354,6 +316,27 @@
           Modifications enregistrées — vous pouvez poursuivre le workflow ci-dessous.
         </p>
       }
+      <!-- Barre d'actions fixe en bas : les boutons restent à portée sur un long formulaire -->
+      <div class="form-actions">
+      <a class="sir-btn sir-btn--outline-primary" routerLink="/interruptions/distribution">
+          {{ isReadOnly() ? 'Retour' : 'Annuler' }}
+      </a>
+        @if (!isReadOnly()) {
+          <button
+            type="button"
+            class="sir-btn sir-btn--primary"
+            [disabled]="!canSubmit()"
+            (click)="submit()"
+          >
+            @if (saving()) {
+              <span class="material-symbols-outlined form-page__spinner" aria-hidden="true">progress_activity</span>
+            } @else {
+              <span class="material-symbols-outlined" aria-hidden="true">send</span>
+            }
+            {{ isEditMode() ? 'Enregistrer' : 'Soumettre' }}
+          </button>
+        }
+      </div>
     </form>
 
     @if (!isEditMode()) {

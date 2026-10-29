@@ -406,3 +406,8 @@ $recap-discret: #6b6572;
   &__obs { overflow-wrap: anywhere; }
   &__vide { color: #b3adb9; }
 }
+
+// Formulaire d'étape : largeur de lecture, plus de champs étirés sur toute la carte
+.workflow-form {
+  max-width: 760px;
+}

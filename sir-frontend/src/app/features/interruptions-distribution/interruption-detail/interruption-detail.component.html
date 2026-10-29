@@ -29,6 +29,21 @@
       </div>
     </sir-page-header>
 
+    <!-- Cycle de vie : remplace l'ancien bloc « État validation » de la colonne de droite -->
+    <ol class="cycle" aria-label="Cycle de vie de l'interruption">
+      @for (step of validationSteps; track step.key; let i = $index) {
+        <li
+          class="cycle__step"
+          [class.cycle__step--active]="it.statut === step.key"
+          [class.cycle__step--done]="stepDone(step.key, it.statut)"
+          [attr.aria-current]="it.statut === step.key ? 'step' : null"
+        >
+          <span class="cycle__num" aria-hidden="true">{{ stepDone(step.key, it.statut) ? '✓' : i + 1 }}</span>
+          {{ step.label }}
+        </li>
+      }
+    </ol>
+
     <!-- Résumé : l'essentiel de l'incident avant les formulaires de suivi -->
     <dl class="incident-summary" aria-label="Résumé de l'interruption">
       <div class="incident-summary__item incident-summary__item--wide">
@@ -306,50 +321,6 @@
           </article>
         }
 
-        @if (it.statut === 'en_cours') {
-          <article class="detail-card detail-card--full detail-card--action" *sirHasRole="['BCC', 'BRC', 'ADMIN_SCR']">
-            <header class="detail-card__head">
-              <span class="material-symbols-outlined" aria-hidden="true">event_available</span>
-              <h2>Clôturer l'interruption</h2>
-            </header>
-            <form class="cloture-form" [formGroup]="clotureForm" (ngSubmit)="cloturer()">
-              <div class="field">
-                <label class="field__label" for="date-remise">Date de remise</label>
-                <input
-                  id="date-remise"
-                  class="field__select"
-                  type="datetime-local"
-                  formControlName="date_remise"
-                  [max]="maxRemise"
-                />
-                <p class="form-hint">Reprise de l'étape « Remise » du workflow si elle est renseignée.</p>
-              </div>
-              <ul class="cloture-checks" aria-label="Contrôles avant clôture">
-                @for (check of clotureChecks(); track check.label) {
-                  <li
-                    class="cloture-checks__item"
-                    [class.cloture-checks__item--ok]="check.ok"
-                    [class.cloture-checks__item--ko]="!check.ok && check.bloquant"
-                    [class.cloture-checks__item--info]="!check.ok && !check.bloquant"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">{{
-                      check.ok ? 'check_circle' : check.bloquant ? 'error' : 'info'
-                    }}</span>
-                    {{ check.label }}
-                  </li>
-                }
-              </ul>
-              <button
-                type="submit"
-                class="sir-btn sir-btn--primary"
-                [disabled]="clotureForm.invalid || clotureBloquee()"
-              >
-                Clôturer
-              </button>
-            </form>
-          </article>
-        }
-
         @if (it.statut === 'cloture') {
           <article
             class="detail-card detail-card--full detail-card--action"
@@ -421,29 +392,64 @@
       </div>
 
       <aside class="detail-bento__side">
-        <sir-assistant-panel
-          [feederId]="it.feeder_id"
-          [interruptionId]="it.id"
-          [compact]="true"
-        />
-
-        <article class="detail-card">
-          <header class="detail-card__head">
-            <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
-            <h2>État validation</h2>
-          </header>
-          <div class="validation-steps">
-            @for (step of validationSteps; track step.key) {
-              <div
-                class="validation-steps__item"
-                [class.validation-steps__item--active]="it.statut === step.key"
-                [class.validation-steps__item--done]="stepDone(step.key, it.statut)"
-              >
-                {{ step.label }}
+        <!-- Clôture en tête de colonne : les contrôles restent visibles sans défiler -->
+        @if (it.statut === 'en_cours') {
+          <article class="detail-card detail-card--action detail-card--cloture" *sirHasRole="['BCC', 'BRC', 'ADMIN_SCR']">
+            <header class="detail-card__head">
+              <span class="material-symbols-outlined" aria-hidden="true">event_available</span>
+              <h2>Clôturer l'interruption</h2>
+            </header>
+            <form class="cloture-form" [formGroup]="clotureForm" (ngSubmit)="cloturer()">
+              <div class="field">
+                <label class="field__label" for="date-remise">Date de remise</label>
+                <input
+                  id="date-remise"
+                  class="field__select"
+                  type="datetime-local"
+                  formControlName="date_remise"
+                  [max]="maxRemise"
+                />
+                <p class="form-hint">Reprise de l'étape « Remise » du workflow si elle est renseignée.</p>
               </div>
-            }
-          </div>
-        </article>
+              <ul class="cloture-checks" aria-label="Contrôles avant clôture">
+                @for (check of clotureChecks(); track check.label) {
+                  <li
+                    class="cloture-checks__item"
+                    [class.cloture-checks__item--ok]="check.ok"
+                    [class.cloture-checks__item--ko]="!check.ok && check.bloquant"
+                    [class.cloture-checks__item--info]="!check.ok && !check.bloquant"
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">{{
+                      check.ok ? 'check_circle' : check.bloquant ? 'error' : 'info'
+                    }}</span>
+                    {{ check.label }}
+                  </li>
+                }
+              </ul>
+              <button
+                type="submit"
+                class="sir-btn sir-btn--primary"
+                [disabled]="clotureForm.invalid || clotureBloquee()"
+              >
+                Clôturer
+              </button>
+            </form>
+          </article>
+        }
+
+        <!-- Assistant risque : ouvert à la demande, il ne charge plus la colonne -->
+        <details class="assistant-toggle">
+          <summary class="assistant-toggle__summary">
+            <span class="material-symbols-outlined" aria-hidden="true">psychology</span>
+            Assistant risque
+            <span class="material-symbols-outlined assistant-toggle__chevron" aria-hidden="true">expand_more</span>
+          </summary>
+          <sir-assistant-panel
+            [feederId]="it.feeder_id"
+            [interruptionId]="it.id"
+            [compact]="true"
+          />
+        </details>
 
         <article class="detail-card detail-card--timeline">
           <header class="detail-card__head">

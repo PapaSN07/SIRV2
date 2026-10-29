@@ -48,6 +48,8 @@
     </section>
   }
 
+  <!-- Les lignes du récapitulatif servent de sélecteur ; les onglets ne restent que sans récapitulatif -->
+  @if (!workflow()) {
   <nav class="workflow-tabs" aria-label="Étapes workflow">
     @for (etape of visibleEtapes(); track etape.etape_workflow_id) {
       <button
@@ -74,6 +76,7 @@
       Clients
     </button>
   </nav>
+  }
 
   @if (loading()) {
     <div class="workflow-panel__loading">
