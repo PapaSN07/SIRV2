@@ -14,6 +14,29 @@ import { SigTronconPickerComponent } from '../sig-troncon-picker/sig-troncon-pic
 
 export const CLIENTS_TAB = 'clients';
 
+/** saisi : renseigné · a_venir : étape pas encore atteinte · non_saisi : étape passée sans cette information. */
+export type EtatChamp = 'saisi' | 'a_venir' | 'non_saisi';
+
+export interface LigneRecap {
+  label: string;
+  valeur: string;
+  etat: EtatChamp;
+}
+
+export interface GroupeRecap {
+  code: string;
+  titre: string;
+  icone: string;
+  lignes: LigneRecap[];
+}
+
+function etapeRenseignee(e: WorkflowEtape): boolean {
+  return Boolean(
+    e.date_debut || e.date_fin || e.responsable_matricule || e.observation || e.troncon_sig_id ||
+      e.troncon_id || e.noeud_amont_libelle || e.noeud_aval_libelle,
+  );
+}
+
 const ETAPE_ICONS: Record<string, string> = {
   declenchement: 'bolt',
   interpellation_pdm: 'campaign',
@@ -57,6 +80,80 @@ export class InterruptionWorkflowPanelComponent {
   readonly feederId = input<number | null>(null);
   /** Aucune date d'étape ne peut précéder l'apparition de l'interruption. */
   readonly dateApparition = input<string | null>(null);
+  /** Interruption clôturée : plus rien n'est « à venir », les vides sont « non saisis ». */
+  readonly cloturee = input(false);
+
+  private readonly datePipe = new DatePipe('fr-FR');
+
+  /**
+   * Récapitulatif de toutes les informations, du déclenchement aux clients.
+   * Une information vide est « pas encore saisie » si son étape vient après la dernière étape
+   * renseignée (le travail n'y est pas encore arrivé), « non saisie » sinon.
+   */
+  readonly recapitulatif = computed<GroupeRecap[]>(() => {
+    const wf = this.workflow();
+    if (!wf) return [];
+    const etapes = wf.etapes;
+    const clientsSaisis = (wf.clients?.nombre_postes_impactes ?? 0) > 0;
+    let derniere = -1;
+    etapes.forEach((e, i) => {
+      if (etapeRenseignee(e)) derniere = i;
+    });
+    if (this.cloturee()) derniere = etapes.length;
+    const date = (v: string | null) => (v ? this.datePipe.transform(v, 'dd/MM/yyyy HH:mm') : null);
+    const ligne = (label: string, valeur: string | number | null | undefined, vide: EtatChamp): LigneRecap => {
+      const texte = valeur === null || valeur === undefined || valeur === '' ? null : String(valeur);
+      return {
+        label,
+        valeur: texte ?? (vide === 'a_venir' ? 'Pas encore saisi' : 'Non saisi'),
+        etat: texte ? 'saisi' : vide,
+      };
+    };
+    const groupes: GroupeRecap[] = etapes.map((e, i) => {
+      const vide: EtatChamp = i <= derniere ? 'non_saisi' : 'a_venir';
+      const lignes = [
+        ligne('Début', date(e.date_debut), vide),
+        ligne('Fin', date(e.date_fin), vide),
+        ligne('Durée', e.duree_minutes !== null && e.duree_minutes !== undefined ? this.formatDuration(e.duree_minutes) : null, vide),
+        ligne('Responsable (matricule)', e.responsable_matricule, vide),
+      ];
+      if (e.code === ETAPE_TRONCONNEMENT) {
+        lignes.push(
+          ligne('Tronçon', e.troncon_sig_libelle ?? e.troncon_libelle, vide),
+          ligne('Nœud amont', e.noeud_amont_libelle, vide),
+          ligne('Nœud aval', e.noeud_aval_libelle, vide),
+        );
+      }
+      lignes.push(ligne('Observation', e.observation, vide));
+      return { code: e.code, titre: e.libelle_etape_workflow, icone: this.etapeIcon(e.code), lignes };
+    });
+    const videClients: EtatChamp = this.cloturee() ? 'non_saisi' : 'a_venir';
+    groupes.push({
+      code: CLIENTS_TAB,
+      titre: 'Clients',
+      icone: 'groups',
+      lignes: [
+        ligne('Postes impactés', clientsSaisis ? wf.clients.nombre_postes_impactes : null, videClients),
+        ligne(
+          'Clients touchés',
+          wf.clients.nombre_clients_touches !== null && wf.clients.nombre_clients_touches !== undefined
+            ? wf.clients.nombre_clients_touches.toLocaleString('fr-FR')
+            : null,
+          videClients,
+        ),
+      ],
+    });
+    return groupes;
+  });
+
+  readonly recapCompteurs = computed(() => {
+    const lignes = this.recapitulatif().flatMap((g) => g.lignes);
+    return {
+      saisi: lignes.filter((l) => l.etat === 'saisi').length,
+      a_venir: lignes.filter((l) => l.etat === 'a_venir').length,
+      non_saisi: lignes.filter((l) => l.etat === 'non_saisi').length,
+    };
+  });
 
   /** Dates saisies dans le formulaire de l'étape (suivies pour un contrôle immédiat). */
   private readonly saisieDates = signal<{ debut: string; fin: string }>({ debut: '', fin: '' });

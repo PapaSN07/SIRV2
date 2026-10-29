@@ -794,11 +794,17 @@ async def cloturer(
         },
     )
 
+    from app.services import end_service
+
+    # END = puissance coupée × durée : calculée dès la clôture (durée connue)
+    end_calculee = await end_service.calculer_a_la_cloture(db, interruption.id)
+
     await db.commit()
 
-    from app.workers.tasks.indicateurs import calcul_end_task
+    if end_calculee is None:
+        from app.workers.tasks.indicateurs import calcul_end_task
 
-    calcul_end_task.delay(interruption.id)
+        calcul_end_task.delay(interruption.id)
 
     from app.services import notification_dispatch_service
     from app.schemas.notifications import NotificationEventType

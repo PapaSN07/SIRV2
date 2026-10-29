@@ -200,8 +200,30 @@ export class InterruptionDetailComponent implements OnInit {
         label: `${etapesFaites}/${etapes.length} étapes terrain renseignées`,
         bloquant: false,
       },
+      this.endPrevue(it?.puissance_coupee_mw ?? null, minutes),
     ];
   });
+
+  /** END = puissance coupée × durée, calculée par le serveur dès la clôture. */
+  private endPrevue(puissance: number | null, minutes: number | null): { ok: boolean; label: string; bloquant: boolean } {
+    if (puissance === null || puissance === undefined) {
+      return {
+        ok: false,
+        label: 'Puissance coupée non saisie : END calculée avec la puissance des postes impactés',
+        bloquant: false,
+      };
+    }
+    if (minutes === null || minutes <= 0) {
+      return { ok: false, label: `END calculée à la clôture : ${puissance} MW × durée`, bloquant: false };
+    }
+    const heures = minutes / 60;
+    const end = (puissance * heures).toLocaleString('fr-FR', { maximumFractionDigits: 3 });
+    return {
+      ok: true,
+      label: `END calculée à la clôture : ${end} MWh (${puissance} MW × ${heures.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} h)`,
+      bloquant: false,
+    };
+  }
 
   readonly clotureBloquee = computed(() =>
     this.clotureChecks().some((c) => c.bloquant && !c.ok),

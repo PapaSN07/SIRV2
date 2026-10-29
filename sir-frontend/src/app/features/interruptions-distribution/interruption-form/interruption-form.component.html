@@ -278,6 +278,10 @@
               </span>
             </div>
           </div>
+          <p class="form-hint">
+            L'END est calculée automatiquement à la clôture : puissance coupée × durée de l'interruption
+            (sans puissance saisie, la puissance des postes impactés est utilisée).
+          </p>
           <div class="form-row">
             <div class="field">
               <label class="field__label" for="tension">Tension (kV)</label>
@@ -367,6 +371,7 @@
         [interruptionId]="id"
         [feederId]="detailFeederId()"
         [dateApparition]="form.controls.date_apparition.value || null"
+        [cloturee]="false"
         (saved)="onWorkflowSaved()"
       />
     }

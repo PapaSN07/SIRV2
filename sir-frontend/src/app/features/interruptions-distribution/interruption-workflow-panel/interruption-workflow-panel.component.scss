@@ -261,3 +261,134 @@
 .field__input--error {
   border-color: $error !important;
 }
+
+// Récapitulatif : saisi = gras vert · pas encore saisi = gris orange · non saisi = normal jaune
+$recap-vert: #1e7b34;
+$recap-orange: #f39200;
+$recap-jaune: #e8b400;
+
+.recap {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid $outline-variant;
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+
+    h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+  }
+
+  &__legende {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+  }
+
+  &__legende-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+
+    &::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    &--saisi { color: $recap-vert; font-weight: 700; &::before { background: $recap-vert; } }
+    &--a_venir { color: #8a8a8a; &::before { background: $recap-orange; } }
+    &--non_saisi { &::before { background: $recap-jaune; } }
+  }
+
+  &__grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 0.6rem;
+  }
+
+  &__groupe {
+    display: block;
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.4rem;
+    background: #fff;
+
+    &:hover { border-color: $primary; }
+    &--actif { border-color: $primary; box-shadow: inset 0 0 0 1px $primary; }
+  }
+
+  &__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.35rem;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: $primary;
+    text-align: left;
+    cursor: pointer;
+
+    .material-symbols-outlined { font-size: 18px; }
+  }
+
+  &__lignes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__ligne {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.15rem 0;
+    font-size: 12px;
+    line-height: 1.35;
+
+    &--saisi {
+      color: $recap-vert;
+      font-weight: 700;
+      .recap__puce { background: $recap-vert; }
+    }
+
+    &--a_venir {
+      color: #8a8a8a;
+      .recap__puce { background: $recap-orange; }
+    }
+
+    &--non_saisi {
+      .recap__puce { background: $recap-jaune; }
+    }
+  }
+
+  &__puce {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    align-self: center;
+  }
+
+  &__label { overflow-wrap: anywhere; }
+  &__valeur { overflow-wrap: anywhere; }
+}

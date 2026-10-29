@@ -1,5 +1,6 @@
 """Service END (Énergie Non Distribuée) — calcul et persistance."""
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -8,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.interruptions import Interruption
 from app.repositories import end_repository as repo
 from app.services.indicateurs_cache_service import invalidate_end_cache
+
+logger = logging.getLogger(__name__)
 
 # TODO(CRSE): remplacer par la table regles_end après validation SENELEC.
 # Coefficients de pondération provisoires par code nature.
@@ -170,3 +173,19 @@ async def calculer_et_persister_end(
         "type_end_id": type_end_id,
         "region_id": region_id,
     }
+
+
+async def calculer_a_la_cloture(db: AsyncSession, interruption_id: int) -> float | None:
+    """END calculée dès que puissance coupée et durée sont connues, c'est-à-dire à la clôture.
+
+    Calcul immédiat, dans la transaction de la clôture (l'END s'affiche aussitôt, sans attendre
+    le worker). Point de sauvegarde : un échec n'annule pas la clôture ; l'appelant confie alors
+    le calcul au worker (renvoie None).
+    """
+    try:
+        async with db.begin_nested():
+            resultat = await calculer_et_persister_end(db, interruption_id)
+        return float(resultat["valeur_mwh"])  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001 — repli sur la tâche Celery
+        logger.warning("END non calculée à la clôture de %s, envoi au worker", interruption_id, exc_info=True)
+        return None

@@ -15,3 +15,4 @@ def test_aucun_is_true_dans_le_code() -> None:
         if MOTIF.search(ligne)
     ]
     assert not fautifs, "Utiliser `colonne == true()` (SQL Server rejette `IS 1`) : " + ", ".join(fautifs)
+

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Type
 
-from sqlalchemy import Select, func, or_, select, update
+from sqlalchemy import Select, and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -101,11 +101,14 @@ async def list_postes_sources(
     query = select(PosteSource).where(PosteSource.is_active == True).order_by(PosteSource.libelle, PosteSource.id)  # noqa: E712
     effective_region = _effective_region_id(region_id, scope)
     if effective_region is not None:
+        # La région du poste source fait foi ; les feeders ne servent qu'aux postes sources
+        # sans région (données migrées). Sinon un poste source des Régions dont un feeder est
+        # rattaché à un service de Dakar apparaissait dans la liste de Dakar.
         ps_in_region = _poste_source_ids_in_region_subquery(effective_region)
         query = query.where(
             or_(
                 PosteSource.region_id == effective_region,
-                PosteSource.id.in_(ps_in_region),
+                and_(PosteSource.region_id.is_(None), PosteSource.id.in_(ps_in_region)),
             )
         )
     result = await db.execute(query)

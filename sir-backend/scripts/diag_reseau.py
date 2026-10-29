@@ -37,6 +37,16 @@ _CONTROLES: list[tuple[str, str, bool]] = [
            AND NOT EXISTS (SELECT 1 FROM dbo.feeders f WHERE f.poste_source_id = ps.id AND f.is_active = 1)""",
         True,
     ),
+    (
+        "  … dont tous les feeders sont dans une autre région (région du poste source à vérifier)",
+        """SELECT COUNT(*) FROM dbo.postes_sources ps
+           WHERE ps.is_active = 1 AND ps.region_id IS NOT NULL
+             AND EXISTS (SELECT 1 FROM dbo.feeders f JOIN dbo.services s ON s.id = f.service_id
+                         WHERE f.poste_source_id = ps.id AND f.is_active = 1)
+             AND NOT EXISTS (SELECT 1 FROM dbo.feeders f JOIN dbo.services s ON s.id = f.service_id
+                             WHERE f.poste_source_id = ps.id AND f.is_active = 1 AND s.region_id = ps.region_id)""",
+        True,
+    ),
     ("Feeders actifs", "SELECT COUNT(*) FROM dbo.feeders WHERE is_active = 1", False),
     (
         "  … sans service",
