@@ -14,6 +14,7 @@ version SOAP, noms des paramètres) puis gardé en mémoire. Configuration (.env
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -272,4 +273,23 @@ async def envoyer_sms(numero: str, message: str) -> str:
         raise SmsGatewayError(f"HTTP {rep.status_code} : {rep.text[:200]}")
     if not valeur:
         raise SmsGatewayError("PAS DE REPONSE du web service")
+    verifier_statut(valeur)
     return valeur
+
+
+def verifier_statut(valeur: str) -> None:
+    """Orange SMS Pro répond en JSON : ``status_CODE`` 200 = « Message envoye ».
+
+    Lève ``SmsGatewayError`` avec ``status_TEXT`` si un destinataire est refusé.
+    Une réponse non JSON est acceptée telle quelle.
+    """
+    try:
+        donnees = json.loads(valeur)
+        reponses = donnees["responses"]["response"]
+    except (ValueError, KeyError, TypeError):
+        return
+    for rep in reponses if isinstance(reponses, list) else [reponses]:
+        statut = (rep or {}).get("status") or {}
+        code = str(statut.get("status_CODE", ""))
+        if code and code != "200":
+            raise SmsGatewayError(f"Refusé par Orange SMS Pro ({code}) : {statut.get('status_TEXT', '')}")

@@ -108,3 +108,12 @@ async def test_send_sms_lot_un_appel_par_destinataire(monkeypatch) -> None:
     envoyer.assert_any_await("771111111", "Coupure")
     statuts = [c.kwargs["statut"] for c in maj.await_args_list]
     assert statuts == ["envoye", "echec", "echec"]
+
+
+def test_verifier_statut_orange_sms_pro() -> None:
+    ok = '{"responses":{"response":[{"recipient":{"id":"1","value":"785897352"},"status":{"status_CODE":200,"status_TEXT":"Message envoye"}}]}}'
+    sms_gateway.verifier_statut(ok)
+    sms_gateway.verifier_statut("OK")
+    ko = ok.replace("200", "401").replace("Message envoye", "Credit insuffisant")
+    with pytest.raises(sms_gateway.SmsGatewayError, match="Credit insuffisant"):
+        sms_gateway.verifier_statut(ko)
