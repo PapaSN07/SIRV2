@@ -99,6 +99,11 @@ def _candidats_wsdl() -> list[str]:
     if settings.sms_gateway_wsdl:
         return [settings.sms_gateway_wsdl]
     base = settings.sms_gateway_url.strip()
+    if not base:
+        raise SmsGatewayError(
+            "Passerelle SMS non configurée : SMS_GATEWAY_URL et SMS_GATEWAY_WSDL sont vides dans le conteneur "
+            "(ajouter les lignes au fichier .env lu par docker compose, puis « docker compose up -d api worker »)"
+        )
     if "wsdl" in base.lower():
         return [base]
     base = base.rstrip("/")
