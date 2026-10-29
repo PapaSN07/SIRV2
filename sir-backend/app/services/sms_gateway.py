@@ -39,6 +39,7 @@ ENV_SOAP12 = "http://www.w3.org/2003/05/soap-envelope"
 
 # Emplacements usuels d'un WSDL quand seule l'adresse du serveur est connue
 CHEMINS_WSDL = (
+    "/OrangeSmsPro/OSPWebService?WSDL",
     "/OSPWebService?wsdl",
     "/OSPWebService/OSPWebService?wsdl",
     "/OSPWebService/services/OSPWebService?wsdl",
