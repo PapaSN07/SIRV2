@@ -1,28 +1,29 @@
+// Une teinte par étape du cycle de vie ; le rouge est réservé aux retards et aux erreurs.
 .status-chip {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
+  white-space: nowrap;
 
   &--en_cours {
-    background: #fecaca;
-    color: #991b1b;
+    background: #fdf0dc;
+    color: #8a4b00;
   }
 
   &--cloture {
-    background: #fef3c7;
-    color: #b45309;
+    background: #eeeaf2;
+    color: #5b2c6f;
   }
 
   &--valide {
-    background: #dcfce7;
-    color: #15803d;
+    background: #e6f4ea;
+    color: #1e7b34;
   }
 
   &--archive {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #eaecf0;
+    color: #5f5a66;
   }
 }

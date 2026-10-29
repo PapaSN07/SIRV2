@@ -142,6 +142,8 @@ export class DashboardComponent implements OnInit {
   readonly kpi = signal<TableauDeBordResponse | null>(null);
   readonly distributionStats = signal<InterruptionDistributionStats | null>(null);
   readonly chartMonths = signal<ChartMonth[]>([]);
+  readonly saidiMax = computed(() => Math.max(0, ...this.chartMonths().map((m) => m.saidi)));
+  readonly saifiMax = computed(() => Math.max(0, ...this.chartMonths().map((m) => m.saifi)));
   readonly recentInterruptions = signal<InterruptionDistribution[]>([]);
   readonly interruptionsLoading = signal(true);
   readonly interruptionsError = signal<string | null>(null);

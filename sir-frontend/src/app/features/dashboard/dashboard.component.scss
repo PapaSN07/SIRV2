@@ -251,6 +251,7 @@
     top: 0;
     bottom: 0;
     width: 4px;
+    display: none; // cartes neutres : pas de bordure colorée
   }
 
   &:hover {
@@ -299,15 +300,15 @@
   }
 
   &--error &__icon {
-    color: $error;
+    color: $primary-container;
   }
 
   &--primary &__icon {
-    color: $primary;
+    color: $primary-container;
   }
 
   &--tertiary &__icon {
-    color: $tertiary-container;
+    color: $primary-container;
   }
 
   &--primary-dark &__icon {
@@ -315,7 +316,7 @@
   }
 
   &--warning &__icon {
-    color: $secondary-dark;
+    color: $primary-container;
   }
 
   &__value-row {
@@ -527,6 +528,45 @@
     font-size: 12px;
     font-weight: 600;
     color: rgba($on-surface-variant, 0.6);
+  }
+}
+
+// Évolution : une seule couleur, le mois courant en violet, valeur au survol, repères à 50 et 100 %
+.bar-chart--single {
+  height: 240px;
+  position: relative;
+  background:
+    linear-gradient(to top, transparent calc(50% - 0.5px), #eeeaf2 calc(50% - 0.5px), #eeeaf2 calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, #eeeaf2 1px, transparent 1px);
+  background-size: 100% calc(100% - 1.5rem);
+  background-repeat: no-repeat;
+
+  .bar-chart__bar {
+    position: relative;
+    background: #b79ac4;
+  }
+
+  .bar-chart__group:last-child .bar-chart__bar {
+    background: #5b2c6f;
+  }
+
+  .bar-chart__value {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding-bottom: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .bar-chart__bar:hover .bar-chart__value,
+  .bar-chart__group:last-child .bar-chart__value {
+    opacity: 1;
   }
 }
 

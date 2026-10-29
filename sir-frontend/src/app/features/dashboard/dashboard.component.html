@@ -194,12 +194,12 @@
           <!-- Deux échelles : SAIDI (heures) et SAIFI ne se comparent pas sur un même axe -->
           <div class="evolution-charts">
             <figure class="evolution-chart">
-              <figcaption>SAIDI <span>durée moyenne, heures / client</span></figcaption>
+              <figcaption>SAIDI <span>durée moyenne, heures / client · max {{ formatNumber(saidiMax(), 1) }}</span></figcaption>
               <div class="bar-chart bar-chart--single">
                 @for (month of chartMonths(); track month.key) {
                   <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.saidi, 3) + ' h'">
                     <div class="bar-chart__bars">
-                      <div class="bar-chart__bar bar-chart__bar--saidi" [style.height.%]="chartReady() ? month.saidiHeight : 0"></div>
+                      <div class="bar-chart__bar bar-chart__bar--saidi" [style.height.%]="chartReady() ? month.saidiHeight : 0"><span class="bar-chart__value">{{ formatNumber(month.saidi, 1) }}</span></div>
                     </div>
                     <p class="bar-chart__label">{{ month.label }}</p>
                   </div>
@@ -207,12 +207,12 @@
               </div>
             </figure>
             <figure class="evolution-chart">
-              <figcaption>SAIFI <span>fréquence moyenne, interruptions / client</span></figcaption>
+              <figcaption>SAIFI <span>fréquence moyenne, interruptions / client · max {{ formatNumber(saifiMax(), 2) }}</span></figcaption>
               <div class="bar-chart bar-chart--single">
                 @for (month of chartMonths(); track month.key) {
                   <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.saifi, 2)">
                     <div class="bar-chart__bars">
-                      <div class="bar-chart__bar bar-chart__bar--saifi" [style.height.%]="chartReady() ? month.saifiHeight : 0"></div>
+                      <div class="bar-chart__bar bar-chart__bar--saifi" [style.height.%]="chartReady() ? month.saifiHeight : 0"><span class="bar-chart__value">{{ formatNumber(month.saifi, 2) }}</span></div>
                     </div>
                     <p class="bar-chart__label">{{ month.label }}</p>
                   </div>

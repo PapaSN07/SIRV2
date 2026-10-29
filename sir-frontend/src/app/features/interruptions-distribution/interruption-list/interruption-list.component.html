@@ -35,33 +35,34 @@
           }
         }
       }
-      <div class="export-group" role="group" aria-label="Exporter la liste filtrée">
-        <button
-          type="button"
-          class="sir-btn sir-btn--outline-primary"
-          [disabled]="exporting() !== null"
-          (click)="exporter('xlsx')"
-          title="Exporter la liste filtrée en Excel"
-        >
-          <span class="material-symbols-outlined" aria-hidden="true">{{ exporting() === 'xlsx' ? 'progress_activity' : 'download' }}</span>
-          Excel
+      <button
+        type="button"
+        class="sir-btn sir-btn--outline-primary"
+        [matMenuTriggerFor]="exportMenu"
+        [disabled]="exporting() !== null"
+        aria-label="Exporter ou importer"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">{{ exporting() !== null ? 'progress_activity' : 'download' }}</span>
+        Exporter
+        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+      </button>
+      <mat-menu #exportMenu="matMenu" xPosition="before">
+        <button mat-menu-item type="button" (click)="exporter('xlsx')" title="Exporter la liste filtrée en Excel">
+          <span class="material-symbols-outlined" aria-hidden="true">table_view</span>
+          <span>Excel (liste filtrée)</span>
         </button>
-        <button
-          type="button"
-          class="sir-btn sir-btn--outline-primary"
-          [disabled]="exporting() !== null"
-          (click)="exporter('pdf')"
-          title="Exporter la liste filtrée en PDF"
-        >
-          <span class="material-symbols-outlined" aria-hidden="true">{{ exporting() === 'pdf' ? 'progress_activity' : 'picture_as_pdf' }}</span>
-          PDF
+        <button mat-menu-item type="button" (click)="exporter('pdf')" title="Exporter la liste filtrée en PDF">
+          <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+          <span>PDF (liste filtrée)</span>
         </button>
-      </div>
+        @if (canCreate()) {
+          <a mat-menu-item routerLink="/interruptions/distribution/import-fis" title="Importer un fichier FIS (Excel)">
+            <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>
+            <span>Importer un fichier FIS</span>
+          </a>
+        }
+      </mat-menu>
       @if (canCreate()) {
-        <a class="sir-btn sir-btn--outline-primary import-fis-btn" routerLink="/interruptions/distribution/import-fis" title="Importer un fichier FIS (Excel)">
-          <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>
-          Import FIS
-        </a>
         <a class="sir-btn sir-btn--primary" routerLink="/interruptions/distribution/nouveau">
           <span class="material-symbols-outlined" aria-hidden="true">add</span>
           Nouvelle saisie

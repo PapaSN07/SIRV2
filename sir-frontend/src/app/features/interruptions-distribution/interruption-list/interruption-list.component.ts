@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { MatMenuModule } from '@angular/material/menu';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
@@ -46,6 +47,7 @@ function positiveInt(value: string | null): number | null {
   selector: 'sir-interruption-list',
   standalone: true,
   imports: [
+    MatMenuModule,
     RouterLink,
     DatePipe,
     PageHeaderComponent,

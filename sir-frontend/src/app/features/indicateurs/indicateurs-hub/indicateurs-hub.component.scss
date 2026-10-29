@@ -143,6 +143,7 @@
     top: 0;
     bottom: 0;
     width: 4px;
+    display: none; // cartes neutres : pas de bordure colorée
   }
 
   &:hover {
@@ -187,15 +188,15 @@
   }
 
   &--error &__icon {
-    color: $error;
+    color: $primary-container;
   }
 
   &--primary &__icon {
-    color: $primary;
+    color: $primary-container;
   }
 
   &--tertiary &__icon {
-    color: $tertiary-container;
+    color: $primary-container;
   }
 
   &--primary-dark &__icon {
