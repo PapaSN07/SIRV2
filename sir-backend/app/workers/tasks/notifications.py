@@ -55,6 +55,22 @@ async def _run_envoi_email(email_id: int) -> dict[str, str]:
             raise
 
 
+async def _run_envoi_sms_lot(sms_ids: list[int]) -> dict[str, int]:
+    async with WorkerSessionLocal() as db:
+        try:
+            result = await sms_service.send_sms_lot(db, sms_ids)
+            await db.commit()
+            return result
+        except Exception:
+            # Les échecs sont tracés par le service : on les conserve avant de lever.
+            try:
+                await db.commit()
+            except Exception:
+                logger.exception("Trace d'échec SMS non enregistrée ids=%s", sms_ids)
+                await db.rollback()
+            raise
+
+
 async def _run_envoi_sms(sms_id: int) -> dict[str, str]:
     async with WorkerSessionLocal() as db:
         try:
@@ -102,6 +118,16 @@ def envoi_email_direct_task(self, to_email: str, sujet: str, corps: str) -> dict
     except Exception as exc:
         logger.exception("envoi_email_direct failed to=%s", to_email)
         raise self.retry(exc=exc, countdown=60, max_retries=3) from exc
+
+
+@celery_app.task(name="envoi_sms_lot", bind=True)
+def envoi_sms_lot_task(self, sms_ids: list[int]) -> dict[str, int]:
+    """Un appel sendManySMS par message : tous les destinataires en une fois."""
+    try:
+        return asyncio.run(_run_envoi_sms_lot(sms_ids))
+    except Exception:
+        logger.exception("envoi_sms_lot failed sms_ids=%s", sms_ids)
+        raise
 
 
 @celery_app.task(name="envoi_sms", bind=True)

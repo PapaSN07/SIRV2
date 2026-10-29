@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # SMS
     sms_gateway_url: str = ""
     sms_gateway_api_key: str = ""
+    # Web service SOAP OSPWebService (méthode sendManySMS) — voir app/services/sms_gateway.py
+    sms_gateway_wsdl: str = ""
+    sms_gateway_separateur: str = ","
+    sms_gateway_lot_max: int = 50
 
     # Email
     smtp_host: str = ""

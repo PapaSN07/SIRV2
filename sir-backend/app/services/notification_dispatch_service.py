@@ -178,8 +178,9 @@ async def dispatch_event(
 
     for email_id in email_ids:
         celery_app.send_task("envoi_email", args=[email_id])
-    for sms_id in sms_ids:
-        celery_app.send_task("envoi_sms", args=[sms_id])
+    if sms_ids:
+        # Un seul appel sendManySMS pour tous les destinataires du même message
+        celery_app.send_task("envoi_sms_lot", args=[sms_ids])
 
     message = f"{event_type} — {entity_type} #{entity_id}"
     region_id = (

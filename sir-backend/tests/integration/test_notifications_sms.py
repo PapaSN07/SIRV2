@@ -129,7 +129,7 @@ async def test_send_manual_sms_to_destinataire(client: AsyncClient) -> None:
     data = response.json()["data"]
     assert data["sent_count"] == 1
     assert data["sms_ids"] == [99]
-    mock_send.assert_called_once_with("envoi_sms", args=[99])
+    mock_send.assert_called_once_with("envoi_sms_lot", args=[[99]])
 
 
 async def test_list_sms_returns_200(client: AsyncClient) -> None:
