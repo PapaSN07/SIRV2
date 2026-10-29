@@ -36,6 +36,16 @@ Interruptions distribution dont la **date d'apparition** est dans la semaine, **
 - Valeur cible : objectif END national de l'année saisi dans Pilotage (cible hebdo = annuel / 52,
   cible cumulée au prorata des jours). Sans objectif : phrase et cible omises.
 
+## Mise en page (validée dans Claude Design le 29/10/2026)
+
+Word et PDF : en-tête sobre (logo, Direction de la Distribution), « Semaine NN — AAAA », 4 indicateurs
+clés (interruptions HTA, END, SAIFI, SAIDI) avec l'écart à S-1 (vert = baisse, ambre = hausse),
+« En bref », barre segmentée des interruptions par catégorie et détail de l'END, faits marquants,
+tableau par service (zéros estompés), barres du poids des services dans l'END (services qui font
+80 % de l'END en violet), cartes des cumuls (END vs cible, facteurs exogènes), tableau SAIFI/SAIDI
+(semaine, S-1, cumul). Palette : violet SENELEC `#5B2C6F`, lilas `#B79AC4`, orange `#F39200`,
+ambre `#B86B00`, vert `#1E7B34`. Code : `construire_vue` dans `rapport_hebdo_dd_export.py`.
+
 ## Textes générés
 
 - Introduction : amélioration / dégradation / évolution contrastée par rapport à S-1 (nombre et END),

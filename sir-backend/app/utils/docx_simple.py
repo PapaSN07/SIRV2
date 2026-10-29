@@ -23,7 +23,7 @@ def _texte(t: str) -> str:
     return escape(t, {'"': "&quot;"})
 
 
-def _runs(texte: str, *, taille: int | None = None, couleur: str | None = None, gras: bool = False) -> str:
+def _runs(texte: str, *, taille: float | None = None, couleur: str | None = None, gras: bool = False) -> str:
     """Runs d'un paragraphe ; **…** passe en gras."""
     morceaux = re.split(r"(\*\*[^*]+\*\*)", texte)
     xml = []
@@ -38,10 +38,41 @@ def _runs(texte: str, *, taille: int | None = None, couleur: str | None = None, 
         if couleur:
             props.append(f'<w:color w:val="{couleur}"/>')
         if taille:
-            props.append(f'<w:sz w:val="{taille * 2}"/><w:szCs w:val="{taille * 2}"/>')
+            props.append(f'<w:sz w:val="{round(taille * 2)}"/><w:szCs w:val="{round(taille * 2)}"/>')
         rpr = f"<w:rPr>{''.join(props)}</w:rPr>" if props else ""
         xml.append(f'<w:r>{rpr}<w:t xml:space="preserve">{_texte(contenu)}</w:t></w:r>')
     return "".join(xml)
+
+
+@dataclass
+class Para:
+    """Un paragraphe dans une cellule de grille."""
+
+    texte: str
+    taille: float = 9
+    gras: bool = False
+    couleur: str | None = None
+    align: str | None = None
+    apres: int = 0
+
+
+@dataclass
+class Cellule:
+    contenu: list[Para] | str = ""
+    fond: str | None = None
+    align: str = "left"
+    gras: bool = False
+    couleur: str | None = None
+    taille: float = 9
+    bord_bas: str | None = None  # couleur d'un trait sous la cellule (tableaux « à lignes »)
+    bord_haut: str | None = None
+    cadre: str | None = None  # bordure complète de la cellule (cartes)
+
+
+def _bord(cote: str, couleur: str | None, epaisseur: int = 4) -> str:
+    if not couleur:
+        return f'<w:{cote} w:val="nil"/>'
+    return f'<w:{cote} w:val="single" w:sz="{epaisseur}" w:space="0" w:color="{couleur}"/>'
 
 
 @dataclass
@@ -61,8 +92,9 @@ class Docx:
         align: str | None = None,
         apres: int = 120,
         retrait_cm: float = 0.0,
+        avant: int = 0,
     ) -> None:
-        ppr = [f'<w:spacing w:after="{apres}"/>']
+        ppr = [f'<w:spacing w:before="{avant}" w:after="{apres}"/>']
         if align:
             ppr.append(f'<w:jc w:val="{align}"/>')
         if retrait_cm:
@@ -77,6 +109,66 @@ class Docx:
             f'<w:p><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/></w:pPr>'
             f"{_runs(texte, gras=True, taille=taille, couleur=_PRIMAIRE)}</w:p>"
         )
+
+    def saut_de_page(self) -> None:
+        self.corps.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+
+    def grille(
+        self,
+        lignes: list[list[Cellule]],
+        largeurs_cm: list[float],
+        *,
+        cadre: str | None = None,
+        hauteur_cm: float | None = None,
+        marge_cm: float = 0.12,
+        espace_apres: int = 60,
+    ) -> None:
+        """Tableau libre : fond, alignement, couleur et traits par cellule ; `cadre` = bordure
+        de chaque cellule (cartes). Sert aussi aux barres (cellules colorées de largeur
+        proportionnelle)."""
+        grille = "".join(f'<w:gridCol w:w="{int(w * 567)}"/>' for w in largeurs_cm)
+        marge = int(marge_cm * 567)
+        xml = [
+            '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/>'
+            "<w:tblBorders>"
+            + "".join(_bord(b, None) for b in ("top", "left", "bottom", "right", "insideH", "insideV"))
+            + f'</w:tblBorders><w:tblCellMar><w:top w:w="{marge // 2}" w:type="dxa"/><w:left w:w="{marge}" w:type="dxa"/>'
+            f'<w:bottom w:w="{marge // 2}" w:type="dxa"/><w:right w:w="{marge}" w:type="dxa"/></w:tblCellMar></w:tblPr>',
+            f"<w:tblGrid>{grille}</w:tblGrid>",
+        ]
+        for ligne in lignes:
+            hauteur = f'<w:trPr><w:trHeight w:val="{int(hauteur_cm * 567)}" w:hRule="exact"/></w:trPr>' if hauteur_cm else ""
+            xml.append(f"<w:tr>{hauteur}")
+            for j, c in enumerate(ligne):
+                bords = ""
+                if cadre or c.cadre:
+                    couleur_cadre = c.cadre or cadre
+                    bords = "<w:tcBorders>" + "".join(
+                        _bord(b, couleur_cadre) for b in ("top", "left", "bottom", "right")
+                    ) + "</w:tcBorders>"
+                elif c.bord_bas or c.bord_haut:
+                    bords = "<w:tcBorders>" + (_bord("top", c.bord_haut, 8) if c.bord_haut else "") + (
+                        _bord("bottom", c.bord_bas, 4) if c.bord_bas else ""
+                    ) + "</w:tcBorders>"
+                fond = f'<w:shd w:val="clear" w:color="auto" w:fill="{c.fond}"/>' if c.fond else ""
+                paras = c.contenu if isinstance(c.contenu, list) else [
+                    Para(c.contenu, taille=c.taille, gras=c.gras, couleur=c.couleur)
+                ]
+                corps = "".join(
+                    f'<w:p><w:pPr><w:spacing w:after="{p.apres}" w:line="240" w:lineRule="auto"/>'
+                    f'<w:jc w:val="{p.align or c.align}"/>'
+                    + ('<w:rPr><w:sz w:val="2"/></w:rPr>' if hauteur_cm and not p.texte else "")
+                    + f"</w:pPr>{_runs(p.texte, gras=p.gras, taille=p.taille, couleur=p.couleur)}</w:p>"
+                    for p in paras
+                )
+                xml.append(
+                    f'<w:tc><w:tcPr><w:tcW w:w="{int(largeurs_cm[j] * 567)}" w:type="dxa"/>{bords}{fond}'
+                    f'<w:vAlign w:val="center"/></w:tcPr>{corps}</w:tc>'
+                )
+            xml.append("</w:tr>")
+        xml.append("</w:tbl>")
+        self.corps.append("".join(xml))
+        self.corps.append(f'<w:p><w:pPr><w:spacing w:after="{espace_apres}" w:line="120" w:lineRule="exact"/></w:pPr></w:p>')
 
     def puces(self, elements: list[str], *, retrait_cm: float = 0.6) -> None:
         for e in elements:

@@ -10,30 +10,39 @@
   @if (workflow()) {
     <section class="recap" aria-label="Récapitulatif du workflow">
       <div class="recap__head">
-        <h3>Récapitulatif — du déclenchement aux clients</h3>
+        <p class="recap__intro">Du déclenchement aux clients — cliquez sur une étape pour la compléter</p>
         <ul class="recap__legende">
-          <li class="recap__legende-item recap__legende-item--saisi">Saisi ({{ recapCompteurs().saisi }})</li>
-          <li class="recap__legende-item recap__legende-item--a_venir">Pas encore saisi ({{ recapCompteurs().a_venir }})</li>
-          <li class="recap__legende-item recap__legende-item--non_saisi">Non saisi ({{ recapCompteurs().non_saisi }})</li>
+          <li class="recap__legende-item recap__legende-item--complete">Complète</li>
+          <li class="recap__legende-item recap__legende-item--partie">En partie</li>
+          <li class="recap__legende-item recap__legende-item--avenir">Pas encore saisie</li>
         </ul>
+        <div class="recap__progression">
+          <span><strong>{{ recapCompletes() }} / {{ recapitulatif().length }}</strong> étapes complètes</span>
+          <span class="recap__barre" aria-hidden="true"><span [style.width.%]="recapProgression()"></span></span>
+        </div>
       </div>
-      <div class="recap__grille">
-        @for (groupe of recapitulatif(); track groupe.code) {
-          <article class="recap__groupe" [class.recap__groupe--actif]="activeTab() === groupe.code">
-            <button type="button" class="recap__titre" (click)="selectTab(groupe.code)" title="Ouvrir cette étape">
-              <span class="material-symbols-outlined" aria-hidden="true">{{ groupe.icone }}</span>
-              {{ groupe.titre }}
-            </button>
-            <ul class="recap__lignes">
-              @for (l of groupe.lignes; track l.label) {
-                <li [class]="'recap__ligne recap__ligne--' + l.etat">
-                  <span class="recap__puce" aria-hidden="true"></span>
-                  <span class="recap__label">{{ l.label }}</span>
-                  <span class="recap__valeur">{{ l.valeur }}</span>
-                </li>
-              }
-            </ul>
-          </article>
+      <div class="recap__table" role="table" aria-label="Étapes du workflow">
+        <div class="recap__ligne recap__ligne--entete" role="row">
+          <span role="columnheader">Étape</span>
+          <span role="columnheader">Début</span>
+          <span role="columnheader">Fin</span>
+          <span role="columnheader">Observation</span>
+        </div>
+        @for (l of recapitulatif(); track l.code) {
+          <div class="recap__ligne" role="row" [class.recap__ligne--active]="activeTab() === l.code">
+            <span role="cell">
+              <button type="button" [class]="'recap__etape recap__etape--' + l.etat" (click)="selectTab(l.code)">
+                <span class="recap__puce" aria-hidden="true"></span>
+                <span class="recap__etape-texte">
+                  <span>{{ l.titre }}</span>
+                  <small>{{ libelleEtat[l.etat] }}</small>
+                </span>
+              </button>
+            </span>
+            <span role="cell" [class.recap__vide]="!l.debut">{{ l.debut ?? '—' }}</span>
+            <span role="cell" [class.recap__vide]="!l.fin">{{ l.fin ?? '—' }}</span>
+            <span role="cell" class="recap__obs" [class.recap__vide]="!l.observation">{{ l.observation ?? '—' }}</span>
+          </div>
         }
       </div>
     </section>

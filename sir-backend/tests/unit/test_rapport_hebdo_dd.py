@@ -89,8 +89,8 @@ def test_fichiers_word_excel_pdf(tmp_path) -> None:
     with zipfile.ZipFile(chemins["docx"]) as z:
         noms = z.namelist()
         document = z.read("word/document.xml").decode("utf-8")
-    assert "word/charts/chart1.xml" in noms and "word/media/image1.png" in noms
-    assert "Rapport Hebdomadaire d&apos;Exploitation" in document or "Rapport Hebdomadaire d'Exploitation" in document
+    assert "word/media/image1.png" in noms
+    assert "Semaine 43 — 2026" in document and "Poids des services dans l" in document
     assert chemins["pdf"].read_bytes().startswith(b"%PDF")
 
     from openpyxl import load_workbook
