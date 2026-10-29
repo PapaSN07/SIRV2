@@ -93,7 +93,7 @@ const MONTH_NAMES = [
 /** Première année proposée dans le sélecteur de période (historique SIR v1 migré). */
 const PREMIERE_ANNEE = 2010;
 
-const CAUSE_COLORS = ['#3c1053', '#ad1457', '#f4811f', '#c62828', '#5a1a72'];
+const CAUSE_COLORS = ['#5b2c6f', '#7a4b8c', '#9a74aa', '#b79ac4', '#d4c4dc'];
 
 @Component({
   selector: 'sir-dashboard',

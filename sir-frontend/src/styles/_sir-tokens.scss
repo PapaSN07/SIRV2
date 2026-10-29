@@ -29,9 +29,12 @@ $senelec-gradient-sidebar: linear-gradient(
 $primary: $senelec-purple-dark;
 $primary-container: $senelec-purple;
 $primary-dark: $senelec-primary-dark;
-$secondary: $senelec-orange;
+// Orange d'action : texte sombre obligatoire (7,1:1) ; le blanc n'atteint que 2,4:1
+$action-orange: #f39200;
+$on-action: #1f1d24;
+$secondary: $action-orange;
 $secondary-light: $senelec-orange-light;
-$secondary-dark: $senelec-orange-dark;
+$secondary-dark: #db8300;
 $accent: $senelec-magenta;
 $on-primary: #ffffff;
 $on-surface: #1a0a2e;

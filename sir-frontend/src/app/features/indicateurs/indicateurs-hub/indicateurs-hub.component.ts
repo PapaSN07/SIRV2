@@ -16,7 +16,7 @@ interface ChartMonth {
 }
 
 const MONTH_LABELS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
-const CAUSE_COLORS = ['#3d49a0', '#5c6bc0', '#7986cb', '#9fa8da', '#c5cae9'];
+const CAUSE_COLORS = ['#5b2c6f', '#7a4b8c', '#9a74aa', '#b79ac4', '#d4c4dc'];
 
 @Component({
   selector: 'sir-indicateurs-hub',

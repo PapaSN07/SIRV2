@@ -26,6 +26,14 @@
     cursor: not-allowed;
   }
 
+  // Un bouton plein désactivé ne reste pas orange pâle : gris lisible
+  &--primary:disabled {
+    opacity: 1;
+    background: #e4dfea;
+    color: #5f5a66;
+    box-shadow: none;
+  }
+
   &--outline {
     border: 1px solid $outline-variant;
     background: #fff;
@@ -49,8 +57,8 @@
   &--primary {
     border: none;
     background: $secondary;
-    color: $on-primary;
-    box-shadow: 0 4px 6px -1px rgba($secondary, 0.35);
+    color: $on-action;
+    box-shadow: 0 2px 4px -1px rgba($secondary, 0.35);
 
     &:hover:not(:disabled) {
       background: $secondary-dark;

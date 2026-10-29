@@ -202,12 +202,12 @@
 
   &--primary {
     border: none;
-    background: $primary;
-    color: $on-primary;
-    box-shadow: 0 4px 6px -1px rgba(61, 73, 160, 0.25);
+    background: $secondary;
+    color: $on-action;
+    box-shadow: 0 2px 4px -1px rgba(243, 146, 0, 0.35);
 
     &:hover {
-      background: $primary-container;
+      background: $secondary-dark;
     }
 
     &:active {

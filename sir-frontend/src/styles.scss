@@ -60,12 +60,14 @@ body {
 .mat-mdc-unelevated-button.mat-primary,
 .mat-mdc-fab.mat-primary,
 .mat-mdc-mini-fab.mat-primary {
-  --mdc-protected-button-container-color: var(--senelec-orange);
-  --mat-protected-button-state-layer-color: #ffffff;
-  --mdc-protected-button-label-text-color: #ffffff;
+  --mdc-protected-button-container-color: #f39200;
+  --mat-protected-button-state-layer-color: #1f1d24;
+  --mdc-protected-button-label-text-color: #1f1d24;
+  --mdc-filled-button-container-color: #f39200;
+  --mdc-filled-button-label-text-color: #1f1d24;
 }
 
 .mat-mdc-raised-button.mat-primary:not(:disabled):hover,
 .mat-mdc-unelevated-button.mat-primary:not(:disabled):hover {
-  --mdc-protected-button-container-color: var(--senelec-orange-dark);
+  --mdc-protected-button-container-color: #db8300;
 }
