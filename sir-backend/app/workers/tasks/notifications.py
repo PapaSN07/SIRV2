@@ -122,7 +122,7 @@ def envoi_email_direct_task(self, to_email: str, sujet: str, corps: str) -> dict
 
 @celery_app.task(name="envoi_sms_lot", bind=True)
 def envoi_sms_lot_task(self, sms_ids: list[int]) -> dict[str, int]:
-    """Un appel sendManySMS par message : tous les destinataires en une fois."""
+    """Envoie les SMS de la liste un par un (sendOneSignedSMS)."""
     try:
         return asyncio.run(_run_envoi_sms_lot(sms_ids))
     except Exception:

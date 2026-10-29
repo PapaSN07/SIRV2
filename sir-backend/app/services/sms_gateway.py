@@ -1,15 +1,15 @@
 """Passerelle SMS SENELEC — web service SOAP « OSPWebService ».
 
 L'ancien SIR (WinDev) appelait ce web service importé depuis son WSDL. SIRV2 utilise
-la méthode ``sendManySMS(listOfNums: string, message: string) -> string`` : un seul
-appel pour tous les destinataires d'un même message.
+la méthode ``sendOneSignedSMS(numero, message, signature) -> string`` : un appel par
+destinataire, avec la signature (nom d'expéditeur) affichée sur le téléphone.
 
 Le WSDL est lu au premier envoi (adresse du service, espace de noms, SOAPAction,
 version SOAP, noms des paramètres) puis gardé en mémoire. Configuration (.env) :
 
 - ``SMS_GATEWAY_URL``       : adresse du serveur (http://10.101.2.86:8080) ou URL du WSDL ;
 - ``SMS_GATEWAY_WSDL``      : URL exacte du WSDL si la recherche automatique échoue ;
-- ``SMS_GATEWAY_SEPARATEUR``: séparateur des numéros dans ``listOfNums`` (défaut « , »).
+- ``SMS_GATEWAY_SIGNATURE`` : signature des SMS (défaut « SENELEC »).
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-OPERATION = "sendManySMS"
-PARAMS_PAR_DEFAUT = ("listOfNums", "message")
+OPERATION = "sendOneSignedSMS"
+PARAMS_PAR_DEFAUT = ("numero", "message", "signature")
 
 NS_WSDL = "http://schemas.xmlsoap.org/wsdl/"
 NS_XSD = "http://www.w3.org/2001/XMLSchema"
@@ -62,7 +62,7 @@ class ServiceSoap:
     namespace: str
     soap_action: str
     soap12: bool
-    params: tuple[str, str]
+    params: tuple[str, ...]
     params_qualifies: bool
 
 
@@ -106,7 +106,7 @@ def _candidats_wsdl() -> list[str]:
 
 
 def analyser_wsdl(texte: str, wsdl_url: str, schemas_externes: dict[str, str] | None = None) -> ServiceSoap:
-    """Extrait du WSDL ce qu'il faut pour appeler ``sendManySMS``."""
+    """Extrait du WSDL ce qu'il faut pour appeler ``sendOneSignedSMS``."""
     racine = ET.fromstring(texte)
     namespace = racine.get("targetNamespace") or ""
 
@@ -146,13 +146,13 @@ def analyser_wsdl(texte: str, wsdl_url: str, schemas_externes: dict[str, str] | 
                 continue
             noms = [e.get("name") for e in element.iter(f"{{{NS_XSD}}}element") if e is not element and e.get("name")]
             if not noms:
-                # <element name="sendManySMS" type="tns:sendManySMS"/> : chercher le complexType
+                # <element name="sendOneSignedSMS" type="tns:sendOneSignedSMS"/> : chercher le complexType
                 type_nom = (element.get("type") or "").split(":")[-1]
                 for ct in schema.findall(f"{{{NS_XSD}}}complexType"):
                     if ct.get("name") == type_nom:
                         noms = [e.get("name") for e in ct.iter(f"{{{NS_XSD}}}element") if e.get("name")]
-            if len(noms) >= 2:
-                params = (noms[0], noms[1])
+            if len(noms) >= 3:
+                params = tuple(noms[:3])
             qualifies = schema.get("elementFormDefault") == "qualified"
             if schema.get("targetNamespace"):
                 namespace = schema.get("targetNamespace", namespace)
@@ -210,24 +210,20 @@ async def decouvrir_service(client: httpx.AsyncClient) -> ServiceSoap:
 # ── Appel SOAP ────────────────────────────────────────────────────────────────
 
 
-def construire_enveloppe(service: ServiceSoap, numeros: str, message: str) -> str:
+def construire_enveloppe(service: ServiceSoap, *valeurs: str) -> str:
+    """Enveloppe SOAP : ``valeurs`` dans l'ordre des paramètres (numéro, message, signature)."""
     env = ENV_SOAP12 if service.soap12 else ENV_SOAP11
-    p1, p2 = service.params
     pfx = "ns:" if service.params_qualifies else ""
+    corps = "".join(f"<{pfx}{nom}>{escape(val)}</{pfx}{nom}>" for nom, val in zip(service.params, valeurs, strict=False))
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<soap:Envelope xmlns:soap="{env}" xmlns:ns="{escape(service.namespace)}">'
-        "<soap:Body>"
-        f"<ns:{OPERATION}>"
-        f"<{pfx}{p1}>{escape(numeros)}</{pfx}{p1}>"
-        f"<{pfx}{p2}>{escape(message)}</{pfx}{p2}>"
-        f"</ns:{OPERATION}>"
-        "</soap:Body></soap:Envelope>"
+        f"<soap:Body><ns:{OPERATION}>{corps}</ns:{OPERATION}></soap:Body></soap:Envelope>"
     )
 
 
 def lire_reponse(texte: str) -> str:
-    """Valeur renvoyée par ``sendManySMS`` ; lève sur une faute SOAP."""
+    """Valeur renvoyée par le web service ; lève sur une faute SOAP."""
     try:
         racine = ET.fromstring(texte)
     except ET.ParseError as exc:
@@ -244,18 +240,18 @@ def lire_reponse(texte: str) -> str:
     return ""
 
 
-async def envoyer_lot(numeros: list[str], message: str) -> str:
-    """Envoie ``message`` à tous les ``numeros`` en un appel ``sendManySMS``.
+async def envoyer_sms(numero: str, message: str) -> str:
+    """Envoie ``message`` à ``numero`` par ``sendOneSignedSMS``.
 
     Retourne la réponse du web service. Lève ``SmsGatewayError`` si l'envoi échoue
     ou si la réponse est vide (« PAS DE REPONSE » dans l'ancien SIR).
     """
-    liste = settings.sms_gateway_separateur.join(n for n in (normaliser_numero(x) for x in numeros) if n)
-    if not liste:
-        raise SmsGatewayError("Aucun numéro valide")
+    num = normaliser_numero(numero)
+    if not num:
+        raise SmsGatewayError("Numéro invalide")
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         service = await decouvrir_service(client)
-        enveloppe = construire_enveloppe(service, liste, message)
+        enveloppe = construire_enveloppe(service, num, message, settings.sms_gateway_signature)
         if service.soap12:
             headers = {"Content-Type": f'application/soap+xml; charset=utf-8; action="{service.soap_action}"'}
         else:

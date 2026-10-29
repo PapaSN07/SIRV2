@@ -139,7 +139,7 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | 27/10/2026 | Aucune étape terrain obligatoire avant clôture (le BCC contrôle à distance) | Validé |
 | 27/10/2026 | Rapports envoyés par e-mail aux destinataires de Notifications : hebdomadaire le lundi 8 h, mensuel le 1er à 8 h (heure de Dakar) | Remplacé le 29/10 (hebdo) |
 | 29/10/2026 | Rapport hebdomadaire d'exploitation DD (modèle « Rapport Hebdo DD » + « TB suivi qualité HTA ») : semaine samedi → vendredi, envoi samedi 8 h, national, Word + Excel + PDF, textes générés automatiquement, partie BT retirée (données hors SIR) — voir `docs/rapport_hebdo_dd.md` | Validé |
-| 29/10/2026 | SMS : web service SOAP SENELEC `OSPWebService` (10.101.2.86:8080), méthode `sendManySMS` — un appel par message pour tous les destinataires ; WSDL lu au premier envoi (`app/services/sms_gateway.py`), test : `python -m scripts.test_sms` | Validé |
+| 29/10/2026 | SMS : web service SOAP SENELEC `OSPWebService` (10.101.2.86:8080), méthode `sendOneSignedSMS` (signature `SMS_GATEWAY_SIGNATURE`) — un appel par destinataire ; WSDL lu au premier envoi (`app/services/sms_gateway.py`), test : `python -m scripts.test_sms` | Validé |
 | 28/10/2026 | SAIFI/SAIDI = formule Power BI SENELEC (clients estimés des postes, SAIDI en heures, base NombreClientMois du mois de la dernière apparition, sans exclusion) — voir `docs/indicateurs_sirv2.md` | Validé |
 
 ---

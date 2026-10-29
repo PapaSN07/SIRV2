@@ -131,7 +131,7 @@ async def send_manual_sms(
     from app.workers.celery_app import celery_app
 
     if sms_ids:
-        # Un seul appel sendManySMS pour tous les destinataires du même message
+        # Une seule tâche pour tous les SMS de l'événement (un appel sendOneSignedSMS chacun)
         celery_app.send_task("envoi_sms_lot", args=[sms_ids])
 
     logger.info("Manual SMS queued count=%s by user=%s", len(sms_ids), current_user.id)

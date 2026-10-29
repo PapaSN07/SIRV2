@@ -1,8 +1,8 @@
-"""Test de la passerelle SMS SENELEC (OSPWebService.sendManySMS).
+"""Test de la passerelle SMS SENELEC (OSPWebService.sendOneSignedSMS).
 
 Usage (dans le conteneur api) :
     python -m scripts.test_sms                      # lit le WSDL et affiche ce qui a été trouvé
-    python -m scripts.test_sms 77XXXXXXX 78XXXXXXX  # envoie un SMS de test à ces numéros
+    python -m scripts.test_sms 77XXXXXXX 78XXXXXXX  # envoie un SMS de test à chaque numéro
 """
 
 import asyncio
@@ -28,15 +28,18 @@ async def main(numeros: list[str]) -> int:
     print(f"Namespace   : {service.namespace}")
     print(f"SOAP        : {'1.2' if service.soap12 else '1.1'} · SOAPAction « {service.soap_action} »")
     print(f"Paramètres  : {service.params} (qualifiés : {service.params_qualifies})")
+    print(f"Signature   : {settings.sms_gateway_signature}")
     if not numeros:
         return 0
-    try:
-        retour = await sms_gateway.envoyer_lot(numeros, "Test SIRV2 : passerelle SMS opérationnelle.")
-    except sms_gateway.SmsGatewayError as exc:
-        print(f"ENVOI EN ÉCHEC : {exc}")
-        return 1
-    print(f"Réponse de sendManySMS : {retour}")
-    return 0
+    code = 0
+    for numero in numeros:
+        try:
+            retour = await sms_gateway.envoyer_sms(numero, "Test SIRV2 : passerelle SMS opérationnelle.")
+            print(f"{numero} : réponse « {retour} »")
+        except sms_gateway.SmsGatewayError as exc:
+            print(f"{numero} : ÉCHEC {exc}")
+            code = 1
+    return code
 
 
 if __name__ == "__main__":
