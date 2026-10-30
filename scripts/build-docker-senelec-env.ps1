@@ -62,6 +62,8 @@ $out = @(
     "",
     "SMS_GATEWAY_URL=$(Get-EnvValue 'SMS_GATEWAY_URL')",
     "SMS_GATEWAY_API_KEY=$(Get-EnvValue 'SMS_GATEWAY_API_KEY')",
+    "SMS_GATEWAY_WSDL=$(Get-EnvValue 'SMS_GATEWAY_WSDL')",
+    "SMS_GATEWAY_SIGNATURE=$(Get-EnvValue 'SMS_GATEWAY_SIGNATURE')",
     "SMTP_HOST=$(Get-EnvValue 'SMTP_HOST')",
     "SMTP_PORT=$smtpPort",
     "SMTP_USER=$(Get-EnvValue 'SMTP_USER')",
