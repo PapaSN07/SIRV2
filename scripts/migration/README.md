@@ -62,6 +62,7 @@ python ..\scripts\migration\recalculate_saifi_saidi.py --execute
 | Extraction JSONL | `python scripts/migration/extract_hfsql.py` |
 | ETL simulation | `python scripts/migration/etl_hfsql.py --dry-run --wave geo` |
 | ETL import | `python scripts/migration/etl_hfsql.py --execute --wave all` |
+| **Rattrapage d'une période** (état puis `--execute`) | `python scripts/migration/delta_periode.py --depuis 2026-06-01` |
 | **Sync interruptions** | `python scripts/migration/sync_interruptions.py --execute` |
 | **Import poste_interruptions (ITD)** | `python scripts/migration/import_poste_interruptions_itd.py --execute --truncate` |
 | **Import sous-feeders** | `python scripts/migration/import_sous_feeders.py --execute` ou `bootstrap_sous_feeders.py --execute` |

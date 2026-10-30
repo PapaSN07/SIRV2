@@ -54,21 +54,23 @@ def _sync_url() -> str:
     return url
 
 
-def _load_legacy_interruption_ids(*, distribution_only: bool) -> list[int]:
+def _load_legacy_interruption_ids(*, distribution_only: bool, depuis: datetime | None = None) -> list[int]:
+    """Legacy ids migrés ; ``depuis`` : seulement les interruptions apparues à partir de cette date (delta)."""
     id_maps = IdMapStore()
     interruption_map: dict[str, int] = {
         str(k): int(v) for k, v in id_maps.load("interruptions").items()
     }
-    if not distribution_only:
+    if not distribution_only and depuis is None:
         return sorted(int(k) for k in interruption_map if str(k).isdigit())
 
+    sql = "SELECT id FROM dbo.interruptions WHERE 1 = 1"
+    if distribution_only:
+        sql += " AND type_direction = 'distribution'"
+    if depuis is not None:
+        sql += " AND date_apparition >= :depuis"
     engine = create_engine(_sync_url(), pool_pre_ping=True)
     with engine.connect() as conn:
-        rows = conn.execute(
-            text(
-                "SELECT id FROM dbo.interruptions WHERE type_direction = 'distribution'"
-            )
-        ).all()
+        rows = conn.execute(text(sql), {"depuis": depuis} if depuis is not None else {}).all()
     dist_ids = {int(r[0]) for r in rows}
     engine.dispose()
 
@@ -233,6 +235,7 @@ def run_import(
     interruption_chunk_size: int,
     insert_batch_size: int,
     limit_chunks: int | None,
+    depuis: datetime | None = None,
 ) -> dict[str, Any]:
     ensure_dirs()
     settings = get_settings()
@@ -241,7 +244,7 @@ def run_import(
     id_maps = IdMapStore()
     fk = FkResolver(id_maps)
 
-    legacy_ids = _load_legacy_interruption_ids(distribution_only=distribution_only)
+    legacy_ids = _load_legacy_interruption_ids(distribution_only=distribution_only, depuis=depuis)
     legacy_set = set(legacy_ids)
     itd_conn = connect_itd()
     try:
@@ -458,6 +461,12 @@ def main() -> int:
         help="Index de chunk de départ (0-based, reprise après échec)",
     )
     parser.add_argument(
+        "--depuis",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d"),
+        default=None,
+        help="Delta : seulement les interruptions apparues depuis cette date (AAAA-MM-JJ)",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Reprise : pas de truncate, ignore les doublons (interruption_id, poste_id)",
@@ -492,6 +501,7 @@ def main() -> int:
         interruption_chunk_size=args.interruption_chunk_size,
         insert_batch_size=args.insert_batch_size,
         limit_chunks=args.limit_chunks,
+        depuis=args.depuis,
     )
     report_path = _write_report(stats)
     print(json.dumps(stats, indent=2, ensure_ascii=False))

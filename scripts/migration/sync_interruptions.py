@@ -39,6 +39,8 @@ INTERRUPTION_EXTRACT_TABLES: list[str] = [
     "Interruptions",
     "Interruptions_Histo",
 ]
+# --avec-transport : le loader relit aussi ces exports ; sans nouvel export, il rejouerait d'anciens fichiers
+TRANSPORT_EXTRACT_TABLES: list[str] = ["InterruptionsTransport", "Interruptions_OMVG", "EnergieND"]
 
 
 def _sql_counts() -> dict[str, int | str]:
@@ -74,6 +76,7 @@ def run_sync(
     skip_extract: bool,
     skip_backfill: bool,
     update_existing: bool,
+    avec_transport: bool = False,
 ) -> dict:
     ensure_dirs()
     settings = get_settings()
@@ -88,7 +91,8 @@ def run_sync(
     }
 
     if not skip_extract:
-        report["extract"] = run_extract(tables=INTERRUPTION_EXTRACT_TABLES)
+        tables = INTERRUPTION_EXTRACT_TABLES + (TRANSPORT_EXTRACT_TABLES if avec_transport else [])
+        report["extract"] = run_extract(tables=tables)
     else:
         report["extract"] = {"skipped": True}
 
@@ -164,6 +168,11 @@ def main() -> int:
         action="store_true",
         help="Mettre à jour les interruptions déjà importées (plus lent ; défaut : nouvelles lignes seulement)",
     )
+    parser.add_argument(
+        "--avec-transport",
+        action="store_true",
+        help="Ré-extraire aussi InterruptionsTransport, Interruptions_OMVG et EnergieND",
+    )
     args = parser.parse_args()
     if not args.execute and not args.dry_run:
         args.dry_run = get_settings().migration_dry_run
@@ -174,6 +183,7 @@ def main() -> int:
             skip_extract=args.skip_extract,
             skip_backfill=args.skip_backfill,
             update_existing=args.update_existing,
+            avec_transport=args.avec_transport,
         )
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0

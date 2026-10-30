@@ -66,7 +66,11 @@ def lire_hfsql() -> list[dict[str, Any]]:
 
 
 def agreger(
-    rows: list[dict[str, Any]], id_maps: IdMapStore, services_agence: dict[int, int], depuis: int
+    rows: list[dict[str, Any]],
+    id_maps: IdMapStore,
+    services_agence: dict[int, int],
+    depuis: int,
+    jusqu_a: tuple[int, int] | None = None,
 ) -> tuple[dict[tuple[int, int, int], int], Counter, list[dict[str, Any]], Counter]:
     totaux: dict[tuple[int, int, int], int] = defaultdict(int)
     niveaux: Counter = Counter()
@@ -78,6 +82,8 @@ def agreger(
         clients = _entier(row_get(row, "Nombreclient", "NombreClient"))
         ident = row_get(row, "IDClientAnnee")
         if annee < depuis:
+            continue
+        if jusqu_a is not None and (annee, mois) > jusqu_a:
             continue
         if not annee or not 1 <= mois <= 12:
             rejets.append({"id": ident, "motif": "période invalide", "annee": annee, "mois": mois})
@@ -146,6 +152,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--execute", action="store_true", help="Écrire en base (sinon simulation)")
     parser.add_argument("--depuis", type=int, default=2000, help="Première année importée")
+    parser.add_argument(
+        "--jusqu-a",
+        default=None,
+        help="Dernier mois importé (AAAA-MM) : les mois suivants viennent de la base clients BI_ODS",
+    )
     args = parser.parse_args()
     ensure_dirs()
     settings = get_settings()
@@ -155,7 +166,13 @@ def main() -> int:
     print(f"{len(rows)} ligne(s) lue(s)")
     id_maps = IdMapStore()
     with get_session() as session:
-        totaux, niveaux, rejets, national = agreger(rows, id_maps, _services_par_agence(session), args.depuis)
+        totaux, niveaux, rejets, national = agreger(
+            rows,
+            id_maps,
+            _services_par_agence(session),
+            args.depuis,
+            tuple(int(x) for x in args.jusqu_a.split("-")) if args.jusqu_a else None,  # type: ignore[arg-type]
+        )
         print(f"Rattachement : {dict(niveaux)} · rejetées : {len(rejets)}")
         print("\nTotal national par mois (à comparer avec Power BI) :")
         for (annee, mois), clients in sorted(national.items())[-24:]:
