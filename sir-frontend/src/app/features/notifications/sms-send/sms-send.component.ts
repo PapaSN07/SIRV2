@@ -9,6 +9,7 @@ import { Destinataire } from '../../../shared/models/notification.models';
 import { UtilisateurAdmin } from '../../../shared/models/admin.models';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { NotificationsNavComponent } from '../../../shared/ui/notifications-nav/notifications-nav.component';
+import { toutesLesPages } from '../../../shared/utils/pagination.utils';
 
 type TargetTab = 'destinataires' | 'utilisateurs';
 
@@ -114,9 +115,10 @@ export class SmsSendComponent implements OnInit {
 
   private loadTargets(): void {
     this.loading.set(true);
-    this.destService.listDestinataires(1, 200, true).subscribe({
-      next: (res) => {
-        this.destinataires.set(res.items.filter((d) => d.telephone));
+    // L'API limite page_size à 100 : on charge toutes les pages
+    toutesLesPages((page, size) => this.destService.listDestinataires(page, size, true)).subscribe({
+      next: (items) => {
+        this.destinataires.set(items.filter((d) => d.telephone));
         this.loading.set(false);
       },
       error: (err: Error) => {
@@ -125,8 +127,8 @@ export class SmsSendComponent implements OnInit {
       },
     });
 
-    this.adminUsers.list(1, 200).subscribe({
-      next: (res) => this.utilisateurs.set(res.items),
+    toutesLesPages((page, size) => this.adminUsers.list(page, size)).subscribe({
+      next: (items) => this.utilisateurs.set(items),
       error: () => {},
     });
   }
