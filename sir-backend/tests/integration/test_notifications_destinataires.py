@@ -140,3 +140,24 @@ async def test_post_destinataire_without_admin_permission_returns_403(
         )
 
     assert response.status_code == 403
+
+
+async def test_get_groupes_envoi_returns_200(
+    client: AsyncClient,
+    admin_scr: Utilisateur,
+) -> None:
+    from app.schemas.notifications import GroupeEnvoiResponse
+
+    groupes = [GroupeEnvoiResponse(id=1, libelle="DIRECTION DISTRIBUTION", nb_destinataires=12)]
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=admin_scr), patch(
+        "app.services.destinataire_service.list_groupes_envoi",
+        new_callable=AsyncMock,
+        return_value=groupes,
+    ):
+        response = await client.get(
+            "/api/v1/notifications/groupes-envoi",
+            headers=_auth_headers(_token(admin_scr, "ADMIN_SCR")),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == [{"id": 1, "libelle": "DIRECTION DISTRIBUTION", "nb_destinataires": 12}]

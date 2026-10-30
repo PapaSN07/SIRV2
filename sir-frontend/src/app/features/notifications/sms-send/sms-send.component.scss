@@ -125,3 +125,71 @@
   padding: 1rem;
   text-align: center;
 }
+
+// Groupes d'envoi (Répertoire SIR v1) : un clic affiche le groupe, « Tout cocher » le sélectionne
+.groupes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  &__chip {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 999px;
+    background: #fff;
+    font: inherit;
+    font-size: 13px;
+    color: $on-surface;
+    cursor: pointer;
+
+    &--active {
+      border-color: #5b2c6f;
+      background: #5b2c6f;
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+}
+
+.liste-outils {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+
+  &__recherche {
+    flex: 1 1 240px;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    font: inherit;
+    font-size: 14px;
+  }
+}
+
+.badge {
+  align-self: flex-start;
+  font-size: 12px;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: #eeeaf2;
+  color: #5b2c6f;
+}
+
+.select-item .select-item__meta {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.select-item {
+  padding: 0.5rem 1rem;
+}
+
+.select-list {
+  max-height: 420px;
+}

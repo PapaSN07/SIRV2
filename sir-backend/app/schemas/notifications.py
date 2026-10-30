@@ -22,6 +22,8 @@ class DestinataireCreate(BaseModel):
     email: str | None = Field(None, max_length=255)
     utilisateur_id: int | None = Field(None, ge=1)
     service_id: int | None = Field(None, ge=1)
+    fonction: str | None = Field(None, max_length=100)
+    groupe_id: int | None = Field(None, ge=1)
 
     @field_validator("email")
     @classmethod
@@ -44,6 +46,8 @@ class DestinataireUpdate(BaseModel):
     utilisateur_id: int | None = Field(None, ge=1)
     service_id: int | None = Field(None, ge=1)
     is_active: bool | None = None
+    fonction: str | None = Field(None, max_length=100)
+    groupe_id: int | None = Field(None, ge=1)
 
     @field_validator("email")
     @classmethod
@@ -61,8 +65,19 @@ class DestinataireResponse(BaseModel):
     utilisateur_id: int | None
     service_id: int | None
     is_active: bool
+    fonction: str | None = None
+    groupe_id: int | None = None
+    groupe_libelle: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GroupeEnvoiResponse(BaseModel):
+    """Groupe d'envoi SMS (SIR v1 : GroupeEnvoi) et nombre de destinataires actifs avec téléphone."""
+
+    id: int
+    libelle: str
+    nb_destinataires: int
 
 
 class EmailEnvoyeResponse(BaseModel):

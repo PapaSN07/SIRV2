@@ -94,3 +94,10 @@ python ..\scripts\migration\recalculate_saifi_saidi.py --execute
 ## Rollback
 
 Conserver exports HFSQL, id_maps et snapshots DB 3 mois post-migration. Voir `runbook_cutover.md`.
+
+
+## Répertoire SMS (groupes d'envoi)
+
+`python scripts/migration/import_repertoire_sms.py` — simulation par défaut (nombre de numéros par groupe,
+déjà présents dans SIRV2, à créer) ; `--repertoire` ajoute l'annuaire des agents ; `--execute` écrit.
+Prérequis : migration Alembic `e3f4a5b6c7d8` (table `groupes_envoi`, colonnes `destinataires.fonction`, `groupe_id`).

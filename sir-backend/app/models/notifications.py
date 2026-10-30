@@ -10,6 +10,16 @@ CANAL_VALUES = ("sms", "email")
 STATUT_ENVOI_VALUES = ("en_attente", "envoye", "echec")
 
 
+class GroupeEnvoi(Base):
+    """Groupe d'envoi SMS (SIR v1 : GroupeEnvoi) — la page SMS sélectionne un groupe entier."""
+
+    __tablename__ = "groupes_envoi"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    libelle: Mapped[str] = mapped_column(NVARCHAR(255), nullable=False, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class Destinataire(Base):
     """Destinataire de notifications (SMS/Email) lié à un utilisateur ou saisi manuellement."""
 
@@ -26,8 +36,13 @@ class Destinataire(Base):
         Integer, ForeignKey("services.id", ondelete="SET NULL"), nullable=True, index=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    fonction: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    groupe_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("groupes_envoi.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Relationships
+    groupe: Mapped["GroupeEnvoi | None"] = relationship("GroupeEnvoi", foreign_keys=[groupe_id], lazy="selectin")
     utilisateur: Mapped["Utilisateur | None"] = relationship("Utilisateur", foreign_keys=[utilisateur_id], lazy="select")  # noqa: F821
     service: Mapped["Service | None"] = relationship("Service", foreign_keys=[service_id], lazy="select")  # noqa: F821
     sms_envoyes: Mapped[list["SmsEnvoye"]] = relationship(

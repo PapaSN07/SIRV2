@@ -60,17 +60,65 @@
     @if (loading()) {
       <p class="loading">Chargement des destinataires…</p>
     } @else if (tab() === 'destinataires') {
+      @if (groupes().length > 0) {
+        <div class="groupes" role="group" aria-label="Groupes d'envoi">
+          <button
+            type="button"
+            class="groupes__chip"
+            [class.groupes__chip--active]="groupeAffiche() === null"
+            (click)="afficherGroupe(null)"
+          >
+            Tous ({{ destinataires().length }})
+          </button>
+          @for (g of groupes(); track g.id) {
+            <button
+              type="button"
+              class="groupes__chip"
+              [class.groupes__chip--active]="groupeAffiche() === g.id"
+              (click)="afficherGroupe(g.id)"
+            >
+              {{ g.libelle }} ({{ g.nb_destinataires }})
+            </button>
+          }
+        </div>
+      }
+      <div class="liste-outils">
+        <input
+          class="field__input liste-outils__recherche"
+          type="search"
+          placeholder="Rechercher un nom, une fonction, un numéro…"
+          aria-label="Rechercher un destinataire"
+          [ngModel]="recherche()"
+          (ngModelChange)="recherche.set($event)"
+        />
+        <button
+          type="button"
+          class="sir-btn sir-btn--outline-primary"
+          [disabled]="destinatairesAffiches().length === 0"
+          (click)="basculerAffiches()"
+        >
+          {{ tousAffichesCoches() ? 'Tout décocher' : 'Tout cocher' }} ({{ destinatairesAffiches().length }})
+        </button>
+      </div>
       <div class="select-list">
-        @for (d of destinataires(); track d.id) {
+        @for (d of destinatairesAffiches(); track d.id) {
           <label class="select-item">
             <input type="checkbox" [checked]="isDestSelected(d.id)" (change)="toggleDest(d.id)" />
             <span>
               <strong>{{ d.nom }}</strong>
-              <span class="muted">{{ d.telephone }}</span>
+              <span class="select-item__meta">
+                <span class="muted">{{ d.telephone }}</span>
+                @if (d.fonction) {
+                  <span class="muted">· {{ d.fonction }}</span>
+                }
+                @if (d.groupe_libelle) {
+                  <span class="badge">{{ d.groupe_libelle }}</span>
+                }
+              </span>
             </span>
           </label>
         } @empty {
-          <p>Aucun destinataire actif avec téléphone.</p>
+          <p>Aucun destinataire actif avec téléphone{{ groupeAffiche() !== null || recherche() ? ' pour ce filtre' : '' }}.</p>
         }
       </div>
     } @else {

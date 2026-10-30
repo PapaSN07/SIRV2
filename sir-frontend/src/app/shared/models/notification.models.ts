@@ -27,6 +27,16 @@ export interface Destinataire {
   utilisateur_id: number | null;
   service_id: number | null;
   is_active: boolean;
+  fonction?: string | null;
+  groupe_id?: number | null;
+  groupe_libelle?: string | null;
+}
+
+/** Groupe d'envoi SMS (Répertoire SIR v1), avec le nombre de destinataires joignables. */
+export interface GroupeEnvoi {
+  id: number;
+  libelle: string;
+  nb_destinataires: number;
 }
 
 export interface DestinataireCreate {

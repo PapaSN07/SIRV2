@@ -14,6 +14,7 @@ from app.schemas.notifications import (
     DestinataireCreate,
     DestinataireResponse,
     DestinataireUpdate,
+    GroupeEnvoiResponse,
 )
 from app.utils.pagination import paginate
 
@@ -42,7 +43,9 @@ def _ensure_can_admin(user: Utilisateur) -> None:
 
 
 def _to_response(record: Destinataire) -> DestinataireResponse:
-    return DestinataireResponse.model_validate(record)
+    reponse = DestinataireResponse.model_validate(record)
+    reponse.groupe_libelle = record.groupe.libelle if record.groupe_id and record.groupe else None
+    return reponse
 
 
 async def _resolve_list_scope(
@@ -219,6 +222,8 @@ async def create_destinataire(
         email=body.email,
         utilisateur_id=body.utilisateur_id,
         service_id=resolved_service_id,
+        fonction=body.fonction,
+        groupe_id=body.groupe_id,
     )
     await db.commit()
     await db.refresh(record)
@@ -280,3 +285,17 @@ async def delete_destinataire(
     await assert_destinataire_in_scope(db, user, record)
     record.is_active = False
     await db.commit()
+
+
+async def list_groupes_envoi(db: AsyncSession, user: Utilisateur) -> list[GroupeEnvoiResponse]:
+    """Groupes d'envoi SMS avec le nombre de destinataires joignables dans le périmètre de l'utilisateur."""
+    filter_service_id, service_ids_scope, region_id_scope, force_service_id = await _resolve_list_scope(db, user, None)
+    query = repo.build_list_query(
+        service_id=filter_service_id,
+        is_active=True,
+        service_ids_scope=service_ids_scope,
+        region_id_scope=region_id_scope,
+        force_service_id=force_service_id,
+    )
+    lignes = await repo.list_groupes_envoi(db, query)
+    return [GroupeEnvoiResponse(id=i, libelle=lib, nb_destinataires=n) for i, lib, n in lignes]

@@ -16,6 +16,7 @@ from app.schemas.notifications import (
     DestinataireResponse,
     DestinataireUpdate,
     EmailEnvoyeResponse,
+    GroupeEnvoiResponse,
     ManualSmsSendRequest,
     ManualSmsSendResponse,
     SmsEnvoyeResponse,
@@ -55,6 +56,20 @@ async def list_destinataires(
         service_id=service_id,
         is_active=is_active,
     )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/groupes-envoi",
+    response_model=ApiResponse[list[GroupeEnvoiResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Groupes d'envoi SMS (Répertoire SIR v1) avec le nombre de destinataires joignables",
+)
+async def list_groupes_envoi(
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("notifications", "read")),
+) -> ApiResponse[list[GroupeEnvoiResponse]]:
+    result = await destinataire_service.list_groupes_envoi(db, current_user)
     return ApiResponse.success(result)
 
 

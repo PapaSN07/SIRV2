@@ -8,6 +8,7 @@ import {
   DestinataireCreate,
   DestinataireUpdate,
   EmailEnvoye,
+  GroupeEnvoi,
   NotificationListParams,
 } from '../../../shared/models/notification.models';
 
@@ -15,8 +16,15 @@ import {
 export class NotificationDestinataireService {
   private readonly destUrl = `${environment.apiUrl}/notifications/destinataires`;
   private readonly emailUrl = `${environment.apiUrl}/notifications/emails`;
+  private readonly groupesUrl = `${environment.apiUrl}/notifications/groupes-envoi`;
 
   constructor(private readonly http: HttpClient) {}
+
+  listGroupesEnvoi(): Observable<GroupeEnvoi[]> {
+    return this.http
+      .get<ApiResponse<GroupeEnvoi[]>>(this.groupesUrl)
+      .pipe(map((res) => this.unwrap(res)));
+  }
 
   listDestinataires(
     page = 1,

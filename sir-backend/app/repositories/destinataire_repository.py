@@ -1,10 +1,10 @@
 """Repository — destinataires notifications."""
 
-from sqlalchemy import Select, select, true
+from sqlalchemy import Select, and_, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Agence, Delegation, Service
-from app.models.notifications import Destinataire
+from app.models.notifications import Destinataire, GroupeEnvoi
 
 
 def _service_ids_in_region_subquery(region_id: int) -> Select[tuple[int]]:
@@ -29,6 +29,8 @@ async def create(
     email: str | None,
     utilisateur_id: int | None,
     service_id: int | None,
+    fonction: str | None = None,
+    groupe_id: int | None = None,
 ) -> Destinataire:
     record = Destinataire(
         nom=nom,
@@ -36,6 +38,8 @@ async def create(
         email=email,
         utilisateur_id=utilisateur_id,
         service_id=service_id,
+        fonction=fonction,
+        groupe_id=groupe_id,
         is_active=True,
     )
     db.add(record)
@@ -111,3 +115,24 @@ async def list_actifs_avec_email(db: AsyncSession) -> list[Destinataire]:
         .order_by(Destinataire.id)
     )
     return list(result.scalars().all())
+
+
+async def list_groupes_envoi(db: AsyncSession, query_destinataires: Select[tuple[Destinataire]]) -> list[tuple[int, str, int]]:
+    """Groupes actifs avec le nombre de destinataires actifs avec téléphone dans le périmètre."""
+    perimetre = query_destinataires.with_only_columns(Destinataire.id).order_by(None).subquery()
+    stmt = (
+        select(GroupeEnvoi.id, GroupeEnvoi.libelle, func.count(Destinataire.id))
+        .outerjoin(
+            Destinataire,
+            and_(
+                Destinataire.groupe_id == GroupeEnvoi.id,
+                Destinataire.is_active == true(),
+                Destinataire.telephone.is_not(None),
+                Destinataire.id.in_(select(perimetre.c.id)),
+            ),
+        )
+        .where(GroupeEnvoi.is_active == true())
+        .group_by(GroupeEnvoi.id, GroupeEnvoi.libelle)
+        .order_by(GroupeEnvoi.libelle)
+    )
+    return [(int(i), str(lib), int(n)) for i, lib, n in (await db.execute(stmt)).all()]

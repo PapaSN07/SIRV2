@@ -5,7 +5,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { AdminUtilisateurService } from '../../admin/services/admin-utilisateur.service';
 import { NotificationDestinataireService } from '../services/notification-destinataire.service';
 import { NotificationSmsService } from '../services/notification-sms.service';
-import { Destinataire } from '../../../shared/models/notification.models';
+import { Destinataire, GroupeEnvoi } from '../../../shared/models/notification.models';
 import { UtilisateurAdmin } from '../../../shared/models/admin.models';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { NotificationsNavComponent } from '../../../shared/ui/notifications-nav/notifications-nav.component';
@@ -32,6 +32,10 @@ export class SmsSendComponent implements OnInit {
   readonly tab = signal<TargetTab>('destinataires');
   readonly destinataires = signal<Destinataire[]>([]);
   readonly utilisateurs = signal<UtilisateurAdmin[]>([]);
+  readonly groupes = signal<GroupeEnvoi[]>([]);
+  /** Groupe affiché (null = tous) et recherche libre (nom, fonction, numéro). */
+  readonly groupeAffiche = signal<number | null>(null);
+  readonly recherche = signal('');
   readonly selectedDestIds = signal<Set<number>>(new Set());
   readonly selectedUserIds = signal<Set<number>>(new Set());
   readonly loading = signal(false);
@@ -40,6 +44,22 @@ export class SmsSendComponent implements OnInit {
   readonly success = signal<string | null>(null);
 
   readonly charCount = computed(() => this.message().length);
+
+  readonly destinatairesAffiches = computed(() => {
+    const groupe = this.groupeAffiche();
+    const q = this.recherche().trim().toLowerCase();
+    return this.destinataires().filter(
+      (d) =>
+        (groupe === null || d.groupe_id === groupe) &&
+        (!q || [d.nom, d.fonction, d.telephone, d.groupe_libelle].some((v) => (v ?? '').toLowerCase().includes(q))),
+    );
+  });
+
+  readonly tousAffichesCoches = computed(() => {
+    const liste = this.destinatairesAffiches();
+    const sel = this.selectedDestIds();
+    return liste.length > 0 && liste.every((d) => sel.has(d.id));
+  });
   readonly canSend = computed(
     () =>
       this.message().trim().length > 0 &&
@@ -60,6 +80,19 @@ export class SmsSendComponent implements OnInit {
 
   onMessageInput(value: string): void {
     this.message.set(value.slice(0, this.maxLength));
+  }
+
+  afficherGroupe(id: number | null): void {
+    this.groupeAffiche.set(id);
+  }
+
+  /** Coche (ou décoche si tout est déjà coché) les destinataires affichés : un groupe entier en un clic. */
+  basculerAffiches(): void {
+    const next = new Set(this.selectedDestIds());
+    const liste = this.destinatairesAffiches();
+    if (this.tousAffichesCoches()) liste.forEach((d) => next.delete(d.id));
+    else liste.forEach((d) => next.add(d.id));
+    this.selectedDestIds.set(next);
   }
 
   toggleDest(id: number): void {
@@ -125,6 +158,11 @@ export class SmsSendComponent implements OnInit {
         this.error.set(err.message);
         this.loading.set(false);
       },
+    });
+
+    this.destService.listGroupesEnvoi().subscribe({
+      next: (groupes) => this.groupes.set(groupes.filter((g) => g.nb_destinataires > 0)),
+      error: () => {},
     });
 
     toutesLesPages((page, size) => this.adminUsers.list(page, size)).subscribe({
