@@ -201,6 +201,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : la migration lisait `DureeInterruption` (durée WinDev, autre unité) comme des minutes.
 **Règles** : la durée migrée vient de `dureeHeure` (heures, colonne de Power BI), sinon des dates (`transforms.dates.duree_minutes_interruption`) ; correction des données : `scripts/migration/backfill_duree_interruptions.py` ; toujours rapprocher un indicateur de Power BI interruption par interruption avant de conclure sur la formule.
 
+### 30/10/2026 — Login 500 puis 401 : API recréée sur la base locale au lieu de srv-bddomtech
+**Contexte** : après l'ajout des variables SMS, `docker compose up -d api worker` (sans les fichiers SENELEC) a recréé l'API avec `.env` → base locale `db/SIR` (schéma ancien, 6 comptes de test) au lieu de `srv-bddomtech/SIRV2`.
+**Erreurs** : colonne `direction_source_id` introuvable (500), puis compte inconnu (401), puis blocage anti-brute-force (429). En plus, un espace en fin d'identifiant faisait échouer la connexion.
+**Règles** : sur le poste SENELEC, toute commande `docker compose` sur api/worker passe par `--env-file .env.docker-senelec -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.senelec.yml` (ou `make up-senelec`) ; une nouvelle variable d'environnement s'ajoute dans `.env.senelec` **et** dans `scripts/build-docker-senelec-env.ps1` ; `restart` ne relit pas les fichiers d'environnement (`up -d` les relit) ; avant toute consigne Docker, vérifier la base visée (`make_url(settings.database_url)`) ; l'identifiant de connexion est nettoyé des espaces (`LoginRequest`).
+
 ---
 
 *Dernière mise à jour : Juin 2026*
