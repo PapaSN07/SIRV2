@@ -98,10 +98,14 @@ async def remplacer_nombre_client_mois(db: AsyncSession, annee: int, mois: int, 
 
 async def resume_periodes(db: AsyncSession, limite: int = 24) -> list[dict[str, Any]]:
     """Par mois : UR, contrats, contrats sans agence, UR et contrats rattachés à au moins un poste."""
+    # SQL Server refuse une sous-requête dans un agrégat (erreur 130) : jointure sur les UR rattachées
     ur_rattachees = (
-        select(PosteUniteReleve.unite_releve).where(PosteUniteReleve.statut.in_(_STATUTS_COMPTES)).distinct().subquery()
+        select(PosteUniteReleve.unite_releve.label("ur"))
+        .where(PosteUniteReleve.statut.in_(_STATUTS_COMPTES))
+        .distinct()
+        .subquery()
     )
-    rattachee = ContratsUniteReleve.unite_releve.in_(select(ur_rattachees.c.unite_releve))
+    rattachee = ur_rattachees.c.ur.is_not(None)
     contrats = cast(ContratsUniteReleve.nb_contrats, BigInteger)
     stmt = (
         select(
@@ -115,6 +119,7 @@ async def resume_periodes(db: AsyncSession, limite: int = 24) -> list[dict[str, 
             func.max(ContratsUniteReleve.date_maj).label("date_maj"),
             func.max(ContratsUniteReleve.source).label("source"),
         )
+        .outerjoin(ur_rattachees, ur_rattachees.c.ur == ContratsUniteReleve.unite_releve)
         .group_by(ContratsUniteReleve.annee, ContratsUniteReleve.mois)
         .order_by(ContratsUniteReleve.annee.desc(), ContratsUniteReleve.mois.desc())
         .limit(limite)

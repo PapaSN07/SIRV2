@@ -208,6 +208,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : colonne `direction_source_id` introuvable (500), puis compte inconnu (401), puis blocage anti-brute-force (429). En plus, un espace en fin d'identifiant faisait échouer la connexion.
 **Règles** : sur le poste SENELEC, toute commande `docker compose` sur api/worker passe par `--env-file .env.docker-senelec -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.senelec.yml` (ou `make up-senelec`) ; une nouvelle variable d'environnement s'ajoute dans `.env.senelec` **et** dans `scripts/build-docker-senelec-env.ps1` ; `restart` ne relit pas les fichiers d'environnement (`up -d` les relit) ; avant toute consigne Docker, vérifier la base visée (`make_url(settings.database_url)`) ; l'identifiant de connexion est nettoyé des espaces (`LoginRequest`).
 
+### 30/10/2026 — Base clients : 500 sur SQL Server (sous-requête dans un agrégat)
+**Contexte** : page Indicateurs → Base clients (`GET /clients/contrats`) en « Erreur interne du serveur » ; tests verts sous SQLite.
+**Erreur** : `SUM(CASE WHEN unite_releve IN (SELECT …) …)` — SQL Server refuse une sous-requête dans une fonction d'agrégat (erreur 130), SQLite l'accepte.
+**Règles** : dans un `SUM` / `COUNT`, jamais de `IN (SELECT …)` ni de sous-requête : faire une `LEFT JOIN` sur la sous-requête et tester la colonne jointe ; une requête agrégée nouvelle reçoit un test compilé avec `sqlalchemy.dialects.mssql` (`tests/unit/test_base_clients_sql_server.py`).
+
 ---
 
 *Dernière mise à jour : Juin 2026*
