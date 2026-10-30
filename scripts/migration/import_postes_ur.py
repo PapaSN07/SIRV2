@@ -63,16 +63,23 @@ def preparer(rows: list[dict[str, Any]], postes: dict[str, int]) -> tuple[set[tu
     return liens, rejets
 
 
-def ecrire(session, liens: set[tuple[int, str]]) -> dict[str, int]:
+def ecrire(session, liens: set[tuple[int, str]], simulation: bool = True) -> dict[str, int]:
+    """Insère les liens absents. En simulation, compte seulement (rien n'est envoyé à la base)."""
     existants = {
         (int(p), str(u)) for p, u in session.execute(text("SELECT poste_id, unite_releve FROM dbo.postes_unites_releve")).all()
     }
-    nouveaux = [{"p": p, "u": u} for p, u in sorted(liens - existants)]
-    for i in range(0, len(nouveaux), 1000):
-        session.execute(
-            text("INSERT INTO dbo.postes_unites_releve (poste_id, unite_releve, statut) VALUES (:p, :u, 'valide')"),
-            nouveaux[i : i + 1000],
-        )
+    nouveaux = sorted(liens - existants)
+    if not simulation and nouveaux:
+        # fast_executemany : un envoi groupé par lot au lieu d'un aller-retour par ligne (65 000 liens)
+        cur = session.connection().connection.cursor()
+        cur.fast_executemany = True
+        for i in range(0, len(nouveaux), 5000):
+            cur.executemany(
+                "INSERT INTO dbo.postes_unites_releve (poste_id, unite_releve, statut) VALUES (?, ?, 'valide')",
+                nouveaux[i : i + 5000],
+            )
+            print(f"  {min(i + 5000, len(nouveaux))} / {len(nouveaux)}", flush=True)
+        cur.close()
     return {"liens_crees": len(nouveaux), "liens_deja_presents": len(liens & existants)}
 
 
@@ -96,9 +103,7 @@ def main() -> int:
         print(f"Écartés : {dict(rejets)}")
     bilan: dict[str, Any] = {"simulation": not args.execute, "lus": len(rows), "liens": len(liens)}
     with get_session() as session:
-        bilan.update(ecrire(session, liens))
-        if not args.execute:
-            session.rollback()
+        bilan.update(ecrire(session, liens, simulation=not args.execute))
     print(json.dumps(bilan, ensure_ascii=False))
     (settings.reports_dir / "import_postes_ur.json").write_text(
         json.dumps({**bilan, "rejets": dict(rejets)}, indent=2, ensure_ascii=False), encoding="utf-8"
