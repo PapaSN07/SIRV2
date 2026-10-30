@@ -1,0 +1,141 @@
+<section class="base-clients">
+  <sir-page-header
+    title="Base clients SAIFI/SAIDI"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Indicateurs', route: '/indicateurs' },
+      { label: 'Base clients' },
+    ]"
+  />
+
+  <sir-analytics-nav />
+
+  <p class="base-clients__intro">
+    Nombre de contrats par unité de relève (UR). Les clients d'un poste sont la somme des contrats
+    de ses UR ; une UR partagée entre plusieurs postes est répartie entre eux. Le total par agence
+    alimente le dénominateur de SAIFI et SAIDI.
+  </p>
+
+  @if (erreur()) {
+    <p class="base-clients__alerte base-clients__alerte--erreur" role="alert">{{ erreur() }}</p>
+  }
+  @if (message()) {
+    <p class="base-clients__alerte base-clients__alerte--ok" role="status">{{ message() }}</p>
+  }
+
+  @if (chargement() && !resume()) {
+    <p class="base-clients__vide">Chargement…</p>
+  }
+  @if (resume(); as r) {
+    <div class="kpis">
+      <div class="kpi">
+        <span class="kpi__label">Dernier mois chargé</span>
+        <strong class="kpi__valeur">{{ dernier() ? libelleMois(dernier()!) : '—' }}</strong>
+        @if (dernier()?.date_maj) {
+          <span class="kpi__note">mis à jour le {{ dernier()!.date_maj | date: 'dd/MM/yyyy HH:mm' }}</span>
+        }
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Contrats</span>
+        <strong class="kpi__valeur">{{ (dernier()?.contrats ?? 0) | number: '1.0-0' }}</strong>
+        <span class="kpi__note">{{ (dernier()?.ur ?? 0) | number: '1.0-0' }} UR</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Rattachés à un poste</span>
+        <strong class="kpi__valeur">{{ dernier() ? couverture(dernier()!) : 0 }} %</strong>
+        <span class="kpi__note">{{ liensValides() | number: '1.0-0' }} liens poste ↔ UR</span>
+      </div>
+      <div class="kpi" [class.kpi--alerte]="liensEnAttente() > 0">
+        <span class="kpi__label">Liens à valider</span>
+        <strong class="kpi__valeur">{{ liensEnAttente() }}</strong>
+        <span class="kpi__note">ajouts ou suppressions proposés</span>
+      </div>
+    </div>
+
+    @if (peutAdministrer()) {
+      <div class="actions">
+        <div class="carte">
+          <h2>Synchronisation BI_ODS</h2>
+          <p>
+            Table <code>CONTRATS_PAR_AGENCE_UR</code> (SRV-ASREPORTS), alimentée par SSIS.
+            Lecture automatique chaque jour à 7 h pour le mois en cours.
+          </p>
+          @if (r.bi_ods_configure) {
+            <button type="button" class="sir-btn sir-btn--primary" [disabled]="envoi()" (click)="synchroniser()">
+              Synchroniser maintenant
+            </button>
+          } @else {
+            <p class="carte__note">
+              Connexion non configurée (variable <code>BI_ODS_ODBC</code>). En attendant, déposer le fichier mensuel.
+            </p>
+          }
+        </div>
+
+        <div class="carte">
+          <h2>Fichier mensuel H2MC</h2>
+          <p>Fichier <code>nombredeclientsh2mc_MMAAAA.xlsx</code> : remplace les contrats du mois choisi.</p>
+          <label class="fichier">
+            <input type="file" accept=".xlsx" (change)="choisirFichier($event)" />
+            <span>{{ fichier()?.name ?? 'Choisir le fichier…' }}</span>
+          </label>
+          <div class="periode">
+            <select aria-label="Mois" [value]="mois()" (change)="mois.set(+$any($event.target).value)">
+              @for (libelle of moisLibelles; track $index) {
+                <option [value]="$index + 1" [selected]="$index + 1 === mois()">{{ libelle }}</option>
+              }
+            </select>
+            <select aria-label="Année" (change)="annee.set(+$any($event.target).value)">
+              @for (a of annees; track a) {
+                <option [value]="a" [selected]="a === annee()">{{ a }}</option>
+              }
+            </select>
+            <button type="button" class="sir-btn sir-btn--primary" [disabled]="!fichier() || envoi()" (click)="importer()">
+              Importer
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <div class="carte carte--table">
+      <h2>Mois chargés</h2>
+      @if (r.periodes.length === 0) {
+        <p class="base-clients__vide">Aucun mois chargé.</p>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Mois</th>
+                <th scope="col" class="num">UR</th>
+                <th scope="col" class="num">Contrats</th>
+                <th scope="col" class="num">Rattachés à un poste</th>
+                <th scope="col" class="num">Sans agence</th>
+                <th scope="col">Source</th>
+                <th scope="col">Mise à jour</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of r.periodes; track p.annee * 100 + p.mois) {
+                <tr>
+                  <td>{{ libelleMois(p) }}</td>
+                  <td class="num">{{ p.ur | number: '1.0-0' }}</td>
+                  <td class="num">{{ p.contrats | number: '1.0-0' }}</td>
+                  <td class="num">
+                    {{ p.contrats_rattaches | number: '1.0-0' }}
+                    <span class="part">{{ couverture(p) }} %</span>
+                  </td>
+                  <td class="num" [class.alerte]="p.contrats_sans_agence > 0">
+                    {{ p.contrats_sans_agence | number: '1.0-0' }}
+                  </td>
+                  <td>{{ p.source }}</td>
+                  <td>{{ p.date_maj ? (p.date_maj | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</section>

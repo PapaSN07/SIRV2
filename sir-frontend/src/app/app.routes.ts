@@ -147,6 +147,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'indicateurs/base-clients',
+        canActivate: [roleGuard],
+        data: { roles: INDICATEURS_ROLES },
+        loadComponent: () =>
+          import('./features/indicateurs/base-clients/base-clients.component').then(
+            (m) => m.BaseClientsComponent,
+          ),
+      },
+      {
         path: 'assistant',
         canActivate: [roleGuard],
         data: { roles: ASSISTANT_ROLES },

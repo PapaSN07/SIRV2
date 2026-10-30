@@ -17,6 +17,13 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       </a>
       <a
         class="analytics-nav__tab"
+        routerLink="/indicateurs/base-clients"
+        routerLinkActive="analytics-nav__tab--active"
+      >
+        Base clients
+      </a>
+      <a
+        class="analytics-nav__tab"
         routerLink="/rapports"
         routerLinkActive="analytics-nav__tab--active"
         [routerLinkActiveOptions]="{ exact: true }"
