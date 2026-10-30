@@ -1,9 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LoginRequest(BaseModel):
     login: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("login")
+    @classmethod
+    def _sans_espaces(cls, v: str) -> str:
+        """Un espace copié-collé autour de l'identifiant ne doit pas faire échouer la connexion."""
+        v = v.strip()
+        if not v:
+            raise ValueError("Identifiant obligatoire")
+        return v
 
 
 class TokenResponse(BaseModel):
