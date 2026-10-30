@@ -147,6 +147,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'indicateurs/base-clients/atelier',
+        canActivate: [roleGuard],
+        data: { roles: INDICATEURS_ROLES },
+        loadComponent: () =>
+          import('./features/indicateurs/atelier-clients/atelier-clients.component').then(
+            (m) => m.AtelierClientsComponent,
+          ),
+      },
+      {
         path: 'indicateurs/base-clients',
         canActivate: [roleGuard],
         data: { roles: INDICATEURS_ROLES },

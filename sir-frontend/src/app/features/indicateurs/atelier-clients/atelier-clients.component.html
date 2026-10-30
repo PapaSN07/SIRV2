@@ -1,0 +1,209 @@
+<section class="atelier">
+  <sir-page-header
+    title="Atelier clients"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Base clients', route: '/indicateurs/base-clients' },
+      { label: 'Atelier clients' },
+    ]"
+  />
+
+  <sir-analytics-nav />
+
+  <p class="atelier__intro">
+    Unités de relève (UR) rattachées à chaque poste. Les clients d'un poste sont la somme des
+    contrats de ses UR{{ droits()?.periode ? ' (' + droits()!.periode + ')' : '' }}. Les chefs
+    d'unité BCC et BRC proposent un ajout ou un retrait ; la modification compte une fois validée
+    par le BRC.
+  </p>
+
+  @if (erreur()) {
+    <p class="atelier__alerte atelier__alerte--erreur" role="alert">{{ erreur() }}</p>
+  }
+  @if (message()) {
+    <p class="atelier__alerte atelier__alerte--ok" role="status">{{ message() }}</p>
+  }
+
+  @if (droits()?.peut_proposer) {
+    <div class="carte ajout">
+      <h2>Rattacher une UR à un poste</h2>
+      <div class="ajout__champs">
+        <div class="champ">
+          <label for="poste">Poste</label>
+          <input
+            id="poste"
+            type="text"
+            autocomplete="off"
+            placeholder="Code ou nom du poste"
+            [value]="saisiePoste()"
+            (input)="saisirPoste($any($event.target).value)"
+          />
+          @if (postesTrouves().length) {
+            <ul class="suggestions" role="listbox">
+              @for (p of postesTrouves(); track p.id) {
+                <li role="option" tabindex="0" (click)="choisirPoste(p)" (keydown.enter)="choisirPoste(p)">
+                  <strong>{{ p.code }}</strong> {{ p.libelle }}
+                  <span class="suggestions__note">{{ p.service ?? '' }} · {{ p.nb_ur }} UR</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <div class="champ">
+          <label for="ur">Unité de relève</label>
+          <input
+            id="ur"
+            type="text"
+            autocomplete="off"
+            placeholder="ex. 1100200I"
+            maxlength="20"
+            [value]="saisieUr()"
+            (input)="saisirUr($any($event.target).value)"
+          />
+          @if (urTrouvees().length) {
+            <ul class="suggestions" role="listbox">
+              @for (u of urTrouvees(); track u.unite_releve) {
+                <li role="option" tabindex="0" (click)="choisirUr(u)" (keydown.enter)="choisirUr(u)">
+                  <strong>{{ u.unite_releve }}</strong> {{ u.libelle ?? '' }}
+                  <span class="suggestions__note">
+                    {{ u.nb_contrats | number: '1.0-0' }} contrats ·
+                    {{ u.nb_postes ? 'déjà sur ' + u.nb_postes + ' poste(s)' : 'non rattachée' }}
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <button
+          type="button"
+          class="sir-btn sir-btn--primary"
+          [disabled]="!posteChoisi() || !urSaisieValide() || enCours() === 0"
+          (click)="proposer()"
+        >
+          Proposer l'ajout
+        </button>
+      </div>
+      @if (saisieUr() && urSaisieValide() && !urChoisie() && saisieUr().length >= 8 && !urTrouvees().length) {
+        <p class="ajout__note">UR absente du dernier mois chargé : elle comptera dès qu'elle apparaîtra dans la base clients.</p>
+      }
+    </div>
+  }
+
+  <div class="filtres">
+    <input
+      type="search"
+      class="filtres__recherche"
+      placeholder="Rechercher un poste ou une UR"
+      aria-label="Rechercher un poste ou une UR"
+      (input)="saisirRecherche($any($event.target).value)"
+    />
+    <label class="filtres__case">
+      <input type="checkbox" [checked]="aValider()" (change)="basculerAValider($any($event.target).checked)" />
+      Propositions à valider uniquement
+    </label>
+    @if (posteFiltre(); as p) {
+      <button type="button" class="filtre-poste" (click)="filtrerPoste(null)">
+        {{ p.code }} <span aria-hidden="true">✕</span><span class="sr-only">Retirer le filtre</span>
+      </button>
+    }
+    <span class="filtres__total">{{ total() | number: '1.0-0' }} lien(s)</span>
+  </div>
+
+  <div class="carte carte--table">
+    @if (chargement() && !liens().length) {
+      <p class="atelier__vide">Chargement…</p>
+    } @else if (!liens().length) {
+      <p class="atelier__vide">
+        {{ aValider() ? 'Aucune proposition en attente.' : 'Aucun lien poste ↔ UR.' }}
+      </p>
+    } @else {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Poste</th>
+              <th scope="col">Unité de relève</th>
+              <th scope="col" class="num">Contrats</th>
+              <th scope="col">Statut</th>
+              <th scope="col">Proposé par</th>
+              <th scope="col">Validé par</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of liens(); track l.id) {
+              <tr [class.en-attente]="l.statut !== 'valide'">
+                <td>
+                  <strong>{{ l.poste_code }}</strong>
+                  <span class="sous">{{ l.poste_libelle }}{{ l.service ? ' · ' + l.service : '' }}</span>
+                </td>
+                <td>
+                  <strong>{{ l.unite_releve }}</strong>
+                  <span class="sous">{{ l.ur_libelle ?? 'absente de la base clients' }}</span>
+                </td>
+                <td class="num">
+                  {{ l.nb_contrats === null ? '—' : (l.nb_contrats | number: '1.0-0') }}
+                  @if ((l.nb_postes ?? 0) > 1) {
+                    <span class="sous">partagée sur {{ l.nb_postes }} postes</span>
+                  }
+                </td>
+                <td>
+                  <span class="statut" [class]="'statut statut--' + l.statut">{{ libellesStatut[l.statut] }}</span>
+                </td>
+                <td>
+                  {{ l.modifie_par ?? '—' }}
+                  @if (l.modifie_le) {
+                    <span class="sous">{{ l.modifie_le | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  }
+                </td>
+                <td>
+                  {{ l.valide_par ?? '—' }}
+                  @if (l.valide_le) {
+                    <span class="sous">{{ l.valide_le | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  }
+                </td>
+                <td class="actions">
+                  @if (l.statut !== 'valide' && droits()?.peut_valider) {
+                    <button type="button" class="sir-btn sir-btn--primary" [disabled]="enCours() === l.id" (click)="decider(l, true)">
+                      Valider
+                    </button>
+                    <button type="button" class="sir-btn sir-btn--outline" [disabled]="enCours() === l.id" (click)="decider(l, false)">
+                      Rejeter
+                    </button>
+                  }
+                  @if (droits()?.peut_proposer && l.statut === 'valide') {
+                    <button type="button" class="sir-btn sir-btn--outline" [disabled]="enCours() === l.id" (click)="retirer(l)">
+                      Retirer
+                    </button>
+                  }
+                  @if (droits()?.peut_proposer && l.statut === 'ajout_propose') {
+                    <button type="button" class="sir-btn sir-btn--outline" [disabled]="enCours() === l.id" (click)="retirer(l)">
+                      Annuler
+                    </button>
+                  }
+                  @if (!posteFiltre()) {
+                    <button
+                      type="button"
+                      class="lien-poste"
+                      (click)="filtrerPoste({ id: l.poste_id, code: l.poste_code, libelle: l.poste_libelle, service: l.service, nombre_clients: null, nb_ur: 0 })"
+                    >
+                      Toutes ses UR
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <sir-paginator
+        [total]="total()"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[20, 50, 100]"
+        (pageChange)="changerPage($event)"
+        (pageSizeChange)="changerTaille($event)"
+      />
+    }
+  </div>
+</section>

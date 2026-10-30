@@ -1,0 +1,266 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.atelier {
+  max-width: 1200px;
+  margin: 0 auto;
+
+  &__intro {
+    margin: 0 0 1rem;
+    max-width: 80ch;
+    font-size: 13px;
+    color: $on-surface-variant;
+  }
+
+  &__alerte {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    font-size: 13px;
+
+    &--erreur {
+      background: #ffdad6;
+      color: #93000a;
+    }
+
+    &--ok {
+      background: #dcfce7;
+      color: $success;
+    }
+  }
+
+  &__vide {
+    margin: 0;
+    padding: 1rem;
+    color: $on-surface-variant;
+    font-size: 13px;
+  }
+}
+
+.carte {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+
+  h2 {
+    margin: 0 0 0.75rem;
+    font-size: 14px;
+    font-weight: 600;
+    color: $primary;
+  }
+
+  &--table {
+    padding: 0;
+  }
+}
+
+.ajout {
+  &__champs {
+    display: grid;
+    grid-template-columns: 2fr 1fr auto;
+    gap: 0.75rem;
+    align-items: end;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__note {
+    margin: 0.5rem 0 0;
+    font-size: 12px;
+    color: $tertiary-container;
+  }
+}
+
+.champ {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  input {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    font-size: 13px;
+
+    &:focus {
+      outline: 2px solid $primary;
+      outline-offset: -1px;
+    }
+  }
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  box-shadow: 0 6px 16px rgba(26, 10, 46, 0.12);
+
+  li {
+    padding: 0.5rem 0.75rem;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover,
+    &:focus {
+      background: $surface-container-low;
+      outline: none;
+    }
+  }
+
+  &__note {
+    display: block;
+    font-size: 12px;
+    color: $outline;
+  }
+}
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  &__recherche {
+    flex: 1 1 260px;
+    max-width: 360px;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    font-size: 13px;
+  }
+
+  &__case {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 13px;
+    color: $on-surface;
+  }
+
+  &__total {
+    margin-left: auto;
+    font-size: 12px;
+    color: $on-surface-variant;
+  }
+}
+
+.filtre-poste {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid $primary;
+  border-radius: 999px;
+  background: $surface-container-low;
+  color: $primary;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid $surface-container-high;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    font-weight: 600;
+    color: $on-surface-variant;
+    background: $surface-container-low;
+    white-space: nowrap;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sous {
+    display: block;
+    font-size: 12px;
+    color: $outline;
+  }
+
+  tr.en-attente {
+    background: #fff8ef;
+  }
+
+  .actions {
+    white-space: nowrap;
+    text-align: right;
+
+    .sir-btn + .sir-btn {
+      margin-left: 0.375rem;
+    }
+  }
+}
+
+.statut {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--valide {
+    background: #dcfce7;
+    color: $success;
+  }
+
+  &--ajout_propose,
+  &--suppression_proposee {
+    background: #ffe9d1;
+    color: $tertiary-container;
+  }
+}
+
+.lien-poste {
+  display: block;
+  margin: 0.375rem 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $primary-container;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

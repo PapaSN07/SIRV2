@@ -66,6 +66,16 @@
     color: $outline;
   }
 
+  &--lien {
+    text-decoration: none;
+    transition: border-color 0.15s;
+
+    &:hover,
+    &:focus-visible {
+      border-color: $primary;
+    }
+  }
+
   &--alerte &__valeur {
     color: $tertiary-container;
   }

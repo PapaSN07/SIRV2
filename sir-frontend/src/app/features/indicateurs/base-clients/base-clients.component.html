@@ -45,11 +45,11 @@
         <strong class="kpi__valeur">{{ dernier() ? couverture(dernier()!) : 0 }} %</strong>
         <span class="kpi__note">{{ liensValides() | number: '1.0-0' }} liens poste ↔ UR</span>
       </div>
-      <div class="kpi" [class.kpi--alerte]="liensEnAttente() > 0">
+      <a class="kpi kpi--lien" routerLink="/indicateurs/base-clients/atelier" [class.kpi--alerte]="liensEnAttente() > 0">
         <span class="kpi__label">Liens à valider</span>
         <strong class="kpi__valeur">{{ liensEnAttente() }}</strong>
-        <span class="kpi__note">ajouts ou suppressions proposés</span>
-      </div>
+        <span class="kpi__note">Ouvrir l'atelier clients →</span>
+      </a>
     </div>
 
     @if (peutAdministrer()) {

@@ -44,3 +44,16 @@ def importer_contrats_fichier_task(chemin: str, annee: int, mois: int) -> dict[s
         return asyncio.run(_importer_fichier(chemin, annee, mois))
     finally:
         Path(chemin).unlink(missing_ok=True)
+
+
+async def _recalculer_postes(postes: list[int]) -> dict[str, object]:
+    from app.services import atelier_clients_service as atelier
+
+    async with WorkerSessionLocal() as db:
+        return await atelier.recalculer_postes(db, postes)
+
+
+@celery_app.task(name="recalculer_clients_postes")
+def recalculer_clients_postes_task(postes: list[int]) -> dict[str, object]:
+    """Après validation d'un lien poste ↔ UR dans l'atelier clients."""
+    return asyncio.run(_recalculer_postes(postes))

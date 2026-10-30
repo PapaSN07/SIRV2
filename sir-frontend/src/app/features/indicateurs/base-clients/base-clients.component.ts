@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { BaseClientsResume, PeriodeContrats } from '../../../shared/models/base-clients.models';
 import { AnalyticsNavComponent } from '../../../shared/ui/analytics-nav/analytics-nav.component';
@@ -21,7 +22,7 @@ const RE_NOM_FICHIER = /(\d{2})(\d{4})\.xlsx$/i;
 @Component({
   selector: 'sir-base-clients',
   standalone: true,
-  imports: [PageHeaderComponent, AnalyticsNavComponent, DatePipe, DecimalPipe],
+  imports: [PageHeaderComponent, AnalyticsNavComponent, RouterLink, DatePipe, DecimalPipe],
   templateUrl: './base-clients.component.html',
   styleUrl: './base-clients.component.scss',
 })
