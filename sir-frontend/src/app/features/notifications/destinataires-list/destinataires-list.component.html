@@ -1,6 +1,6 @@
 <section class="notif-page">
   <sir-page-header
-    title="Destinataires notifications"
+    title="Répertoire SMS"
     [breadcrumbs]="[
       { label: 'Tableau de bord', route: '/' },
       { label: 'Notifications' },
@@ -20,91 +20,243 @@
   <sir-notifications-nav />
 
   @if (error()) {
-    <p class="alert alert--error">{{ error() }}</p>
+    <p class="alert alert--error" role="alert">{{ error() }}</p>
   }
 
-  @if (loading()) {
-    <p class="loading">Chargement…</p>
-  } @else {
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Nom</th>
-            <th>Téléphone</th>
-            <th>Email</th>
-            <th>Actif</th>
-            @if (canWrite()) {
-              <th>Actions</th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of items(); track row.id) {
-            <tr>
-              <td>{{ row.nom }}</td>
-              <td>{{ row.telephone ?? '—' }}</td>
-              <td>{{ row.email ?? '—' }}</td>
-              <td>
-                <span class="badge" [class.badge--ok]="row.is_active">
-                  {{ row.is_active ? 'Oui' : 'Non' }}
-                </span>
-              </td>
-              @if (canWrite()) {
-                <td class="actions-cell">
-                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEdit(row)">
-                    Modifier
-                  </button>
-                  @if (row.is_active) {
-                    <button type="button" class="sir-btn sir-btn--ghost" (click)="deactivate(row)">
-                      Désactiver
-                    </button>
-                  }
-                </td>
+  <div class="repertoire">
+    <!-- Groupes d'envoi (SIR v1 : GroupeEnvoi) -->
+    <aside class="groupes-panel" aria-label="Groupes d'envoi">
+      <div class="groupes-panel__head">
+        <h2>Groupes d'envoi</h2>
+        @if (canWrite()) {
+          <button type="button" class="sir-btn sir-btn--outline-primary" (click)="nouveauGroupe()">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            Groupe
+          </button>
+        }
+      </div>
+
+      @if (groupeForm(); as gf) {
+        <div class="groupe-form">
+          <div class="field">
+            <label class="field__label" for="groupe-libelle">{{ gf.id ? 'Renommer le groupe' : 'Nouveau groupe' }}</label>
+            <input
+              id="groupe-libelle"
+              class="field__input"
+              maxlength="255"
+              [ngModel]="gf.libelle"
+              (ngModelChange)="patchGroupeForm('libelle', $event)"
+            />
+          </div>
+          <div class="field">
+            <label class="field__label" for="groupe-exploitation">Exploitation</label>
+            <select
+              id="groupe-exploitation"
+              class="field__input"
+              [ngModel]="gf.exploitation"
+              (ngModelChange)="patchGroupeForm('exploitation', $event)"
+            >
+              <option value="">—</option>
+              @for (e of exploitations; track e) {
+                <option [value]="e">{{ e }}</option>
               }
-            </tr>
-          } @empty {
-            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun destinataire.</td></tr>
-          }
-        </tbody>
-      </table>
-    </div>
+            </select>
+          </div>
+          <div class="form-panel__actions">
+            <button type="button" class="sir-btn sir-btn--ghost" (click)="annulerGroupe()">Annuler</button>
+            <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="enregistrerGroupe()">
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      }
 
-    <sir-paginator
-      [total]="total()"
-      [page]="page()"
-      [pageSize]="pageSize"
-      (pageChange)="onPageChange($event)"
-    />
-  }
-
-  @if (formOpen()) {
-    <div class="form-panel">
-      <h2>{{ editingId() ? 'Modifier' : 'Nouveau' }} destinataire</h2>
-      <div class="field">
-        <label class="field__label" for="dest-nom">Nom</label>
-        <input id="dest-nom" class="field__input" [ngModel]="form().nom" (ngModelChange)="patchForm('nom', $event)" />
-      </div>
-      <div class="field">
-        <label class="field__label" for="dest-tel">Téléphone</label>
-        <input id="dest-tel" class="field__input" [ngModel]="form().telephone" (ngModelChange)="patchForm('telephone', $event)" />
-      </div>
-      <div class="field">
-        <label class="field__label" for="dest-email">Email</label>
-        <input id="dest-email" class="field__input" type="email" [ngModel]="form().email" (ngModelChange)="patchForm('email', $event)" />
-      </div>
-      @if (editingId()) {
-        <label class="checkbox-row">
-          <input type="checkbox" [ngModel]="form().is_active" (ngModelChange)="patchForm('is_active', $event)" />
-          Actif
+      <ul class="groupes-list" role="list">
+        <li>
+          <button
+            type="button"
+            class="groupes-list__item"
+            [class.groupes-list__item--active]="groupeFiltre() === null"
+            [attr.aria-pressed]="groupeFiltre() === null"
+            (click)="choisirGroupe(null)"
+          >
+            <span>Tous les destinataires</span>
+          </button>
+        </li>
+        @for (g of groupesVisibles(); track g.id) {
+          <li class="groupes-list__row" [class.groupes-list__row--inactif]="!g.is_active">
+            <button
+              type="button"
+              class="groupes-list__item"
+              [class.groupes-list__item--active]="groupeFiltre() === g.id"
+              [attr.aria-pressed]="groupeFiltre() === g.id"
+              (click)="choisirGroupe(g.id)"
+            >
+              <span>{{ g.libelle }}</span>
+              <span class="groupes-list__meta">
+                @if (g.exploitation) {
+                  <span class="tag">{{ g.exploitation }}</span>
+                }
+                @if (!g.is_active) {
+                  <span class="tag tag--off">inactif</span>
+                }
+                <span class="groupes-list__nb">{{ g.nb_destinataires }}</span>
+              </span>
+            </button>
+            @if (canWrite()) {
+              <span class="groupes-list__actions">
+                <button type="button" class="icon-btn" [attr.aria-label]="'Modifier ' + g.libelle" (click)="modifierGroupe(g)">
+                  <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn"
+                  [attr.aria-label]="(g.is_active ? 'Désactiver ' : 'Réactiver ') + g.libelle"
+                  (click)="basculerActivationGroupe(g)"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">{{ g.is_active ? 'block' : 'restart_alt' }}</span>
+                </button>
+              </span>
+            }
+          </li>
+        }
+      </ul>
+      @if (canWrite()) {
+        <label class="checkbox-row groupes-panel__inactifs">
+          <input type="checkbox" [ngModel]="afficherInactifs()" (ngModelChange)="afficherInactifs.set($event)" />
+          Afficher les groupes désactivés
         </label>
       }
-      <div class="form-panel__actions">
-        <button type="button" class="sir-btn sir-btn--ghost" (click)="closeForm()">Annuler</button>
-        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="save()">
-          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
-        </button>
+    </aside>
+
+    <div class="repertoire__main">
+      <div class="liste-outils">
+        <input
+          class="field__input liste-outils__recherche"
+          type="search"
+          placeholder="Rechercher un nom, une fonction, un numéro…"
+          aria-label="Rechercher un destinataire"
+          [ngModel]="recherche()"
+          (ngModelChange)="onRecherche($event)"
+        />
+        <span class="liste-outils__total">
+          {{ total() }} destinataire{{ total() > 1 ? 's' : '' }}{{ groupeCourant() ? ' · ' + groupeCourant()!.libelle : '' }}
+        </span>
       </div>
+
+      @if (loading()) {
+        <p class="loading">Chargement…</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Fonction</th>
+                <th>Téléphone</th>
+                <th>Groupes</th>
+                <th>Actif</th>
+                @if (canWrite()) {
+                  <th><span class="sr-only">Actions</span></th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of items(); track row.id) {
+                <tr>
+                  <td class="nom-cell">
+                    <strong>{{ row.nom }}</strong>
+                    @if (row.email) {
+                      <span class="muted">{{ row.email }}</span>
+                    }
+                  </td>
+                  <td>{{ row.fonction ?? '—' }}</td>
+                  <td class="nowrap">{{ row.telephone ?? '—' }}</td>
+                  <td>
+                    <span class="badges">
+                      @for (g of row.groupes; track g.id) {
+                        <span class="tag">{{ g.libelle }}</span>
+                      } @empty {
+                        <span class="muted">—</span>
+                      }
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" [class.badge--ok]="row.is_active">{{ row.is_active ? 'Oui' : 'Non' }}</span>
+                  </td>
+                  @if (canWrite()) {
+                    <td class="actions-cell">
+                      <button type="button" class="icon-btn" [attr.aria-label]="'Modifier ' + row.nom" title="Modifier" (click)="openEdit(row)">
+                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                      </button>
+                      @if (row.is_active) {
+                        <button type="button" class="icon-btn" [attr.aria-label]="'Désactiver ' + row.nom" title="Désactiver" (click)="deactivate(row)">
+                          <span class="material-symbols-outlined" aria-hidden="true">person_off</span>
+                        </button>
+                      }
+                    </td>
+                  }
+                </tr>
+              } @empty {
+                <tr><td [attr.colspan]="canWrite() ? 6 : 5">Aucun destinataire.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <sir-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="onPageChange($event)" />
+      }
+
+      @if (formOpen()) {
+        <div class="form-panel">
+          <h2>{{ editingId() ? 'Modifier le' : 'Nouveau' }} destinataire</h2>
+          <div class="form-grid">
+            <div class="field">
+              <label class="field__label" for="dest-nom">Nom</label>
+              <input id="dest-nom" class="field__input" [ngModel]="form().nom" (ngModelChange)="patchForm('nom', $event)" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="dest-fonction">Fonction</label>
+              <input id="dest-fonction" class="field__input" maxlength="100" [ngModel]="form().fonction" (ngModelChange)="patchForm('fonction', $event)" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="dest-tel">Téléphone</label>
+              <input id="dest-tel" class="field__input" inputmode="tel" [ngModel]="form().telephone" (ngModelChange)="patchForm('telephone', $event)" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="dest-matricule">Matricule</label>
+              <input id="dest-matricule" class="field__input" inputmode="numeric" [ngModel]="form().matricule" (ngModelChange)="patchForm('matricule', $event)" />
+            </div>
+            <div class="field form-grid__wide">
+              <label class="field__label" for="dest-email">Email</label>
+              <input id="dest-email" class="field__input" type="email" [ngModel]="form().email" (ngModelChange)="patchForm('email', $event)" />
+            </div>
+          </div>
+          <fieldset class="groupes-choix">
+            <legend class="field__label">Groupes d'envoi</legend>
+            @for (g of groupesActifs(); track g.id) {
+              <label class="groupes-choix__item">
+                <input type="checkbox" [checked]="form().groupeIds.has(g.id)" (change)="basculerGroupeForm(g.id)" />
+                {{ g.libelle }}
+              </label>
+            } @empty {
+              <p class="muted">Aucun groupe : créez-en un dans la colonne de gauche.</p>
+            }
+          </fieldset>
+          @if (editingId()) {
+            <label class="checkbox-row">
+              <input type="checkbox" [ngModel]="form().is_active" (ngModelChange)="patchForm('is_active', $event)" />
+              Actif
+            </label>
+          }
+          <div class="form-panel__actions">
+            <button type="button" class="sir-btn sir-btn--ghost" (click)="closeForm()">Annuler</button>
+            <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="save()">
+              {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+            </button>
+          </div>
+        </div>
+      }
     </div>
-  }
+  </div>
 </section>

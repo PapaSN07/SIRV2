@@ -27,16 +27,37 @@ export interface Destinataire {
   utilisateur_id: number | null;
   service_id: number | null;
   is_active: boolean;
-  fonction?: string | null;
-  groupe_id?: number | null;
-  groupe_libelle?: string | null;
+  fonction: string | null;
+  matricule: number | null;
+  /** Une personne peut appartenir à plusieurs groupes (comme dans SIR v1). */
+  groupes: GroupeRef[];
 }
+
+export interface GroupeRef {
+  id: number;
+  libelle: string;
+}
+
+export type Exploitation = 'BCC' | 'BRC' | 'DISPATCHING';
 
 /** Groupe d'envoi SMS (Répertoire SIR v1), avec le nombre de destinataires joignables. */
 export interface GroupeEnvoi {
   id: number;
   libelle: string;
+  exploitation: Exploitation | null;
+  is_active: boolean;
   nb_destinataires: number;
+}
+
+export interface GroupeEnvoiCreate {
+  libelle: string;
+  exploitation?: Exploitation | null;
+}
+
+export interface GroupeEnvoiUpdate {
+  libelle?: string;
+  exploitation?: Exploitation | null;
+  is_active?: boolean;
 }
 
 export interface DestinataireCreate {
@@ -45,6 +66,9 @@ export interface DestinataireCreate {
   email?: string | null;
   utilisateur_id?: number | null;
   service_id?: number | null;
+  fonction?: string | null;
+  matricule?: number | null;
+  groupe_ids?: number[];
 }
 
 export interface DestinataireUpdate {
@@ -54,6 +78,9 @@ export interface DestinataireUpdate {
   utilisateur_id?: number | null;
   service_id?: number | null;
   is_active?: boolean;
+  fonction?: string | null;
+  matricule?: number | null;
+  groupe_ids?: number[];
 }
 
 export interface SmsEnvoye {
@@ -69,6 +96,9 @@ export interface SmsEnvoye {
   destinataire_nom: string | null;
   destinataire_telephone: string | null;
   utilisateur_login: string | null;
+  /** Code renvoyé par Orange SMS Pro (200 = envoyé) et identifiant du message. */
+  code_retour?: string | null;
+  message_id?: string | null;
 }
 
 export interface EmailEnvoye {

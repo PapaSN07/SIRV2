@@ -9,6 +9,8 @@ import {
   DestinataireUpdate,
   EmailEnvoye,
   GroupeEnvoi,
+  GroupeEnvoiCreate,
+  GroupeEnvoiUpdate,
   NotificationListParams,
 } from '../../../shared/models/notification.models';
 
@@ -20,9 +22,22 @@ export class NotificationDestinataireService {
 
   constructor(private readonly http: HttpClient) {}
 
-  listGroupesEnvoi(): Observable<GroupeEnvoi[]> {
+  listGroupesEnvoi(inclureInactifs = false): Observable<GroupeEnvoi[]> {
+    const params = new HttpParams().set('inclure_inactifs', inclureInactifs);
     return this.http
-      .get<ApiResponse<GroupeEnvoi[]>>(this.groupesUrl)
+      .get<ApiResponse<GroupeEnvoi[]>>(this.groupesUrl, { params })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  createGroupe(body: GroupeEnvoiCreate): Observable<GroupeEnvoi> {
+    return this.http
+      .post<ApiResponse<GroupeEnvoi>>(this.groupesUrl, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  updateGroupe(id: number, body: GroupeEnvoiUpdate): Observable<GroupeEnvoi> {
+    return this.http
+      .patch<ApiResponse<GroupeEnvoi>>(`${this.groupesUrl}/${id}`, body)
       .pipe(map((res) => this.unwrap(res)));
   }
 
@@ -30,9 +45,12 @@ export class NotificationDestinataireService {
     page = 1,
     pageSize = 100,
     isActive?: boolean,
+    filtres: { groupeId?: number | null; recherche?: string } = {},
   ): Observable<PaginatedResponse<Destinataire>> {
     let params = new HttpParams().set('page', page).set('page_size', pageSize);
     if (isActive !== undefined) params = params.set('is_active', isActive);
+    if (filtres.groupeId) params = params.set('groupe_id', filtres.groupeId);
+    if (filtres.recherche?.trim()) params = params.set('recherche', filtres.recherche.trim());
 
     return this.http
       .get<ApiResponse<PaginatedResponse<Destinataire>>>(this.destUrl, { params })

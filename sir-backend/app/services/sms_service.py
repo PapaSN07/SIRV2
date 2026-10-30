@@ -38,14 +38,18 @@ async def send_sms_lot(db: AsyncSession, sms_ids: list[int]) -> dict[str, int]:
             if settings.sms_gateway_url or settings.sms_gateway_wsdl:
                 retour = await sms_gateway.envoyer_sms(telephone, record.contenu)
                 logger.info("sendOneSignedSMS id=%s → %s", sms_id, retour[:200])
+                code, _, message_id = sms_gateway.lire_statut(retour)
             else:
+                code, message_id = None, None
                 logger.warning("SMS simulé (passerelle non configurée) id=%s to=%s", sms_id, telephone)
         except Exception as exc:  # noqa: BLE001 — l'échec est tracé sur le SMS
             derniere_erreur = exc
             await repo.update_statut(db, record, statut="echec", erreur=str(exc)[:500])
             echecs += 1
             continue
-        await repo.update_statut(db, record, statut="envoye", sent_at=datetime.now())
+        await repo.update_statut(
+            db, record, statut="envoye", sent_at=datetime.now(), code_retour=code, message_id=message_id
+        )
         envoyes += 1
 
     if derniere_erreur is not None:

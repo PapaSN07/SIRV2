@@ -27,6 +27,7 @@ async def create_pending(
     entity_type: str | None,
     entity_id: int | None,
     contenu: str,
+    envoye_par_id: int | None = None,
 ) -> SmsEnvoye:
     record = SmsEnvoye(
         destinataire_id=destinataire_id,
@@ -34,6 +35,7 @@ async def create_pending(
         entity_id=entity_id,
         contenu=contenu,
         statut="en_attente",
+        envoye_par_id=envoye_par_id,
     )
     db.add(record)
     await db.flush()
@@ -47,12 +49,18 @@ async def update_statut(
     statut: str,
     sent_at: datetime | None = None,
     erreur: str | None = None,
+    code_retour: str | None = None,
+    message_id: str | None = None,
 ) -> SmsEnvoye:
     record.statut = statut
     if sent_at is not None:
         record.sent_at = sent_at
     if erreur is not None:
         record.erreur = erreur
+    if code_retour is not None:
+        record.code_retour = code_retour[:20]
+    if message_id is not None:
+        record.message_id = message_id[:50]
     await db.flush()
     return record
 

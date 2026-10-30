@@ -277,19 +277,29 @@ async def envoyer_sms(numero: str, message: str) -> str:
     return valeur
 
 
+def lire_statut(valeur: str) -> tuple[str | None, str | None, str | None]:
+    """(status_CODE, status_TEXT, message_ID) de la réponse JSON Orange SMS Pro (premier destinataire)."""
+    try:
+        reponses = json.loads(valeur)["responses"]["response"]
+    except (ValueError, KeyError, TypeError):
+        return None, None, None
+    rep = (reponses[0] if isinstance(reponses, list) and reponses else reponses) or {}
+    statut = rep.get("status") or {}
+    code = statut.get("status_CODE")
+    ident = rep.get("message_ID")
+    return (
+        str(code) if code is not None else None,
+        statut.get("status_TEXT"),
+        str(ident) if ident is not None else None,
+    )
+
+
 def verifier_statut(valeur: str) -> None:
     """Orange SMS Pro répond en JSON : ``status_CODE`` 200 = « Message envoye ».
 
-    Lève ``SmsGatewayError`` avec ``status_TEXT`` si un destinataire est refusé.
+    Lève ``SmsGatewayError`` avec ``status_TEXT`` si le destinataire est refusé.
     Une réponse non JSON est acceptée telle quelle.
     """
-    try:
-        donnees = json.loads(valeur)
-        reponses = donnees["responses"]["response"]
-    except (ValueError, KeyError, TypeError):
-        return
-    for rep in reponses if isinstance(reponses, list) else [reponses]:
-        statut = (rep or {}).get("status") or {}
-        code = str(statut.get("status_CODE", ""))
-        if code and code != "200":
-            raise SmsGatewayError(f"Refusé par Orange SMS Pro ({code}) : {statut.get('status_TEXT', '')}")
+    code, texte, _ = lire_statut(valeur)
+    if code and code != "200":
+        raise SmsGatewayError(f"Refusé par Orange SMS Pro ({code}) : {texte or ''}")

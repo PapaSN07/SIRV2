@@ -65,8 +65,9 @@
           <button
             type="button"
             class="groupes__chip"
-            [class.groupes__chip--active]="groupeAffiche() === null"
-            (click)="afficherGroupe(null)"
+            [class.groupes__chip--active]="groupesAffiches().size === 0"
+            [attr.aria-pressed]="groupesAffiches().size === 0"
+            (click)="basculerGroupe(null)"
           >
             Tous ({{ destinataires().length }})
           </button>
@@ -74,8 +75,9 @@
             <button
               type="button"
               class="groupes__chip"
-              [class.groupes__chip--active]="groupeAffiche() === g.id"
-              (click)="afficherGroupe(g.id)"
+              [class.groupes__chip--active]="groupeAffiche(g.id)"
+              [attr.aria-pressed]="groupeAffiche(g.id)"
+              (click)="basculerGroupe(g.id)"
             >
               {{ g.libelle }} ({{ g.nb_destinataires }})
             </button>
@@ -111,14 +113,14 @@
                 @if (d.fonction) {
                   <span class="muted">· {{ d.fonction }}</span>
                 }
-                @if (d.groupe_libelle) {
-                  <span class="badge">{{ d.groupe_libelle }}</span>
+                @for (g of d.groupes; track g.id) {
+                  <span class="badge">{{ g.libelle }}</span>
                 }
               </span>
             </span>
           </label>
         } @empty {
-          <p>Aucun destinataire actif avec téléphone{{ groupeAffiche() !== null || recherche() ? ' pour ce filtre' : '' }}.</p>
+          <p>Aucun destinataire actif avec téléphone{{ groupesAffiches().size > 0 || recherche() ? ' pour ce filtre' : '' }}.</p>
         }
       </div>
     } @else {

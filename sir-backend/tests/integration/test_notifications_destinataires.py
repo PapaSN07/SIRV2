@@ -160,4 +160,27 @@ async def test_get_groupes_envoi_returns_200(
         )
 
     assert response.status_code == 200
-    assert response.json()["data"] == [{"id": 1, "libelle": "DIRECTION DISTRIBUTION", "nb_destinataires": 12}]
+    assert response.json()["data"] == [
+        {"id": 1, "libelle": "DIRECTION DISTRIBUTION", "exploitation": None, "is_active": True, "nb_destinataires": 12}
+    ]
+
+
+async def test_post_groupe_envoi_reserve_aux_admins(client: AsyncClient) -> None:
+    lecteur = _make_user(3, "ADMIN_SAQS", [("notifications", "read")], scope=None)
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=lecteur):
+        response = await client.post(
+            "/api/v1/notifications/groupes-envoi",
+            json={"libelle": "Astreinte", "exploitation": "BCC"},
+            headers=_auth_headers(_token(lecteur, "ADMIN_SAQS")),
+        )
+    assert response.status_code == 403
+
+
+async def test_post_groupe_envoi_exploitation_inconnue_422(client: AsyncClient, admin_scr: Utilisateur) -> None:
+    with patch("app.repositories.utilisateur_repository.get_by_id", return_value=admin_scr):
+        response = await client.post(
+            "/api/v1/notifications/groupes-envoi",
+            json={"libelle": "Astreinte", "exploitation": "AUTRE"},
+            headers=_auth_headers(_token(admin_scr, "ADMIN_SCR")),
+        )
+    assert response.status_code == 422

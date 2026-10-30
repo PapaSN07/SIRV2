@@ -37,6 +37,8 @@ def _sms_to_response(record: SmsEnvoye) -> SmsEnvoyeResponse:
         destinataire_nom=dest.nom if dest else None,
         destinataire_telephone=dest.telephone if dest else None,
         utilisateur_login=utilisateur_login,
+        code_retour=record.code_retour,
+        message_id=record.message_id,
     )
 
 

@@ -86,6 +86,14 @@
       <p><strong>Destinataire :</strong> {{ s.destinataire_nom }}</p>
       <p><strong>Téléphone :</strong> {{ s.destinataire_telephone }}</p>
       <p><strong>Statut :</strong> {{ statutLabel(s.statut) }}</p>
+      @if (s.code_retour || s.message_id) {
+        <p>
+          <strong>Retour Orange SMS Pro :</strong> code {{ s.code_retour ?? '—' }}
+          @if (s.message_id) {
+            · message n° {{ s.message_id }}
+          }
+        </p>
+      }
       @if (s.erreur) {
         <p class="alert alert--error"><strong>Erreur :</strong> {{ s.erreur }}</p>
       }

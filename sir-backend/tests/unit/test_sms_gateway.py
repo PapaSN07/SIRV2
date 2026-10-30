@@ -117,3 +117,9 @@ def test_verifier_statut_orange_sms_pro() -> None:
     ko = ok.replace("200", "401").replace("Message envoye", "Credit insuffisant")
     with pytest.raises(sms_gateway.SmsGatewayError, match="Credit insuffisant"):
         sms_gateway.verifier_statut(ko)
+
+
+def test_lire_statut_orange() -> None:
+    rep = '{"responses":{"response":[{"recipient":{"id":"1","value":"785897352"},"message_ID":316875886,"messagedetail_ID":727468421,"status":{"status_CODE":200,"status_TEXT":"Message envoye"}}]}}'
+    assert sms_gateway.lire_statut(rep) == ("200", "Message envoye", "316875886")
+    assert sms_gateway.lire_statut("OK") == (None, None, None)

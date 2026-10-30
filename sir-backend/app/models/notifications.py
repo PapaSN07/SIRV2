@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import NVARCHAR, Boolean, CheckConstraint, DateTime, ForeignKey, Integer
+from sqlalchemy import NVARCHAR, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -8,6 +8,17 @@ from app.models.defaults import MSSQL_NOW
 
 CANAL_VALUES = ("sms", "email")
 STATUT_ENVOI_VALUES = ("en_attente", "envoye", "echec")
+
+
+# Une personne peut appartenir à plusieurs groupes (SIR v1 : une ligne Destinataire par groupe)
+destinataire_groupes = Table(
+    "destinataire_groupes",
+    Base.metadata,
+    Column("destinataire_id", Integer, ForeignKey("destinataires.id", ondelete="CASCADE"), primary_key=True),
+    Column("groupe_id", Integer, ForeignKey("groupes_envoi.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+EXPLOITATIONS = ("BCC", "BRC", "DISPATCHING")
 
 
 class GroupeEnvoi(Base):
@@ -18,6 +29,8 @@ class GroupeEnvoi(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(255), nullable=False, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Exploitation propriétaire du groupe (SIR v1) : BCC, BRC ou DISPATCHING
+    exploitation: Mapped[str | None] = mapped_column(NVARCHAR(20), nullable=True)
 
 
 class Destinataire(Base):
@@ -37,12 +50,12 @@ class Destinataire(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     fonction: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
-    groupe_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("groupes_envoi.id", ondelete="SET NULL"), nullable=True, index=True
-    )
+    matricule: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
-    groupe: Mapped["GroupeEnvoi | None"] = relationship("GroupeEnvoi", foreign_keys=[groupe_id], lazy="selectin")
+    groupes: Mapped[list["GroupeEnvoi"]] = relationship(
+        "GroupeEnvoi", secondary=destinataire_groupes, lazy="selectin", order_by="GroupeEnvoi.libelle"
+    )
     utilisateur: Mapped["Utilisateur | None"] = relationship("Utilisateur", foreign_keys=[utilisateur_id], lazy="select")  # noqa: F821
     service: Mapped["Service | None"] = relationship("Service", foreign_keys=[service_id], lazy="select")  # noqa: F821
     sms_envoyes: Mapped[list["SmsEnvoye"]] = relationship(
@@ -71,6 +84,10 @@ class SmsEnvoye(Base):
     )
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     erreur: Mapped[str | None] = mapped_column(NVARCHAR(500), nullable=True)
+    # Trace SIR v1 (smsenvoye.Login, Status_Code, messageID)
+    envoye_par_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("utilisateurs.id"), nullable=True)
+    code_retour: Mapped[str | None] = mapped_column(NVARCHAR(20), nullable=True)
+    message_id: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )

@@ -16,7 +16,9 @@ from app.schemas.notifications import (
     DestinataireResponse,
     DestinataireUpdate,
     EmailEnvoyeResponse,
+    GroupeEnvoiCreate,
     GroupeEnvoiResponse,
+    GroupeEnvoiUpdate,
     ManualSmsSendRequest,
     ManualSmsSendResponse,
     SmsEnvoyeResponse,
@@ -45,6 +47,8 @@ async def list_destinataires(
     page_size: int = Query(20, ge=1, le=100),
     service_id: int | None = Query(None, ge=1),
     is_active: bool | None = Query(None),
+    groupe_id: int | None = Query(None, ge=1),
+    recherche: str | None = Query(None, max_length=100),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(require_permission("notifications", "read")),
 ) -> ApiResponse[PaginatedResponse[DestinataireResponse]]:
@@ -55,6 +59,8 @@ async def list_destinataires(
         page_size=page_size,
         service_id=service_id,
         is_active=is_active,
+        groupe_id=groupe_id,
+        recherche=recherche,
     )
     return ApiResponse.success(result)
 
@@ -66,11 +72,41 @@ async def list_destinataires(
     summary="Groupes d'envoi SMS (Répertoire SIR v1) avec le nombre de destinataires joignables",
 )
 async def list_groupes_envoi(
+    inclure_inactifs: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(require_permission("notifications", "read")),
 ) -> ApiResponse[list[GroupeEnvoiResponse]]:
-    result = await destinataire_service.list_groupes_envoi(db, current_user)
+    result = await destinataire_service.list_groupes_envoi(db, current_user, inclure_inactifs=inclure_inactifs)
     return ApiResponse.success(result)
+
+
+@router.post(
+    "/groupes-envoi",
+    response_model=ApiResponse[GroupeEnvoiResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Créer un groupe d'envoi SMS",
+)
+async def create_groupe_envoi(
+    body: GroupeEnvoiCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("notifications", "admin")),
+) -> ApiResponse[GroupeEnvoiResponse]:
+    return ApiResponse.success(await destinataire_service.create_groupe_envoi(db, current_user, body))
+
+
+@router.patch(
+    "/groupes-envoi/{groupe_id}",
+    response_model=ApiResponse[GroupeEnvoiResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Renommer, changer d'exploitation, désactiver ou réactiver un groupe d'envoi",
+)
+async def update_groupe_envoi(
+    groupe_id: int,
+    body: GroupeEnvoiUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("notifications", "admin")),
+) -> ApiResponse[GroupeEnvoiResponse]:
+    return ApiResponse.success(await destinataire_service.update_groupe_envoi(db, current_user, groupe_id, body))
 
 
 @router.post(

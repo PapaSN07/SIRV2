@@ -56,3 +56,35 @@ async def test_send_manual_sms_requires_phone() -> None:
                 utilisateur_ids=None,
             )
     assert exc.value.status_code == 422
+
+
+async def test_send_manual_sms_un_seul_sms_par_numero() -> None:
+    """Une personne cochée via deux groupes (deux fiches, même numéro) ne reçoit qu'un SMS."""
+    from unittest.mock import MagicMock
+
+    def dest(i: int, tel: str) -> Destinataire:
+        d = Destinataire()
+        d.id, d.nom, d.telephone, d.is_active = i, f"D{i}", tel, True
+        return d
+
+    fiches = {1: dest(1, "777408254"), 2: dest(2, "+221 77 740 82 54"), 3: dest(3, "781451126")}
+    crees: list[dict] = []
+
+    async def create_pending(db, **kw):
+        crees.append(kw)
+        return MagicMock(id=len(crees))
+
+    celery = MagicMock()
+    with patch(
+        "app.services.manual_sms_service.dest_repo.get_by_id", new=AsyncMock(side_effect=lambda db, i: fiches[i])
+    ), patch(
+        "app.services.manual_sms_service.destinataire_service.assert_destinataire_in_scope", new=AsyncMock()
+    ), patch("app.services.manual_sms_service.sms_repo.create_pending", new=create_pending), patch(
+        "app.workers.celery_app.celery_app", celery
+    ):
+        rep = await manual_sms_service.send_manual_sms(
+            AsyncMock(), _user(), message="Coupure", destinataire_ids=[1, 2, 3], utilisateur_ids=None
+        )
+    assert rep.sent_count == 2
+    assert [c["destinataire_id"] for c in crees] == [1, 3]
+    assert all(c["envoye_par_id"] == 5 for c in crees)

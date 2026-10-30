@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -23,7 +24,8 @@ class DestinataireCreate(BaseModel):
     utilisateur_id: int | None = Field(None, ge=1)
     service_id: int | None = Field(None, ge=1)
     fonction: str | None = Field(None, max_length=100)
-    groupe_id: int | None = Field(None, ge=1)
+    matricule: int | None = Field(None, ge=0)
+    groupe_ids: list[int] | None = None
 
     @field_validator("email")
     @classmethod
@@ -47,7 +49,8 @@ class DestinataireUpdate(BaseModel):
     service_id: int | None = Field(None, ge=1)
     is_active: bool | None = None
     fonction: str | None = Field(None, max_length=100)
-    groupe_id: int | None = Field(None, ge=1)
+    matricule: int | None = Field(None, ge=0)
+    groupe_ids: list[int] | None = None
 
     @field_validator("email")
     @classmethod
@@ -66,10 +69,20 @@ class DestinataireResponse(BaseModel):
     service_id: int | None
     is_active: bool
     fonction: str | None = None
-    groupe_id: int | None = None
-    groupe_libelle: str | None = None
+    matricule: int | None = None
+    groupes: list["GroupeRef"] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GroupeRef(BaseModel):
+    id: int
+    libelle: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+Exploitation = Literal["BCC", "BRC", "DISPATCHING"]
 
 
 class GroupeEnvoiResponse(BaseModel):
@@ -77,7 +90,33 @@ class GroupeEnvoiResponse(BaseModel):
 
     id: int
     libelle: str
+    exploitation: str | None = None
+    is_active: bool = True
     nb_destinataires: int
+
+
+class GroupeEnvoiCreate(BaseModel):
+    libelle: str = Field(..., min_length=1, max_length=255)
+    exploitation: Exploitation | None = None
+
+    @field_validator("libelle")
+    @classmethod
+    def _nettoyer(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("Libellé obligatoire")
+        return v
+
+
+class GroupeEnvoiUpdate(BaseModel):
+    libelle: str | None = Field(None, min_length=1, max_length=255)
+    exploitation: Exploitation | None = None
+    is_active: bool | None = None
+
+    @field_validator("libelle")
+    @classmethod
+    def _nettoyer(cls, v: str | None) -> str | None:
+        return " ".join(v.split()) if v is not None else None
 
 
 class EmailEnvoyeResponse(BaseModel):
@@ -108,6 +147,8 @@ class SmsEnvoyeResponse(BaseModel):
     destinataire_nom: str | None = None
     destinataire_telephone: str | None = None
     utilisateur_login: str | None = None
+    code_retour: str | None = None
+    message_id: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -33,8 +33,8 @@ export class SmsSendComponent implements OnInit {
   readonly destinataires = signal<Destinataire[]>([]);
   readonly utilisateurs = signal<UtilisateurAdmin[]>([]);
   readonly groupes = signal<GroupeEnvoi[]>([]);
-  /** Groupe affiché (null = tous) et recherche libre (nom, fonction, numéro). */
-  readonly groupeAffiche = signal<number | null>(null);
+  /** Groupes affichés (vide = tous) et recherche libre (nom, fonction, numéro). */
+  readonly groupesAffiches = signal<Set<number>>(new Set());
   readonly recherche = signal('');
   readonly selectedDestIds = signal<Set<number>>(new Set());
   readonly selectedUserIds = signal<Set<number>>(new Set());
@@ -46,12 +46,15 @@ export class SmsSendComponent implements OnInit {
   readonly charCount = computed(() => this.message().length);
 
   readonly destinatairesAffiches = computed(() => {
-    const groupe = this.groupeAffiche();
+    const groupes = this.groupesAffiches();
     const q = this.recherche().trim().toLowerCase();
     return this.destinataires().filter(
       (d) =>
-        (groupe === null || d.groupe_id === groupe) &&
-        (!q || [d.nom, d.fonction, d.telephone, d.groupe_libelle].some((v) => (v ?? '').toLowerCase().includes(q))),
+        (groupes.size === 0 || d.groupes.some((g) => groupes.has(g.id))) &&
+        (!q ||
+          [d.nom, d.fonction, d.telephone, ...d.groupes.map((g) => g.libelle)].some((v) =>
+            (v ?? '').toLowerCase().includes(q),
+          )),
     );
   });
 
@@ -82,8 +85,20 @@ export class SmsSendComponent implements OnInit {
     this.message.set(value.slice(0, this.maxLength));
   }
 
-  afficherGroupe(id: number | null): void {
-    this.groupeAffiche.set(id);
+  /** Comme SIR v1 : on coche un ou plusieurs groupes, la liste montre leurs membres. */
+  basculerGroupe(id: number | null): void {
+    if (id === null) {
+      this.groupesAffiches.set(new Set());
+      return;
+    }
+    const next = new Set(this.groupesAffiches());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.groupesAffiches.set(next);
+  }
+
+  groupeAffiche(id: number): boolean {
+    return this.groupesAffiches().has(id);
   }
 
   /** Coche (ou décoche si tout est déjà coché) les destinataires affichés : un groupe entier en un clic. */

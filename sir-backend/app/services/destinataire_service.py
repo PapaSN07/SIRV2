@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import check_service_scope
 from app.core.rbac_helpers import is_superadmin
-from app.models.notifications import Destinataire
+from app.models.notifications import Destinataire, GroupeEnvoi
 from app.models.utilisateurs import Utilisateur
 from app.repositories import destinataire_repository as repo
 from app.repositories.geo_scope_repository import service_in_region
@@ -14,7 +14,9 @@ from app.schemas.notifications import (
     DestinataireCreate,
     DestinataireResponse,
     DestinataireUpdate,
+    GroupeEnvoiCreate,
     GroupeEnvoiResponse,
+    GroupeEnvoiUpdate,
 )
 from app.utils.pagination import paginate
 
@@ -43,9 +45,18 @@ def _ensure_can_admin(user: Utilisateur) -> None:
 
 
 def _to_response(record: Destinataire) -> DestinataireResponse:
-    reponse = DestinataireResponse.model_validate(record)
-    reponse.groupe_libelle = record.groupe.libelle if record.groupe_id and record.groupe else None
-    return reponse
+    return DestinataireResponse.model_validate(record)
+
+
+async def _resoudre_groupes(db: AsyncSession, groupe_ids: list[int] | None) -> list[GroupeEnvoi]:
+    ids = sorted(set(groupe_ids or []))
+    groupes = await repo.get_groupes(db, ids)
+    if len(groupes) != len(ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"status": "error", "data": None, "error": "Groupe d'envoi introuvable"},
+        )
+    return groupes
 
 
 async def _resolve_list_scope(
@@ -170,6 +181,8 @@ async def list_destinataires(
     page_size: int,
     service_id: int | None,
     is_active: bool | None,
+    groupe_id: int | None = None,
+    recherche: str | None = None,
 ) -> PaginatedResponse[DestinataireResponse]:
     filter_service_id, service_ids_scope, region_id_scope, force_service_id = (
         await _resolve_list_scope(db, user, service_id)
@@ -180,6 +193,8 @@ async def list_destinataires(
         service_ids_scope=service_ids_scope,
         region_id_scope=region_id_scope,
         force_service_id=force_service_id,
+        groupe_id=groupe_id,
+        recherche=recherche,
     )
     result = await paginate(db, query, page, page_size, scalar_type=Destinataire)
     return PaginatedResponse(
@@ -223,7 +238,8 @@ async def create_destinataire(
         utilisateur_id=body.utilisateur_id,
         service_id=resolved_service_id,
         fonction=body.fonction,
-        groupe_id=body.groupe_id,
+        matricule=body.matricule,
+        groupes=await _resoudre_groupes(db, body.groupe_ids),
     )
     await db.commit()
     await db.refresh(record)
@@ -264,6 +280,9 @@ async def update_destinataire(
     if "service_id" in updates and updates["service_id"] is not None:
         check_service_scope(user, updates["service_id"])
 
+    if "groupe_ids" in updates:
+        record.groupes = await _resoudre_groupes(db, updates.pop("groupe_ids"))
+
     record = await repo.update(db, record, **updates)
     await db.commit()
     await db.refresh(record)
@@ -287,7 +306,10 @@ async def delete_destinataire(
     await db.commit()
 
 
-async def list_groupes_envoi(db: AsyncSession, user: Utilisateur) -> list[GroupeEnvoiResponse]:
+
+async def list_groupes_envoi(
+    db: AsyncSession, user: Utilisateur, *, inclure_inactifs: bool = False
+) -> list[GroupeEnvoiResponse]:
     """Groupes d'envoi SMS avec le nombre de destinataires joignables dans le périmètre de l'utilisateur."""
     filter_service_id, service_ids_scope, region_id_scope, force_service_id = await _resolve_list_scope(db, user, None)
     query = repo.build_list_query(
@@ -297,5 +319,58 @@ async def list_groupes_envoi(db: AsyncSession, user: Utilisateur) -> list[Groupe
         region_id_scope=region_id_scope,
         force_service_id=force_service_id,
     )
-    lignes = await repo.list_groupes_envoi(db, query)
-    return [GroupeEnvoiResponse(id=i, libelle=lib, nb_destinataires=n) for i, lib, n in lignes]
+    lignes = await repo.list_groupes_envoi(db, query, inclure_inactifs=inclure_inactifs)
+    return [
+        GroupeEnvoiResponse(
+            id=g.id, libelle=g.libelle, exploitation=g.exploitation, is_active=g.is_active, nb_destinataires=n
+        )
+        for g, n in lignes
+    ]
+
+
+def _conflit_libelle(libelle: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"status": "error", "data": None, "error": f"Le groupe « {libelle} » existe déjà"},
+    )
+
+
+async def create_groupe_envoi(db: AsyncSession, user: Utilisateur, body: GroupeEnvoiCreate) -> GroupeEnvoiResponse:
+    _ensure_can_admin(user)
+    if await repo.get_groupe_par_libelle(db, body.libelle):
+        raise _conflit_libelle(body.libelle)
+    groupe = await repo.create_groupe(db, libelle=body.libelle, exploitation=body.exploitation)
+    await db.commit()
+    return GroupeEnvoiResponse(
+        id=groupe.id, libelle=groupe.libelle, exploitation=groupe.exploitation, is_active=True, nb_destinataires=0
+    )
+
+
+async def update_groupe_envoi(
+    db: AsyncSession, user: Utilisateur, groupe_id: int, body: GroupeEnvoiUpdate
+) -> GroupeEnvoiResponse:
+    """Renommer, changer d'exploitation, désactiver ou réactiver un groupe (les membres sont conservés)."""
+    _ensure_can_admin(user)
+    groupe = await repo.get_groupe(db, groupe_id)
+    if groupe is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"status": "error", "data": None, "error": "Groupe d'envoi introuvable"},
+        )
+    champs = body.model_dump(exclude_unset=True)
+    if champs.get("libelle") and champs["libelle"] != groupe.libelle:
+        if await repo.get_groupe_par_libelle(db, champs["libelle"]):
+            raise _conflit_libelle(champs["libelle"])
+        groupe.libelle = champs["libelle"]
+    if "exploitation" in champs:
+        groupe.exploitation = champs["exploitation"]
+    if champs.get("is_active") is not None:
+        groupe.is_active = champs["is_active"]
+    await db.commit()
+    return GroupeEnvoiResponse(
+        id=groupe.id,
+        libelle=groupe.libelle,
+        exploitation=groupe.exploitation,
+        is_active=groupe.is_active,
+        nb_destinataires=await repo.compter_membres(db, groupe.id),
+    )

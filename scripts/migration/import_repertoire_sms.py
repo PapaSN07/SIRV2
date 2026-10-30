@@ -9,8 +9,13 @@ Source : HFSQL SIR v1
     avec --repertoire (agents sans groupe).
 
 Règles :
-  - un destinataire par numéro (9 chiffres, sans indicatif) ; un numéro déjà présent dans SIRV2
-    est complété (groupe, fonction) sans changer son nom, son e-mail ni son service ;
+  - un destinataire par numéro (9 chiffres, sans indicatif), membre de tous ses groupes
+    (SIR v1 répète la personne sur une ligne par groupe) ;
+  - les destinataires SIRV2 qui partagent un numéro (reprise ETL : une ligne par groupe) sont
+    fusionnés : on garde le plus ancien, l'historique SMS/e-mail lui est rattaché ;
+  - un numéro déjà présent dans SIRV2 est complété (groupes, fonction, matricule) sans changer
+    son nom, son e-mail ni son service ;
+  - chaque groupe garde son exploitation SIR v1 (BCC, BRC, DISPATCHING) ;
   - les nouveaux destinataires sont créés SANS service : ils servent aux envois manuels de la
     page SMS et ne reçoivent pas les SMS automatiques des interruptions (qui vont aux
     destinataires rattachés au service de l'interruption).
@@ -77,18 +82,39 @@ class Contact:
     telephone: str
     nom: str
     fonction: str = ""
-    groupe: str = ""
+    groupes: set[str] = field(default_factory=set)
+    matricule: int | None = None
     sources: set[str] = field(default_factory=set)
+
+
+def _matricule(valeur: str) -> int | None:
+    try:
+        m = int(float(valeur))
+    except (TypeError, ValueError):
+        return None
+    return m if m > 0 else None
+
+
+EXPLOITATIONS = {"BCC", "BRC", "DISPATCHING"}
+
+
+def _exploitation(valeur: str) -> str | None:
+    v = valeur.strip().upper()
+    return v if v in EXPLOITATIONS else None
 
 
 def construire(
     groupes_v1: list[dict[str, Any]],
     destinataires_v1: list[dict[str, Any]],
     repertoire_v1: list[dict[str, Any]],
-) -> tuple[list[str], dict[str, Contact], Counter]:
-    """Groupes et contacts dédoublonnés par numéro, avec le décompte des lignes écartées."""
+) -> tuple[dict[str, str | None], dict[str, Contact], Counter]:
+    """Groupes (libellé → exploitation) et contacts dédoublonnés par numéro, avec les rejets."""
     rejets: Counter = Counter()
-    groupes = sorted({champ(g, "Groupe") for g in groupes_v1} - {""})
+    groupes: dict[str, str | None] = {}
+    for g in groupes_v1:
+        libelle = champ(g, "Groupe")
+        if libelle:
+            groupes[libelle] = _exploitation(champ(g, "exploitation")) or groupes.get(libelle)
     contacts: dict[str, Contact] = {}
 
     for row in destinataires_v1:
@@ -96,32 +122,43 @@ def construire(
         if len(tel) < 7:
             rejets["destinataire sans numéro valide"] += 1
             continue
-        nom = champ(row, "prénomnom", "prenomnom") or tel
         groupe = champ(row, "Groupe")
         if groupe and groupe not in groupes:
-            groupes.append(groupe)
+            groupes[groupe] = _exploitation(champ(row, "exploitation"))
         existant = contacts.get(tel)
         if existant:
-            rejets["destinataire en double (même numéro)"] += 1
-            existant.groupe = existant.groupe or groupe
-            existant.fonction = existant.fonction or champ(row, "Fonctiondes")
+            rejets["ligne supplémentaire (même numéro, autre groupe)"] += 1
+            if groupe:
+                existant.groupes.add(groupe)
+            existant.fonction = existant.fonction or champ(row, "Fonctiondes")[:100]
+            existant.matricule = existant.matricule or _matricule(champ(row, "Matricule"))
             continue
-        contacts[tel] = Contact(tel, nom[:200], champ(row, "Fonctiondes")[:100], groupe, {"Destinataire"})
+        contacts[tel] = Contact(
+            tel,
+            (champ(row, "prénomnom", "prenomnom") or tel)[:200],
+            champ(row, "Fonctiondes")[:100],
+            {groupe} if groupe else set(),
+            _matricule(champ(row, "Matricule")),
+            {"Destinataire"},
+        )
 
     for row in repertoire_v1:
         tel = normaliser_numero(champ(row, "Telephone"))
         if len(tel) < 7:
             rejets["agent sans numéro valide"] += 1
             continue
-        nom = " ".join(p for p in (champ(row, "Prénom", "Prenom"), champ(row, "Nom")) if p) or tel
         existant = contacts.get(tel)
         if existant:
             existant.fonction = existant.fonction or champ(row, "fonctionagent")[:100]
+            existant.matricule = existant.matricule or _matricule(champ(row, "Matricule"))
             existant.sources.add("Repertoire")
             continue
-        contacts[tel] = Contact(tel, nom[:200], champ(row, "fonctionagent")[:100], "", {"Repertoire"})
+        nom = " ".join(p for p in (champ(row, "Prénom", "Prenom"), champ(row, "Nom")) if p) or tel
+        contacts[tel] = Contact(
+            tel, nom[:200], champ(row, "fonctionagent")[:100], set(), _matricule(champ(row, "Matricule")), {"Repertoire"}
+        )
 
-    return sorted(groupes), contacts, rejets
+    return dict(sorted(groupes.items())), contacts, rejets
 
 
 def lire_hfsql(avec_repertoire: bool) -> tuple[list[dict], list[dict], list[dict]]:
@@ -135,51 +172,111 @@ def lire_hfsql(avec_repertoire: bool) -> tuple[list[dict], list[dict], list[dict
     return groupes, destinataires, repertoire
 
 
-def ecrire(session, groupes: list[str], contacts: dict[str, Contact]) -> dict[str, int]:
-    bilan = Counter()
-    ids_groupes = {lib: int(i) for i, lib in session.execute(text("SELECT id, libelle FROM dbo.groupes_envoi")).all()}
-    for libelle in groupes:
-        if libelle not in ids_groupes:
-            session.execute(
-                text("INSERT INTO dbo.groupes_envoi (libelle, is_active) VALUES (:l, 1)"), {"l": libelle[:255]}
-            )
-            ids_groupes[libelle] = int(
-                session.execute(text("SELECT id FROM dbo.groupes_envoi WHERE libelle = :l"), {"l": libelle[:255]}).scalar_one()
-            )
-            bilan["groupes_crees"] += 1
-
-    existants: dict[str, tuple[int, int | None, str | None]] = {}
-    for i, tel, groupe_id, fonction in session.execute(
-        text("SELECT id, telephone, groupe_id, fonction FROM dbo.destinataires WHERE telephone IS NOT NULL")
+def _doublons_sirv2(session) -> dict[str, list[int]]:
+    """Destinataires SIRV2 par numéro normalisé (plusieurs id = doublons à fusionner)."""
+    par_numero: dict[str, list[int]] = {}
+    for i, tel in session.execute(
+        text("SELECT id, telephone FROM dbo.destinataires WHERE telephone IS NOT NULL ORDER BY id")
     ).all():
         cle = normaliser_numero(tel)
-        if cle and cle not in existants:
-            existants[cle] = (int(i), groupe_id, fonction)
+        if cle:
+            par_numero.setdefault(cle, []).append(int(i))
+    return par_numero
 
-    for tel, c in contacts.items():
-        groupe_id = ids_groupes.get(c.groupe) if c.groupe else None
-        if tel in existants:
-            ident, groupe_actuel, fonction_actuelle = existants[tel]
-            maj = {}
-            if groupe_id and not groupe_actuel:
-                maj["groupe_id"] = groupe_id
-            if c.fonction and not fonction_actuelle:
-                maj["fonction"] = c.fonction
-            if maj:
-                sets = ", ".join(f"{k} = :{k}" for k in maj)
-                session.execute(text(f"UPDATE dbo.destinataires SET {sets} WHERE id = :id"), {**maj, "id": ident})
-                bilan["destinataires_completes"] += 1
-            else:
-                bilan["destinataires_inchanges"] += 1
-            continue
+
+def fusionner(session, garder: int, autres: list[int]) -> None:
+    """Rattache historique et groupes des doublons au destinataire gardé, puis supprime les doublons."""
+    p = {"g": garder}
+    for autre in autres:
+        p["a"] = autre
+        session.execute(text("UPDATE dbo.sms_envoyes SET destinataire_id = :g WHERE destinataire_id = :a"), p)
+        session.execute(text("UPDATE dbo.emails_envoyes SET destinataire_id = :g WHERE destinataire_id = :a"), p)
         session.execute(
             text(
-                "INSERT INTO dbo.destinataires (nom, telephone, email, utilisateur_id, service_id, is_active, fonction, groupe_id) "
-                "VALUES (:nom, :tel, NULL, NULL, NULL, 1, :fonction, :groupe_id)"
+                "INSERT INTO dbo.destinataire_groupes (destinataire_id, groupe_id) "
+                "SELECT :g, x.groupe_id FROM dbo.destinataire_groupes x WHERE x.destinataire_id = :a "
+                "AND NOT EXISTS (SELECT 1 FROM dbo.destinataire_groupes y WHERE y.destinataire_id = :g "
+                "AND y.groupe_id = x.groupe_id)"
             ),
-            {"nom": c.nom, "tel": tel, "fonction": c.fonction or None, "groupe_id": groupe_id},
+            p,
         )
-        bilan["destinataires_crees"] += 1
+        session.execute(
+            text(
+                "UPDATE dbo.destinataires SET "
+                "service_id = COALESCE(service_id, (SELECT x.service_id FROM dbo.destinataires x WHERE x.id = :a)), "
+                "email = COALESCE(email, (SELECT x.email FROM dbo.destinataires x WHERE x.id = :a)), "
+                "utilisateur_id = COALESCE(utilisateur_id, (SELECT x.utilisateur_id FROM dbo.destinataires x WHERE x.id = :a)), "
+                "fonction = COALESCE(fonction, (SELECT x.fonction FROM dbo.destinataires x WHERE x.id = :a)), "
+                "matricule = COALESCE(matricule, (SELECT x.matricule FROM dbo.destinataires x WHERE x.id = :a)) "
+                "WHERE id = :g"
+            ),
+            p,
+        )
+        session.execute(text("DELETE FROM dbo.destinataire_groupes WHERE destinataire_id = :a"), p)
+        session.execute(text("DELETE FROM dbo.destinataires WHERE id = :a"), p)
+
+
+def ecrire(session, groupes: dict[str, str | None], contacts: dict[str, Contact]) -> dict[str, int]:
+    bilan = Counter()
+    ids_groupes: dict[str, int] = {}
+    for i, lib, expl in session.execute(text("SELECT id, libelle, exploitation FROM dbo.groupes_envoi")).all():
+        ids_groupes[lib] = int(i)
+        if not expl and groupes.get(lib):
+            session.execute(text("UPDATE dbo.groupes_envoi SET exploitation = :e WHERE id = :i"), {"e": groupes[lib], "i": i})
+    for libelle, exploitation in groupes.items():
+        if libelle in ids_groupes:
+            continue
+        session.execute(
+            text("INSERT INTO dbo.groupes_envoi (libelle, is_active, exploitation) VALUES (:l, 1, :e)"),
+            {"l": libelle[:255], "e": exploitation},
+        )
+        ids_groupes[libelle] = int(
+            session.execute(text("SELECT id FROM dbo.groupes_envoi WHERE libelle = :l"), {"l": libelle[:255]}).scalar_one()
+        )
+        bilan["groupes_crees"] += 1
+
+    existants: dict[str, int] = {}
+    for numero, ids in _doublons_sirv2(session).items():
+        existants[numero] = ids[0]
+        if len(ids) > 1:
+            fusionner(session, ids[0], ids[1:])
+            bilan["doublons_fusionnes"] += len(ids) - 1
+
+    liens = {
+        (int(d), int(g)) for d, g in session.execute(text("SELECT destinataire_id, groupe_id FROM dbo.destinataire_groupes")).all()
+    }
+    for tel, c in contacts.items():
+        ident = existants.get(tel)
+        if ident is None:
+            session.execute(
+                text(
+                    "INSERT INTO dbo.destinataires (nom, telephone, email, utilisateur_id, service_id, is_active, fonction, matricule) "
+                    "VALUES (:nom, :tel, NULL, NULL, NULL, 1, :fonction, :matricule)"
+                ),
+                {"nom": c.nom, "tel": tel, "fonction": c.fonction or None, "matricule": c.matricule},
+            )
+            ident = int(
+                session.execute(text("SELECT MAX(id) FROM dbo.destinataires WHERE telephone = :t"), {"t": tel}).scalar_one()
+            )
+            bilan["destinataires_crees"] += 1
+        else:
+            session.execute(
+                text(
+                    "UPDATE dbo.destinataires SET fonction = COALESCE(fonction, :fonction), "
+                    "matricule = COALESCE(matricule, :matricule) WHERE id = :id"
+                ),
+                {"fonction": c.fonction or None, "matricule": c.matricule, "id": ident},
+            )
+            bilan["destinataires_completes"] += 1
+        for groupe in c.groupes:
+            gid = ids_groupes[groupe]
+            if (ident, gid) not in liens:
+                session.execute(
+                    text("INSERT INTO dbo.destinataire_groupes (destinataire_id, groupe_id) VALUES (:d, :g)"),
+                    {"d": ident, "g": gid},
+                )
+                liens.add((ident, gid))
+                bilan["appartenances_ajoutees"] += 1
     return dict(bilan)
 
 
@@ -198,10 +295,14 @@ def main() -> int:
         + (f", {len(repertoire_v1)} agent(s) du répertoire" if args.repertoire else "")
     )
     groupes, contacts, rejets = construire(groupes_v1, destinataires_v1, repertoire_v1)
-    par_groupe = Counter(c.groupe or "(sans groupe)" for c in contacts.values())
-    print(f"\n{len(contacts)} numéro(s) distinct(s), {len(groupes)} groupe(s) :")
+    par_groupe: Counter = Counter()
+    for c in contacts.values():
+        for g in c.groupes or {"(sans groupe)"}:
+            par_groupe[g] += 1
+    multi = sum(1 for c in contacts.values() if len(c.groupes) > 1)
+    print(f"\n{len(contacts)} numéro(s) distinct(s), {len(groupes)} groupe(s), {multi} personne(s) dans plusieurs groupes :")
     for groupe, n in sorted(par_groupe.items()):
-        print(f"  {groupe:<40} {n:>5}")
+        print(f"  {groupe:<40} {groupes.get(groupe) or '':<12} {n:>5}")
     if rejets:
         print(f"Écartés : {dict(rejets)}")
 
@@ -210,12 +311,10 @@ def main() -> int:
         if args.execute:
             bilan.update(ecrire(session, groupes, contacts))
         else:
-            deja = {
-                normaliser_numero(t)
-                for (t,) in session.execute(text("SELECT telephone FROM dbo.destinataires WHERE telephone IS NOT NULL")).all()
-            }
+            deja = _doublons_sirv2(session)
             bilan["deja_dans_sirv2"] = sum(1 for t in contacts if t in deja)
             bilan["a_creer"] = len(contacts) - bilan["deja_dans_sirv2"]
+            bilan["doublons_sirv2_a_fusionner"] = sum(len(ids) - 1 for ids in deja.values())
             session.rollback()
     print("\n" + json.dumps(bilan, ensure_ascii=False))
     rapport = settings.reports_dir / "import_repertoire_sms.json"

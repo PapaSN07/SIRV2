@@ -12,6 +12,7 @@ from app.repositories import destinataire_repository as dest_repo
 from app.repositories import sms_repository as sms_repo
 from app.repositories import utilisateur_repository
 from app.schemas.notifications import ManualSmsSendResponse
+from app.services import sms_gateway
 from app.services import destinataire_service
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ async def send_manual_sms(
     """Crée des enregistrements SMS en attente et enqueue l'envoi Celery."""
     contenu = _truncate_message(message)
     target_destinataire_ids: list[int] = []
+    numeros_vus: set[str] = set()
 
     for dest_id in destinataire_ids or []:
         dest = await dest_repo.get_by_id(db, dest_id)
@@ -99,6 +101,11 @@ async def send_manual_sms(
                 },
             )
         target_destinataire_ids.append(dest.id)
+        numero = sms_gateway.normaliser_numero(dest.telephone)
+        if numero in numeros_vus:
+            # Même numéro dans plusieurs groupes cochés : un seul SMS
+            target_destinataire_ids.pop()
+        numeros_vus.add(numero)
 
     for user_id in utilisateur_ids or []:
         user = await utilisateur_repository.get_by_id(db, user_id)
@@ -123,6 +130,7 @@ async def send_manual_sms(
             entity_type=_ENTITY_TYPE_MANUAL,
             entity_id=None,
             contenu=contenu,
+            envoye_par_id=current_user.id,
         )
         sms_ids.append(record.id)
 

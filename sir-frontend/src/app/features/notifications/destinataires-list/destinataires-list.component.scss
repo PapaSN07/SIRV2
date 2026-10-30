@@ -1,7 +1,7 @@
 @use '../../../../styles/sir-tokens' as *;
 
 .notif-page {
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 0 auto;
 }
 
@@ -48,7 +48,7 @@
   border-radius: 0.25rem;
   padding: 1.25rem;
   margin-top: 1rem;
-  max-width: 480px;
+  max-width: 720px;
   h2 {
     margin: 0 0 1rem;
     font-size: 1.125rem;
@@ -94,4 +94,251 @@
 .loading {
   text-align: center;
   padding: 2rem;
+}
+
+// Répertoire : groupes à gauche, destinataires à droite
+.repertoire {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.groupes-panel {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  position: sticky;
+  top: 1rem;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+  }
+
+  &__inactifs {
+    margin-top: 0.75rem;
+    font-size: 13px;
+  }
+}
+
+.groupe-form {
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 0.5rem;
+  background: #f6f4f8;
+}
+
+.groupes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 60vh;
+  overflow-y: auto;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+
+    &--inactif {
+      opacity: 0.6;
+    }
+  }
+
+  &__item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 40px;
+    padding: 0.375rem 0.625rem;
+    border: none;
+    border-radius: 0.375rem;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    color: $on-surface;
+    cursor: pointer;
+
+    &:hover {
+      background: #f6f4f8;
+    }
+
+    &--active {
+      background: #eeeaf2;
+      color: #5b2c6f;
+      font-weight: 600;
+    }
+  }
+
+  &__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  &__nb {
+    min-width: 1.75rem;
+    text-align: right;
+    font-size: 13px;
+    color: $on-surface-variant;
+  }
+
+  &__actions {
+    display: inline-flex;
+  }
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: $on-surface-variant;
+  cursor: pointer;
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: #eeeaf2;
+    color: #5b2c6f;
+  }
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: #eeeaf2;
+  color: #5b2c6f;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &--off {
+    background: #eaecf0;
+    color: #5f5a66;
+  }
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.liste-outils {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+
+  &__recherche {
+    flex: 1 1 260px;
+    height: 2.5rem;
+  }
+
+  &__total {
+    font-size: 13px;
+    color: $on-surface-variant;
+  }
+}
+
+.muted {
+  display: block;
+  font-size: 12px;
+  color: $on-surface-variant;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+
+  &__wide {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.groupes-choix {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.25rem 1rem;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid $outline-variant;
+  border-radius: 0.375rem;
+
+  legend {
+    padding: 0 0.25rem;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 13px;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.data-table {
+  font-size: 14px;
+
+  td {
+    vertical-align: middle;
+  }
+}
+
+.nom-cell {
+  min-width: 180px;
+}
+
+// La cellule reste une cellule de tableau (bordure alignée) : boutons en ligne
+.data-table td.actions-cell {
+  display: table-cell;
+  white-space: nowrap;
+  text-align: right;
 }
