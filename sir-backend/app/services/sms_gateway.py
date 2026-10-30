@@ -257,7 +257,7 @@ async def envoyer_sms(numero: str, message: str) -> str:
         raise SmsGatewayError("Numéro invalide")
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         service = await decouvrir_service(client)
-        enveloppe = construire_enveloppe(service, num, message, settings.sms_gateway_signature)
+        enveloppe = construire_enveloppe(service, num, message, settings.sms_gateway_signature or "SENELEC")
         if service.soap12:
             headers = {"Content-Type": f'application/soap+xml; charset=utf-8; action="{service.soap_action}"'}
         else:
