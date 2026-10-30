@@ -39,6 +39,7 @@ from app.models.interruption_workflow import EtapeWorkflow, Workflow  # noqa: F4
 from app.models.interruption_statut_historique import InterruptionStatutHistorique  # noqa: F401
 from app.models.indicateurs import EnergieNd, NombreClientMois, ObjectifIndicateur, SaifiSaidi  # noqa: F401
 from app.models.napt import Consignation, Napt  # noqa: F401
+from app.models.clients import ContratsUniteReleve, PosteUniteReleve  # noqa: F401
 from app.models.notifications import Destinataire, EmailEnvoye, GroupeEnvoi, SmsEnvoye  # noqa: F401
 from app.models.rapports import RapportGenere  # noqa: F401
 from app.models.sig import NoeudSig, TronconSig  # noqa: F401
@@ -101,6 +102,8 @@ __all__ = [
     # Notifications
     "Destinataire",
     "GroupeEnvoi",
+    "ContratsUniteReleve",
+    "PosteUniteReleve",
     "SmsEnvoye",
     "EmailEnvoye",
     # Rapports

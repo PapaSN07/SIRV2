@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.workers.tasks.assistant_ml",
         "app.workers.tasks.alertes",
         "app.workers.tasks.rapports_planifies",
+        "app.workers.tasks.base_clients",
     ],
 )
 
@@ -28,6 +29,12 @@ celery_app.conf.update(
     # Tâches planifiées : le worker est lancé avec -B (beat intégré, un seul worker)
     beat_schedule={
         "alertes-retard-24h": {"task": "alertes_retard_24h", "schedule": 3600.0},
+        # Base clients SAIFI/SAIDI : BI_ODS est rechargée par SSIS vers 5 h 30 ; la photo du mois
+        # est remplacée chaque jour, la dernière du mois fait foi (comme le fichier H2MC mensuel)
+        "base-clients-bi-ods-7h": {
+            "task": "synchroniser_contrats_ur",
+            "schedule": crontab(hour=7, minute=0),
+        },
         # Heure de Dakar (timezone ci-dessus) — décision SENELEC du 27/10/2026
         # Rapport hebdomadaire d'exploitation DD (samedi → vendredi) — décision du 29/10/2026
         "rapport-hebdo-dd-samedi-8h": {

@@ -12,6 +12,7 @@ from app.api.v1.rapports.router import router as rapports_router
 from app.api.v1.napt.router import router as napt_router
 from app.api.v1.notifications.router import router as notifications_router
 from app.api.v1.assistant.router import router as assistant_router
+from app.api.v1.clients.router import router as clients_router
 
 api_router = APIRouter()
 
@@ -27,3 +28,4 @@ api_router.include_router(rapports_router, prefix="/rapports", tags=["rapports"]
 api_router.include_router(napt_router, prefix="/napt", tags=["napt"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(assistant_router, prefix="/assistant", tags=["assistant"])
+api_router.include_router(clients_router, prefix="/clients", tags=["base-clients"])

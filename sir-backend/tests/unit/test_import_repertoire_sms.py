@@ -95,3 +95,18 @@ def test_normaliser_numero_identique_a_l_envoi() -> None:
 
     for n in ("+221 77 740 82 54", "00221777408254", "77-740-82-54", "221777408254"):
         assert normaliser_numero(n) == envoi(n)
+
+
+def test_import_postes_ur_preparer() -> None:
+    from scripts.migration.import_postes_ur import preparer
+
+    rows = [
+        {"idpostes": "281474976736546", "ur": "5420002P"},
+        {"idpostes": "281474976736546", "ur": "5420002p "},  # même lien
+        {"idpostes": "281474976736546", "ur": "", "codereference": "5420006W"},
+        {"idpostes": "999", "ur": "5420014P"},
+        {"idpostes": "281474976736546", "ur": ""},
+    ]
+    liens, rejets = preparer(rows, {"281474976736546": 42})
+    assert liens == {(42, "5420002P"), (42, "5420006W")}
+    assert rejets == {"lien en double": 1, "poste inconnu dans SIRV2": 1, "UR absente ou invalide": 1}

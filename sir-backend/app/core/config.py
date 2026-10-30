@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     sms_gateway_wsdl: str = ""
     sms_gateway_signature: str = "SENELEC"
 
+    # Base clients : chaîne ODBC vers BI_ODS (SRV-ASREPORTS), table CONTRATS_PAR_AGENCE_UR (SSIS).
+    # Vide = pas de synchronisation automatique (dépôt du fichier Excel mensuel à la place).
+    bi_ods_odbc: str = ""
+
     # Email
     smtp_host: str = ""
     smtp_port: int = 587
