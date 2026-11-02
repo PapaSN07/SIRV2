@@ -85,31 +85,22 @@
         </div>
         <div class="kpi-card__value-row">
           <p class="kpi-card__value">{{ kpi()?.nb_interruptions_actives ?? '—' }}</p>
-          @if (kpi(); as data) {
-            <span class="kpi-card__delta kpi-card__delta--error">
-              {{ data.nb_interruptions_mois }} ce mois
-            </span>
-          }
         </div>
         <div class="kpi-card__progress">
           <div class="kpi-card__progress-bar" [style.width.%]="activeProgress()"></div>
         </div>
+        <p class="kpi-card__hint">Non remises sous tension à cet instant</p>
       </article>
 
       <article class="kpi-card kpi-card--warning">
         <div class="kpi-card__head">
-          <p class="kpi-card__label">Non validées</p>
-          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">pending_actions</span>
+          <p class="kpi-card__label">Interruptions de la période</p>
+          <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">event_note</span>
         </div>
         <div class="kpi-card__value-row">
-          <p class="kpi-card__value">{{ distributionStats()?.non_validees ?? '—' }}</p>
-          @if (distributionStats(); as stats) {
-            <span class="kpi-card__delta kpi-card__delta--warning">
-              {{ stats.total }} au total
-            </span>
-          }
+          <p class="kpi-card__value">{{ kpi()?.nb_interruptions_mois ?? '—' }}</p>
         </div>
-        <p class="kpi-card__hint">Interruptions clôturées en attente de validation</p>
+        <p class="kpi-card__hint">Apparues en {{ periodLabel() }}</p>
       </article>
 
       <article class="kpi-card kpi-card--primary">
@@ -367,6 +358,7 @@
                   <th>Poste / Secteur</th>
                   <th>Type</th>
                   <th>Date début</th>
+                  <th>Date fin</th>
                   <th>END (MWh)</th>
                   <th>Statut</th>
                   <th>Actions</th>
@@ -388,6 +380,7 @@
                     </td>
                     <td>{{ row.is_programme ? 'Programmé' : 'Accidentel' }}</td>
                     <td>{{ row.date_apparition | date: 'dd/MM HH:mm' }}</td>
+                    <td>{{ row.date_remise ? (row.date_remise | date: 'dd/MM HH:mm') : 'En cours' }}</td>
                     <td class="data-table__bold">{{ formatNumber(row.end_mwh, 2) }}</td>
                     <td>
                       <span class="status-badge" [class]="'status-badge--' + row.statut">

@@ -258,7 +258,8 @@
               </th>
               <th>N°</th>
               <th>Service</th>
-              <th>Date</th>
+              <th>Date d'apparition</th>
+              <th>Date de remise</th>
               <th>Statut</th>
               <th>Source</th>
               <th class="data-table__num">Tension (kV)</th>
@@ -296,6 +297,13 @@
                 </td>
                 <td class="data-table__truncate">{{ row.service_libelle || '—' }}</td>
                 <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="data-table__nowrap">
+                  @if (row.date_remise) {
+                    {{ row.date_remise | date: 'dd/MM/yyyy HH:mm' }}
+                  } @else {
+                    <span class="data-table__muted">En cours</span>
+                  }
+                </td>
                 <td>
                   <sir-status-chip [statut]="row.statut" />
                 </td>
@@ -340,7 +348,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="12" class="data-table__empty">
+                <td colspan="13" class="data-table__empty">
                   @if (emptyFilterHint()) {
                     {{ emptyFilterHint() }}
                   } @else if (hasActiveFilters()) {
@@ -367,7 +375,10 @@
               <span class="int-card__feeder">{{ row.feeder_libelle || '—' }}</span>
               <span class="int-card__meta">{{ row.service_libelle || '—' }}</span>
               <span class="int-card__bottom">
-                <span>{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</span>
+                <span>
+                  {{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }} →
+                  {{ row.date_remise ? (row.date_remise | date: 'dd/MM HH:mm') : 'en cours' }}
+                </span>
                 <span>{{ row.cause_libelle || '' }}</span>
               </span>
             </a>

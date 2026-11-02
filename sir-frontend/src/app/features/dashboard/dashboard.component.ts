@@ -140,7 +140,6 @@ export class DashboardComponent implements OnInit {
   readonly loadError = signal<string | null>(null);
   readonly chartReady = signal(false);
   readonly kpi = signal<TableauDeBordResponse | null>(null);
-  readonly distributionStats = signal<InterruptionDistributionStats | null>(null);
   readonly chartMonths = signal<ChartMonth[]>([]);
   readonly saidiMax = computed(() => Math.max(0, ...this.chartMonths().map((m) => m.saidi)));
   readonly saifiMax = computed(() => Math.max(0, ...this.chartMonths().map((m) => m.saifi)));
@@ -488,7 +487,6 @@ export class DashboardComponent implements OnInit {
           return of(null);
         }),
       ),
-      stats: this.interruptionService.stats().pipe(catchError(() => of(null))),
       saidi: this.dashboardService.getHistorique('saidi', 1, undefined, this.periode()).pipe(
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
@@ -496,11 +494,10 @@ export class DashboardComponent implements OnInit {
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
     }).subscribe({
-      next: ({ kpi, stats, saidi, saifi }) => {
+      next: ({ kpi, saidi, saifi }) => {
         if (kpi) {
           this.kpi.set(kpi);
         }
-        this.distributionStats.set(stats);
         this.chartMonths.set(this.buildChartMonths(saidi.points, saifi.points));
         this.loading.set(false);
         requestAnimationFrame(() => this.chartReady.set(true));

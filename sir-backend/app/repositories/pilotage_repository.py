@@ -795,3 +795,34 @@ async def libelle_cible(db: AsyncSession, cible: str, cible_id: int) -> tuple[st
     if row is None:
         return None
     return row[0], row[1], row[2]
+
+
+async def points_sig_par_service(db: AsyncSession, pas: int = 5) -> list[tuple[int, float, float]]:
+    """(service, longitude, latitude) d'un nœud SIG sur ``pas`` (nœud → départ → service).
+
+    Sert à placer chaque service sur la carte (centre de ses nœuds) et à dessiner le fond
+    (le réseau SIG lui-même trace le pays). Coordonnées UTM 28N converties en degrés.
+    """
+    result = await db.execute(
+        select(Feeder.service_id, NoeudSig.coord_x, NoeudSig.coord_y)
+        .join(Feeder, Feeder.id == NoeudSig.feeder_id)
+        .where(
+            Feeder.service_id.isnot(None),
+            NoeudSig.coord_x.isnot(None),
+            NoeudSig.coord_y.isnot(None),
+            NoeudSig.id % pas == 0,
+        )
+    )
+    points: list[tuple[int, float, float]] = []
+    for service_id, x, y in result.all():
+        longitude, latitude = _lon_lat(x, y)
+        if longitude is not None and latitude is not None:
+            points.append((int(service_id), longitude, latitude))
+    return points
+
+
+async def libelles_services(db: AsyncSession, service_ids: list[int]) -> dict[int, tuple[str, str]]:
+    if not service_ids:
+        return {}
+    result = await db.execute(select(Service.id, Service.code, Service.libelle).where(Service.id.in_(service_ids)))
+    return {int(i): (str(code), str(libelle)) for i, code, libelle in result.all()}

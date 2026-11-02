@@ -6,6 +6,7 @@
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.chart import BarChart, Reference
 
 from app.services.rapport_annuel_service import AnnuelReportData
 from app.services.rapport_journalier_service import JournalierReportData
@@ -105,6 +106,24 @@ def export_mensuel_distribution_xlsx(path: Path, data: MensuelDistributionReport
                     saidi_by_service.get(item.service_id),
                 ]
             )
+
+    if data.carte_end is not None and data.carte_end.services:
+        poids = workbook.create_sheet("Poids END par service")
+        poids.append(["Service", "Libellé", "END (MWh)", "Poids (%)", "Interruptions", "Longitude", "Latitude"])
+        for s in data.carte_end.services:
+            poids.append(
+                [s.code, s.libelle, round(s.end_mwh, 3), s.part_pct, s.nombre_interruptions, s.longitude, s.latitude]
+            )
+        graphique = BarChart()
+        graphique.type = "bar"
+        graphique.title = "Poids de l'END par service (%)"
+        graphique.y_axis.title = "%"
+        n = len(data.carte_end.services)
+        graphique.add_data(Reference(poids, min_col=4, min_row=1, max_row=n + 1), titles_from_data=True)
+        graphique.set_categories(Reference(poids, min_col=1, min_row=2, max_row=n + 1))
+        graphique.height = max(7.5, 0.6 * n)
+        graphique.legend = None
+        poids.add_chart(graphique, "I2")
 
     feeders_sheet = workbook.create_sheet("Top feeders END")
     feeders_sheet.append(["Rang", "Code", "Libellé", "Service", "END (MWh)", "Interruptions"])
