@@ -43,3 +43,13 @@ def test_nombre_client_mois_borne() -> None:
     ]
     totaux, *_ = agreger(rows, _Maps(), {}, 2026, (2026, 9))  # type: ignore[arg-type]
     assert sorted(m for (_, _, m) in totaux) == [5, 6, 9]
+
+
+def test_saisies_test_hors_reprise() -> None:
+    from types import SimpleNamespace
+
+    from scripts.migration.supprimer_saisies_test import a_supprimer
+
+    rows = [SimpleNamespace(id=i) for i in (1, 2, 3, 4)]
+    assert [r.id for r in a_supprimer(rows, {1, 2}, None)] == [3, 4]
+    assert [r.id for r in a_supprimer(rows, {1, 2}, {4, 1})] == [4]
