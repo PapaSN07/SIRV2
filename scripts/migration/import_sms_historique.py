@@ -40,16 +40,22 @@ from sqlalchemy import text  # noqa: E402
 
 from scripts.migration.config import ensure_dirs, get_settings  # noqa: E402
 from scripts.migration.db_session import get_session  # noqa: E402
-from scripts.migration.hfsql_odbc import connect_hfsql, fetch_table  # noqa: E402
+from scripts.migration.hfsql_odbc import connect_hfsql, fetch_table, iter_fetch  # noqa: E402
+from scripts.migration.hfsql_schema import build_select_sql  # noqa: E402
 from scripts.migration.import_repertoire_sms import champ, normaliser_numero  # noqa: E402
 
-LOT = 500
+LOT = 5000
 
 
 def _date(valeur: str) -> datetime | None:
     if not valeur:
         return None
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d"):
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%d",
+    ):
         try:
             return datetime.strptime(valeur[:26], fmt)
         except ValueError:
@@ -64,7 +70,9 @@ def _entier(valeur: str) -> int:
         return 0
 
 
-def preparer(rows: list[dict[str, Any]], depuis: int) -> tuple[list[dict[str, Any]], Counter]:
+def preparer(
+    rows: list[dict[str, Any]], depuis: int
+) -> tuple[list[dict[str, Any]], Counter]:
     """Lignes smsenvoye normalisées (date, numéro, message, statut…) et décompte des rejets."""
     sms: list[dict[str, Any]] = []
     rejets: Counter = Counter()
@@ -103,20 +111,31 @@ def _cle_date(valeur: Any) -> str:
     return str(valeur)[:19].replace("T", " ") if valeur else ""
 
 
-def ecrire(session, sms: list[dict[str, Any]], logins_v1: dict[str, str]) -> dict[str, int]:
+def ecrire(
+    session, sms: list[dict[str, Any]], logins_v1: dict[str, str]
+) -> dict[str, int]:
     bilan: Counter = Counter()
     destinataires: dict[str, int] = {}
     for i, tel in session.execute(
-        text("SELECT id, telephone FROM dbo.destinataires WHERE telephone IS NOT NULL ORDER BY id")
+        text(
+            "SELECT id, telephone FROM dbo.destinataires WHERE telephone IS NOT NULL ORDER BY id"
+        )
     ).all():
         destinataires.setdefault(normaliser_numero(tel), int(i))
     interruptions = {
         int(n): int(i)
         for n, i in session.execute(
-            text("SELECT numero_interruption, MIN(id) FROM dbo.interruptions GROUP BY numero_interruption")
+            text(
+                "SELECT numero_interruption, MIN(id) FROM dbo.interruptions GROUP BY numero_interruption"
+            )
         ).all()
     }
-    utilisateurs = {str(lg).lower(): int(i) for i, lg in session.execute(text("SELECT id, login FROM dbo.utilisateurs")).all()}
+    utilisateurs = {
+        str(lg).lower(): int(i)
+        for i, lg in session.execute(
+            text("SELECT id, login FROM dbo.utilisateurs")
+        ).all()
+    }
     deja = {
         (_cle_date(d), normaliser_numero(t or ""), (c or "")[:60])
         for d, t, c in session.execute(
@@ -144,11 +163,16 @@ def ecrire(session, sms: list[dict[str, Any]], logins_v1: dict[str, str]) -> dic
                 {"nom": s["nom"][:200], "tel": s["numero"]},
             )
             dest_id = int(
-                session.execute(text("SELECT MAX(id) FROM dbo.destinataires WHERE telephone = :t"), {"t": s["numero"]}).scalar_one()
+                session.execute(
+                    text("SELECT MAX(id) FROM dbo.destinataires WHERE telephone = :t"),
+                    {"t": s["numero"]},
+                ).scalar_one()
             )
             destinataires[s["numero"]] = dest_id
             bilan["destinataires_inactifs_crees"] += 1
-        interruption_id = interruptions.get(s["interruption"]) if s["interruption"] else None
+        interruption_id = (
+            interruptions.get(s["interruption"]) if s["interruption"] else None
+        )
         if s["interruption"] and interruption_id is None:
             bilan["interruption_introuvable"] += 1
         login = logins_v1.get(s["login"], s["login"]).lower()
@@ -176,29 +200,79 @@ def ecrire(session, sms: list[dict[str, Any]], logins_v1: dict[str, str]) -> dic
     return dict(bilan)
 
 
+_COLONNES_INSERT = (
+    "dest",
+    "etype",
+    "eid",
+    "contenu",
+    "statut",
+    "sent_at",
+    "erreur",
+    "created_at",
+    "par",
+    "code",
+    "mid",
+)
+
+
 def _inserer(session, lot: list[dict[str, Any]]) -> None:
-    session.execute(
-        text(
-            "INSERT INTO dbo.sms_envoyes (destinataire_id, entity_type, entity_id, contenu, statut, sent_at, erreur, "
-            "created_at, envoye_par_id, code_retour, message_id) VALUES (:dest, :etype, :eid, :contenu, :statut, "
-            ":sent_at, :erreur, :created_at, :par, :code, :mid)"
-        ),
-        lot,
+    """Insertion groupée (fast_executemany) : un aller-retour par lot au lieu d'un par SMS."""
+    sql = (
+        "INSERT INTO dbo.sms_envoyes (destinataire_id, entity_type, entity_id, contenu, statut, sent_at, erreur, "
+        "created_at, envoye_par_id, code_retour, message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
+    brut = session.connection().connection
+    if not hasattr(brut, "cursor") or session.bind.dialect.name != "mssql":
+        session.execute(
+            text(sql.replace("?", "{}").format(*(f":{c}" for c in _COLONNES_INSERT))),
+            lot,
+        )
+        return
+    cur = brut.cursor()
+    cur.fast_executemany = True
+    cur.executemany(sql, [tuple(ligne[c] for c in _COLONNES_INSERT) for ligne in lot])
+    cur.close()
+
+
+def lire_sms(conn, depuis: int) -> list[dict[str, Any]]:
+    """smsenvoye à partir de l'année demandée, filtrée côté HFSQL (la table entière est très longue à lire)."""
+    if depuis > 2000:
+        try:
+            print(f"Lecture des SMS depuis le 01/01/{depuis}…", flush=True)
+            return list(
+                iter_fetch(
+                    conn,
+                    f"{build_select_sql('smsenvoye', conn=conn)} WHERE dateEnvoi >= '{depuis}0101'",
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"Filtre par date refusé par HFSQL ({str(exc)[:120]}) : lecture de toute la table",
+                flush=True,
+            )
+    return list(fetch_table(conn, "smsenvoye"))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--execute", action="store_true", help="Écrire en base (sinon simulation)")
-    parser.add_argument("--depuis", type=int, default=2000, help="Première année reprise")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--execute", action="store_true", help="Écrire en base (sinon simulation)"
+    )
+    parser.add_argument(
+        "--depuis", type=int, default=2000, help="Première année reprise"
+    )
     args = parser.parse_args()
     ensure_dirs()
     settings = get_settings()
-    print(f"Source : {settings.hfsql_server} / {settings.hfsql_database} — table smsenvoye")
+    print(
+        f"Source : {settings.hfsql_server} / {settings.hfsql_database} — table smsenvoye"
+    )
 
     conn = connect_hfsql()
     try:
-        rows = list(fetch_table(conn, "smsenvoye"))
+        rows = lire_sms(conn, args.depuis)
         logins_v1 = {
             champ(u, "Matricule"): champ(u, "Login")
             for u in fetch_table(conn, "Utilisateurs")
@@ -210,22 +284,33 @@ def main() -> int:
     par_annee = Counter(s["date"].year for s in sms)
     print(f"{len(rows)} ligne(s) lue(s), {len(sms)} retenue(s)")
     for annee, n in sorted(par_annee.items()):
-        envoyes = sum(1 for s in sms if s["date"].year == annee and s["statut"] == "envoye")
+        envoyes = sum(
+            1 for s in sms if s["date"].year == annee and s["statut"] == "envoye"
+        )
         print(f"  {annee} : {n:>7} SMS dont {envoyes:>7} envoyés")
     if rejets:
         print(f"Écartés : {dict(rejets)}")
 
-    bilan: dict[str, Any] = {"simulation": not args.execute, "lus": len(rows), "retenus": len(sms)}
+    bilan: dict[str, Any] = {
+        "simulation": not args.execute,
+        "lus": len(rows),
+        "retenus": len(sms),
+    }
     with get_session() as session:
         bilan.update(ecrire(session, sms, logins_v1))
         if not args.execute:
             session.rollback()
     print("\n" + json.dumps(bilan, ensure_ascii=False))
     rapport = settings.reports_dir / "import_sms_historique.json"
-    rapport.write_text(json.dumps({**bilan, "rejets": dict(rejets)}, indent=2, ensure_ascii=False), encoding="utf-8")
+    rapport.write_text(
+        json.dumps({**bilan, "rejets": dict(rejets)}, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     print(f"Rapport : {rapport}")
     if not args.execute:
-        print("\nSimulation : rien n'a été écrit (les chiffres ci-dessus sont ceux d'une reprise). Relancer avec --execute.")
+        print(
+            "\nSimulation : rien n'a été écrit (les chiffres ci-dessus sont ceux d'une reprise). Relancer avec --execute."
+        )
     return 0
 
 
