@@ -54,8 +54,9 @@ async def test_importer_recalcule_postes_et_services() -> None:
     engine = create_async_engine("sqlite+aiosqlite://", execution_options={"schema_translate_map": {"dbo": None}})
     async with engine.begin() as c:
         for ddl in (
-            "CREATE TABLE agences (id INTEGER PRIMARY KEY, code TEXT)",
-            "CREATE TABLE services (id INTEGER PRIMARY KEY, agence_id INT)",
+            "CREATE TABLE agences (id INTEGER PRIMARY KEY, code TEXT, delegation_id INT)",
+            "CREATE TABLE delegations (id INTEGER PRIMARY KEY, region_id INT)",
+            "CREATE TABLE services (id INTEGER PRIMARY KEY, agence_id INT, region_id INT)",
             "CREATE TABLE postes (id INTEGER PRIMARY KEY, nombre_clients INT)",
             "CREATE TABLE nombre_client_mois (id INTEGER PRIMARY KEY, service_id INT, annee INT, mois INT, "
             "nombre_clients INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
@@ -63,10 +64,13 @@ async def test_importer_recalcule_postes_et_services() -> None:
             "libelle TEXT, code_agence TEXT, delegation TEXT, agence_id INT, nb_contrats INT, date_maj DATETIME, source TEXT)",
             "CREATE TABLE postes_unites_releve (id INTEGER PRIMARY KEY, poste_id INT, unite_releve TEXT, statut TEXT, "
             "modifie_par_id INT, modifie_le DATETIME, valide_par_id INT, valide_le DATETIME)",
-            "INSERT INTO agences VALUES (1, 'AG110'), (2, 'AG140')",
-            "INSERT INTO services VALUES (5, 1), (6, 1), (7, 2)",
+            "INSERT INTO agences VALUES (1, 'AG110', 1), (2, 'AG140', 2), (3, 'AG150', 2)",
+            "INSERT INTO delegations VALUES (1, 1), (2, 2)",
+            # agence 3 sans service propre : clients portés par le service le plus chargé de sa région (8)
+            "INSERT INTO services VALUES (5, 1, 1), (6, 1, 1), (7, 2, 2), (8, NULL, 2)",
             "INSERT INTO postes VALUES (100, 999), (101, NULL), (102, 50)",
-            "INSERT INTO nombre_client_mois (service_id, annee, mois, nombre_clients) VALUES (5, 2026, 10, 1)",
+            "INSERT INTO nombre_client_mois (service_id, annee, mois, nombre_clients) VALUES (5, 2026, 10, 1), "
+            "(8, 2026, 9, 1000), (7, 2026, 9, 10)",
             # A partagée entre 100 et 101 ; B seulement 100 ; C proposée (ne compte pas encore)
             "INSERT INTO postes_unites_releve (poste_id, unite_releve, statut) VALUES "
             "(100, '1100200I', 'valide'), (101, '1100200I', 'valide'), (100, '1100201P', 'suppression_proposee'),"
@@ -78,25 +82,26 @@ async def test_importer_recalcule_postes_et_services() -> None:
         {"unite_releve": "1100201P", "nb_contrats": 10, "code_agence": "110"},
         {"unite_releve": "1400595W", "nb_contrats": 40},
         {"unite_releve": "9990001W", "nb_contrats": 5},  # agence inconnue
+        {"unite_releve": "1500001W", "nb_contrats": 20, "code_agence": "150"},  # agence sans service
     ]
     try:
         async with AsyncSession(engine) as db:
             bilan = await svc.importer(db, 2026, 10, brutes, svc.SOURCE_BI)
             postes = dict((await db.execute(text("SELECT id, nombre_clients FROM postes"))).all())
             ncm = (
-                await db.execute(text("SELECT service_id, nombre_clients FROM nombre_client_mois ORDER BY service_id"))
+                await db.execute(text("SELECT service_id, nombre_clients FROM nombre_client_mois WHERE mois = 10 ORDER BY service_id"))
             ).all()
             resume = await svc.resume(db)
     finally:
         await engine.dispose()
 
-    assert (bilan.unites_releve, bilan.contrats, bilan.contrats_sans_agence) == (4, 155, 5)
+    assert (bilan.unites_releve, bilan.contrats, bilan.contrats_sans_agence) == (5, 175, 5)
     # poste 100 : moitié de A (50) + B (10) ; poste 101 : moitié de A ; poste 102 inchangé (lien non validé)
     assert postes == {100: 60, 101: 50, 102: 50}
     # agence 1 → service 5 (le premier), agence 2 → service 7 ; l'ancienne valeur du mois est remplacée
-    assert ncm == [(5, 110), (7, 40)]
+    assert ncm == [(5, 110), (7, 40), (8, 20)]
     p = resume["periodes"][0]
     assert (p["annee"], p["mois"], p["ur"], p["contrats"], p["ur_rattachees"], p["contrats_rattaches"]) == (
-        2026, 10, 4, 155, 2, 110
+        2026, 10, 5, 175, 2, 110
     )
     assert resume["liens"] == {"ajout_propose": 1, "suppression_proposee": 1, "valide": 2}

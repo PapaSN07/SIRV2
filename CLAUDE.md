@@ -218,6 +218,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : la liste ETL d'`InterruptionsTransport` demandait `idservice` / `idfeeder`, absentes de la table HFSQL (« Rubrique inconnue ») ; `EnergieND` est vide dans SIR v1 ; les scripts finissaient leur travail puis Python sortait en 3221225477 (0xC0000005, pilote ODBC HFSQL au déchargement), ce qui arrêtait l'enchaînement.
 **Règles** : `hfsql_schema.get_table_columns` retire du SELECT les colonnes absentes de la table réelle ; un script de migration se termine par `scripts.migration._bootstrap.terminer(main())` (sortie directe, sans finalisation) ; le transport est repris seulement avec `--avec-transport` (en attente au 02/11/2026).
 
+### 02/11/2026 — Base clients BI_ODS : 59 115 clients en novembre au lieu de 2,6 millions
+**Contexte** : première synchronisation BI_ODS (novembre 2026), visible dans le tableau d'état de `delta_periode.py`.
+**Erreur** : les contrats d'une agence étaient rattachés au premier service de l'agence ; la plupart des agences n'ont pas de service propre dans SIRV2 (SIR v1 rattache ses lignes régionales à un service représentatif par région) : leurs contrats étaient perdus.
+**Règle** : `clients_repository.services_par_agence` = service de l'agence, sinon service représentatif de la région (le plus chargé dans `nombre_client_mois`, à défaut le premier de la région) ; contrôler le total national de `nombre_client_mois` après chaque changement de source (~2,6 millions en 2026).
+
 ---
 
 *Dernière mise à jour : Juin 2026*

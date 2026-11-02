@@ -6,7 +6,7 @@ from sqlalchemy import BigInteger, Float, case, cast, delete, func, insert, sele
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import ContratsUniteReleve, PosteUniteReleve
-from app.models.geo import Agence, Service
+from app.models.geo import Agence, Delegation, Service
 from app.models.indicateurs import NombreClientMois
 from app.models.reseau import Poste
 
@@ -45,9 +45,52 @@ async def contrats_par_agence(db: AsyncSession, annee: int, mois: int) -> list[t
 
 
 async def services_par_agence(db: AsyncSession) -> dict[int, int]:
-    """Service porteur des clients d'une agence (même règle que la reprise de NombreClientMois)."""
-    rows = (await db.execute(select(Service.agence_id, func.min(Service.id)).group_by(Service.agence_id))).all()
-    return {int(a): int(s) for a, s in rows if a is not None}
+    """Service qui porte les clients de chaque agence (même règle que la reprise SIR v1).
+
+    1. le premier service de l'agence ;
+    2. sinon le service représentatif de la région de l'agence : celui qui portait le plus de
+       clients dans nombre_client_mois (SIR v1 rattache ses lignes régionales à un service par
+       région), à défaut le premier service de la région.
+    La plupart des agences n'ont pas de service propre dans SIRV2 : sans l'étape 2, leurs
+    contrats étaient perdus (novembre 2026 : 59 115 clients au lieu de 2,6 millions).
+    """
+    propres = {
+        int(a): int(s)
+        for a, s in (
+            await db.execute(select(Service.agence_id, func.min(Service.id)).group_by(Service.agence_id))
+        ).all()
+        if a is not None
+    }
+    # Représentant de région : service le plus chargé dans la base clients déjà connue
+    charge = (
+        select(Service.region_id, NombreClientMois.service_id, func.max(NombreClientMois.nombre_clients).label("n"))
+        .join(Service, Service.id == NombreClientMois.service_id)
+        .where(Service.region_id.is_not(None))
+        .group_by(Service.region_id, NombreClientMois.service_id)
+    )
+    representants: dict[int, tuple[int, int]] = {}
+    for region_id, service_id, n in (await db.execute(charge)).all():
+        actuel = representants.get(int(region_id))
+        if actuel is None or int(n or 0) > actuel[1]:
+            representants[int(region_id)] = (int(service_id), int(n or 0))
+    par_region = {r: s for r, (s, _) in representants.items()}
+    for region_id, service_id in (
+        await db.execute(
+            select(Service.region_id, func.min(Service.id))
+            .where(Service.region_id.is_not(None))
+            .group_by(Service.region_id)
+        )
+    ).all():
+        par_region.setdefault(int(region_id), int(service_id))
+    resultat = dict(propres)
+    for agence_id, region_id in (
+        await db.execute(
+            select(Agence.id, Delegation.region_id).join(Delegation, Delegation.id == Agence.delegation_id)
+        )
+    ).all():
+        if int(agence_id) not in resultat and region_id is not None and int(region_id) in par_region:
+            resultat[int(agence_id)] = par_region[int(region_id)]
+    return resultat
 
 
 async def clients_par_poste(db: AsyncSession, annee: int, mois: int) -> dict[int, int]:
