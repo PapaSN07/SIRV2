@@ -54,6 +54,12 @@ def _sync_url() -> str:
     return url
 
 
+def _checkpoint_path(depuis: datetime | None) -> Path:
+    """Un point de reprise par périmètre : celui de l'import complet ne vaut pas pour un delta."""
+    suffixe = f"_{depuis:%Y%m%d}" if depuis is not None else ""
+    return get_settings().reports_dir / f"import_poste_itd_checkpoint{suffixe}.json"
+
+
 def _load_legacy_interruption_ids(*, distribution_only: bool, depuis: datetime | None = None) -> list[int]:
     """Legacy ids migrés ; ``depuis`` : seulement les interruptions apparues à partir de cette date (delta)."""
     id_maps = IdMapStore()
@@ -289,7 +295,7 @@ def run_import(
     )
 
     itd_conn = connect_itd()
-    checkpoint_path = get_settings().reports_dir / "import_poste_itd_checkpoint.json"
+    checkpoint_path = _checkpoint_path(depuis)
     try:
         for chunk_idx in range(start_chunk, chunks_to_run):
             start = chunk_idx * interruption_chunk_size
@@ -481,7 +487,7 @@ def main() -> int:
 
     start_chunk = max(0, args.start_chunk)
     if args.resume and start_chunk == 0:
-        checkpoint = get_settings().reports_dir / "import_poste_itd_checkpoint.json"
+        checkpoint = _checkpoint_path(args.depuis)
         if checkpoint.is_file():
             data = json.loads(checkpoint.read_text(encoding="utf-8"))
             start_chunk = int(data.get("last_completed_chunk", -1)) + 1
