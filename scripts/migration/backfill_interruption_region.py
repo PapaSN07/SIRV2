@@ -5,7 +5,8 @@ Règle SENELEC (02/11/2026) : la région suit le service. SDDV (Dakar ville), SD
 (Pikine-Guédiawaye) et SDRBD (Rufisque-Bargny-Diamniadio) sont à Dakar, les services régionaux
 (SDRCE*, SDRCO*, SDRN*, DRS…) en Régions (migration c9d0e1f2a3b4). Le poste source ne sert que pour
 une interruption sans service : sa région n'est pas fiable dans SIRV2 (postes régionaux à Dakar).
-Certains départs de SDRBD touchent les Régions : exception à traiter départ par départ.
+Certains départs de SDRBD touchent les Régions : région propre du départ (feeders.region_id,
+appliquer_regions_departs.py), prioritaire sur le service.
 Même règle que la saisie (interruption_distribution_repository.region_du_depart).
 
 La colonne « regions » de SIR v1 n'est pas utilisée : elle range par exemple 6 471 interruptions
@@ -39,12 +40,14 @@ from scripts.migration.db_session import get_session  # noqa: E402
 
 _LOT = 5000
 
-# Région du départ : service, sinon poste source (Dakar / Régions)
+# Région : départ (feeders.region_id), sinon service, sinon poste source (Dakar / Régions)
 _SQL = """
 SELECT i.id, i.region_id, YEAR(i.date_apparition) AS annee, ISNULL(s.code, '(sans service)') AS service,
-       COALESCE(rs.id, rp.id) AS region_cible,
-       CASE WHEN rs.id IS NOT NULL THEN 'service' WHEN rp.id IS NOT NULL THEN 'poste source' ELSE 'aucune' END AS origine
+       COALESCE(rf.id, rs.id, rp.id) AS region_cible,
+       CASE WHEN rf.id IS NOT NULL THEN 'départ' WHEN rs.id IS NOT NULL THEN 'service' WHEN rp.id IS NOT NULL THEN 'poste source' ELSE 'aucune' END AS origine
 FROM dbo.interruptions i
+LEFT JOIN dbo.feeders f ON f.id = i.feeder_id
+LEFT JOIN dbo.regions rf ON rf.id = f.region_id AND rf.code IN ('DAKAR', 'REGIONS')
 LEFT JOIN dbo.postes_sources p ON p.id = i.poste_source_id
 LEFT JOIN dbo.regions rp ON rp.id = p.region_id AND rp.code IN ('DAKAR', 'REGIONS')
 LEFT JOIN dbo.services s ON s.id = i.service_id

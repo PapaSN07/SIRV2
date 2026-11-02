@@ -227,31 +227,40 @@ async def get_interruption_detail(
     return result.unique().scalar_one_or_none()
 
 
-async def region_du_depart(db: AsyncSession, poste_source_id: int | None, service_id: int | None) -> int | None:
-    """Région d'exploitation d'une interruption : celle de son service, sinon de son poste source.
+async def region_du_depart(
+    db: AsyncSession, poste_source_id: int | None, service_id: int | None, *, feeder_id: int | None = None
+) -> int | None:
+    """Région d'exploitation d'une interruption (Dakar / Régions).
 
-    SDDV, SDPG, SDRBD → Dakar ; services régionaux → Régions (migration c9d0e1f2a3b4). La région
-    des postes sources de SIRV2 n'est pas fiable (postes régionaux enregistrés à Dakar) : elle ne
-    sert que pour une interruption sans service. Seules Dakar et Régions sont retenues.
+    1. région propre du départ (feeders.region_id : départs de SDRBD côté Régions) ;
+    2. région de son service (SDDV, SDPG, SDRBD → Dakar ; services régionaux → Régions) ;
+    3. région de son poste source (peu fiable dans SIRV2 : seulement sans service).
     """
     from app.models.geo import Region
-    from app.models.reseau import PosteSource
+    from app.models.reseau import Feeder, PosteSource
 
     exploitation = Region.code.in_(("DAKAR", "REGIONS"))
+    candidats = []
+    if feeder_id is not None:
+        candidats.append(
+            select(Feeder.region_id)
+            .join(Region, Region.id == Feeder.region_id)
+            .where(Feeder.id == feeder_id, exploitation)
+        )
     if service_id is not None:
-        region_id = await db.scalar(
+        candidats.append(
             select(Service.region_id)
             .join(Region, Region.id == Service.region_id)
             .where(Service.id == service_id, exploitation)
         )
-        if region_id is not None:
-            return int(region_id)
     if poste_source_id is not None:
-        region_id = await db.scalar(
+        candidats.append(
             select(PosteSource.region_id)
             .join(Region, Region.id == PosteSource.region_id)
             .where(PosteSource.id == poste_source_id, exploitation)
         )
+    for requete in candidats:
+        region_id = await db.scalar(requete)
         if region_id is not None:
             return int(region_id)
     return None

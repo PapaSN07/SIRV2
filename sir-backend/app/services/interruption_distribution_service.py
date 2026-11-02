@@ -55,6 +55,7 @@ _DISTRIBUTION_TYPE_RESEAU = frozenset({"distribution", "commun"})
 READ_ROLES = frozenset({"BCC", "BRC", "ADMIN_SCR", "ADMIN_SAQS", "SUPERVISEUR"})
 VALIDATE_ROLES = frozenset({"SUPERVISEUR", "ADMIN_SCR", "ADMIN_SAQS"})
 
+
 def _user_role_names(user: Utilisateur) -> set[str]:
     return {ur.role.nom for ur in user.user_roles}
 
@@ -150,15 +151,21 @@ async def _ensure_service_in_write_scope(
 
 
 async def _region_de_saisie(
-    db: AsyncSession, user: Utilisateur, demandee: int | None, *, poste_source_id: int | None, service_id: int | None
+    db: AsyncSession,
+    user: Utilisateur,
+    demandee: int | None,
+    *,
+    poste_source_id: int | None,
+    service_id: int | None,
+    feeder_id: int | None = None,
 ) -> int:
-    """Région de l'interruption : celle du départ (poste source, sinon service).
+    """Région de l'interruption : celle du départ (repo.region_du_depart).
 
     Un BCC saisit uniquement pour Dakar, un BRC uniquement pour les Régions : un départ d'une
     autre région est refusé. Un compte national peut préciser la région quand le départ n'en
     porte pas.
     """
-    region_depart = await repo.region_du_depart(db, poste_source_id, service_id)
+    region_depart = await repo.region_du_depart(db, poste_source_id, service_id, feeder_id=feeder_id)
     scope = _read_scope(user)
     if scope is not None and scope.region_id is not None:
         if (region_depart is not None and region_depart != scope.region_id) or (
@@ -269,9 +276,7 @@ def _to_detail_response(
 
     return InterruptionDistributionDetailResponse(
         **detail_data,
-        signalisation_libelle=interruption.signalisation.libelle
-        if interruption.signalisation
-        else None,
+        signalisation_libelle=interruption.signalisation.libelle if interruption.signalisation else None,
         service_code=interruption.service.code if interruption.service else None,
         postes_impactes=postes,
         energie_nd=energie_nd_summary,
@@ -468,22 +473,16 @@ def _to_response(
         created_at=interruption.created_at,
         updated_at=interruption.updated_at,
         entreprise_libelle=interruption.entreprise.libelle if interruption.entreprise else None,
-        prestataire_libelle=interruption.prestataire.libelle
-        if interruption.prestataire
-        else None,
+        prestataire_libelle=interruption.prestataire.libelle if interruption.prestataire else None,
         cause_libelle=interruption.cause.libelle if interruption.cause else None,
         nature_libelle=interruption.nature.libelle if interruption.nature else None,
         siege_libelle=interruption.siege.libelle if interruption.siege else None,
         service_libelle=interruption.service.libelle if interruption.service else None,
-        poste_source_libelle=interruption.poste_source.libelle
-        if interruption.poste_source
-        else None,
+        poste_source_libelle=interruption.poste_source.libelle if interruption.poste_source else None,
         feeder_libelle=interruption.feeder.libelle if interruption.feeder else None,
         type_end_libelle=interruption.type_end.libelle if interruption.type_end else None,
         type_reseau_libelle=interruption.type_reseau.libelle if interruption.type_reseau else None,
-        sous_feeder_libelle=interruption.sous_feeder.libelle
-        if interruption.sous_feeder
-        else None,
+        sous_feeder_libelle=interruption.sous_feeder.libelle if interruption.sous_feeder else None,
         region_libelle=_region_libelle(interruption),
     )
 
@@ -570,7 +569,12 @@ async def create(
 
     await _ensure_service_in_write_scope(db, current_user, feeder.service_id)
     region_id = await _region_de_saisie(
-        db, current_user, body.region_id, poste_source_id=feeder.poste_source_id, service_id=feeder.service_id
+        db,
+        current_user,
+        body.region_id,
+        poste_source_id=feeder.poste_source_id,
+        service_id=feeder.service_id,
+        feeder_id=feeder.id,
     )
 
     await _validate_referentiel_distribution(
@@ -580,12 +584,8 @@ async def create(
         siege_id=body.siege_id,
         signalisation_id=body.signalisation_id,
     )
-    await _validate_intervenants(
-        db, entreprise_id=body.entreprise_id, prestataire_id=body.prestataire_id
-    )
-    await _validate_type_saisie(
-        db, type_end_id=body.type_end_id, type_reseau_id=body.type_reseau_id
-    )
+    await _validate_intervenants(db, entreprise_id=body.entreprise_id, prestataire_id=body.prestataire_id)
+    await _validate_type_saisie(db, type_end_id=body.type_end_id, type_reseau_id=body.type_reseau_id)
 
     year = body.date_apparition.year
     numero = await repo.next_numero_interruption(db, year=year)
@@ -806,9 +806,7 @@ async def get_stats(
         "date_fin": date_fin,
     }
     total = await repo.count_interruptions_scoped(db, scope=scope, **filter_kwargs)
-    non_validees = await repo.count_interruptions_scoped(
-        db, scope=scope, non_validees_only=True, **filter_kwargs
-    )
+    non_validees = await repo.count_interruptions_scoped(db, scope=scope, non_validees_only=True, **filter_kwargs)
     en_cours = await repo.count_interruptions_scoped(
         db,
         scope=scope,
@@ -1100,9 +1098,7 @@ async def _bulk_link_postes(
         if not await _poste_dans_perimetre(db, poste, interruption):
             skipped += 1
             continue
-        feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(
-            interruption, poste
-        )
+        feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(interruption, poste)
         link = await repo.add_poste_interruption(
             db,
             interruption_id=interruption.id,
@@ -1175,9 +1171,7 @@ async def add_postes_from_sig_troncon(
 
     troncon_sig_id = body.troncon_sig_id
     if troncon_sig_id is None:
-        troncon_sig_id = await workflow_repo.get_troncon_sig_id_for_interruption(
-            db, interruption.id
-        )
+        troncon_sig_id = await workflow_repo.get_troncon_sig_id_for_interruption(db, interruption.id)
     if troncon_sig_id is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1323,9 +1317,7 @@ def _snapshot_interruption(interruption: Interruption) -> dict[str, object]:
     if distribution is not None:
         snapshot.update(
             {
-                "tension_kv": float(distribution.tension_kv)
-                if distribution.tension_kv is not None
-                else None,
+                "tension_kv": float(distribution.tension_kv) if distribution.tension_kv is not None else None,
                 "nombre_clients_mt": distribution.nombre_clients_mt,
                 "nombre_clients_bt": distribution.nombre_clients_bt,
                 "is_programme": distribution.is_programme,
@@ -1514,8 +1506,7 @@ async def cloturer(
                     "status": "error",
                     "data": None,
                     "error": (
-                        "Pour une interruption de plus de 5 minutes, "
-                        "au moins un poste impacté doit être coché"
+                        "Pour une interruption de plus de 5 minutes, " "au moins un poste impacté doit être coché"
                     ),
                 },
             )
@@ -1645,7 +1636,7 @@ async def valider(
     await db.commit()
 
     if interruption.service_id is not None and interruption.date_remise is not None:
-        region_id = (interruption.region_id or await end_repo.get_region_id_for_service(db, interruption.service_id))
+        region_id = interruption.region_id or await end_repo.get_region_id_for_service(db, interruption.service_id)
         if region_id is not None:
             invalidate_indicateurs_cache(region_id, interruption.date_remise)
 
@@ -1694,18 +1685,14 @@ async def devalider(
     return await _response_after_commit(db, interruption_id)
 
 
-async def archiver_mois(
-    db: AsyncSession, body: ArchivageRequest, current_user: Utilisateur
-) -> ArchivageResponse:
+async def archiver_mois(db: AsyncSession, body: ArchivageRequest, current_user: Utilisateur) -> ArchivageResponse:
     _ensure_not_transport_role(current_user)
     return await interruption_cycle_service.archiver_mois(
         db, type_direction="distribution", annee=body.annee, mois=body.mois, user=current_user
     )
 
 
-async def valider_lot(
-    db: AsyncSession, body: ValidationLotRequest, current_user: Utilisateur
-) -> ValidationLotResponse:
+async def valider_lot(db: AsyncSession, body: ValidationLotRequest, current_user: Utilisateur) -> ValidationLotResponse:
     """Valide plusieurs interruptions en une requête ; chaque ligne réussit ou échoue seule."""
     _ensure_can_validate(current_user)
     validees: list[int] = []

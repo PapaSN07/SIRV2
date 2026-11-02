@@ -76,3 +76,17 @@ def test_region_poste_source_par_departs() -> None:
     assert region_cible(Counter({2: 5})) == (2, False)
     assert region_cible(Counter({1: 3, 2: 1})) == (1, True)  # mixte, majorité Dakar
     assert region_cible(Counter({1: 2, 2: 2})) == (1, True)  # égalité → Dakar
+
+
+def test_regions_departs_sdrbd() -> None:
+    from scripts.migration.appliquer_regions_departs import decisions
+
+    lignes = [
+        {"feeder_id_sirv2": "1", "service": "SDRBD", "part_regions_pct": "80"},
+        {"feeder_id_sirv2": "2", "service": "SDRBD", "part_regions_pct": "10"},
+        {"feeder_id_sirv2": "3", "service": "SDRBD", "part_regions_pct": "50"},  # indécis : région du service
+        {"feeder_id_sirv2": "4", "service": "SDDV", "part_regions_pct": "90"},  # hors SDRBD : ignoré
+        {"feeder_id_sirv2": "", "service": "SDRBD", "part_regions_pct": "90"},  # absent SIRV2
+    ]
+    assert decisions(lignes, {"SDRBD"}, 60, {}) == {1: "Régions", 2: "Dakar"}
+    assert decisions(lignes, {"SDRBD"}, 60, {3: "Régions", 2: "Régions"}) == {1: "Régions", 2: "Régions", 3: "Régions"}

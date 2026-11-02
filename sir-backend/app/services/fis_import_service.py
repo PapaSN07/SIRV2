@@ -119,9 +119,11 @@ _COL_END = "end"
 # Structures de résultats
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FisRow:
     """Ligne parsée depuis la feuille 'Détails interruptions'."""
+
     numero: int
     service_libelle: str
     source_libelle: str
@@ -166,6 +168,7 @@ def _region_du_compte(user) -> int | None:
     scope = distribution_rules._read_scope(user)
     return getattr(scope, "region_id", None) if scope is not None else None
 
+
 def _normalise(s: str | None) -> str:
     """Normalise une chaîne : strip + lowercase."""
     if s is None:
@@ -182,11 +185,7 @@ def _find_header_row(ws) -> dict[str, int] | None:  # type: ignore[type-arg]
             continue
         first = _normalise(str(cells[0]))
         if first == _COL_NUMERO:
-            return {
-                _normalise(str(v)): i
-                for i, v in enumerate(row)
-                if v is not None
-            }
+            return {_normalise(str(v)): i for i, v in enumerate(row) if v is not None}
     return None
 
 
@@ -211,6 +210,7 @@ def _parse_duration(val: Any) -> int:
     if isinstance(val, str):
         # Format "0 h 31 m 00" ou "1 h 22 m 00"
         import re
+
         m = re.match(r"(\d+)\s*h\s*(\d+)\s*m", val)
         if m:
             return int(m.group(1)) * 60 + int(m.group(2))
@@ -246,17 +246,13 @@ def parse_fis_sheet(file_bytes: bytes) -> list[FisRow]:
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
 
     if SHEET_NAME not in wb.sheetnames:
-        raise ValueError(
-            f"Feuille '{SHEET_NAME}' introuvable. "
-            f"Feuilles disponibles : {wb.sheetnames}"
-        )
+        raise ValueError(f"Feuille '{SHEET_NAME}' introuvable. " f"Feuilles disponibles : {wb.sheetnames}")
 
     ws = wb[SHEET_NAME]
     headers = _find_header_row(ws)
     if headers is None:
         raise ValueError(
-            f"Ligne d'en-tête introuvable dans '{SHEET_NAME}' "
-            "(colonnes attendues : N°, Service Distribution, …)"
+            f"Ligne d'en-tête introuvable dans '{SHEET_NAME}' " "(colonnes attendues : N°, Service Distribution, …)"
         )
 
     # Index des colonnes clés
@@ -345,6 +341,7 @@ def parse_fis_sheet(file_bytes: bytes) -> list[FisRow]:
 # Résolution des référentiels DB (get-or-create)
 # ---------------------------------------------------------------------------
 
+
 async def _get_or_create_nature(db: AsyncSession, libelle: str) -> Nature | None:
     """Résout ou crée une Nature depuis le libellé FIS."""
     if not libelle:
@@ -371,9 +368,7 @@ async def _get_or_create_nature(db: AsyncSession, libelle: str) -> Nature | None
     return nature
 
 
-async def _get_or_create_cause(
-    db: AsyncSession, libelle: str
-) -> tuple[Cause | None, bool]:
+async def _get_or_create_cause(db: AsyncSession, libelle: str) -> tuple[Cause | None, bool]:
     """Résout ou crée une Cause depuis le libellé FIS. Retourne (cause, is_force_majeure)."""
     if not libelle:
         return None, False
@@ -434,17 +429,11 @@ async def _find_service(db: AsyncSession, libelle: str) -> Service | None:
     if service:
         return service
     # Par libelle insensible casse
-    result = await db.execute(
-        select(Service).where(
-            Service.libelle.ilike(f"%{libelle}%")
-        )
-    )
+    result = await db.execute(select(Service).where(Service.libelle.ilike(f"%{libelle}%")))
     return result.scalars().first()
 
 
-async def _find_feeder(
-    db: AsyncSession, libelle: str, service_id: int | None
-) -> Feeder | None:
+async def _find_feeder(db: AsyncSession, libelle: str, service_id: int | None) -> Feeder | None:
     """Cherche un feeder par libelle dans le service donné ou globalement."""
     if not libelle:
         return None
@@ -459,11 +448,7 @@ async def _find_poste_source(db: AsyncSession, libelle: str) -> PosteSource | No
     """Cherche un poste source par libelle."""
     if not libelle:
         return None
-    result = await db.execute(
-        select(PosteSource)
-        .where(PosteSource.libelle.ilike(f"%{libelle}%"))
-        .limit(1)
-    )
+    result = await db.execute(select(PosteSource).where(PosteSource.libelle.ilike(f"%{libelle}%")).limit(1))
     return result.scalar_one_or_none()
 
 
@@ -476,10 +461,7 @@ async def _find_system_user(db: AsyncSession) -> Utilisateur:
     )
     user = result.scalar_one_or_none()
     if user is None:
-        raise RuntimeError(
-            "Aucun utilisateur actif trouvé — "
-            "exécuter les seeds avant d'importer un fichier FIS"
-        )
+        raise RuntimeError("Aucun utilisateur actif trouvé — " "exécuter les seeds avant d'importer un fichier FIS")
     return user
 
 
@@ -502,6 +484,7 @@ async def _rollback_savepoint(savepoint: Any) -> None:
 # ---------------------------------------------------------------------------
 # Import principal
 # ---------------------------------------------------------------------------
+
 
 def _can_validate(user: Utilisateur) -> bool:
     try:
@@ -576,13 +559,9 @@ async def import_fis_file(
             # Périmètre d'écriture : mêmes règles que la saisie manuelle
             if service_id is None:
                 if distribution_rules._read_scope(current_user) is not None:
-                    raise ValueError(
-                        f"service « {row.service_libelle} » introuvable : périmètre invérifiable"
-                    )
+                    raise ValueError(f"service « {row.service_libelle} » introuvable : périmètre invérifiable")
             else:
-                await distribution_rules._ensure_service_in_write_scope(
-                    db, current_user, service_id
-                )
+                await distribution_rules._ensure_service_in_write_scope(db, current_user, service_id)
 
             # Résolution poste source
             ps_key = row.source_libelle
@@ -625,7 +604,7 @@ async def import_fis_file(
 
             # Région d'exploitation : celle du départ ; un BCC / BRC n'importe que sa région
             region_id = await distribution_rules.repo.region_du_depart(
-                db, poste_source.id if poste_source else None, service_id
+                db, poste_source.id if poste_source else None, service_id, feeder_id=feeder.id if feeder else None
             )
             region_compte = _region_du_compte(current_user)
             if region_compte is not None:

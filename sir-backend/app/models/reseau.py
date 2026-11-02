@@ -20,9 +20,7 @@ class PosteSource(Base):
 
     # Relationships
     region: Mapped["Region | None"] = relationship("Region", foreign_keys=[region_id], lazy="select")  # noqa: F821
-    feeders: Mapped[list["Feeder"]] = relationship(
-        "Feeder", back_populates="poste_source", lazy="select"
-    )
+    feeders: Mapped[list["Feeder"]] = relationship("Feeder", back_populates="poste_source", lazy="select")
 
 
 class Feeder(Base):
@@ -37,6 +35,11 @@ class Feeder(Base):
     service_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("services.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Région d'exploitation propre au départ (Dakar / Régions) quand elle diffère de celle de son
+    # service : départs de SDRBD qui alimentent les Régions (délégations SIG DRCO / DRCO2)
+    region_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("regions.id", ondelete="NO ACTION"), nullable=True
+    )
     code: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, unique=True)
     libelle: Mapped[str] = mapped_column(NVARCHAR(200), nullable=False)
     tension_kv: Mapped[float | None] = mapped_column(DECIMAL(6, 2), nullable=True)
@@ -44,13 +47,9 @@ class Feeder(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Relationships
-    poste_source: Mapped["PosteSource"] = relationship(
-        "PosteSource", back_populates="feeders"
-    )
+    poste_source: Mapped["PosteSource"] = relationship("PosteSource", back_populates="feeders")
     service: Mapped["Service | None"] = relationship("Service", foreign_keys=[service_id], lazy="select")  # noqa: F821
-    sous_feeders: Mapped[list["SousFeeder"]] = relationship(
-        "SousFeeder", back_populates="feeder", lazy="select"
-    )
+    sous_feeders: Mapped[list["SousFeeder"]] = relationship("SousFeeder", back_populates="feeder", lazy="select")
 
 
 class SousFeeder(Base):
@@ -156,9 +155,7 @@ class PosteLigne(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Relationships
-    poste_source: Mapped["PosteSource"] = relationship(
-        "PosteSource", foreign_keys=[poste_source_id], lazy="select"
-    )
+    poste_source: Mapped["PosteSource"] = relationship("PosteSource", foreign_keys=[poste_source_id], lazy="select")
     equipement_transport: Mapped["EquipementTransport"] = relationship(
         "EquipementTransport", foreign_keys=[equipement_transport_id], lazy="select"
     )
