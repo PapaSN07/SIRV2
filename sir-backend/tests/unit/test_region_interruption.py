@@ -54,3 +54,14 @@ def test_backfill_region_corrections() -> None:
     # (id, région actuelle, région du départ) : 10 → Dakar ; 11 Dakar → Régions ; 12 juste ; 13 inconnue
     lignes = [(10, None, 1), (11, 1, 2), (12, 2, 2), (13, None, None)]
     assert corrections(lignes) == [(1, 10), (2, 11)]
+
+
+def test_verdict_poste_source() -> None:
+    from scripts.migration.probe_postes_sources import region_du_service, verdict
+
+    assert region_du_service("sdrbd") == "Dakar" and region_du_service("DRS") == "Régions"
+    assert region_du_service("DISPATCHING") is None
+    assert verdict("Régions", "Dakar", {"Régions"}) == "à corriger : SIRV2 Dakar → Régions"
+    assert verdict("Dakar", "Dakar", {"Dakar"}) == "cohérent"
+    assert verdict(None, "Dakar", {"Dakar", "Régions"}).startswith("mixte")
+    assert verdict(None, None, set()) == "indéterminé"
