@@ -223,6 +223,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : les contrats d'une agence étaient rattachés au premier service de l'agence ; la plupart des agences n'ont pas de service propre dans SIRV2 (SIR v1 rattache ses lignes régionales à un service représentatif par région) : leurs contrats étaient perdus.
 **Règle** : `clients_repository.services_par_agence` = service de l'agence, sinon service représentatif de la région (le plus chargé dans `nombre_client_mois`, à défaut le premier de la région) ; contrôler le total national de `nombre_client_mois` après chaque changement de source (~2,6 millions en 2026).
 
+### 02/11/2026 — END migrées 1 000 fois trop grandes (ENDD SIR v1 en kWh)
+**Contexte** : `scripts/migration/diag_interruptions_end.py` (juin → octobre 2026) : nombres et END identiques entre SIR v1 et SIRV2, mais ENDD / (puissance MW × durée h) = 1 000 sur 20 127 interruptions.
+**Erreur** : ENDD de SIR v1 est en kWh ; la reprise le recopiait dans `end_mwh` / `energie_non_fournie_mwh` (MWh), alors qu'elle convertissait bien la puissance (kW → MW). Les écrans et rapports multiplient `end_mwh` par 1 000 pour afficher des kWh : END migrées 1 000 fois trop grandes.
+**Règles** : à la reprise, ENDD ÷ 1000 (`loaders/interruptions._kwh_vers_mwh`) ; correction des données : `scripts/migration/backfill_end_unite.py` (recalcul depuis SIR v1, relançable) ; toute grandeur reprise est contrôlée par sa cohérence physique (END ≈ P × t) et pas seulement par égalité des totaux.
+
 ---
 
 *Dernière mise à jour : Juin 2026*

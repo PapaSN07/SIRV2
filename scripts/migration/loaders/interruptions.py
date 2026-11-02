@@ -38,6 +38,16 @@ INTERRUPTION_SOURCES: list[tuple[str, str, bool]] = [
 ]
 
 CLOSED_STATUTS = {"cloture", "valide", "archive"}
+
+
+def _kwh_vers_mwh(valeur: Any) -> float | None:
+    """ENDD de SIR v1 (kWh) → MWh. Contrôle : diag_interruptions_end.py (rapport ENDD / P×t = 1000)."""
+    if valeur is None or str(valeur).strip() == "":
+        return None
+    try:
+        return float(str(valeur).replace(",", ".")) / 1000
+    except ValueError:
+        return None
 _MAX_INT = 2_147_483_647
 _FK_FIELDS = (
     "service_id",
@@ -230,14 +240,15 @@ class InterruptionsLoader(BaseLoader):
             or None,
             "distribution": {
                 "tension_kv": row_get(row, "TensionPrimaire", "tensionprimaire"),
-                "end_mwh": row_get(row, "ENDD", "endd"),
+                # ENDD SIR v1 en kWh (= puissance kW × durée h) ; SIRV2 stocke des MWh
+                "end_mwh": _kwh_vers_mwh(row_get(row, "ENDD", "endd")),
                 "is_programme": bool(
                     row_get(row, "Délestage", "Delestage", "delestage", "délestage")
                 ),
             },
             "transport": {
                 "tension_kv": row_get(row, "TensionPrimaire", "tensionprimaire"),
-                "energie_non_fournie_mwh": row_get(row, "ENDD", "endd"),
+                "energie_non_fournie_mwh": _kwh_vers_mwh(row_get(row, "ENDD", "endd")),
             },
         }
 
@@ -407,7 +418,7 @@ class InterruptionsLoader(BaseLoader):
             if inter_id is None:
                 self.log_reject(row_get(row, "IDEnergieND"), "interruption_introuvable", row)
                 continue
-            end_val = float(row_get(row, "ENDD", "END", "endd", "end") or 0)
+            end_val = float(row_get(row, "ENDD", "END", "endd", "end") or 0) / 1000  # kWh → MWh
             if self.dry_run:
                 self.stats["inserted"] += 1
                 continue

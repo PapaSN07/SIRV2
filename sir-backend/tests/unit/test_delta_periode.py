@@ -81,3 +81,13 @@ def test_diag_interruptions_end_ecarts() -> None:
     assert ecarts_interruption(base, autre) == ["remise", "end", "force_majeure"]  # archive et valide comptent tous deux
     assert not _vrai("0") and _vrai(1) and _vrai("Vrai") and not _vrai(None)
     assert compte_ecran(base) and not compte_ecran({**base, "statut": "en_cours"})
+
+
+def test_end_kwh_vers_mwh() -> None:
+    from scripts.migration.backfill_end_unite import corrections
+    from scripts.migration.loaders.interruptions import _kwh_vers_mwh
+
+    assert _kwh_vers_mwh("25000") == 25.0 and _kwh_vers_mwh(None) is None and _kwh_vers_mwh("1,5") == 0.0015
+    # END en kWh (25 000) à ramener à 25 MWh ; déjà corrigée (25) : rien ; sans équivalent v1 : rien
+    actuelles = [(1, 2026, 25000.0), (2, 2026, 25.0), (3, 2026, 7.0)]
+    assert corrections(actuelles, {1: 25.0, 2: 25.0}) == [(25.0, 1)]

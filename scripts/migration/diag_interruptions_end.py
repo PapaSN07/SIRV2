@@ -9,8 +9,8 @@ Lecture seule des deux côtés, interruptions de distribution apparues entre --d
 3. Par région : nombre et END sur la période.
 4. Interruption par interruption : absentes d'un côté, écarts de date d'apparition ou de remise,
    de statut, de force majeure, de service, d'END et de puissance coupée ; détail en CSV.
-5. Unité de l'END : rapport ENDD / (puissance coupée × durée), pour vérifier que les valeurs sont
-   bien en MWh (les puissances SIR v1 sont en kW et converties en MW à la reprise).
+5. Unité de l'END : rapport END / (puissance coupée × durée) des deux côtés (SIR v1 en kWh, SIRV2 en MWh) ;
+   ENDD de SIR v1 est en kWh : il est ramené en MWh (÷ 1000) pour toutes les comparaisons.
 
 Usage (poste ETL, réseau SENELEC) :
     python scripts/migration/diag_interruptions_end.py --depuis 2026-06 --jusqu-a 2026-10
@@ -121,7 +121,7 @@ def normaliser_hfsql(
             "apparition": resolve_interruption_date_apparition(row),
             "remise": resolve_interruption_date_remise(row),
             "duree_h": _f(row_get(row, "dureeHeure", "dureeheure")),
-            "end": _f(row_get(row, "ENDD", "endd")) or 0.0,
+            "end": (_f(row_get(row, "ENDD", "endd")) or 0.0) / 1000,  # kWh → MWh
             "puissance_mw": puissance_kw * 0.001 if puissance_kw is not None else None,
             "force_majeure": _vrai(row_get(row, "casforcemajeur")),
             "statut": map_statut(
@@ -342,26 +342,28 @@ def main() -> int:
         )
 
     # 5. Unité de l'END
-    rapports = [
-        x["end"] / (x["puissance_mw"] * x["duree_h"])
-        for x in hf.values()
-        if x["end"] and x["puissance_mw"] and x["duree_h"]
-    ]
-    if rapports:
-        med = statistics.median(rapports)
-        print(
-            f"\n5. Unité de l'END : médiane ENDD / (puissance MW × durée h) = {med:.4f} sur {len(rapports)} interruptions"
-        )
-        if 0.5 < med < 2:
-            print("   → ENDD est en MWh (cohérent avec end_mwh).")
-        elif 500 < med < 2000:
-            print(
-                "   → ENDD semble en kWh : les END SIRV2 seraient 1 000 fois trop grandes."
-            )
-        else:
-            print(
-                "   → rapport atypique : l'END de SIR v1 ne suit pas puissance × durée, à examiner."
-            )
+    def _mediane(donnees: dict[Any, dict[str, Any]]) -> tuple[float, int] | None:
+        r = [
+            x["end"] / (x["puissance_mw"] * x["duree_h"])
+            for x in donnees.values()
+            if x["end"] and x["puissance_mw"] and x["duree_h"]
+        ]
+        return (statistics.median(r), len(r)) if r else None
+
+    print(
+        "\n5. Unité de l'END : médiane END / (puissance MW × durée h) — 1 = MWh, 1 000 = kWh"
+    )
+    for nom, donnees, attendu in (
+        ("SIR v1 (ENDD÷1000)", hf, "MWh"),
+        ("SIRV2 (end_mwh)", v2, "MWh"),
+    ):
+        res = _mediane(donnees)
+        if res is None:
+            continue
+        med, n = res
+        unite = "MWh" if 0.5 < med < 2 else "kWh" if 500 < med < 2000 else "atypique"
+        alerte = "  ← à corriger : backfill_end_unite.py" if unite != attendu else ""
+        print(f"   {nom:<16} : {med:>10.4f} sur {n} interruptions → {unite}{alerte}")
 
     chemin = (
         get_settings().reports_dir
