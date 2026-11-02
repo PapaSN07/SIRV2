@@ -25,6 +25,9 @@ interface BrouillonSaisie {
   valeurs: Record<string, unknown>;
 }
 
+/** Régions d'exploitation des interruptions de distribution (SIR v1) : Dakar (BCC), Régions (BRC). */
+const REGIONS_EXPLOITATION = ['DAKAR', 'REGIONS'];
+
 @Component({
   selector: 'sir-interruption-form',
   standalone: true,
@@ -180,7 +183,7 @@ export class InterruptionFormComponent implements OnInit {
     } else {
       this.geo.getRegions().subscribe({
         next: (r) => {
-          this.regions.set(r);
+          this.regions.set(r.filter((x) => REGIONS_EXPLOITATION.includes(x.code)));
           this.ensureUserThenInitCreateScope();
         },
         error: () => this.ensureUserThenInitCreateScope(),
@@ -556,6 +559,7 @@ export class InterruptionFormComponent implements OnInit {
     this.interruptionService
       .create({
         date_apparition: dateIso,
+        region_id: this.regionId(),
         poste_source_id: raw.poste_source_id,
         feeder_id: raw.feeder_id,
         sous_feeder_id: raw.sous_feeder_id >= 1 ? raw.sous_feeder_id : null,

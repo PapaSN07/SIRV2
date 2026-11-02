@@ -142,6 +142,7 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | 29/10/2026 | SMS : web service SOAP SENELEC `OSPWebService` (10.101.2.86:8080), méthode `sendOneSignedSMS` (signature `SMS_GATEWAY_SIGNATURE`) — un appel par destinataire ; WSDL lu au premier envoi (`app/services/sms_gateway.py`), test : `python -m scripts.test_sms` | Validé |
 | 30/10/2026 | Répertoire SMS SIR v1 (GroupeEnvoi, Destinataire, Repertoire) repris dans `groupes_envoi` / `destinataires` / `destinataire_groupes` (une personne, plusieurs groupes ; un SMS par numéro) via `scripts/migration/import_repertoire_sms.py` ; destinataires repris **sans service** : envois manuels uniquement, pas de SMS automatiques — voir `docs/sms_repertoire.md` | Validé |
 | 30/10/2026 | Base clients SAIFI/SAIDI : contrats par UR lus chaque jour à 7 h dans `BI_ODS.dbo.CONTRATS_PAR_AGENCE_UR` (SRV-ASREPORTS, SSIS ; `BI_ODS_ODBC`), fichier H2MC en secours ; clients d'un poste = Σ contrats de ses UR (UR partagée = 1/n) ; lien poste ↔ UR proposé par les chefs d'unité BCC / BRC, validé par le BRC (ou Admin SCR / SAQS) — page Indicateurs → Base clients → Atelier clients | Validé |
+| 02/11/2026 | Région d'exploitation portée par l'interruption (`interruptions.region_id`) : Dakar (BCC) ou Régions (BRC), comme la colonne `regions` de SIR v1 ; imposée par le compte BCC / BRC (choisie par les comptes nationaux) ; périmètre BCC / BRC, indicateurs, pilotage et rapports filtrent sur cette région (`app/repositories/perimetre.py`), la base clients par région sur les services représentatifs DD (Dakar) et BRC (Régions) | Validé |
 | 28/10/2026 | SAIFI/SAIDI = formule Power BI SENELEC (clients estimés des postes, SAIDI en heures, base NombreClientMois du mois de la dernière apparition, sans exclusion) — voir `docs/indicateurs_sirv2.md` | Validé |
 
 ---
@@ -227,6 +228,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Contexte** : `scripts/migration/diag_interruptions_end.py` (juin → octobre 2026) : nombres et END identiques entre SIR v1 et SIRV2, mais ENDD / (puissance MW × durée h) = 1 000 sur 20 127 interruptions.
 **Erreur** : ENDD de SIR v1 est en kWh ; la reprise le recopiait dans `end_mwh` / `energie_non_fournie_mwh` (MWh), alors qu'elle convertissait bien la puissance (kW → MW). Les écrans et rapports multiplient `end_mwh` par 1 000 pour afficher des kWh : END migrées 1 000 fois trop grandes.
 **Règles** : à la reprise, ENDD ÷ 1000 (`loaders/interruptions._kwh_vers_mwh`) ; correction des données : `scripts/migration/backfill_end_unite.py` (recalcul depuis SIR v1, relançable) ; toute grandeur reprise est contrôlée par sa cohérence physique (END ≈ P × t) et pas seulement par égalité des totaux.
+
+### 02/11/2026 — Toutes les interruptions rangées dans « Dakar »
+**Contexte** : `scripts/migration/probe_regions.py` : SIR v1 compte 11 373 interruptions Dakar et 22 602 Régions en 2026 ; SIRV2 les rangeait toutes dans Dakar.
+**Erreur** : SIRV2 déduisait la région du service (`services.region_id`, tous à Dakar), alors que dans SIR v1 la région est un attribut de l'interruption et que chaque service travaille dans les deux régions. Vues régionales fausses, BRC sans aucune interruption.
+**Règles** : la région d'une interruption est `interruptions.region_id` (jamais celle du service) ; un calcul régional passe par `indicateurs_service._load_service_ids` qui pose la région (`perimetre.definir_region`) et les requêtes filtrent avec `interruptions_du_perimetre` / `clients_du_perimetre` ; reprise : `backfill_interruption_region.py` et loader (colonne `regions`).
 
 ---
 

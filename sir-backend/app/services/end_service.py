@@ -161,7 +161,7 @@ async def calculer_et_persister_end(
 
     region_id: int | None = None
     if interruption.service_id is not None:
-        region_id = await repo.get_region_id_for_service(db, interruption.service_id)
+        region_id = (interruption.region_id or await repo.get_region_id_for_service(db, interruption.service_id))
         if region_id is not None:
             invalidate_end_cache(region_id, interruption.date_remise)
 

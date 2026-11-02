@@ -11,6 +11,7 @@ from app.models.interruptions import Interruption, InterruptionDistribution, STA
 from app.models.referentiel import Cause, Nature
 from app.models.reseau import Feeder
 from app.repositories import saifi_saidi_repository as saifi_repo
+from app.repositories.perimetre import interruptions_du_perimetre
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,7 @@ async def aggregate_end_by_services(
             InterruptionDistribution.interruption_id == Interruption.id,
         )
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.type_direction == "distribution",
             Interruption.statut.in_(STATUTS_CLOTURES),
             Interruption.is_force_majeure == False,  # noqa: E712
@@ -102,7 +103,7 @@ async def aggregate_end_by_services(
         )
         .join(EnergieNd, EnergieNd.interruption_id == Interruption.id)
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.statut.in_(STATUTS_CLOTURES),
             EnergieNd.est_force_majeure == False,  # noqa: E712
             Interruption.date_remise.isnot(None),
@@ -159,7 +160,7 @@ async def aggregate_end_by_feeders(
         .where(
             Interruption.type_direction == "distribution",
             Interruption.feeder_id.isnot(None),
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.statut.in_(STATUTS_CLOTURES),
             Interruption.is_force_majeure == False,  # noqa: E712
             Interruption.date_remise.isnot(None),
@@ -236,7 +237,7 @@ async def count_distribution_interruptions(
 
     query = select(func.count()).select_from(Interruption).where(
         Interruption.type_direction == "distribution",
-        Interruption.service_id.in_(service_ids),
+        interruptions_du_perimetre(service_ids),
     )
     query = _apply_interruption_filters(query, statut=statut, annee=annee, mois=mois)
     result = await db.execute(query)
@@ -263,7 +264,7 @@ async def aggregate_interruptions_by_cause(
         .outerjoin(Cause, Cause.id == Interruption.cause_id)
         .where(
             Interruption.type_direction == "distribution",
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             extract("year", Interruption.date_apparition) == annee,
             extract("month", Interruption.date_apparition) == mois,
         )
@@ -303,7 +304,7 @@ async def aggregate_interruptions_by_nature(
         )
         .where(
             Interruption.type_direction == "distribution",
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.statut.in_(STATUTS_CLOTURES),
             extract("year", Interruption.date_apparition) == annee,
             extract("month", Interruption.date_apparition) == mois,
@@ -356,7 +357,7 @@ async def aggregate_interruptions_by_nature_and_service(
         )
         .where(
             Interruption.type_direction == "distribution",
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.statut.in_(STATUTS_CLOTURES),
             extract("year", Interruption.date_apparition) == annee,
             extract("month", Interruption.date_apparition) == mois,

@@ -13,7 +13,10 @@ from app.models.interruptions import (
 )
 
 from scripts.migration.config import get_settings
-from scripts.migration.interruption_filter import interruption_date_window, should_include_interruption
+from scripts.migration.interruption_filter import (
+    interruption_date_window,
+    should_include_interruption,
+)
 from scripts.migration.hfsql_odbc import (
     export_is_pre_filtered,
     fetch_poste_interruptions_live,
@@ -28,6 +31,7 @@ from scripts.migration.transforms.dates import (
 )
 from scripts.migration.transforms.fk_resolver import FkResolver
 from scripts.migration.transforms.rows import row_get
+from scripts.migration.transforms.regions import code_region_v1
 from scripts.migration.transforms.statut import map_statut
 
 INTERRUPTION_SOURCES: list[tuple[str, str, bool]] = [
@@ -48,9 +52,12 @@ def _kwh_vers_mwh(valeur: Any) -> float | None:
         return float(str(valeur).replace(",", ".")) / 1000
     except ValueError:
         return None
+
+
 _MAX_INT = 2_147_483_647
 _FK_FIELDS = (
     "service_id",
+    "region_id",
     "feeder_id",
     "sous_feeder_id",
     "poste_source_id",
@@ -60,6 +67,7 @@ _FK_FIELDS = (
     "signalisation_id",
 )
 _FK_TABLE_BY_FIELD: dict[str, str] = {
+    "region_id": "regions",
     "service_id": "services",
     "feeder_id": "feeders",
     "sous_feeder_id": "sous_feeders",
@@ -113,6 +121,21 @@ class InterruptionsLoader(BaseLoader):
         if sync_existing:
             self.stats["updated"] = 0
 
+    def _region_id(self, valeur: Any) -> int | None:
+        code = code_region_v1(valeur)
+        if code is None:
+            return None
+        if not hasattr(self, "_regions_par_code"):
+            from sqlalchemy import text
+
+            self._regions_par_code = {
+                str(c): int(i)
+                for i, c in self.session.execute(
+                    text("SELECT id, code FROM dbo.regions")
+                ).all()
+            }
+        return self._regions_par_code.get(code)
+
     def _ensure_valid_fk_cache(self) -> None:
         if self._valid_fk_ids is not None:
             return
@@ -135,7 +158,9 @@ class InterruptionsLoader(BaseLoader):
             if value is not None and int(value) not in self._valid_fk_ids[field]:
                 fields[field] = None
 
-    def _apply_field_updates(self, interruption: Interruption, fields: dict[str, Any]) -> None:
+    def _apply_field_updates(
+        self, interruption: Interruption, fields: dict[str, Any]
+    ) -> None:
         """Applique les champs résolus ; conserve les FK existantes si résolution invalide."""
         self._ensure_valid_fk_cache()
         assert self._valid_fk_ids is not None
@@ -163,7 +188,10 @@ class InterruptionsLoader(BaseLoader):
 
     def run(self) -> dict[str, Any]:
         for table, type_direction, is_histo in INTERRUPTION_SOURCES:
-            if self.types_direction is not None and type_direction not in self.types_direction:
+            if (
+                self.types_direction is not None
+                and type_direction not in self.types_direction
+            ):
                 continue
             self._load_interruptions_table(table, type_direction, is_histo)
         if get_settings().migration_load_poste_interruptions:
@@ -194,7 +222,9 @@ class InterruptionsLoader(BaseLoader):
         date_app = resolve_interruption_date_apparition(row)
         if date_app is None:
             return None
-        type_reseau = "transport" if type_direction in ("transport", "omvg") else "distribution"
+        type_reseau = (
+            "transport" if type_direction in ("transport", "omvg") else "distribution"
+        )
         date_remise = resolve_interruption_date_remise(row)
         statut = map_statut(
             row_get(row, "EtatTraitement"),
@@ -211,6 +241,10 @@ class InterruptionsLoader(BaseLoader):
             "type_direction": type_direction,
             "statut": statut,
             "service_id": service_id,
+            # Dakar (BCC) / Régions (BRC) : portée par l'interruption dans SIR v1
+            "region_id": self._region_id(row_get(row, "regions", "Regions"))
+            if type_direction == "distribution"
+            else None,
             "feeder_id": feeder_id,
             "sous_feeder_id": self.fk.sous_feeder_id_by_legacy(
                 row_get(row, "idsousfeeder", "IDSousFeeder", "id_sous_feeder")
@@ -235,7 +269,8 @@ class InterruptionsLoader(BaseLoader):
             "puissance_coupee_mw": float(puissance or 0) * 0.001
             if puissance is not None
             else None,
-            "localisation": str(row_get(row, "NomTroncon", "nomtroncon") or "")[:500] or None,
+            "localisation": str(row_get(row, "NomTroncon", "nomtroncon") or "")[:500]
+            or None,
             "observations": str(row_get(row, "Observation", "observation") or "")[:2000]
             or None,
             "distribution": {
@@ -289,7 +324,9 @@ class InterruptionsLoader(BaseLoader):
                 transport = InterruptionTransport(interruption_id=sir_id)
                 self.session.add(transport)
             transport.tension_kv = fields["transport"]["tension_kv"]
-            transport.energie_non_fournie_mwh = fields["transport"]["energie_non_fournie_mwh"]
+            transport.energie_non_fournie_mwh = fields["transport"][
+                "energie_non_fournie_mwh"
+            ]
         self.stats["updated"] += 1
         if self.stats["updated"] % self.batch_size == 0:
             self.flush_batch()
@@ -298,7 +335,9 @@ class InterruptionsLoader(BaseLoader):
     def _load_interruptions_table(
         self, table: str, type_direction: str, is_histo: bool
     ) -> None:
-        type_reseau = "transport" if type_direction in ("transport", "omvg") else "distribution"
+        type_reseau = (
+            "transport" if type_direction in ("transport", "omvg") else "distribution"
+        )
         pre_filtered = export_is_pre_filtered(table)
         for row in iter_table_rows(table):
             legacy_id = row_get(row, "NInterruption", "ninterruption")
@@ -319,7 +358,10 @@ class InterruptionsLoader(BaseLoader):
                     self.stats["skipped"] += 1
                 continue
             fields = self._resolve_row_fields(
-                row, type_direction=type_direction, is_histo=is_histo, legacy_id=legacy_id
+                row,
+                type_direction=type_direction,
+                is_histo=is_histo,
+                legacy_id=legacy_id,
             )
             if fields is None:
                 self.log_reject(legacy_id, "date_apparition_manquante", row)
@@ -336,7 +378,11 @@ class InterruptionsLoader(BaseLoader):
                 continue
             interruption = Interruption(
                 created_by_id=created_by,
-                **{k: v for k, v in fields.items() if k not in ("distribution", "transport")},
+                **{
+                    k: v
+                    for k, v in fields.items()
+                    if k not in ("distribution", "transport")
+                },
             )
             self.session.add(interruption)
             self.session.flush()
@@ -362,14 +408,18 @@ class InterruptionsLoader(BaseLoader):
 
     def _load_poste_interruptions(self) -> None:
         legacy_ids = [
-            int(k) for k in self.id_maps.load("interruptions").keys() if str(k).isdigit()
+            int(k)
+            for k in self.id_maps.load("interruptions").keys()
+            if str(k).isdigit()
         ]
         if not legacy_ids:
             return
         for table in ("PosteInterruption", "PosteInterruption_Histo"):
             rows = fetch_poste_interruptions_live(table, legacy_ids)
             for row in rows:
-                inter_id = self.fk.interruption_id(row_get(row, "NInterruption", "ninterruption"))
+                inter_id = self.fk.interruption_id(
+                    row_get(row, "NInterruption", "ninterruption")
+                )
                 poste_id = self.fk.poste_id_by_legacy(
                     row_get(row, "IDPostes", "idpostes", "IDPoste", "idposte")
                 )
@@ -390,7 +440,9 @@ class InterruptionsLoader(BaseLoader):
                     )
                 if inter_id is None or poste_id is None:
                     self.log_reject(
-                        row_get(row, "IDPosteInterruption"), "fk_poste_interruption", row
+                        row_get(row, "IDPosteInterruption"),
+                        "fk_poste_interruption",
+                        row,
                     )
                     continue
                 if self.dry_run:
@@ -402,7 +454,10 @@ class InterruptionsLoader(BaseLoader):
                         interruption_id=inter_id,
                         poste_id=poste_id,
                         nombre_clients_touches=row_get(
-                            row, "Nombreclientimpacte", "nombreclientimpacte", "nombreclientposteestime"
+                            row,
+                            "Nombreclientimpacte",
+                            "nombreclientimpacte",
+                            "nombreclientposteestime",
                         ),
                         date_interruption=inter.date_apparition if inter else None,
                         feeder_id=inter.feeder_id if inter else None,
@@ -414,11 +469,17 @@ class InterruptionsLoader(BaseLoader):
 
     def _load_energie_nd(self) -> None:
         for row in iter_table_rows("EnergieND"):
-            inter_id = self.fk.interruption_id(row_get(row, "NInterruption", "ninterruption"))
+            inter_id = self.fk.interruption_id(
+                row_get(row, "NInterruption", "ninterruption")
+            )
             if inter_id is None:
-                self.log_reject(row_get(row, "IDEnergieND"), "interruption_introuvable", row)
+                self.log_reject(
+                    row_get(row, "IDEnergieND"), "interruption_introuvable", row
+                )
                 continue
-            end_val = float(row_get(row, "ENDD", "END", "endd", "end") or 0) / 1000  # kWh → MWh
+            end_val = (
+                float(row_get(row, "ENDD", "END", "endd", "end") or 0) / 1000
+            )  # kWh → MWh
             if self.dry_run:
                 self.stats["inserted"] += 1
                 continue
@@ -427,9 +488,13 @@ class InterruptionsLoader(BaseLoader):
             self.session.add(
                 EnergieNd(
                     interruption_id=inter_id,
-                    type_end_id=self.id_maps.get("types_end", row_get(row, "IDTypeEND")),
+                    type_end_id=self.id_maps.get(
+                        "types_end", row_get(row, "IDTypeEND")
+                    ),
                     valeur_mwh=end_val,
-                    puissance_coupee_mw=float(row_get(row, "PuissanceCoupee", "puissancecoupee") or 0)
+                    puissance_coupee_mw=float(
+                        row_get(row, "PuissanceCoupee", "puissancecoupee") or 0
+                    )
                     * 0.001,
                     duree_heures=float(duree_heure or 0) / 60
                     if duree_inter

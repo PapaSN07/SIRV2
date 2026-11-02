@@ -160,7 +160,7 @@ async def calculer_et_persister_saifi_saidi(
         mois=mois,
     )
 
-    region_id: int | None = await repo.get_region_id_for_service(db, interruption.service_id)
+    region_id: int | None = (interruption.region_id or await repo.get_region_id_for_service(db, interruption.service_id))
     if region_id is not None:
         periode_ref = datetime(annee, mois, 1)
         invalidate_indicateurs_cache(

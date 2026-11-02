@@ -45,23 +45,15 @@ async def contrats_par_agence(db: AsyncSession, annee: int, mois: int) -> list[t
 
 
 async def services_par_agence(db: AsyncSession) -> dict[int, int]:
-    """Service qui porte les clients de chaque agence (même règle que la reprise SIR v1).
+    """Service qui porte les clients de chaque agence (règle SIR v1).
 
-    1. le premier service de l'agence ;
-    2. sinon le service représentatif de la région de l'agence : celui qui portait le plus de
-       clients dans nombre_client_mois (SIR v1 rattache ses lignes régionales à un service par
-       région), à défaut le premier service de la région.
-    La plupart des agences n'ont pas de service propre dans SIRV2 : sans l'étape 2, leurs
-    contrats étaient perdus (novembre 2026 : 59 115 clients au lieu de 2,6 millions).
+    SIR v1 range sa base clients par région d'exploitation, sur un service représentatif :
+    DD pour Dakar, BRC pour Régions (services rattachés à leur région par la migration
+    b8c9d0e1f2a3). Une agence va donc au représentant de la région de sa délégation, choisi
+    comme le service de la région qui portait le plus de clients dans nombre_client_mois, à défaut
+    le premier service de la région. Sans région connue, le premier service de l'agence.
+    (Novembre 2026 : rattacher au service de l'agence perdait la plupart des contrats.)
     """
-    propres = {
-        int(a): int(s)
-        for a, s in (
-            await db.execute(select(Service.agence_id, func.min(Service.id)).group_by(Service.agence_id))
-        ).all()
-        if a is not None
-    }
-    # Représentant de région : service le plus chargé dans la base clients déjà connue
     charge = (
         select(Service.region_id, NombreClientMois.service_id, func.max(NombreClientMois.nombre_clients).label("n"))
         .join(Service, Service.id == NombreClientMois.service_id)
@@ -82,14 +74,18 @@ async def services_par_agence(db: AsyncSession) -> dict[int, int]:
         )
     ).all():
         par_region.setdefault(int(region_id), int(service_id))
-    resultat = dict(propres)
+    resultat: dict[int, int] = {}
     for agence_id, region_id in (
         await db.execute(
             select(Agence.id, Delegation.region_id).join(Delegation, Delegation.id == Agence.delegation_id)
         )
     ).all():
-        if int(agence_id) not in resultat and region_id is not None and int(region_id) in par_region:
+        if region_id is not None and int(region_id) in par_region:
             resultat[int(agence_id)] = par_region[int(region_id)]
+    propres = (await db.execute(select(Service.agence_id, func.min(Service.id)).group_by(Service.agence_id))).all()
+    for agence_id, service_id in propres:
+        if agence_id is not None:
+            resultat.setdefault(int(agence_id), int(service_id))
     return resultat
 
 

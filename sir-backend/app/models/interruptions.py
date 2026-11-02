@@ -64,6 +64,11 @@ class Interruption(Base):
     service_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("services.id", ondelete="NO ACTION"), nullable=True, index=True
     )
+    # Région d'exploitation de l'interruption (SIR v1 : colonne « regions ») : Dakar (BCC) ou
+    # Régions (BRC). Les services travaillent dans les deux : la région ne se déduit pas du service.
+    region_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("regions.id", ondelete="NO ACTION"), nullable=True, index=True
+    )
     feeder_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("feeders.id", ondelete="NO ACTION"), nullable=True, index=True
     )
@@ -147,6 +152,8 @@ class Interruption(Base):
 
     # Relationships
     service: Mapped["Service | None"] = relationship("Service", foreign_keys=[service_id], lazy="select")  # noqa: F821
+    # Chargée avec l'interruption (table de 7 lignes) : libellé Dakar / Régions des réponses API
+    region: Mapped["Region | None"] = relationship("Region", foreign_keys=[region_id], lazy="joined")  # noqa: F821
     feeder: Mapped["Feeder | None"] = relationship("Feeder", foreign_keys=[feeder_id], lazy="select")  # noqa: F821
     sous_feeder: Mapped["SousFeeder | None"] = relationship(  # noqa: F821
         "SousFeeder", foreign_keys=[sous_feeder_id], lazy="select"

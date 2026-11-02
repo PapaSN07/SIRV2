@@ -90,6 +90,22 @@ async def _resolve_destinataires(
     return destinataires
 
 
+async def _region_evenement(
+    db: AsyncSession, entity_type: str, entity_id: int, service_id: int | None
+) -> int | None:
+    if entity_type.startswith("interruption"):
+        from sqlalchemy import select
+
+        from app.models.interruptions import Interruption
+
+        region_id = await db.scalar(select(Interruption.region_id).where(Interruption.id == entity_id))
+        if region_id is not None:
+            return int(region_id)
+    if service_id is None:
+        return None
+    return await geo_scope_repository.get_region_id_for_service(db, service_id)
+
+
 async def dispatch_event(
     db: AsyncSession,
     *,
@@ -183,11 +199,8 @@ async def dispatch_event(
         celery_app.send_task("envoi_sms_lot", args=[sms_ids])
 
     message = f"{event_type} — {entity_type} #{entity_id}"
-    region_id = (
-        await geo_scope_repository.get_region_id_for_service(db, service_id)
-        if service_id is not None
-        else None
-    )
+    # Canal temps réel BCC / BRC : région de l'interruption (Dakar / Régions), sinon du service
+    region_id = await _region_evenement(db, entity_type, entity_id, service_id)
     await notification_stream_service.publish_event(
         event_type=event_type,
         entity_type=entity_type,

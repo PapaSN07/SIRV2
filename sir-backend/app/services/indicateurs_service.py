@@ -43,6 +43,7 @@ from app.services.indicateurs_cache_service import (
     set_cached,
 )
 from app.utils.pagination import clamp_page_size
+from app.repositories.perimetre import definir_region
 
 _NATIONAL_ROLES = frozenset({"ADMIN_SCR", "ADMIN_SAQS"})
 _REGION_ROLES = frozenset({"BCC", "BRC"})
@@ -141,10 +142,17 @@ def _resolve_scope(
 
 
 async def _load_service_ids(db: AsyncSession, scope: _ScopeContext) -> list[int]:
+    """Services du périmètre ; pose aussi la région du calcul (app.repositories.perimetre).
+
+    Région (Dakar BCC / Régions BRC) : tous les services, filtrés ensuite par la région de
+    l'interruption et par celle des services qui portent la base clients.
+    """
+    if scope.niveau == "region" and scope.scope_id is not None:
+        definir_region(scope.scope_id)
+        return await repo.list_all_service_ids(db)
+    definir_region(None)
     if scope.service_ids:
         return scope.service_ids
-    if scope.niveau == "region" and scope.scope_id is not None:
-        return await repo.list_service_ids_for_region(db, scope.scope_id)
     return await repo.list_all_service_ids(db)
 
 

@@ -70,9 +70,8 @@ def _apply_list_filters(
     with_order: bool = True,
 ):
     if region_id is not None:
-        query = query.where(
-            Interruption.service_id.in_(_service_ids_in_region_subquery(region_id))
-        )
+        # Région portée par l'interruption (Dakar BCC / Régions BRC) : les services couvrent les deux
+        query = query.where(Interruption.region_id == region_id)
     if service_id is not None:
         query = query.where(Interruption.service_id == service_id)
     if feeder_id is not None:
@@ -100,9 +99,7 @@ def _apply_scope(query, scope: ScopeFilter | None):
     if scope.service_id is not None:
         return query.where(Interruption.service_id == scope.service_id)
     if scope.region_id is not None:
-        return query.where(
-            Interruption.service_id.in_(_service_ids_in_region_subquery(scope.region_id))
-        )
+        return query.where(Interruption.region_id == scope.region_id)
     return query
 
 
@@ -228,6 +225,14 @@ async def get_interruption_detail(
         )
     )
     return result.unique().scalar_one_or_none()
+
+
+async def region_exploitation_existe(db: AsyncSession, region_id: int) -> bool:
+    """Régions d'exploitation des interruptions de distribution : Dakar et Régions."""
+    from app.models.geo import Region
+
+    code = await db.scalar(select(Region.code).where(Region.id == region_id))
+    return code in ("DAKAR", "REGIONS")
 
 
 async def service_in_region(

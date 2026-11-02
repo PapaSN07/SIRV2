@@ -12,6 +12,7 @@ from app.models.indicateurs import NombreClientMois, ObjectifIndicateur
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption, STATUTS_CLOTURES
 from app.models.reseau import Feeder, Poste, Troncon
 from app.models.sig import NoeudSig, TronconSig
+from app.repositories.perimetre import clients_du_perimetre, interruptions_du_perimetre
 
 _CLOSED = STATUTS_CLOTURES
 
@@ -125,7 +126,7 @@ async def compter_defauts(
         return 0
     total = await db.scalar(
         select(func.count(Interruption.id)).where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.type_direction == "distribution",
             Interruption.is_force_majeure == False,  # noqa: E712
             Interruption.date_apparition >= debut,
@@ -151,7 +152,7 @@ async def sommer_end_mwh(
             InterruptionDistribution.interruption_id == Interruption.id,
         )
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             *_closed_distribution(),
             Interruption.date_remise >= debut,
             Interruption.date_remise < fin,
@@ -202,7 +203,7 @@ async def sommer_clients(
             .select_from(Interruption)
             .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
             .where(
-                Interruption.service_id.in_(service_ids),
+                interruptions_du_perimetre(service_ids),
                 *_distribution_saifi_saidi(),
                 Interruption.date_apparition >= debut,
                 Interruption.date_apparition < fin,
@@ -232,7 +233,7 @@ async def sommer_clients_par_mois(
         .select_from(Interruption)
         .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             *_distribution_saifi_saidi(),
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
@@ -266,7 +267,7 @@ async def clients_reference_par_mois(
             func.coalesce(func.sum(NombreClientMois.nombre_clients), 0).label("clients"),
         )
         .where(
-            NombreClientMois.service_id.in_(service_ids),
+            clients_du_perimetre(service_ids),
             cle >= debut[0] * 100 + debut[1],
             cle <= fin[0] * 100 + fin[1],
         )
@@ -286,7 +287,7 @@ async def mois_derniere_apparition(
         return None
     derniere = await db.scalar(
         select(func.max(Interruption.date_apparition)).where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             *_distribution_saifi_saidi(),
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
@@ -306,7 +307,7 @@ async def clients_reference_exacte(
         return 0
     total = await db.scalar(
         select(func.coalesce(func.sum(NombreClientMois.nombre_clients), 0)).where(
-            NombreClientMois.service_id.in_(service_ids),
+            clients_du_perimetre(service_ids),
             NombreClientMois.annee == annee,
             NombreClientMois.mois == mois,
         )
@@ -325,7 +326,7 @@ async def clients_reference(
         return 0
     exact = await db.scalar(
         select(func.coalesce(func.sum(NombreClientMois.nombre_clients), 0)).where(
-            NombreClientMois.service_id.in_(service_ids),
+            clients_du_perimetre(service_ids),
             NombreClientMois.annee == annee,
             NombreClientMois.mois == mois,
         )
@@ -334,7 +335,7 @@ async def clients_reference(
         return int(exact)
     latest_month = await db.scalar(
         select(func.max(NombreClientMois.mois)).where(
-            NombreClientMois.service_id.in_(service_ids),
+            clients_du_perimetre(service_ids),
             NombreClientMois.annee == annee,
             NombreClientMois.mois <= mois,
         )
@@ -343,7 +344,7 @@ async def clients_reference(
         return 0
     fallback = await db.scalar(
         select(func.coalesce(func.sum(NombreClientMois.nombre_clients), 0)).where(
-            NombreClientMois.service_id.in_(service_ids),
+            clients_du_perimetre(service_ids),
             NombreClientMois.annee == annee,
             NombreClientMois.mois == int(latest_month),
         )
@@ -428,7 +429,7 @@ async def list_postes_impactes(
         .outerjoin(Feeder, Feeder.id == Interruption.feeder_id)
         .outerjoin(Service, Service.id == Interruption.service_id)
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.type_direction == "distribution",
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
@@ -577,7 +578,7 @@ async def top_postes(
             InterruptionDistribution.interruption_id == Interruption.id,
         )
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             Interruption.type_direction == "distribution",
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
@@ -638,14 +639,15 @@ async def zones_perturbees(
             InterruptionDistribution.interruption_id == Interruption.id,
         )
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             *_closed_distribution(),
             Interruption.date_remise >= debut,
             Interruption.date_remise < fin,
         )
     )
     if par_region:
-        stmt = stmt.join(Region, Region.id == Service.region_id)
+        # Région de l'interruption (Dakar BCC / Régions BRC), pas celle du service
+        stmt = stmt.join(Region, Region.id == Interruption.region_id)
     stmt = (
         stmt.group_by(zone_id, zone_code, zone_libelle)
         .order_by(func.coalesce(func.sum(InterruptionDistribution.end_mwh), 0).desc())
@@ -677,7 +679,7 @@ async def clients_par_zone(
     """Par zone : (NombreClient, Σ NombreClient × dureeHeure), règles de la formule SENELEC."""
     if not service_ids:
         return {}
-    zone_id = Service.region_id if par_region else Service.id
+    zone_id = Interruption.region_id if par_region else Service.id
     nb = _clients_poste()
     result = await db.execute(
         select(
@@ -691,7 +693,7 @@ async def clients_par_zone(
         .join(Service, Service.id == Interruption.service_id)
         .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
         .where(
-            Interruption.service_id.in_(service_ids),
+            interruptions_du_perimetre(service_ids),
             *_distribution_saifi_saidi(),
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
@@ -720,7 +722,7 @@ async def clients_reference_par_zone(
         )
         .join(Service, Service.id == NombreClientMois.service_id)
         .where(
-            NombreClientMois.service_id.in_(service_ids),
+            clients_du_perimetre(service_ids),
             NombreClientMois.annee == annee,
             NombreClientMois.mois == mois,
             zone_id.isnot(None),

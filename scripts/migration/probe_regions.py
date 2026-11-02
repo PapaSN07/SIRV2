@@ -67,6 +67,22 @@ def main() -> int:
             )
         ).all():
             print(f"  {annee} · {region:<14} · {nb}")
+        print(
+            "\n=== SIRV2 : délégations (région) et contrats du dernier mois de la base clients"
+        )
+        for code, libelle, region, agences, contrats in session.execute(
+            text(
+                "SELECT d.code, d.libelle, ISNULL(r.libelle, '(sans région)'), COUNT(DISTINCT a.id), "
+                "SUM(CAST(c.nb_contrats AS BIGINT)) FROM dbo.delegations d "
+                "LEFT JOIN dbo.regions r ON r.id = d.region_id LEFT JOIN dbo.agences a ON a.delegation_id = d.id "
+                "LEFT JOIN dbo.contrats_unites_releve c ON c.agence_id = a.id AND c.annee * 100 + c.mois = "
+                "(SELECT MAX(annee * 100 + mois) FROM dbo.contrats_unites_releve) "
+                "GROUP BY d.code, d.libelle, ISNULL(r.libelle, '(sans région)') ORDER BY 3, 1"
+            )
+        ).all():
+            print(
+                f"  {region:<14} | {code:<8} | {libelle[:28]:<28} | {agences:>3} agence(s) | {contrats or 0:>9} contrats"
+            )
         session.rollback()
 
     print("\n=== SIR v1 : interruptions 2026 par colonne « regions » et par service")

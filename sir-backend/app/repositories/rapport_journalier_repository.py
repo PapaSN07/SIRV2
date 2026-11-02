@@ -7,7 +7,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.geo import Agence, Delegation, Service
 from app.models.indicateurs import EnergieNd
 from app.models.interruptions import Interruption, InterruptionTransport
 from app.models.reseau import Feeder
@@ -20,15 +19,6 @@ def _day_bounds(report_date: date, date_fin: date | None = None) -> tuple[dateti
     return start, end
 
 
-def _service_ids_in_region_subquery(region_id: int):
-    return (
-        select(Service.id)
-        .join(Agence, Service.agence_id == Agence.id)
-        .join(Delegation, Agence.delegation_id == Delegation.id)
-        .where(Delegation.region_id == region_id)
-    )
-
-
 def _apply_scope(
     query,
     *,
@@ -38,9 +28,8 @@ def _apply_scope(
     if service_id is not None:
         return query.where(Interruption.service_id == service_id)
     if region_id is not None:
-        return query.where(
-            Interruption.service_id.in_(_service_ids_in_region_subquery(region_id))
-        )
+        # Région portée par l'interruption (Dakar BCC / Régions BRC)
+        return query.where(Interruption.region_id == region_id)
     return query
 
 

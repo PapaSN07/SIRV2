@@ -31,6 +31,8 @@ class InterruptionDistributionCreate(BaseModel):
     nombre_clients_bt: int | None = Field(default=None, ge=0)
     is_programme: bool = False
     has_extension_bt: bool = False
+    # Imposée par le compte BCC (Dakar) / BRC (Régions) ; à choisir par les comptes nationaux
+    region_id: int | None = Field(default=None, ge=1)
 
 
 class InterruptionDistributionUpdate(BaseModel):
@@ -91,6 +93,8 @@ class InterruptionDistributionResponse(BaseModel):
     entreprise_id: int | None = None
     prestataire_id: int | None = None
     service_id: int | None
+    # Région d'exploitation : Dakar (BCC) ou Régions (BRC)
+    region_id: int | None = None
     feeder_id: int | None
     sous_feeder_id: int | None = None
     poste_source_id: int | None

@@ -116,7 +116,7 @@ async def dates_cloture(db: AsyncSession, interruption_ids: list[int]) -> dict:
 async def _region_id(db: AsyncSession, interruption: Interruption) -> int | None:
     if interruption.service_id is None:
         return None
-    return await end_repository.get_region_id_for_service(db, interruption.service_id)
+    return (interruption.region_id or await end_repository.get_region_id_for_service(db, interruption.service_id))
 
 
 async def renvoyer_en_correction(

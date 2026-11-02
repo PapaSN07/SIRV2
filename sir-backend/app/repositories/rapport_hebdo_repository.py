@@ -85,7 +85,7 @@ async def lister_interruptions(
         select(*colonnes)
         .select_from(Interruption)
         .outerjoin(Service, Service.id == Interruption.service_id)
-        .outerjoin(Region, Region.id == Service.region_id)
+        .outerjoin(Region, Region.id == Interruption.region_id)  # région de l'interruption
         .outerjoin(Feeder, Feeder.id == Interruption.feeder_id)
         .outerjoin(Nature, Nature.id == Interruption.nature_id)
         .outerjoin(Cause, Cause.id == Interruption.cause_id)

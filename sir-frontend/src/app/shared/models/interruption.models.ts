@@ -105,6 +105,8 @@ export interface InterruptionDistributionDetail extends InterruptionDistribution
 
 export interface InterruptionDistributionCreate {
   date_apparition: string;
+  /** Région d'exploitation (Dakar / Régions) : imposée par le compte BCC / BRC, choisie sinon. */
+  region_id?: number | null;
   poste_source_id: number;
   feeder_id: number;
   sous_feeder_id?: number | null;

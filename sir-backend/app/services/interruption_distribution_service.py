@@ -145,17 +145,37 @@ async def _ensure_service_in_write_scope(
             )
         return
 
-    if scope.region_id is not None:
-        in_region = await repo.service_in_region(db, service_id, scope.region_id)
-        if not in_region:
+    # Périmètre régional (BCC → Dakar, BRC → Régions) : les services travaillent dans les deux
+    # régions ; c'est la région de l'interruption, imposée par le compte, qui fait le périmètre.
+
+
+async def _region_de_saisie(db: AsyncSession, user: Utilisateur, demandee: int | None) -> int:
+    """Région de l'interruption : imposée par le compte BCC (Dakar) / BRC (Régions).
+
+    Les comptes nationaux (Admin SCR, SUPERADMIN) la choisissent (champ ``region_id``).
+    """
+    scope = _read_scope(user)
+    if scope is not None and scope.region_id is not None:
+        if demandee is not None and demandee != scope.region_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "status": "error",
                     "data": None,
-                    "error": "Hors périmètre : region_id non autorisé",
+                    "error": "La région est imposée par votre compte",
                 },
             )
+        return scope.region_id
+    if demandee is None or not await repo.region_exploitation_existe(db, demandee):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Région obligatoire : Dakar ou Régions",
+            },
+        )
+    return demandee
 
 
 async def _ensure_interruption_in_scope(
@@ -168,7 +188,7 @@ async def _ensure_interruption_in_scope(
     if scope is None:
         return
 
-    if interruption.service_id is None:
+    if scope.service_id is not None and interruption.service_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -190,17 +210,15 @@ async def _ensure_interruption_in_scope(
             )
         return
 
-    if scope.region_id is not None:
-        in_region = await repo.service_in_region(db, interruption.service_id, scope.region_id)
-        if not in_region:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "status": "error",
-                    "data": None,
-                    "error": "Hors périmètre : region_id non autorisé",
-                },
-            )
+    if scope.region_id is not None and interruption.region_id != scope.region_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Hors périmètre : interruption d'une autre région",
+            },
+        )
 
 
 def _user_summary(user) -> UtilisateurSummaryResponse | None:
@@ -384,6 +402,9 @@ async def _validate_intervenants(
 
 
 def _region_libelle(interruption: Interruption) -> str | None:
+    """Région d'exploitation de l'interruption (Dakar / Régions), sinon celle du service."""
+    if interruption.region_id is not None and interruption.region is not None:
+        return interruption.region.libelle
     service = interruption.service
     if service is None or service.agence is None:
         return None
@@ -407,6 +428,7 @@ def _to_response(
         entreprise_id=interruption.entreprise_id,
         prestataire_id=interruption.prestataire_id,
         service_id=interruption.service_id,
+        region_id=interruption.region_id,
         feeder_id=interruption.feeder_id,
         sous_feeder_id=interruption.sous_feeder_id,
         poste_source_id=interruption.poste_source_id,
@@ -538,6 +560,7 @@ async def create(
         sous_feeder_id = sous_feeder.id
 
     await _ensure_service_in_write_scope(db, current_user, feeder.service_id)
+    region_id = await _region_de_saisie(db, current_user, body.region_id)
 
     await _validate_referentiel_distribution(
         db,
@@ -561,6 +584,7 @@ async def create(
         "type_direction": "distribution",
         "statut": "en_cours",
         "service_id": feeder.service_id,
+        "region_id": region_id,
         "feeder_id": feeder.id,
         "sous_feeder_id": sous_feeder_id,
         "poste_source_id": feeder.poste_source_id,
@@ -649,17 +673,6 @@ async def _validate_list_filters(
                     "error": "Hors périmètre : région non autorisée",
                 },
             )
-        if service_id is not None:
-            in_region = await repo.service_in_region(db, service_id, scope.region_id)
-            if not in_region:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "status": "error",
-                        "data": None,
-                        "error": "Hors périmètre : service hors région",
-                    },
-                )
 
     if "SUPERVISEUR" in roles and scope is not None and scope.service_id is not None:
         if service_id is not None and service_id != scope.service_id:
@@ -1621,7 +1634,7 @@ async def valider(
     await db.commit()
 
     if interruption.service_id is not None and interruption.date_remise is not None:
-        region_id = await end_repo.get_region_id_for_service(db, interruption.service_id)
+        region_id = (interruption.region_id or await end_repo.get_region_id_for_service(db, interruption.service_id))
         if region_id is not None:
             invalidate_indicateurs_cache(region_id, interruption.date_remise)
 

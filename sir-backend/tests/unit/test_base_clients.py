@@ -99,7 +99,8 @@ async def test_importer_recalcule_postes_et_services() -> None:
     # poste 100 : moitié de A (50) + B (10) ; poste 101 : moitié de A ; poste 102 inchangé (lien non validé)
     assert postes == {100: 60, 101: 50, 102: 50}
     # agence 1 → service 5 (le premier), agence 2 → service 7 ; l'ancienne valeur du mois est remplacée
-    assert ncm == [(5, 110), (7, 40), (8, 20)]
+    # agences rattachées au représentant de leur région : région 1 → 5, région 2 → 8 (le plus chargé)
+    assert ncm == [(5, 110), (8, 60)]
     p = resume["periodes"][0]
     assert (p["annee"], p["mois"], p["ur"], p["contrats"], p["ur_rattachees"], p["contrats_rattaches"]) == (
         2026, 10, 5, 175, 2, 110

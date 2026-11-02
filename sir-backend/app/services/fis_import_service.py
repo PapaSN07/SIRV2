@@ -161,6 +161,11 @@ class FisImportResult:
 # Parsing Excel
 # ---------------------------------------------------------------------------
 
+
+def _region_du_compte(user) -> int | None:
+    scope = distribution_rules._read_scope(user)
+    return getattr(scope, "region_id", None) if scope is not None else None
+
 def _normalise(s: str | None) -> str:
     """Normalise une chaîne : strip + lowercase."""
     if s is None:
@@ -627,6 +632,8 @@ async def import_fis_file(
                 statut=statut_import,
                 validated_by_id=created_by_id if statut_import == "valide" else None,
                 service_id=service_id,
+                # Région imposée par le compte BCC (Dakar) / BRC (Régions) ; à compléter sinon
+                region_id=_region_du_compte(current_user),
                 feeder_id=feeder.id if feeder else None,
                 poste_source_id=poste_source.id if poste_source else None,
                 date_apparition=row.date_apparition,

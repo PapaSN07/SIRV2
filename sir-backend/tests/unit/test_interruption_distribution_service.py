@@ -124,7 +124,8 @@ def _make_brc(scope_region_id: int = 3) -> Utilisateur:
     return user
 
 
-async def test_create_bcc_wrong_service_raises_403() -> None:
+async def test_create_bcc_autre_region_raises_403() -> None:
+    """La région est imposée par le compte : un BCC (Dakar) ne saisit pas pour les Régions."""
     db = AsyncMock()
     user = _make_bcc(scope_service_id=1)
 
@@ -142,12 +143,13 @@ async def test_create_bcc_wrong_service_raises_403() -> None:
         return_value=False,
     ):
         with pytest.raises(HTTPException) as exc:
-            await svc.create(db, _create_body(), user)
+            await svc.create(db, _create_body().model_copy(update={"region_id": 2}), user)
 
     assert exc.value.status_code == 403
 
 
-async def test_create_brc_service_outside_region_raises_403() -> None:
+async def test_create_brc_autre_region_raises_403() -> None:
+    """Un BRC (Régions) ne saisit pas pour Dakar."""
     db = AsyncMock()
     user = _make_brc(scope_region_id=3)
 
@@ -165,7 +167,7 @@ async def test_create_brc_service_outside_region_raises_403() -> None:
         return_value=False,
     ):
         with pytest.raises(HTTPException) as exc:
-            await svc.create(db, _create_body(), user)
+            await svc.create(db, _create_body().model_copy(update={"region_id": 1}), user)
 
     assert exc.value.status_code == 403
 
