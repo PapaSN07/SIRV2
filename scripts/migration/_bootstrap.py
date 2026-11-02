@@ -45,4 +45,15 @@ def terminer(code: int | None) -> None:
     """
     sys.stdout.flush()
     sys.stderr.flush()
+    # Témoin de fin pour un script lanceur (delta_periode) : main() est allé au bout avec ce code
+    marqueur = os.environ.get("MIGRATION_MARQUEUR_FIN")
+    if marqueur:
+        Path(marqueur).write_text(str(int(code or 0)), encoding="utf-8")
+    if sys.platform == "win32":
+        # os._exit passe encore par ExitProcess, qui prévient chaque DLL (dont le pilote HFSQL, qui
+        # plante) ; TerminateProcess arrête le processus sans ces notifications.
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        kernel32.TerminateProcess(kernel32.GetCurrentProcess(), int(code or 0))
     os._exit(int(code or 0))

@@ -243,18 +243,39 @@ def commandes(
     }
 
 
+# Code de sortie Windows 0xC0000005 : plantage du pilote ODBC HFSQL au déchargement
+_PLANTAGE_PILOTE = 3221225477
+
+
 def executer(etape: str, cmds: list[list[str]], env: dict[str, str]) -> None:
+    """Lance chaque commande ; une étape réussit si son script est allé au bout de main().
+
+    Le code de sortie seul ne suffit pas : le pilote HFSQL peut planter à la fermeture du
+    processus (0xC0000005) après un travail complet et validé. Le script écrit son vrai code
+    dans le fichier MIGRATION_MARQUEUR_FIN juste avant de quitter (_bootstrap.terminer).
+    """
+    marqueur = get_settings().reports_dir / "delta_periode_fin.txt"
     for cmd in cmds:
         print(f"\n--- [{etape}] python scripts/migration/{' '.join(cmd)}", flush=True)
+        marqueur.unlink(missing_ok=True)
         debut = time.monotonic()
         proc = subprocess.run(
-            [sys.executable, str(_SCRIPTS / cmd[0]), *cmd[1:]], cwd=str(_ROOT), env=env
+            [sys.executable, str(_SCRIPTS / cmd[0]), *cmd[1:]],
+            cwd=str(_ROOT),
+            env={**env, "MIGRATION_MARQUEUR_FIN": str(marqueur)},
         )
+        code = proc.returncode
+        if code != 0 and marqueur.is_file():
+            code = int(marqueur.read_text(encoding="utf-8").strip() or 1)
+            if code == 0 and proc.returncode == _PLANTAGE_PILOTE:
+                print(
+                    f"--- [{etape}] (fermeture du pilote HFSQL en erreur, sans effet : travail terminé)"
+                )
         print(
-            f"--- [{etape}] terminé en {time.monotonic() - debut:.0f} s (code {proc.returncode})",
+            f"--- [{etape}] terminé en {time.monotonic() - debut:.0f} s (code {code})",
             flush=True,
         )
-        if proc.returncode != 0:
+        if code != 0:
             raise SystemExit(
                 f"Échec de l'étape « {etape} ». Corriger puis relancer avec --execute --a-partir-de {etape}"
             )
