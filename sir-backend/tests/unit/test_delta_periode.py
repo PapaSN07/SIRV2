@@ -62,3 +62,22 @@ def test_colonnes_absentes_retirees_du_select() -> None:
     gardees, absentes = filtrer_colonnes(["NInterruption", "idservice", "Service"], {"ninterruption", "service"})
     assert gardees == ["NInterruption", "Service"] and absentes == ["idservice"]
     assert filtrer_colonnes(["A"], None) == (["A"], [])
+
+
+def test_diag_interruptions_end_ecarts() -> None:
+    from scripts.migration.diag_interruptions_end import _vrai, compte_ecran, ecarts_interruption
+
+    base = {
+        "apparition": datetime(2026, 9, 1, 8, 0),
+        "remise": datetime(2026, 9, 1, 9, 0),
+        "end": 1.25,
+        "puissance_mw": 0.5,
+        "force_majeure": False,
+        "statut": "valide",
+        "service_id": 3,
+    }
+    assert ecarts_interruption(base, dict(base)) == []
+    autre = {**base, "end": 1.3, "remise": datetime(2026, 9, 1, 9, 5), "force_majeure": True, "statut": "archive"}
+    assert ecarts_interruption(base, autre) == ["remise", "end", "force_majeure"]  # archive et valide comptent tous deux
+    assert not _vrai("0") and _vrai(1) and _vrai("Vrai") and not _vrai(None)
+    assert compte_ecran(base) and not compte_ecran({**base, "statut": "en_cours"})
