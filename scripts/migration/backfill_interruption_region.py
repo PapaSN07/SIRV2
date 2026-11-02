@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Région d'exploitation des interruptions de distribution : Dakar (BCC) / Régions (BRC).
 
-Règle SENELEC (02/11/2026) : la région suit le réseau. SDDV (Dakar ville) et SDPG
-(Pikine-Guédiawaye) sont à Dakar, les services régionaux (SDRCE*, SDRCO*, SDRN*…) en Régions ;
-SDRBD (Rufisque-Bargny-Diamniadio) est à Dakar, mais certains de ses départs touchent les
-Régions. La région d'une interruption est donc celle de son poste source, sinon celle de son
-service (migration c9d0e1f2a3b4). Même règle que la saisie
-(interruption_distribution_repository.region_du_depart).
+Règle SENELEC (02/11/2026) : la région suit le service. SDDV (Dakar ville), SDPG
+(Pikine-Guédiawaye) et SDRBD (Rufisque-Bargny-Diamniadio) sont à Dakar, les services régionaux
+(SDRCE*, SDRCO*, SDRN*, DRS…) en Régions (migration c9d0e1f2a3b4). Le poste source ne sert que pour
+une interruption sans service : sa région n'est pas fiable dans SIRV2 (postes régionaux à Dakar).
+Certains départs de SDRBD touchent les Régions : exception à traiter départ par départ.
+Même règle que la saisie (interruption_distribution_repository.region_du_depart).
 
 La colonne « regions » de SIR v1 n'est pas utilisée : elle range par exemple 6 471 interruptions
 SDDV de 2026 dans « Régions ».
@@ -39,11 +39,11 @@ from scripts.migration.db_session import get_session  # noqa: E402
 
 _LOT = 5000
 
-# Région du départ : poste source (Dakar / Régions), sinon service
+# Région du départ : service, sinon poste source (Dakar / Régions)
 _SQL = """
 SELECT i.id, i.region_id, YEAR(i.date_apparition) AS annee, ISNULL(s.code, '(sans service)') AS service,
-       COALESCE(rp.id, rs.id) AS region_cible,
-       CASE WHEN rp.id IS NOT NULL THEN 'poste source' WHEN rs.id IS NOT NULL THEN 'service' ELSE 'aucune' END AS origine
+       COALESCE(rs.id, rp.id) AS region_cible,
+       CASE WHEN rs.id IS NOT NULL THEN 'service' WHEN rp.id IS NOT NULL THEN 'poste source' ELSE 'aucune' END AS origine
 FROM dbo.interruptions i
 LEFT JOIN dbo.postes_sources p ON p.id = i.poste_source_id
 LEFT JOIN dbo.regions rp ON rp.id = p.region_id AND rp.code IN ('DAKAR', 'REGIONS')

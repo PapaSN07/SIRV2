@@ -147,10 +147,10 @@ class InterruptionsLoader(BaseLoader):
                 },
             )
         par_poste_source, par_service = self._regions_depart
-        if poste_source_id is not None and int(poste_source_id) in par_poste_source:
-            return par_poste_source[int(poste_source_id)]
-        if service_id is not None:
-            return par_service.get(int(service_id))
+        if service_id is not None and int(service_id) in par_service:
+            return par_service[int(service_id)]
+        if poste_source_id is not None:
+            return par_poste_source.get(int(poste_source_id))
         return None
 
     def _ensure_valid_fk_cache(self) -> None:
@@ -259,7 +259,7 @@ class InterruptionsLoader(BaseLoader):
             "statut": statut,
             "service_id": service_id,
             # Dakar (BCC) / Régions (BRC) : portée par l'interruption dans SIR v1
-            # Région d'exploitation : poste source, sinon service (SDDV / SDPG Dakar ; SDRBD mixte)
+            # Région d'exploitation : service, sinon poste source (SDDV / SDPG / SDRBD Dakar)
             "region_id": self._region_du_depart(
                 self.fk.poste_source_id(
                     str(row_get(row, "PosteSource", "postesource") or "")

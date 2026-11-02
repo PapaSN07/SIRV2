@@ -228,28 +228,29 @@ async def get_interruption_detail(
 
 
 async def region_du_depart(db: AsyncSession, poste_source_id: int | None, service_id: int | None) -> int | None:
-    """Région d'exploitation d'une interruption : celle de son poste source, sinon de son service.
+    """Région d'exploitation d'une interruption : celle de son service, sinon de son poste source.
 
-    SDDV / SDPG → Dakar, services régionaux → Régions ; certains départs de SDRBD touchent les
-    Régions, d'où la priorité au poste source. Seules Dakar et Régions sont retenues.
+    SDDV, SDPG, SDRBD → Dakar ; services régionaux → Régions (migration c9d0e1f2a3b4). La région
+    des postes sources de SIRV2 n'est pas fiable (postes régionaux enregistrés à Dakar) : elle ne
+    sert que pour une interruption sans service. Seules Dakar et Régions sont retenues.
     """
     from app.models.geo import Region
     from app.models.reseau import PosteSource
 
     exploitation = Region.code.in_(("DAKAR", "REGIONS"))
-    if poste_source_id is not None:
-        region_id = await db.scalar(
-            select(PosteSource.region_id)
-            .join(Region, Region.id == PosteSource.region_id)
-            .where(PosteSource.id == poste_source_id, exploitation)
-        )
-        if region_id is not None:
-            return int(region_id)
     if service_id is not None:
         region_id = await db.scalar(
             select(Service.region_id)
             .join(Region, Region.id == Service.region_id)
             .where(Service.id == service_id, exploitation)
+        )
+        if region_id is not None:
+            return int(region_id)
+    if poste_source_id is not None:
+        region_id = await db.scalar(
+            select(PosteSource.region_id)
+            .join(Region, Region.id == PosteSource.region_id)
+            .where(PosteSource.id == poste_source_id, exploitation)
         )
         if region_id is not None:
             return int(region_id)
