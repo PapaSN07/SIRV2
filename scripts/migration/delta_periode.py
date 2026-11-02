@@ -11,7 +11,7 @@ Avec --execute : les étapes s'enchaînent et s'arrêtent à la première erreur
 sont reconnues par les tables de correspondance id_maps).
 
 Étapes :
-  interruptions  extraction HFSQL (distribution, historique, transport, OMVG) + ETL
+  interruptions  extraction HFSQL (distribution, historique ; transport et OMVG avec --avec-transport) + ETL
                  (nouvelles lignes et mise à jour des lignes déjà reprises : statut, clôture…)
                  + backfill des clés étrangères ;
   durees         durées en heures (colonne dureeHeure, règle du 28/10) ;
@@ -202,7 +202,7 @@ def dernier_mois_hfsql_clients(base_clients: list[str]) -> str | None:
 
 
 def commandes(
-    depuis: datetime, jusqu_a_clients: str | None
+    depuis: datetime, jusqu_a_clients: str | None, avec_transport: bool = False
 ) -> dict[str, list[list[str]]]:
     jour = depuis.strftime("%Y-%m-%d")
     clients = [
@@ -215,12 +215,8 @@ def commandes(
         clients += ["--jusqu-a", jusqu_a_clients]
     return {
         "interruptions": [
-            [
-                "sync_interruptions.py",
-                "--execute",
-                "--update-existing",
-                "--avec-transport",
-            ]
+            ["sync_interruptions.py", "--execute", "--update-existing"]
+            + (["--avec-transport"] if avec_transport else [])
         ],
         "durees": [
             [
@@ -286,6 +282,11 @@ def main() -> int:
     parser.add_argument(
         "--sans", choices=ETAPES, action="append", default=[], help="Sauter une étape"
     )
+    parser.add_argument(
+        "--avec-transport",
+        action="store_true",
+        help="Reprendre aussi le transport et l'OMVG (en attente : distribution seule par défaut)",
+    )
     args = parser.parse_args()
 
     # Fenêtre lue par l'extraction et l'ETL des interruptions (scripts lancés en sous-processus)
@@ -307,7 +308,7 @@ def main() -> int:
     afficher_etat(args.depuis, hfsql, sirv2)
 
     jusqu_a = dernier_mois_hfsql_clients(sirv2["base_clients"])
-    plan = commandes(args.depuis, jusqu_a)
+    plan = commandes(args.depuis, jusqu_a, args.avec_transport)
     a_lancer = [
         e for e in ETAPES[ETAPES.index(args.a_partir_de) :] if e not in args.sans
     ]

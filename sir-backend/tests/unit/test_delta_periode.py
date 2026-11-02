@@ -27,7 +27,8 @@ def test_plan_depuis_juin() -> None:
     plan = commandes(datetime(2026, 6, 1), "2026-09")
     assert plan["clients"][0][-2:] == ["--jusqu-a", "2026-09"]
     assert plan["postes"][0][-2:] == ["--depuis", "2026-06-01"]
-    assert "--avec-transport" in plan["interruptions"][0]
+    assert "--avec-transport" not in plan["interruptions"][0]  # transport en attente
+    assert "--avec-transport" in commandes(datetime(2026, 6, 1), None, True)["interruptions"][0]
     assert "--jusqu-a" not in commandes(datetime(2026, 6, 1), None)["clients"][0]
 
 

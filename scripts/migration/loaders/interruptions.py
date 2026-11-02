@@ -88,9 +88,12 @@ class InterruptionsLoader(BaseLoader):
         *args,
         system_user_id: int = 1,
         sync_existing: bool = False,
+        types_direction: frozenset[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
+        # None = toutes les sources ; {"distribution"} = transport et OMVG ignorés (exports non rafraîchis)
+        self.types_direction = types_direction
         self.fk = FkResolver(self.id_maps)
         self.system_user_id = system_user_id
         self.sync_existing = sync_existing
@@ -150,6 +153,8 @@ class InterruptionsLoader(BaseLoader):
 
     def run(self) -> dict[str, Any]:
         for table, type_direction, is_histo in INTERRUPTION_SOURCES:
+            if self.types_direction is not None and type_direction not in self.types_direction:
+                continue
             self._load_interruptions_table(table, type_direction, is_histo)
         if get_settings().migration_load_poste_interruptions:
             self._load_poste_interruptions()

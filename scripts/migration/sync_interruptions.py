@@ -105,6 +105,8 @@ def run_sync(
             dry_run=dry_run,
             sync_existing=update_existing,
             system_user_id=1,
+            # sans --avec-transport, les exports transport/OMVG ne sont pas rafraîchis : ne pas les rejouer
+            types_direction=None if avec_transport else frozenset({"distribution"}),
         )
         report["etl"] = loader.run()
         loader.flush_batch()
