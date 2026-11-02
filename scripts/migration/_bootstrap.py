@@ -33,3 +33,16 @@ _load_migration_env()
 for p in (str(REPO_ROOT), str(BACKEND_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
+
+
+def terminer(code: int | None) -> None:
+    """Fin de script sans finalisation de l'interpréteur.
+
+    Le pilote ODBC HFSQL (PC SOFT) plante souvent au déchargement, à la fermeture de Python :
+    code de sortie 3221225477 (0xC0000005, violation d'accès) alors que le travail est fini et
+    validé. Les scripts enchaînés (delta_periode, sync_interruptions) prenaient cela pour un échec.
+    On vide les sorties puis on quitte directement avec le vrai code.
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(int(code or 0))
