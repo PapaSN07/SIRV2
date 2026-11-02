@@ -265,10 +265,45 @@ def discover_columns(conn, table: str) -> list[str]:
     return columns
 
 
+_COLONNES_REELLES: dict[str, set[str]] = {}
+
+
+def _colonnes_reelles(conn, table: str) -> set[str] | None:
+    """Noms de colonnes présents dans la table HFSQL (en minuscules), lus une fois par processus."""
+    if table not in _COLONNES_REELLES:
+        try:
+            cur = conn.cursor()
+            cur.execute(f"SELECT TOP 1 * FROM {table}")
+            _COLONNES_REELLES[table] = {str(c[0]).lower() for c in cur.description}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Colonnes de %s illisibles : %s", table, str(exc)[:120])
+            return None
+    return _COLONNES_REELLES[table]
+
+
+def filtrer_colonnes(colonnes: list[str], reelles: set[str] | None) -> tuple[list[str], list[str]]:
+    """(colonnes présentes, colonnes absentes) ; sans liste réelle, tout est gardé."""
+    if not reelles:
+        return colonnes, []
+    gardees = [c for c in colonnes if c.lower() in reelles]
+    return gardees, [c for c in colonnes if c.lower() not in reelles]
+
+
 def get_table_columns(table: str, conn=None) -> list[str] | None:
-    """Colonnes pour SELECT explicite : liste ETL minimale > cache ODBC > SIR.sql."""
+    """Colonnes pour SELECT explicite : liste ETL minimale > cache ODBC > SIR.sql.
+
+    La liste ETL est confrontée aux colonnes réelles de la table (la structure HFSQL évolue :
+    ex. idservice / idfeeder absents d'InterruptionsTransport) : une colonne absente est retirée
+    du SELECT au lieu de faire échouer toute l'extraction.
+    """
     if table in MIGRATION_COLUMNS:
-        return MIGRATION_COLUMNS[table]
+        colonnes = MIGRATION_COLUMNS[table]
+        if conn is None:
+            return colonnes
+        gardees, absentes = filtrer_colonnes(colonnes, _colonnes_reelles(conn, table))
+        if absentes:
+            logger.warning("%s : colonnes absentes ignorées : %s", table, ", ".join(absentes))
+        return gardees or colonnes
     cached = load_cached_columns(table)
     if cached:
         return cached

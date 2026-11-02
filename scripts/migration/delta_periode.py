@@ -11,7 +11,7 @@ Avec --execute : les étapes s'enchaînent et s'arrêtent à la première erreur
 sont reconnues par les tables de correspondance id_maps).
 
 Étapes :
-  interruptions  extraction HFSQL (distribution, historique, transport, OMVG, END) + ETL
+  interruptions  extraction HFSQL (distribution, historique, transport, OMVG) + ETL
                  (nouvelles lignes et mise à jour des lignes déjà reprises : statut, clôture…)
                  + backfill des clés étrangères ;
   durees         durées en heures (colonne dureeHeure, règle du 28/10) ;

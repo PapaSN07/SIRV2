@@ -39,8 +39,9 @@ INTERRUPTION_EXTRACT_TABLES: list[str] = [
     "Interruptions",
     "Interruptions_Histo",
 ]
-# --avec-transport : le loader relit aussi ces exports ; sans nouvel export, il rejouerait d'anciens fichiers
-TRANSPORT_EXTRACT_TABLES: list[str] = ["InterruptionsTransport", "Interruptions_OMVG", "EnergieND"]
+# --avec-transport : le loader relit aussi ces exports ; sans nouvel export, il rejouerait d'anciens fichiers.
+# EnergieND est vide dans SIR v1 (l'END est porté par chaque interruption) : pas d'extraction.
+TRANSPORT_EXTRACT_TABLES: list[str] = ["InterruptionsTransport", "Interruptions_OMVG"]
 
 
 def _sql_counts() -> dict[str, int | str]:
@@ -171,7 +172,7 @@ def main() -> int:
     parser.add_argument(
         "--avec-transport",
         action="store_true",
-        help="Ré-extraire aussi InterruptionsTransport, Interruptions_OMVG et EnergieND",
+        help="Ré-extraire aussi InterruptionsTransport et Interruptions_OMVG",
     )
     args = parser.parse_args()
     if not args.execute and not args.dry_run:

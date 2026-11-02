@@ -53,3 +53,11 @@ def test_saisies_test_hors_reprise() -> None:
     rows = [SimpleNamespace(id=i) for i in (1, 2, 3, 4)]
     assert [r.id for r in a_supprimer(rows, {1, 2}, None)] == [3, 4]
     assert [r.id for r in a_supprimer(rows, {1, 2}, {4, 1})] == [4]
+
+
+def test_colonnes_absentes_retirees_du_select() -> None:
+    from scripts.migration.hfsql_schema import filtrer_colonnes
+
+    gardees, absentes = filtrer_colonnes(["NInterruption", "idservice", "Service"], {"ninterruption", "service"})
+    assert gardees == ["NInterruption", "Service"] and absentes == ["idservice"]
+    assert filtrer_colonnes(["A"], None) == (["A"], [])
