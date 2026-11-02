@@ -213,6 +213,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : `SUM(CASE WHEN unite_releve IN (SELECT …) …)` — SQL Server refuse une sous-requête dans une fonction d'agrégat (erreur 130), SQLite l'accepte.
 **Règles** : dans un `SUM` / `COUNT`, jamais de `IN (SELECT …)` ni de sous-requête : faire une `LEFT JOIN` sur la sous-requête et tester la colonne jointe ; une requête agrégée nouvelle reçoit un test compilé avec `sqlalchemy.dialects.mssql` (`tests/unit/test_base_clients_sql_server.py`).
 
+### 02/11/2026 — Rattrapage juin → novembre : extraction transport et code 0xC0000005
+**Contexte** : `scripts/migration/delta_periode.py --execute` (reprise SIR v1 depuis le 01/06/2026).
+**Erreurs** : la liste ETL d'`InterruptionsTransport` demandait `idservice` / `idfeeder`, absentes de la table HFSQL (« Rubrique inconnue ») ; `EnergieND` est vide dans SIR v1 ; les scripts finissaient leur travail puis Python sortait en 3221225477 (0xC0000005, pilote ODBC HFSQL au déchargement), ce qui arrêtait l'enchaînement.
+**Règles** : `hfsql_schema.get_table_columns` retire du SELECT les colonnes absentes de la table réelle ; un script de migration se termine par `scripts.migration._bootstrap.terminer(main())` (sortie directe, sans finalisation) ; le transport est repris seulement avec `--avec-transport` (en attente au 02/11/2026).
+
 ---
 
 *Dernière mise à jour : Juin 2026*
