@@ -65,3 +65,14 @@ def test_verdict_poste_source() -> None:
     assert verdict("Dakar", "Dakar", {"Dakar"}) == "cohérent"
     assert verdict(None, "Dakar", {"Dakar", "Régions"}).startswith("mixte")
     assert verdict(None, None, set()) == "indéterminé"
+
+
+def test_region_poste_source_par_departs() -> None:
+    from collections import Counter
+
+    from scripts.migration.backfill_postes_sources_region import region_cible
+
+    assert region_cible(Counter()) == (None, False)
+    assert region_cible(Counter({2: 5})) == (2, False)
+    assert region_cible(Counter({1: 3, 2: 1})) == (1, True)  # mixte, majorité Dakar
+    assert region_cible(Counter({1: 2, 2: 2})) == (1, True)  # égalité → Dakar
