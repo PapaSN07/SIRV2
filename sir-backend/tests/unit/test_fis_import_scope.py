@@ -61,6 +61,7 @@ async def _run(rows, *, can_validate: bool, scoped: bool = True):
         patch(f"{M}._can_validate", return_value=can_validate),
         patch.object(fis.distribution_rules, "_read_scope", return_value=object() if scoped else None),
         patch.object(fis.distribution_rules, "_ensure_service_in_write_scope", side_effect=_scope_dakar_only),
+        patch.object(fis.distribution_rules.repo, "region_du_depart", new_callable=AsyncMock, return_value=None),
     ):
         result = await fis.import_fis_file(db, b"xlsx", current_user=user)
     added = [c.args[0] for c in db.add.call_args_list if isinstance(c.args[0], fis.Interruption)]

@@ -227,6 +227,35 @@ async def get_interruption_detail(
     return result.unique().scalar_one_or_none()
 
 
+async def region_du_depart(db: AsyncSession, poste_source_id: int | None, service_id: int | None) -> int | None:
+    """Région d'exploitation d'une interruption : celle de son poste source, sinon de son service.
+
+    SDDV / SDPG → Dakar, services régionaux → Régions ; certains départs de SDRBD touchent les
+    Régions, d'où la priorité au poste source. Seules Dakar et Régions sont retenues.
+    """
+    from app.models.geo import Region
+    from app.models.reseau import PosteSource
+
+    exploitation = Region.code.in_(("DAKAR", "REGIONS"))
+    if poste_source_id is not None:
+        region_id = await db.scalar(
+            select(PosteSource.region_id)
+            .join(Region, Region.id == PosteSource.region_id)
+            .where(PosteSource.id == poste_source_id, exploitation)
+        )
+        if region_id is not None:
+            return int(region_id)
+    if service_id is not None:
+        region_id = await db.scalar(
+            select(Service.region_id)
+            .join(Region, Region.id == Service.region_id)
+            .where(Service.id == service_id, exploitation)
+        )
+        if region_id is not None:
+            return int(region_id)
+    return None
+
+
 async def region_exploitation_existe(db: AsyncSession, region_id: int) -> bool:
     """Régions d'exploitation des interruptions de distribution : Dakar et Régions."""
     from app.models.geo import Region
@@ -294,9 +323,7 @@ async def list_interruptions_paginated(
         date_fin=date_fin,
     )
     if max_page_size is not None:
-        return await paginate(
-            db, query, page, page_size, scalar_type=Interruption, max_page_size=max_page_size
-        )
+        return await paginate(db, query, page, page_size, scalar_type=Interruption, max_page_size=max_page_size)
     return await paginate(db, query, page, page_size, scalar_type=Interruption)
 
 
@@ -344,9 +371,7 @@ async def count_interruptions_scoped(
 
 async def count_postes_for_interruption(db: AsyncSession, interruption_id: int) -> int:
     result = await db.execute(
-        select(func.count())
-        .select_from(PosteInterruption)
-        .where(PosteInterruption.interruption_id == interruption_id)
+        select(func.count()).select_from(PosteInterruption).where(PosteInterruption.interruption_id == interruption_id)
     )
     return int(result.scalar_one())
 
@@ -366,9 +391,7 @@ async def list_postes_for_interruption(
 
 async def list_linked_poste_ids(db: AsyncSession, interruption_id: int) -> set[int]:
     result = await db.execute(
-        select(PosteInterruption.poste_id).where(
-            PosteInterruption.interruption_id == interruption_id
-        )
+        select(PosteInterruption.poste_id).where(PosteInterruption.interruption_id == interruption_id)
     )
     return {int(row[0]) for row in result.all()}
 

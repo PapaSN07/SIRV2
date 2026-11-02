@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Région d'exploitation des interruptions de distribution reprises : Dakar (BCC) / Régions (BRC).
+"""Région d'exploitation des interruptions de distribution : Dakar (BCC) / Régions (BRC).
 
-SIR v1 porte la région sur l'interruption (colonne « regions » des tables Interruptions et
-Interruptions_Histo) ; les services travaillent dans les deux régions. Ce script recopie cette
-valeur dans ``interruptions.region_id`` (migration b8c9d0e1f2a3). Relançable : seules les
-valeurs différentes sont écrites. Les interruptions saisies dans SIRV2 ont leur région à la
-saisie (imposée par le compte BCC / BRC).
+Règle SENELEC (02/11/2026) : la région suit le réseau. SDDV (Dakar ville) et SDPG
+(Pikine-Guédiawaye) sont à Dakar, les services régionaux (SDRCE*, SDRCO*, SDRN*…) en Régions ;
+SDRBD (Rufisque-Bargny-Diamniadio) est à Dakar, mais certains de ses départs touchent les
+Régions. La région d'une interruption est donc celle de son poste source, sinon celle de son
+service (migration c9d0e1f2a3b4). Même règle que la saisie
+(interruption_distribution_repository.region_du_depart).
 
-Simulation par défaut : répartition par année et par région, avant / après.
+La colonne « regions » de SIR v1 n'est pas utilisée : elle range par exemple 6 471 interruptions
+SDDV de 2026 dans « Régions ».
 
-Usage (poste ETL avec le pilote ODBC HFSQL) :
+Simulation par défaut : répartition par année et par service, avant / après. Relançable.
+
+Usage :
     python scripts/migration/backfill_interruption_region.py
     python scripts/migration/backfill_interruption_region.py --execute
 """
@@ -32,58 +36,31 @@ from sqlalchemy import text  # noqa: E402
 
 from scripts.migration.config import ensure_dirs, get_settings  # noqa: E402
 from scripts.migration.db_session import get_session  # noqa: E402
-from scripts.migration.hfsql_odbc import connect_hfsql, fetch_all  # noqa: E402
-from scripts.migration.id_maps import IdMapStore  # noqa: E402
-from scripts.migration.transforms.regions import code_region_v1  # noqa: E402
-from scripts.migration.transforms.rows import row_get  # noqa: E402
 
-_TABLES = ("Interruptions", "Interruptions_Histo")
 _LOT = 5000
 
-
-def lire_regions_hfsql() -> tuple[dict[int, str], Counter]:
-    """id SIRV2 → code région (DAKAR / REGIONS) et décompte des valeurs SIR v1 non reconnues."""
-    correspondance = {
-        str(k).split(".")[0]: int(v)
-        for k, v in IdMapStore().load("interruptions").items()
-    }
-    resultat: dict[int, str] = {}
-    inconnues: Counter = Counter()
-    conn = connect_hfsql()
-    try:
-        for table in _TABLES:
-            rows = fetch_all(conn, f"SELECT NInterruption, regions FROM {table}")
-            rattachees = 0
-            for row in rows:
-                sid = correspondance.get(
-                    str(row_get(row, "NInterruption")).split(".")[0]
-                )
-                if sid is None:
-                    continue
-                valeur = row_get(row, "regions")
-                code = code_region_v1(valeur)
-                if code is None:
-                    inconnues[str(valeur)] += 1
-                    continue
-                resultat[sid] = code
-                rattachees += 1
-            print(
-                f"  {table} : {len(rows)} ligne(s), {rattachees} région(s) rattachée(s) à SIRV2",
-                flush=True,
-            )
-    finally:
-        conn.close()
-    return resultat, inconnues
+# Région du départ : poste source (Dakar / Régions), sinon service
+_SQL = """
+SELECT i.id, i.region_id, YEAR(i.date_apparition) AS annee, ISNULL(s.code, '(sans service)') AS service,
+       COALESCE(rp.id, rs.id) AS region_cible,
+       CASE WHEN rp.id IS NOT NULL THEN 'poste source' WHEN rs.id IS NOT NULL THEN 'service' ELSE 'aucune' END AS origine
+FROM dbo.interruptions i
+LEFT JOIN dbo.postes_sources p ON p.id = i.poste_source_id
+LEFT JOIN dbo.regions rp ON rp.id = p.region_id AND rp.code IN ('DAKAR', 'REGIONS')
+LEFT JOIN dbo.services s ON s.id = i.service_id
+LEFT JOIN dbo.regions rs ON rs.id = s.region_id AND rs.code IN ('DAKAR', 'REGIONS')
+WHERE i.type_direction = 'distribution'
+"""
 
 
 def corrections(
-    actuelles: list[tuple[int, int | None]], cible: dict[int, int]
+    lignes: list[tuple[int, int | None, int | None]],
 ) -> list[tuple[int, int]]:
-    """(region_id, interruption_id) pour les interruptions dont la région diffère de SIR v1."""
+    """(region_id, interruption_id) quand la région du départ est connue et diffère."""
     return [
-        (cible[iid], iid)
-        for iid, region in actuelles
-        if iid in cible and region != cible[iid]
+        (cible, iid)
+        for iid, actuelle, cible in lignes
+        if cible is not None and actuelle != cible
     ]
 
 
@@ -96,56 +73,47 @@ def main() -> int:
     )
     args = parser.parse_args()
     ensure_dirs()
-    print("Lecture SIR v1 (regions)…", flush=True)
-    codes, inconnues = lire_regions_hfsql()
-    bilan: dict[str, Any] = {
-        "simulation": not args.execute,
-        "v1_rattachees": len(codes),
-    }
-    if inconnues:
-        print(
-            f"  valeurs « regions » non reconnues : {dict(inconnues.most_common(10))}"
-        )
-        bilan["valeurs_inconnues"] = dict(inconnues.most_common(20))
-
     with get_session() as session:
-        regions = {
-            str(c): int(i)
-            for i, c in session.execute(text("SELECT id, code FROM dbo.regions")).all()
-        }
-        libelles = {v: k for k, v in regions.items()}
-        manquantes = {"DAKAR", "REGIONS"} - set(regions)
-        if manquantes:
-            print(f"Régions absentes de SIRV2 : {manquantes} — arrêt.")
-            return 1
-        cible = {iid: regions[c] for iid, c in codes.items()}
-        actuelles = [
-            (int(i), int(r) if r is not None else None, int(a))
-            for i, r, a in session.execute(
-                text(
-                    "SELECT id, region_id, YEAR(date_apparition) FROM dbo.interruptions "
-                    "WHERE type_direction = 'distribution'"
-                )
+        libelles = {
+            int(i): str(lib)
+            for i, lib in session.execute(
+                text("SELECT id, libelle FROM dbo.regions")
             ).all()
-        ]
-        a_corriger = corrections([(i, r) for i, r, _ in actuelles], cible)
-        repartition: dict[int, Counter] = defaultdict(Counter)
-        for iid, region, annee in actuelles:
-            nouvelle = cible.get(iid, region)
-            repartition[annee][
-                libelles.get(nouvelle, "(sans région)") if nouvelle else "(sans région)"
-            ] += 1
+        }
+        rows = session.execute(text(_SQL)).all()
+        a_corriger = corrections(
+            [(int(r.id), r.region_id, r.region_cible) for r in rows]
+        )
+        par_annee: dict[int, Counter] = defaultdict(Counter)
+        par_service: dict[str, Counter] = defaultdict(Counter)
+        origines: Counter = Counter()
+        derniere = max((int(r.annee) for r in rows), default=0)
+        for r in rows:
+            region = (
+                libelles.get(r.region_cible, "(sans région)")
+                if r.region_cible
+                else "(sans région)"
+            )
+            par_annee[int(r.annee)][region] += 1
+            if int(r.annee) == derniere:
+                par_service[r.service][region] += 1
+            origines[r.origine] += 1
         print(
-            f"\n{len(actuelles)} interruption(s) de distribution · {len(a_corriger)} région(s) à écrire"
+            f"{len(rows)} interruption(s) de distribution · {len(a_corriger)} région(s) à écrire"
         )
-        print("  année | répartition après correction")
-        for annee, compte in sorted(repartition.items()):
+        print(f"Région prise sur : {dict(origines)}")
+        print("\nPar année :")
+        for annee, compte in sorted(par_annee.items()):
             print(f"  {annee} | {dict(compte)}")
-        bilan.update(interruptions=len(actuelles), a_corriger=len(a_corriger))
-        bilan["sans_region_apres"] = sum(
-            c.get("(sans région)", 0) for c in repartition.values()
-        )
-
+        print(f"\nPar service ({derniere or '—'}) :")
+        for service, compte in sorted(par_service.items()):
+            print(f"  {service:<16} | {dict(compte)}")
+        bilan: dict[str, Any] = {
+            "simulation": not args.execute,
+            "interruptions": len(rows),
+            "a_corriger": len(a_corriger),
+            "origine": dict(origines),
+        }
         if args.execute and a_corriger:
             cur = session.connection().connection.cursor()
             cur.fast_executemany = True
@@ -156,7 +124,7 @@ def main() -> int:
                 )
             cur.close()
             session.commit()
-            print(f"{len(a_corriger)} région(s) écrite(s).")
+            print(f"\n{len(a_corriger)} région(s) écrite(s).")
         else:
             session.rollback()
 

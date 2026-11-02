@@ -51,6 +51,6 @@ def test_code_region_v1() -> None:
 
 
 def test_backfill_region_corrections() -> None:
-    actuelles = [(10, None), (11, 1), (12, 2), (13, None)]
-    # 10 sans région → Dakar ; 11 Dakar → Régions ; 12 déjà juste ; 13 sans équivalent SIR v1
-    assert corrections(actuelles, {10: 1, 11: 2, 12: 2}) == [(1, 10), (2, 11)]
+    # (id, région actuelle, région du départ) : 10 → Dakar ; 11 Dakar → Régions ; 12 juste ; 13 inconnue
+    lignes = [(10, None, 1), (11, 1, 2), (12, 2, 2), (13, None, None)]
+    assert corrections(lignes) == [(1, 10), (2, 11)]

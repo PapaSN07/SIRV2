@@ -61,8 +61,8 @@ def main() -> int:
         for region, annee, nb in session.execute(
             text(
                 "SELECT ISNULL(r.libelle, '(sans région)'), YEAR(i.date_apparition), COUNT(*) "
-                "FROM dbo.interruptions i LEFT JOIN dbo.services s ON s.id = i.service_id "
-                "LEFT JOIN dbo.regions r ON r.id = s.region_id WHERE i.type_direction = 'distribution' "
+                "FROM dbo.interruptions i "
+                "LEFT JOIN dbo.regions r ON r.id = i.region_id WHERE i.type_direction = 'distribution' "
                 "GROUP BY ISNULL(r.libelle, '(sans région)'), YEAR(i.date_apparition) ORDER BY 2, 1"
             )
         ).all():

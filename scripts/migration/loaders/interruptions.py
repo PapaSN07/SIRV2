@@ -31,7 +31,6 @@ from scripts.migration.transforms.dates import (
 )
 from scripts.migration.transforms.fk_resolver import FkResolver
 from scripts.migration.transforms.rows import row_get
-from scripts.migration.transforms.regions import code_region_v1
 from scripts.migration.transforms.statut import map_statut
 
 INTERRUPTION_SOURCES: list[tuple[str, str, bool]] = [
@@ -121,20 +120,38 @@ class InterruptionsLoader(BaseLoader):
         if sync_existing:
             self.stats["updated"] = 0
 
-    def _region_id(self, valeur: Any) -> int | None:
-        code = code_region_v1(valeur)
-        if code is None:
-            return None
-        if not hasattr(self, "_regions_par_code"):
+    def _region_du_depart(
+        self, poste_source_id: int | None, service_id: int | None
+    ) -> int | None:
+        """Même règle que l'application (interruption_distribution_repository.region_du_depart)."""
+        if not hasattr(self, "_regions_depart"):
             from sqlalchemy import text
 
-            self._regions_par_code = {
-                str(c): int(i)
-                for i, c in self.session.execute(
-                    text("SELECT id, code FROM dbo.regions")
-                ).all()
-            }
-        return self._regions_par_code.get(code)
+            exploitation = "r.code IN ('DAKAR', 'REGIONS')"
+            self._regions_depart = (
+                {
+                    int(i): int(r)
+                    for i, r in self.session.execute(
+                        text(
+                            f"SELECT p.id, p.region_id FROM dbo.postes_sources p JOIN dbo.regions r ON r.id = p.region_id WHERE {exploitation}"
+                        )
+                    ).all()
+                },
+                {
+                    int(i): int(r)
+                    for i, r in self.session.execute(
+                        text(
+                            f"SELECT s.id, s.region_id FROM dbo.services s JOIN dbo.regions r ON r.id = s.region_id WHERE {exploitation}"
+                        )
+                    ).all()
+                },
+            )
+        par_poste_source, par_service = self._regions_depart
+        if poste_source_id is not None and int(poste_source_id) in par_poste_source:
+            return par_poste_source[int(poste_source_id)]
+        if service_id is not None:
+            return par_service.get(int(service_id))
+        return None
 
     def _ensure_valid_fk_cache(self) -> None:
         if self._valid_fk_ids is not None:
@@ -242,7 +259,13 @@ class InterruptionsLoader(BaseLoader):
             "statut": statut,
             "service_id": service_id,
             # Dakar (BCC) / Régions (BRC) : portée par l'interruption dans SIR v1
-            "region_id": self._region_id(row_get(row, "regions", "Regions"))
+            # Région d'exploitation : poste source, sinon service (SDDV / SDPG Dakar ; SDRBD mixte)
+            "region_id": self._region_du_depart(
+                self.fk.poste_source_id(
+                    str(row_get(row, "PosteSource", "postesource") or "")
+                ),
+                service_id,
+            )
             if type_direction == "distribution"
             else None,
             "feeder_id": feeder_id,

@@ -623,6 +623,16 @@ async def import_fis_file(
             puissance_mw = row.puissance_kw / 1000.0
             end_mwh = row.end_kwh / 1000.0
 
+            # Région d'exploitation : celle du départ ; un BCC / BRC n'importe que sa région
+            region_id = await distribution_rules.repo.region_du_depart(
+                db, poste_source.id if poste_source else None, service_id
+            )
+            region_compte = _region_du_compte(current_user)
+            if region_compte is not None:
+                if region_id is not None and region_id != region_compte:
+                    raise ValueError("Hors périmètre : départ d'une autre région que celle du compte")
+                region_id = region_compte
+
             savepoint = await db.begin_nested()
 
             # Créer l'interruption principale
@@ -632,8 +642,7 @@ async def import_fis_file(
                 statut=statut_import,
                 validated_by_id=created_by_id if statut_import == "valide" else None,
                 service_id=service_id,
-                # Région imposée par le compte BCC (Dakar) / BRC (Régions) ; à compléter sinon
-                region_id=_region_du_compte(current_user),
+                region_id=region_id,
                 feeder_id=feeder.id if feeder else None,
                 poste_source_id=poste_source.id if poste_source else None,
                 date_apparition=row.date_apparition,

@@ -149,23 +149,32 @@ async def _ensure_service_in_write_scope(
     # régions ; c'est la région de l'interruption, imposée par le compte, qui fait le périmètre.
 
 
-async def _region_de_saisie(db: AsyncSession, user: Utilisateur, demandee: int | None) -> int:
-    """Région de l'interruption : imposée par le compte BCC (Dakar) / BRC (Régions).
+async def _region_de_saisie(
+    db: AsyncSession, user: Utilisateur, demandee: int | None, *, poste_source_id: int | None, service_id: int | None
+) -> int:
+    """Région de l'interruption : celle du départ (poste source, sinon service).
 
-    Les comptes nationaux (Admin SCR, SUPERADMIN) la choisissent (champ ``region_id``).
+    Un BCC saisit uniquement pour Dakar, un BRC uniquement pour les Régions : un départ d'une
+    autre région est refusé. Un compte national peut préciser la région quand le départ n'en
+    porte pas.
     """
+    region_depart = await repo.region_du_depart(db, poste_source_id, service_id)
     scope = _read_scope(user)
     if scope is not None and scope.region_id is not None:
-        if demandee is not None and demandee != scope.region_id:
+        if (region_depart is not None and region_depart != scope.region_id) or (
+            demandee is not None and demandee != scope.region_id
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "status": "error",
                     "data": None,
-                    "error": "La région est imposée par votre compte",
+                    "error": "Ce départ relève d'une autre région que celle de votre compte",
                 },
             )
         return scope.region_id
+    if region_depart is not None:
+        return region_depart
     if demandee is None or not await repo.region_exploitation_existe(db, demandee):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -560,7 +569,9 @@ async def create(
         sous_feeder_id = sous_feeder.id
 
     await _ensure_service_in_write_scope(db, current_user, feeder.service_id)
-    region_id = await _region_de_saisie(db, current_user, body.region_id)
+    region_id = await _region_de_saisie(
+        db, current_user, body.region_id, poste_source_id=feeder.poste_source_id, service_id=feeder.service_id
+    )
 
     await _validate_referentiel_distribution(
         db,

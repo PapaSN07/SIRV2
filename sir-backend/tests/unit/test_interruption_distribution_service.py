@@ -203,6 +203,10 @@ async def test_create_brc_service_in_region_passes_scope() -> None:
     interruption.interruption_distribution = distribution
 
     with patch(
+        "app.services.interruption_distribution_service.repo.region_du_depart",
+        new_callable=AsyncMock,
+        return_value=3,
+    ), patch(
         "app.services.interruption_distribution_service.repo.get_interruption_for_response",
         new_callable=AsyncMock,
         return_value=interruption,
@@ -971,3 +975,25 @@ def test_region_libelle_from_service_geo_chain() -> None:
     interruption.service = service
 
     assert svc._region_libelle(interruption) == "Dakar"
+
+
+async def test_create_bcc_depart_autre_region_raises_403() -> None:
+    """Un BCC (Dakar) ne saisit pas sur un départ des Régions (ex. départ SDRBD côté Régions)."""
+    db = AsyncMock()
+    user = _make_bcc(scope_service_id=1)
+    with patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_feeder",
+        new_callable=AsyncMock,
+        return_value=_feeder(service_id=2),
+    ), patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_sous_feeder",
+        new_callable=AsyncMock,
+        return_value=_sous_feeder(),
+    ), patch(
+        "app.services.interruption_distribution_service.repo.region_du_depart",
+        new_callable=AsyncMock,
+        return_value=2,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await svc.create(db, _create_body(), user)
+    assert exc.value.status_code == 403
