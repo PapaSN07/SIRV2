@@ -23,9 +23,11 @@ from app.schemas.notifications import (
     ManualSmsSendResponse,
     SmsEnvoyeResponse,
 )
+from app.schemas.lecture_sms import LectureSmsRequest, LectureSmsResponse
 from app.services import (
     auth_service,
     destinataire_service,
+    lecture_sms_service,
     manual_sms_service,
     notification_stream_service,
     notification_trace_service,
@@ -256,6 +258,21 @@ async def send_manual_sms(
         destinataire_ids=body.destinataire_ids,
         utilisateur_ids=body.utilisateur_ids,
     )
+    return ApiResponse.success(result)
+
+
+@router.post(
+    "/sms/lecture",
+    response_model=ApiResponse[LectureSmsResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Lire un SMS en texte libre : interruption reconnue pour pré-remplir la saisie",
+)
+async def lire_sms(
+    body: LectureSmsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("notifications", "admin")),
+) -> ApiResponse[LectureSmsResponse]:
+    result = await lecture_sms_service.lire(db, current_user, body.texte)
     return ApiResponse.success(result)
 
 
