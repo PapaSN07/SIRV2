@@ -3,8 +3,10 @@
 Usage (dans le conteneur api) :
     python -m scripts.test_sms                      # lit le WSDL et affiche ce qui a été trouvé
     python -m scripts.test_sms 77XXXXXXX 78XXXXXXX  # envoie un SMS de test à chaque numéro
+    python -m scripts.test_sms 77XXXXXXX --message "Texte à tester (lien, accents…)"
 """
 
+import argparse
 import asyncio
 import sys
 
@@ -14,7 +16,10 @@ from app.core.config import settings
 from app.services import sms_gateway
 
 
-async def main(numeros: list[str]) -> int:
+MESSAGE_TEST = "Test SIRV2 : passerelle SMS opérationnelle."
+
+
+async def main(numeros: list[str], message: str = MESSAGE_TEST) -> int:
     print(f"SMS_GATEWAY_URL  = {settings.sms_gateway_url or '(vide)'}")
     print(f"SMS_GATEWAY_WSDL = {settings.sms_gateway_wsdl or '(recherche automatique)'}")
     try:
@@ -34,7 +39,7 @@ async def main(numeros: list[str]) -> int:
     code = 0
     for numero in numeros:
         try:
-            retour = await sms_gateway.envoyer_sms(numero, "Test SIRV2 : passerelle SMS opérationnelle.")
+            retour = await sms_gateway.envoyer_sms(numero, message)
             print(f"{numero} : réponse « {retour} »")
         except sms_gateway.SmsGatewayError as exc:
             print(f"{numero} : ÉCHEC {exc}")
@@ -43,4 +48,8 @@ async def main(numeros: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main(sys.argv[1:])))
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("numeros", nargs="*")
+    parser.add_argument("--message", default=MESSAGE_TEST, help="Texte envoyé (160 caractères max.)")
+    args = parser.parse_args()
+    sys.exit(asyncio.run(main(args.numeros, args.message[:160])))
