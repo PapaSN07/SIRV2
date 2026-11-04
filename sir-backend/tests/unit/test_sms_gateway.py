@@ -123,3 +123,51 @@ def test_lire_statut_orange() -> None:
     rep = '{"responses":{"response":[{"recipient":{"id":"1","value":"785897352"},"message_ID":316875886,"messagedetail_ID":727468421,"status":{"status_CODE":200,"status_TEXT":"Message envoye"}}]}}'
     assert sms_gateway.lire_statut(rep) == ("200", "Message envoye", "316875886")
     assert sms_gateway.lire_statut("OK") == (None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_envoyer_sms_reessaie_si_la_passerelle_est_injoignable(monkeypatch) -> None:
+    """WSDL injoignable au premier essai : nouvel essai, un seul SMS envoyé."""
+    essais = {"get": 0, "post": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            essais["get"] += 1
+            if essais["get"] == 1:
+                raise httpx.ConnectError("refusé", request=request)
+            return httpx.Response(200, text=WSDL)
+        essais["post"] += 1
+        return httpx.Response(200, text=REPONSE)
+
+    vrai_client = httpx.AsyncClient
+    monkeypatch.setattr(sms_gateway.httpx, "AsyncClient", lambda **kw: vrai_client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(sms_gateway.settings, "sms_gateway_wsdl", "http://10.101.2.86:8080/OSPWebService/OSPWebService")
+    monkeypatch.setattr(sms_gateway, "PAUSE_SECONDES", 0)
+    sms_gateway.reinitialiser_cache()
+
+    assert await sms_gateway.envoyer_sms("771111111", "Test") == "OK"
+    assert essais == {"get": 2, "post": 1}
+    sms_gateway.reinitialiser_cache()
+
+
+@pytest.mark.asyncio
+async def test_envoyer_sms_ne_renvoie_pas_apres_un_envoi_parti(monkeypatch) -> None:
+    """Délai de lecture après l'envoi : le SMS a pu partir, pas de second envoi."""
+    posts = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, text=WSDL)
+        posts.append(request)
+        raise httpx.ReadTimeout("lent", request=request)
+
+    vrai_client = httpx.AsyncClient
+    monkeypatch.setattr(sms_gateway.httpx, "AsyncClient", lambda **kw: vrai_client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(sms_gateway.settings, "sms_gateway_wsdl", "http://10.101.2.86:8080/OSPWebService/OSPWebService")
+    monkeypatch.setattr(sms_gateway, "PAUSE_SECONDES", 0)
+    sms_gateway.reinitialiser_cache()
+
+    with pytest.raises(sms_gateway.SmsGatewayError):
+        await sms_gateway.envoyer_sms("771111111", "Test")
+    assert len(posts) == 1
+    sms_gateway.reinitialiser_cache()

@@ -234,6 +234,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : SIRV2 déduisait la région du service (`services.region_id`, tous à Dakar), alors que dans SIR v1 la région est un attribut de l'interruption et que chaque service travaille dans les deux régions. Vues régionales fausses, BRC sans aucune interruption.
 **Règles** : la région d'une interruption est `interruptions.region_id`, fixée par son départ (`interruption_distribution_repository.region_du_depart` : service, sinon poste source — la région des postes sources de SIRV2 rangeait DRS, SDRCO1… à Dakar ; services rattachés à leur région par la migration c9d0e1f2a3b4) ; un calcul régional passe par `indicateurs_service._load_service_ids` qui pose la région (`perimetre.definir_region`) et les requêtes filtrent avec `interruptions_du_perimetre` / `clients_du_perimetre` ; reprise : `backfill_interruption_region.py` et loader (même règle). La colonne `regions` de SIR v1 n'est pas fiable (6 471 interruptions SDDV de 2026 en « Régions »).
 
+### 04/11/2026 — SMS « envoyé » sans être parti, échec sur coupure passagère
+**Contexte** : SMS affichés « envoyé » dans SIRV2 mais jamais reçus ; un SMS de test en échec « WSDL introuvable » alors que la passerelle répondait une minute après.
+**Erreurs** : sans `SMS_GATEWAY_URL` / `SMS_GATEWAY_WSDL` dans le conteneur, `sms_service` simulait l'envoi et marquait le SMS « envoye » ; une seule tentative, donc une coupure réseau d'un instant faisait échouer le SMS.
+**Règles** : passerelle absente → statut « echec » avec motif, jamais « envoye » ; « envoye » = accepté par Orange (code 200 + `message_id`) ; nouvel essai seulement quand rien n'est parti (WSDL illisible, `ConnectError` / `ConnectTimeout`), jamais après un POST parti (doublon) ; contrôle : `python -m scripts.diag_sms <numéro>` et `python -m scripts.test_sms <numéro>` **dans le worker** (c'est lui qui envoie).
+
 ---
 
 *Dernière mise à jour : Juin 2026*

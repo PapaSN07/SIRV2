@@ -14,6 +14,7 @@ version SOAP, noms des paramètres) puis gardé en mémoire. Configuration (.env
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -53,7 +54,20 @@ TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 
 class SmsGatewayError(RuntimeError):
-    """Échec d'envoi : réseau, WSDL introuvable, faute SOAP ou réponse vide."""
+    """Échec d'envoi : réseau, WSDL introuvable, faute SOAP ou réponse vide.
+
+    ``avant_envoi`` : le message n'a pas pu atteindre le web service (WSDL illisible, connexion
+    refusée ou impossible) ; on peut réessayer sans risquer de doublon.
+    """
+
+    def __init__(self, message: str, *, avant_envoi: bool = False) -> None:
+        super().__init__(message)
+        self.avant_envoi = avant_envoi
+
+
+# Coupure réseau passagère (04/11/2026 : WSDL injoignable une fois, joignable une minute après)
+TENTATIVES = 3
+PAUSE_SECONDES = 3.0
 
 
 @dataclass(frozen=True)
@@ -209,7 +223,8 @@ async def decouvrir_service(client: httpx.AsyncClient) -> ServiceSoap:
         logger.info("Passerelle SMS : WSDL %s → %s", url, _cache.endpoint)
         return _cache
     raise SmsGatewayError(
-        "WSDL de la passerelle SMS introuvable ; renseigner SMS_GATEWAY_WSDL. Essais : " + " ; ".join(erreurs)
+        "WSDL de la passerelle SMS introuvable ; renseigner SMS_GATEWAY_WSDL. Essais : " + " ; ".join(erreurs),
+        avant_envoi=True,
     )
 
 
@@ -251,10 +266,25 @@ async def envoyer_sms(numero: str, message: str) -> str:
 
     Retourne la réponse du web service. Lève ``SmsGatewayError`` si l'envoi échoue
     ou si la réponse est vide (« PAS DE REPONSE » dans l'ancien SIR).
+
+    Réessaie (``TENTATIVES`` fois, ``PAUSE_SECONDES`` d'écart) seulement quand le message n'a pas
+    atteint le web service : jamais après une requête partie, pour ne pas envoyer deux SMS.
     """
     num = normaliser_numero(numero)
     if not num:
         raise SmsGatewayError("Numéro invalide")
+    for tentative in range(1, TENTATIVES + 1):
+        try:
+            return await _envoyer_une_fois(num, message)
+        except SmsGatewayError as exc:
+            if not exc.avant_envoi or tentative == TENTATIVES:
+                raise
+            logger.warning("Passerelle SMS (essai %s/%s) : %s — nouvel essai", tentative, TENTATIVES, exc)
+            await asyncio.sleep(PAUSE_SECONDES)
+    raise SmsGatewayError("Passerelle SMS injoignable")  # pragma: no cover
+
+
+async def _envoyer_une_fois(num: str, message: str) -> str:
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         service = await decouvrir_service(client)
         enveloppe = construire_enveloppe(service, num, message, settings.sms_gateway_signature or "SENELEC")
@@ -266,7 +296,11 @@ async def envoyer_sms(numero: str, message: str) -> str:
             rep = await client.post(service.endpoint, content=enveloppe.encode("utf-8"), headers=headers)
         except httpx.HTTPError as exc:
             reinitialiser_cache()
-            raise SmsGatewayError(f"Passerelle SMS injoignable : {exc.__class__.__name__}") from exc
+            # Connexion jamais établie : rien n'est parti. Délai de lecture : le SMS a pu partir.
+            jamais_parti = isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
+            raise SmsGatewayError(
+                f"Passerelle SMS injoignable : {exc.__class__.__name__}", avant_envoi=jamais_parti
+            ) from exc
     # Une faute SOAP arrive en HTTP 500 : lire le corps avant le code
     valeur = lire_reponse(rep.text) if rep.text else ""
     if rep.status_code >= 400:
