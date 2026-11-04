@@ -37,6 +37,7 @@ async def main(numero: str, nombre: int) -> None:
     )
     async with AsyncSessionLocal() as db:
         lignes = (await db.execute(text(_SQL), {"n": nombre, "numero": f"%{num[-9:]}%"})).all()
+    await engine.dispose()
     if not lignes:
         print(f"Aucun SMS pour un destinataire dont le numéro contient {num[-9:]}")
         return
@@ -46,7 +47,7 @@ async def main(numero: str, nombre: int) -> None:
         elif statut == "envoye":
             verdict = f"accepté par Orange (code {code or '?'}, message {mid or '?'})"
         else:
-            verdict = f"{statut} : {(erreur or '')[:80]}"
+            verdict = f"{statut} : {erreur or ''}"
         print(f"#{i} {cree:%d/%m %H:%M} → {tel} [{etype}] {verdict}")
         print(f"     « {(contenu or '')[:70]} »")
 
