@@ -15,6 +15,10 @@ from app.services import sms_gateway
 
 logger = logging.getLogger(__name__)
 
+PASSERELLE_NON_CONFIGUREE = (
+    "Passerelle SMS non configurée (SMS_GATEWAY_URL / SMS_GATEWAY_WSDL vides dans le conteneur) : SMS non envoyé"
+)
+
 
 async def send_sms_lot(db: AsyncSession, sms_ids: list[int]) -> dict[str, int]:
     """Envoie les SMS ``sms_ids`` un par un et met à jour leur statut (envoye / echec).
@@ -34,14 +38,17 @@ async def send_sms_lot(db: AsyncSession, sms_ids: list[int]) -> dict[str, int]:
             await repo.update_statut(db, record, statut="echec", erreur="Destinataire sans téléphone")
             echecs += 1
             continue
+        if not (settings.sms_gateway_url or settings.sms_gateway_wsdl):
+            # Passerelle absente de la configuration : rien n'est parti, le SMS ne doit pas
+            # apparaître « envoyé » (avant le 04/11/2026 il l'était, sans avoir quitté SIRV2)
+            logger.error("SMS non envoyé id=%s : passerelle SMS non configurée", sms_id)
+            await repo.update_statut(db, record, statut="echec", erreur=PASSERELLE_NON_CONFIGUREE)
+            echecs += 1
+            continue
         try:
-            if settings.sms_gateway_url or settings.sms_gateway_wsdl:
-                retour = await sms_gateway.envoyer_sms(telephone, record.contenu)
-                logger.info("sendOneSignedSMS id=%s → %s", sms_id, retour[:200])
-                code, _, message_id = sms_gateway.lire_statut(retour)
-            else:
-                code, message_id = None, None
-                logger.warning("SMS simulé (passerelle non configurée) id=%s to=%s", sms_id, telephone)
+            retour = await sms_gateway.envoyer_sms(telephone, record.contenu)
+            logger.info("sendOneSignedSMS id=%s → %s", sms_id, retour[:200])
+            code, _, message_id = sms_gateway.lire_statut(retour)
         except Exception as exc:  # noqa: BLE001 — l'échec est tracé sur le SMS
             derniere_erreur = exc
             await repo.update_statut(db, record, statut="echec", erreur=str(exc)[:500])
