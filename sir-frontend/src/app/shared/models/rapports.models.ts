@@ -90,6 +90,9 @@ export interface ApercuMensuelDistribution {
   mois: number;
   region_id: number | null;
   indicateurs: ApercuValeur[];
+  natures: ApercuSerie[];
   services: ApercuSerie[];
+  /** Top des tops (permanent, semi-permanent, fugitif) par zone, avec le mois précédent. */
   top_feeders: ApercuSerie[];
+  synthese: string[];
 }

@@ -27,7 +27,6 @@ from app.schemas.rapports import (
 from app.services.rapport_export_service import (
     export_annuel,
     export_journalier,
-    export_mensuel_distribution,
     export_mensuel_transport,
     generate_placeholder_file,
 )
@@ -35,7 +34,6 @@ from app.services import (
     rapport_annuel_service,
     rapport_hebdo_dd_service,
     rapport_journalier_service,
-    rapport_mensuel_service,
     rapport_mensuel_transport_service,
 )
 from app.repositories import utilisateur_repository
@@ -632,16 +630,18 @@ async def execute_generation(
             user = await utilisateur_repository.get_by_id(db, record.user_id)
             if user is None:
                 raise ValueError(f"Utilisateur introuvable: id={record.user_id}")
-            data = await rapport_mensuel_service.collect_mensuel_distribution_data(
-                db,
-                redis,
-                user,
-                annee=int(params["annee"]),
-                mois=int(params["mois"]),
-                region_id=params.get("region_id"),
-                top_feeders_limit=int(params.get("top_feeders_limit", 10)),
+            # Modèle « Analyse succincte statistiques exploitation distribution » (06/11/2026) :
+            # PDF, Word et Excel produits ensemble, le format choisit celui à télécharger
+            from app.services import rapport_mensuel_dd_export, rapport_mensuel_dd_service
+
+            data = await rapport_mensuel_dd_service.collecter(
+                db, int(params["annee"]), int(params["mois"]), region_id=params.get("region_id")
             )
-            export_mensuel_distribution(file_path, format=record.format, data=data)
+            dossier = storage_dir / record.task_id
+            dossier.mkdir(parents=True, exist_ok=True)
+            fichiers = rapport_mensuel_dd_export.exporter_tout(dossier, rapport_mensuel_dd_export.nom_fichier(data), data)
+            file_path = fichiers.get(record.format, fichiers["pdf"])
+            file_name = file_path.name
         elif record.type_rapport == "mensuel_transport":
             data = await rapport_mensuel_transport_service.collect_mensuel_transport_data(
                 db,

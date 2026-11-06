@@ -20,8 +20,8 @@
       }
       @if (canDistributionReports()) {
         <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_dist'" (click)="setKind('mensuel_dist')">
-          Mensuel distribution
-          <small>Carte du poids de l'END · PDF, Excel</small>
+          Mensuel d'exploitation distribution
+          <small>Analyse succincte · Word, Excel, PDF</small>
         </button>
       }
       <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'annuel'" (click)="setKind('annuel')">
@@ -36,14 +36,14 @@
         <p class="rapports-auto">
           <span class="material-symbols-outlined" aria-hidden="true">schedule_send</span>
           Envoi automatique par e-mail aux destinataires de Notifications :
-          {{ kind() === 'hebdo_dd' ? 'chaque samedi à 8 h (semaine du samedi au vendredi), en Word, Excel et PDF' : 'le 1er du mois à 8 h (mois précédent)' }}.
+          {{ kind() === 'hebdo_dd' ? 'chaque samedi à 8 h (semaine du samedi au vendredi), en Word, Excel et PDF' : 'le 1er du mois à 8 h (mois précédent), en Word, Excel et PDF' }}.
         </p>
       }
 
       <div class="field">
         <label class="field__label" for="format">Format</label>
         <select id="format" class="field__select" [value]="format()" (change)="format.set($any($event.target).value)">
-          @if (kind() === 'hebdo_dd') {
+          @if (kind() === 'hebdo_dd' || kind() === 'mensuel_dist') {
             <option value="docx" [selected]="format() === 'docx'">Word (DOCX)</option>
           }
           <option value="pdf" [selected]="format() === 'pdf'">PDF</option>
@@ -70,7 +70,7 @@
           </div>
           @if (kind() !== 'annuel') {
             <div class="field">
-              <label class="field__label" for="mois">Mois</label>
+              <label class="field__label" for="mois">Mois ({{ libelleMois() }})</label>
               <input id="mois" class="field__select" type="number" min="1" max="12" [value]="mois()" (change)="mois.set(+$any($event.target).value); onParametre()" />
             </div>
           }
@@ -154,7 +154,7 @@
           <p>Semaine {{ a.numero }} · du {{ a.debut.slice(8, 10) }}/{{ a.debut.slice(5, 7) }} au {{ a.fin.slice(8, 10) }}/{{ a.fin.slice(5, 7) }}/{{ a.fin.slice(0, 4) }} — comparée à la semaine {{ a.numero_precedent }}</p>
         }
         @if (kind() === 'mensuel_dist') {
-          <p>{{ libelleMois() }}</p>
+          <p>{{ libelleMois() }} — comparé au mois précédent</p>
         }
       </header>
 
@@ -195,13 +195,27 @@
               <sir-barres [items]="hebdoJours()" format="1.0-1" />
             </article>
           } @else {
+            @if (apercuMensuel()?.synthese?.length) {
+              <article class="rapports-apercu__graphe rapports-apercu__graphe--large">
+                <h3>En bref</h3>
+                <ul class="rapports-apercu__bref">
+                  @for (phrase of apercuMensuel()!.synthese; track $index) {
+                    <li>{{ phrase }}</li>
+                  }
+                </ul>
+              </article>
+            }
             <article class="rapports-apercu__graphe">
-              <h3>Poids de l'END par service (MWh)</h3>
-              <sir-barres [items]="mensuelServices()" format="1.0-1" />
+              <h3>END par nature (MWh)</h3>
+              <sir-barres [items]="mensuelNatures()" format="1.0-1" />
             </article>
             <article class="rapports-apercu__graphe">
-              <h3>Départs les plus pénalisants (MWh)</h3>
-              <sir-barres [items]="mensuelFeeders()" format="1.0-1" />
+              <h3>END par service (MWh)</h3>
+              <sir-barres [items]="mensuelServices()" [legende]="['Mois', 'Mois précédent']" format="1.0-1" />
+            </article>
+            <article class="rapports-apercu__graphe rapports-apercu__graphe--large">
+              <h3>Top des tops : départs les plus perturbés (incidents)</h3>
+              <sir-barres [items]="mensuelFeeders()" [legende]="['Mois', 'Mois précédent']" format="1.0-0" />
             </article>
           }
         </div>

@@ -80,7 +80,7 @@ async def post_rapport_mensuel_distribution(
     mois: int = Query(..., ge=1, le=12),
     region_id: int | None = Query(None, ge=1),
     limit: int = Query(10, ge=1, le=50, description="Top N feeders END"),
-    format: str = Query("pdf", pattern="^(pdf|xlsx)$"),
+    format: str = Query("pdf", pattern="^(pdf|xlsx|docx)$"),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(require_permission("rapports", "read")),
 ) -> ApiResponse[RapportEnqueueResponse]:

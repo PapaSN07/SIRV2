@@ -61,7 +61,8 @@ async def send_direct(*, to_email: str, sujet: str, corps: str) -> dict[str, str
 async def _piece_jointe(db: AsyncSession, record) -> list[Path]:
     """Les e-mails de rapports planifiés (entity_type « rapport ») portent le(s) fichier(s) généré(s).
 
-    Rapport hebdomadaire DD : Word, Excel et PDF, rangés ensemble dans le dossier du rapport.
+    Rapports hebdomadaire DD et mensuel distribution : Word, Excel et PDF, rangés ensemble dans le
+    dossier du rapport.
     """
     if record.entity_type != "rapport" or record.entity_id is None:
         return []
@@ -73,7 +74,7 @@ async def _piece_jointe(db: AsyncSession, record) -> list[Path]:
     path = Path(rapport.file_path)
     if not path.is_file():
         return []
-    if rapport.type_rapport == "hebdo_dd":
+    if rapport.type_rapport in ("hebdo_dd", "mensuel_distribution"):
         freres = [path.with_suffix(f".{ext}") for ext in ("docx", "xlsx", "pdf")]
         return [f for f in freres if f.is_file()]
     return [path]

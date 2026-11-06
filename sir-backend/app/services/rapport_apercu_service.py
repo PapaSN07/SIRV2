@@ -23,7 +23,7 @@ from app.schemas.rapports import (
     ApercuValeur,
 )
 from app.services import rapport_hebdo_dd_service as hebdo
-from app.services import rapport_mensuel_service
+from app.services import rapport_mensuel_dd_service
 from app.services.indicateurs_cache_service import get_cached, set_cached
 from app.services.rapport_generation_service import (
     _HEBDO_DD_ROLES,
@@ -121,28 +121,50 @@ async def apercu_mensuel_distribution(
     cached = await get_cached(redis, cle)
     if isinstance(cached, dict) and "services" in cached:
         return ApercuMensuelDistributionResponse.model_validate(cached)
-    data = await rapport_mensuel_service.collect_mensuel_distribution_data(
-        db, redis, user, annee=annee, mois=mois, region_id=region
-    )
-    services = [
-        ApercuSerie(libelle=s.code or s.libelle, nombre=s.nombre_interruptions, end_mwh=round(s.end_mwh, 3), part_pct=s.part_pct)
-        for s in sorted(data.carte_end.services, key=lambda s: -s.end_mwh)
-    ] if data.carte_end else []
+    data = await rapport_mensuel_dd_service.collecter(db, annee, mois, region_id=region, avec_cumul=False)
+    total_end = data.total.end_mwh
+    m1 = {e.code: e for e in data.evolution_m1}
     apercu = ApercuMensuelDistributionResponse(
         annee=annee,
         mois=mois,
         region_id=region,
         indicateurs=[
-            ApercuValeur(libelle="Interruptions", valeur=data.end.aggregate.nombre_interruptions),
-            ApercuValeur(libelle="END HTA (MWh)", valeur=round(data.end.aggregate.end_mwh, 3)),
-            ApercuValeur(libelle="SAIFI", valeur=round(data.saifi.aggregate.saifi, 4)),
-            ApercuValeur(libelle="SAIDI (h)", valeur=round(data.saidi.aggregate.saidi, 4)),
+            ApercuValeur(libelle="Interruptions HTA", valeur=data.total.nombre,
+                         precedent=sum(e.nombre_prec for e in data.evolution_m1)),
+            ApercuValeur(libelle="END HTA (MWh)", valeur=round(total_end, 3),
+                         precedent=round(sum(e.end_prec_mwh for e in data.evolution_m1), 3)),
+        ] + [
+            ApercuValeur(libelle=i.libelle + (f" ({i.unite})" if i.unite and i.unite != "kWh" else ""),
+                         valeur=round(i.realise, 4))
+            for i in data.indicateurs
+            if i.realise is not None and i.libelle in ("SAIFI", "SAIDI", "Défauts permanents aux 100 km")
         ],
-        services=services,
+        natures=[
+            ApercuSerie(
+                libelle=rapport_mensuel_dd_service.LIBELLES_NATURE[cle],
+                nombre=data.total_nature(cle).nombre,
+                end_mwh=round(data.total_nature(cle).end_mwh, 3),
+                part_pct=round(100 * data.total_nature(cle).end_mwh / total_end, 1) if total_end else None,
+            )
+            for cle in rapport_mensuel_dd_service.NATURES
+        ],
+        services=[
+            ApercuSerie(
+                libelle=s.code,
+                nombre=s.total.nombre,
+                end_mwh=round(s.total.end_mwh, 3),
+                nombre_precedent=m1[s.code].nombre_prec if s.code in m1 else None,
+                end_mwh_precedent=round(m1[s.code].end_prec_mwh, 3) if s.code in m1 else None,
+                part_pct=round(100 * s.total.end_mwh / total_end, 1) if total_end else None,
+            )
+            for s in sorted(data.services, key=lambda s: -s.total.end_mwh)
+        ],
         top_feeders=[
-            ApercuSerie(libelle=f.libelle, nombre=f.nombre_interruptions, end_mwh=round(f.end_mwh, 3))
-            for f in data.top_feeders.items
+            ApercuSerie(libelle=f"{t.feeder} ({z})", nombre=t.nombre, nombre_precedent=t.nombre_prec)
+            for z in data.zones
+            for t in data.top_des_tops.get(z, [])[:5]
         ],
+        synthese=[phrase.replace("**", "") for phrase in data.synthese],
     )
     await set_cached(redis, cle, apercu.model_dump(mode="json"))
     return apercu

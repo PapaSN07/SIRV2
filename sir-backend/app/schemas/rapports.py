@@ -98,5 +98,7 @@ class ApercuMensuelDistributionResponse(BaseModel):
     mois: int
     region_id: int | None = None
     indicateurs: list[ApercuValeur]
+    natures: list[ApercuSerie] = []
     services: list[ApercuSerie]
     top_feeders: list[ApercuSerie]
+    synthese: list[str] = []

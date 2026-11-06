@@ -71,8 +71,16 @@ export class RapportsHubComponent implements OnInit {
   readonly hebdoJours = computed((): BarreItem[] =>
     (this.apercuHebdo()?.jours ?? []).map((j) => ({ libelle: j.libelle, valeur: j.end_mwh, detail: `${j.nombre} interr.` })),
   );
-  readonly mensuelServices = computed(() => this.barresEnd(this.apercuMensuel()?.services ?? [], false));
-  readonly mensuelFeeders = computed(() => this.barresEnd(this.apercuMensuel()?.top_feeders ?? [], false));
+  readonly mensuelNatures = computed(() => this.barresEnd(this.apercuMensuel()?.natures ?? [], false));
+  readonly mensuelServices = computed(() => this.barresEnd(this.apercuMensuel()?.services ?? [], true));
+  readonly mensuelFeeders = computed((): BarreItem[] =>
+    (this.apercuMensuel()?.top_feeders ?? []).map((f) => ({
+      libelle: f.libelle,
+      valeur: f.nombre,
+      comparaison: f.nombre_precedent,
+      detail: f.nombre_precedent !== null ? `M-1 : ${f.nombre_precedent}` : undefined,
+    })),
+  );
   readonly libelleMois = computed(() => `${MOIS_NOMS[this.mois() - 1] ?? ''} ${this.annee()}`);
 
   ngOnInit(): void {
@@ -132,15 +140,25 @@ export class RapportsHubComponent implements OnInit {
     this.archivageConfirme.set(false);
     this.archivage.set(null);
     this.kind.set(value);
-    if (value === 'hebdo_dd') {
-      this.format.set('docx');
+    if (value === 'hebdo_dd' || value === 'mensuel_dist') {
+      this.format.set(value === 'hebdo_dd' ? 'docx' : 'pdf');
       this.date.set(this.dernierVendrediIso());
     } else if (this.format() === 'docx') {
       this.format.set('pdf');
     }
+    if (value === 'mensuel_dist') this.moisPrecedentParDefaut();
     this.status.set(null);
     this.error.set(null);
     this.chargerApercu();
+  }
+
+  /** Rapport mensuel : par défaut le dernier mois complet. */
+  private moisPrecedentParDefaut(): void {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    this.annee.set(d.getFullYear());
+    this.mois.set(d.getMonth() + 1);
   }
 
   private chargerApercu(): void {
