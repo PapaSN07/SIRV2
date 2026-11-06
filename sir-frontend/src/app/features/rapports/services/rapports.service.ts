@@ -9,6 +9,7 @@ import {
   ApercuMensuelDistribution,
   RapportAnnuelParams,
   RapportEnqueueResponse,
+  RapportFormat,
   RapportHebdoDDRequest,
   RapportHebdomadaireRequest,
   RapportJournalierRequest,
@@ -103,8 +104,15 @@ export class RapportsService {
     );
   }
 
-  download(taskId: string): Observable<Blob> {
-    return this.http.get(`${this.apiUrl}/${taskId}/download`, { responseType: 'blob' });
+  download(taskId: string, format?: RapportFormat): Observable<Blob> {
+    let params = new HttpParams();
+    if (format) params = params.set('format', format);
+    return this.http.get(`${this.apiUrl}/${taskId}/download`, { params, responseType: 'blob' });
+  }
+
+  /** PDF du rapport généré, pour l'afficher dans la page avant de le télécharger. */
+  apercuPdf(taskId: string): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${taskId}/apercu`, { responseType: 'blob' });
   }
 
   private mensuelParams(params: RapportMensuelParams, withRegion = true): HttpParams {

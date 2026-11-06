@@ -137,3 +137,15 @@ async def test_execute_generation_writes_file(tmp_path: Path, monkeypatch: pytes
     assert record.statut == "success"
     assert record.file_path is not None
     assert Path(record.file_path).is_file()
+
+
+def test_fichiers_disponibles_formats_freres(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    for ext in ("pdf", "docx", "xlsx"):
+        (tmp_path / f"rapport.{ext}").write_bytes(b"x")
+    record = SimpleNamespace(file_path=str(tmp_path / "rapport.docx"))
+    assert sorted(svc.fichiers_disponibles(record)) == ["docx", "pdf", "xlsx"]
+    seul = SimpleNamespace(file_path=str(tmp_path / "autre.xlsx"))
+    (tmp_path / "autre.xlsx").write_bytes(b"x")
+    assert sorted(svc.fichiers_disponibles(seul)) == ["xlsx"]

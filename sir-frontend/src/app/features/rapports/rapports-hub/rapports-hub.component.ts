@@ -1,4 +1,5 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DecimalPipe } from '@angular/common';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
@@ -35,10 +36,17 @@ const MOIS_NOMS = [
   templateUrl: './rapports-hub.component.html',
   styleUrl: './rapports-hub.component.scss',
 })
-export class RapportsHubComponent implements OnInit {
+export class RapportsHubComponent implements OnInit, OnDestroy {
   private readonly rapports = inject(RapportsService);
   private readonly auth = inject(AuthService);
   private readonly interruptions = inject(InterruptionDistributionService);
+  private readonly sanitizer = inject(DomSanitizer);
+
+  /** Aperçu du fichier généré (PDF affiché dans la page) avant téléchargement. */
+  readonly pdfUrl = signal<SafeResourceUrl | null>(null);
+  readonly pdfLoading = signal(false);
+  private pdfObjectUrl: string | null = null;
+  readonly libellesFormat: Record<RapportFormat, string> = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel' };
 
   /** Archivage du mois après le rapport mensuel CRSE (décision SENELEC du 27/10). */
   readonly archivageConfirme = signal(false);
@@ -90,6 +98,7 @@ export class RapportsHubComponent implements OnInit {
   /** Changement d'un paramètre (date, mois, année) : l'aperçu suit. */
   onParametre(): void {
     this.status.set(null);
+    this.libererApercuPdf();
     this.chargerApercu();
   }
 
@@ -137,6 +146,7 @@ export class RapportsHubComponent implements OnInit {
   }
 
   setKind(value: RapportKind): void {
+    this.libererApercuPdf();
     this.archivageConfirme.set(false);
     this.archivage.set(null);
     this.kind.set(value);
@@ -206,9 +216,13 @@ export class RapportsHubComponent implements OnInit {
     this.error.set(null);
     this.status.set(null);
 
+    this.libererApercuPdf();
     const onEnqueue = (taskId: string) => {
       this.rapports.pollStatus(taskId).subscribe({
-        next: (s) => this.status.set(s),
+        next: (s) => {
+          this.status.set(s);
+          if (s.statut === 'success' && (s.formats ?? []).includes('pdf')) this.chargerApercuPdf(s.task_id);
+        },
         error: (err: Error) => {
           this.error.set(err.message);
           this.generating.set(false);
@@ -264,20 +278,59 @@ export class RapportsHubComponent implements OnInit {
     }
   }
 
-  download(): void {
+  download(format?: RapportFormat): void {
     const s = this.status();
     if (!s || s.statut !== 'success') return;
-    this.rapports.download(s.task_id).subscribe({
+    const ext = format ?? s.format;
+    this.rapports.download(s.task_id, format).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = s.file_name ?? `rapport-${s.task_id}.${s.format}`;
+        const base = (s.file_name ?? `rapport-${s.task_id}.${s.format}`).replace(/\.[a-z]+$/, '');
+        a.download = `${base}.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
       },
       error: (err: Error) => this.error.set(err.message),
     });
+  }
+
+  /** Formats proposés au téléchargement, PDF en premier. */
+  formatsDisponibles(): RapportFormat[] {
+    const ordre: RapportFormat[] = ['pdf', 'docx', 'xlsx'];
+    const dispo = this.status()?.formats ?? [];
+    return ordre.filter((f) => dispo.includes(f));
+  }
+
+  ouvrirPdf(): void {
+    if (this.pdfObjectUrl) window.open(this.pdfObjectUrl, '_blank', 'noopener');
+  }
+
+  ngOnDestroy(): void {
+    this.libererApercuPdf();
+  }
+
+  private chargerApercuPdf(taskId: string): void {
+    this.pdfLoading.set(true);
+    this.rapports.apercuPdf(taskId).subscribe({
+      next: (blob) => {
+        this.libererApercuPdf();
+        this.pdfObjectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+        this.pdfUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.pdfObjectUrl));
+        this.pdfLoading.set(false);
+      },
+      error: (err: Error) => {
+        this.error.set(err.message);
+        this.pdfLoading.set(false);
+      },
+    });
+  }
+
+  private libererApercuPdf(): void {
+    if (this.pdfObjectUrl) URL.revokeObjectURL(this.pdfObjectUrl);
+    this.pdfObjectUrl = null;
+    this.pdfUrl.set(null);
   }
 
   statutLabel(statut: string): string {

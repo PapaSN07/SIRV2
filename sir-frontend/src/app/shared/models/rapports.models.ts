@@ -38,6 +38,8 @@ export interface RapportStatusResponse {
   statut: RapportStatut;
   error_message: string | null;
   file_name: string | null;
+  /** Formats produits ; « pdf » présent : aperçu possible dans la page. */
+  formats: RapportFormat[];
   created_at: string;
   expires_at: string | null;
 }

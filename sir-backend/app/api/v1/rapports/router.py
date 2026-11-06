@@ -209,10 +209,29 @@ async def get_rapport_status(
 )
 async def download_rapport(
     task_id: str,
+    format: str | None = Query(None, pattern="^(pdf|docx|xlsx)$", description="Autre format produit"),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(require_permission("rapports", "read")),
 ) -> FileResponse:
     path, filename, media_type = await rapport_generation_service.resolve_download(
-        db, current_user, task_id
+        db, current_user, task_id, format=format
     )
     return FileResponse(path, filename=filename, media_type=media_type)
+
+
+@router.get(
+    "/{task_id}/apercu",
+    status_code=status.HTTP_200_OK,
+    summary="Aperçu PDF d'un rapport généré (affiché dans la page, sans téléchargement)",
+)
+async def apercu_rapport(
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("rapports", "read")),
+) -> FileResponse:
+    path, filename, _ = await rapport_generation_service.resolve_download(
+        db, current_user, task_id, format="pdf"
+    )
+    return FileResponse(
+        path, media_type="application/pdf", content_disposition_type="inline", filename=filename
+    )

@@ -54,6 +54,8 @@ class RapportStatusResponse(BaseModel):
     statut: str
     error_message: str | None = None
     file_name: str | None = None
+    # Formats téléchargeables (pdf, docx, xlsx) ; « pdf » présent → aperçu possible
+    formats: list[str] = []
     created_at: datetime
     expires_at: datetime | None = None
 

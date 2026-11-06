@@ -179,6 +179,7 @@ def _to_status_response(record: RapportGenere) -> RapportStatusResponse:
         statut=record.statut,
         error_message=record.error_message,
         file_name=record.file_name,
+        formats=sorted(fichiers_disponibles(record)) if record.statut == "success" else [],
         created_at=record.created_at,
         expires_at=record.expires_at,
     )
@@ -527,10 +528,25 @@ async def get_status(
     return _to_status_response(record)
 
 
+def fichiers_disponibles(record: RapportGenere) -> dict[str, Path]:
+    """Formats produits pour ce rapport : PDF, Word et Excel rangés ensemble (hebdo DD, mensuel),
+    sinon le seul fichier demandé."""
+    if not record.file_path:
+        return {}
+    path = Path(record.file_path)
+    freres = {ext: path.with_suffix(f".{ext}") for ext in ("pdf", "docx", "xlsx")}
+    trouves = {ext: f for ext, f in freres.items() if f.is_file()}
+    if path.is_file():
+        trouves.setdefault(path.suffix.lstrip("."), path)
+    return trouves
+
+
 async def resolve_download(
     db: AsyncSession,
     user: Utilisateur,
     task_id: str,
+    *,
+    format: str | None = None,
 ) -> tuple[Path, str, str]:
     record = await repo.get_by_task_id(db, task_id)
     if record is None:
@@ -567,6 +583,14 @@ async def resolve_download(
         )
 
     path = Path(record.file_path)
+    if format is not None:
+        autre = fichiers_disponibles(record).get(format)
+        if autre is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"status": "error", "data": None, "error": f"Ce rapport n'existe pas au format {format.upper()}"},
+            )
+        path = autre
     if not path.is_file():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -578,7 +602,7 @@ async def resolve_download(
         )
 
     media_type = _MEDIA_TYPES.get(path.suffix.lstrip("."), "application/pdf")
-    return path, record.file_name, media_type
+    return path, path.name if format is not None else record.file_name, media_type
 
 
 async def execute_generation(
@@ -664,6 +688,8 @@ async def execute_generation(
                 top_limit=int(params.get("top_limit", 10)),
             )
             export_annuel(file_path, format=record.format, data=data)
+            if record.format != "pdf":  # PDF à côté : aperçu dans la page
+                export_annuel(file_path.with_suffix(".pdf"), format="pdf", data=data)
         else:
             generate_placeholder_file(
                 file_path,

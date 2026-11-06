@@ -40,16 +40,15 @@
         </p>
       }
 
-      <div class="field">
-        <label class="field__label" for="format">Format</label>
-        <select id="format" class="field__select" [value]="format()" (change)="format.set($any($event.target).value)">
-          @if (kind() === 'hebdo_dd' || kind() === 'mensuel_dist') {
-            <option value="docx" [selected]="format() === 'docx'">Word (DOCX)</option>
-          }
-          <option value="pdf" [selected]="format() === 'pdf'">PDF</option>
-          <option value="xlsx" [selected]="format() === 'xlsx'">Excel (XLSX)</option>
-        </select>
-      </div>
+      @if (kind() === 'annuel') {
+        <div class="field">
+          <label class="field__label" for="format">Format</label>
+          <select id="format" class="field__select" [value]="format()" (change)="format.set($any($event.target).value)">
+            <option value="pdf" [selected]="format() === 'pdf'">PDF</option>
+            <option value="xlsx" [selected]="format() === 'xlsx'">Excel (XLSX)</option>
+          </select>
+        </div>
+      }
 
       @if (kind() === 'hebdo_dd') {
         <div class="field">
@@ -58,7 +57,7 @@
           @if (kind() === 'hebdo_dd') {
             <p class="rapports-hint">
               Semaine du samedi au vendredi se terminant à cette date (sinon la dernière semaine complète avant).
-              Les trois fichiers sont produits ; le format choisit celui à télécharger.
+              Word, Excel et PDF sont produits ensemble : vous les téléchargez après l'aperçu.
             </p>
           }
         </div>
@@ -83,7 +82,7 @@
           <span class="material-symbols-outlined rapports-hub__spinner" aria-hidden="true">progress_activity</span>
           Génération…
         } @else {
-          Générer le rapport
+          Générer et prévisualiser
         }
       </button>
 
@@ -92,18 +91,25 @@
       }
 
       @if (status(); as s) {
-        <article class="rapports-status">
-          <h3>Statut de génération</h3>
-          <p><strong>État :</strong> {{ statutLabel(s.statut) }}</p>
-          <p><strong>Type :</strong> {{ s.type_rapport }}</p>
+        <article class="rapports-status" [class.rapports-status--pret]="s.statut === 'success'">
+          <p class="rapports-status__etat">
+            <span class="material-symbols-outlined" aria-hidden="true">
+              {{ s.statut === 'success' ? 'task_alt' : s.statut === 'failure' ? 'error' : 'hourglass_top' }}
+            </span>
+            {{ statutLabel(s.statut) }}
+          </p>
           @if (s.error_message) {
             <p class="rapports-hub__error">{{ s.error_message }}</p>
           }
           @if (s.statut === 'success') {
-            <button type="button" class="sir-btn sir-btn--primary" (click)="download()">
-              <span class="material-symbols-outlined" aria-hidden="true">download</span>
-              Télécharger {{ s.file_name ?? s.format }}
-            </button>
+            <div class="rapports-status__actions">
+              @for (f of formatsDisponibles(); track f) {
+                <button type="button" class="sir-btn" [class.sir-btn--primary]="f === 'pdf'" [class.sir-btn--outline-primary]="f !== 'pdf'" (click)="download(f)">
+                  <span class="material-symbols-outlined" aria-hidden="true">download</span>
+                  {{ libellesFormat[f] }}
+                </button>
+              }
+            </div>
           }
         </article>
       }
@@ -145,6 +151,26 @@
       }
     </div>
   </div>
+
+  @if (pdfLoading() || pdfUrl()) {
+    <section class="rapports-pdf" aria-labelledby="pdf-titre">
+      <header class="rapports-pdf__head">
+        <h2 id="pdf-titre">Aperçu du rapport</h2>
+        @if (pdfUrl()) {
+          <button type="button" class="sir-btn sir-btn--outline-primary" (click)="ouvrirPdf()">
+            <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+            Plein écran
+          </button>
+        }
+      </header>
+      @if (pdfLoading()) {
+        <p class="rapports-apercu__etat">Chargement de l'aperçu…</p>
+      }
+      @if (!pdfLoading() && pdfUrl(); as url) {
+        <iframe class="rapports-pdf__cadre" [src]="url" title="Aperçu du rapport (PDF)"></iframe>
+      }
+    </section>
+  }
 
   @if (kind() !== 'annuel') {
     <section class="rapports-apercu" aria-labelledby="apercu-titre">
