@@ -1,11 +1,14 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
+import { FONCTIONNALITES } from '../../../core/config/fonctionnalites';
+
 @Component({
   selector: 'sir-interruptions-nav',
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
+    @if (transport) {
     <nav class="interruptions-nav" aria-label="Type d'interruption">
       <a
         class="interruptions-nav__tab"
@@ -24,6 +27,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         Transport / OMVG
       </a>
     </nav>
+    }
   `,
   styles: [
     `
@@ -56,4 +60,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     `,
   ],
 })
-export class InterruptionsNavComponent {}
+export class InterruptionsNavComponent {
+  /** Un seul onglet (Distribution) quand le transport est masqué : pas de barre. */
+  readonly transport = FONCTIONNALITES.transport;
+}

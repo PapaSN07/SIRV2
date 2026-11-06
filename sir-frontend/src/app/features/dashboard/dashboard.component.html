@@ -21,40 +21,74 @@
     </div>
     <div class="dashboard__actions">
       <div class="dashboard__period" role="group" aria-label="Période affichée">
+        <div class="dashboard__granularite" role="radiogroup" aria-label="Niveau de la période">
+          @for (g of granularites; track g.value) {
+            <button
+              type="button"
+              role="radio"
+              class="dashboard__granularite-btn"
+              [class.dashboard__granularite-btn--active]="granularite() === g.value"
+              [attr.aria-checked]="granularite() === g.value"
+              (click)="onGranulariteChange(g.value)"
+            >
+              {{ g.label }}
+            </button>
+          }
+        </div>
         <button
           type="button"
           class="dashboard__period-step"
           (click)="decalerPeriode(-1)"
           [disabled]="!peutReculer()"
-          aria-label="Mois précédent"
-          title="Mois précédent"
+          aria-label="Période précédente"
+          title="Période précédente"
         >
           <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
         </button>
-        <span class="material-symbols-outlined dashboard__period-icon" aria-hidden="true">calendar_today</span>
-        <select (change)="onMoisChange($any($event.target).value)" aria-label="Mois">
-          @for (m of moisOptions(); track m.value) {
-            <option [value]="m.value" [selected]="m.value === periodeMois()">{{ m.label }}</option>
+        @switch (granularite()) {
+          @case ('jour') {
+            <input
+              type="date"
+              class="dashboard__period-input"
+              [value]="dateRef()"
+              [max]="aujourdHuiIso"
+              min="2010-01-01"
+              (change)="onDateChange($any($event.target).value)"
+              aria-label="Jour"
+            />
           }
-        </select>
-        <select (change)="onAnneeChange($any($event.target).value)" aria-label="Année">
-          @for (a of anneeOptions(); track a) {
-            <option [value]="a" [selected]="a === periodeAnnee()">{{ a }}</option>
+          @case ('mois') {
+            <input
+              type="month"
+              class="dashboard__period-input"
+              [value]="periode()"
+              [max]="moisCourantIso"
+              min="2010-01"
+              (change)="onDateChange($any($event.target).value)"
+              aria-label="Mois"
+            />
           }
-        </select>
+          @default {
+            <select (change)="onDateChange($any($event.target).value)" aria-label="Année">
+              @for (a of anneeOptions(); track a) {
+                <option [value]="a" [selected]="a === periodeAnnee()">{{ a }}</option>
+              }
+            </select>
+          }
+        }
         <button
           type="button"
           class="dashboard__period-step"
           (click)="decalerPeriode(1)"
           [disabled]="isPeriodeCourante()"
-          aria-label="Mois suivant"
-          title="Mois suivant"
+          aria-label="Période suivante"
+          title="Période suivante"
         >
           <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
         </button>
         @if (!isPeriodeCourante()) {
-          <button type="button" class="dashboard__period-today" (click)="onPeriodeChange(currentPeriodeValue)">
-            Mois en cours
+          <button type="button" class="dashboard__period-today" (click)="revenirAujourdhui()">
+            Aujourd'hui
           </button>
         }
       </div>
@@ -78,7 +112,12 @@
     }
 
     <div class="kpi-grid">
-      <article class="kpi-card kpi-card--error">
+      <a
+        class="kpi-card kpi-card--error kpi-card--lien"
+        routerLink="/interruptions/distribution"
+        [queryParams]="{ ouverture: 'ouvert' }"
+        title="Voir les interruptions en cours"
+      >
         <div class="kpi-card__head">
           <p class="kpi-card__label">Interruptions en cours</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">broadcast_on_personal</span>
@@ -90,22 +129,31 @@
           <div class="kpi-card__progress-bar" [style.width.%]="activeProgress()"></div>
         </div>
         <p class="kpi-card__hint">Non remises sous tension à cet instant</p>
-      </article>
+      </a>
 
-      <article class="kpi-card kpi-card--warning">
+      <a
+        class="kpi-card kpi-card--warning kpi-card--lien"
+        routerLink="/interruptions/distribution"
+        [queryParams]="lienPeriode()"
+        title="Voir les interruptions de la période"
+      >
         <div class="kpi-card__head">
-          <p class="kpi-card__label">Interruptions de la période</p>
+          <p class="kpi-card__label">Interruptions {{ periodeSuffixe() }}</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">event_note</span>
         </div>
         <div class="kpi-card__value-row">
           <p class="kpi-card__value">{{ kpi()?.nb_interruptions_mois ?? '—' }}</p>
         </div>
-        <p class="kpi-card__hint">Apparues en {{ periodLabel() }}</p>
-      </article>
+        <p class="kpi-card__hint">Apparues {{ granularite() === 'jour' ? 'le' : 'en' }} {{ periodLabel() }}</p>
+      </a>
 
-      <article class="kpi-card kpi-card--primary">
+      <a
+        class="kpi-card kpi-card--primary kpi-card--lien"
+        routerLink="/indicateurs"
+        title="Voir le détail des indicateurs"
+      >
         <div class="kpi-card__head">
-          <p class="kpi-card__label">END cumulée du mois</p>
+          <p class="kpi-card__label">END HTA {{ periodeSuffixe() }}</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">bolt</span>
         </div>
         <div class="kpi-card__value-row">
@@ -114,24 +162,32 @@
         </div>
         <p class="kpi-card__hint">
           <span class="material-symbols-outlined" aria-hidden="true">trending_up</span>
-          Période {{ periodLabel() }}
+          {{ periodLabel() }} · interruptions remises
         </p>
-      </article>
+      </a>
 
-      <article class="kpi-card kpi-card--tertiary">
+      <a
+        class="kpi-card kpi-card--tertiary kpi-card--lien"
+        routerLink="/indicateurs"
+        title="Voir le détail des indicateurs"
+      >
         <div class="kpi-card__head">
-          <p class="kpi-card__label">SAIFI mensuel</p>
+          <p class="kpi-card__label">SAIFI HTA {{ periodeSuffixe() }}</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">speed</span>
         </div>
         <div class="kpi-card__value-row">
           <p class="kpi-card__value">{{ formatNumber(kpi()?.saifi, 2) }}</p>
         </div>
         <p class="kpi-card__hint">Fréquence moyenne d'interruption</p>
-      </article>
+      </a>
 
-      <article class="kpi-card kpi-card--primary-dark">
+      <a
+        class="kpi-card kpi-card--primary-dark kpi-card--lien"
+        routerLink="/indicateurs"
+        title="Voir le détail des indicateurs"
+      >
         <div class="kpi-card__head">
-          <p class="kpi-card__label">SAIDI mensuel</p>
+          <p class="kpi-card__label">SAIDI HTA {{ periodeSuffixe() }}</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">timer</span>
         </div>
         <div class="kpi-card__value-row">
@@ -139,11 +195,15 @@
           <span class="kpi-card__unit">h</span>
         </div>
         <p class="kpi-card__hint">Durée moyenne d'interruption</p>
-      </article>
+      </a>
 
-      <article class="kpi-card kpi-card--warning">
+      <a
+        class="kpi-card kpi-card--warning kpi-card--lien"
+        routerLink="/indicateurs"
+        title="Voir le détail des indicateurs"
+      >
         <div class="kpi-card__head">
-          <p class="kpi-card__label">Défauts aux 100 km</p>
+          <p class="kpi-card__label">Défauts aux 100 km du mois</p>
           <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">straighten</span>
         </div>
         <div class="kpi-card__value-row">
@@ -157,8 +217,68 @@
         } @else {
           <p class="kpi-card__hint">Interruptions hors force majeure, rapportées à la longueur du réseau</p>
         }
-      </article>
+      </a>
     </div>
+
+    <section class="synthese-qs" aria-labelledby="synthese-qs-titre">
+      <div class="synthese-qs__head">
+        <h2 id="synthese-qs-titre" class="synthese-qs__title">SAIFI / SAIDI en un coup d'œil</h2>
+        <p class="synthese-qs__sub">
+          HTA (distribution) · HTB (transport et OMVG) · les deux confondus — SAIDI en heures
+        </p>
+      </div>
+      @if (syntheseLoading()) {
+        <p class="synthese-qs__state">Calcul en cours…</p>
+      } @else if (syntheseError()) {
+        <p class="synthese-qs__state synthese-qs__state--error" role="alert">{{ syntheseError() }}</p>
+      }
+      @if (!syntheseLoading() && synthese(); as s) {
+        <div class="synthese-qs__scroll">
+          <table class="synthese-qs__table">
+            <thead>
+              <tr>
+                <th scope="col" rowspan="2" class="synthese-qs__periode-col">Période</th>
+                <th scope="colgroup" colspan="2">HTA</th>
+                <th scope="colgroup" colspan="2">HTB</th>
+                <th scope="colgroup" colspan="2" class="synthese-qs__total-col">HTA + HTB</th>
+              </tr>
+              <tr>
+                <th scope="col">SAIFI</th>
+                <th scope="col">SAIDI</th>
+                <th scope="col">SAIFI</th>
+                <th scope="col">SAIDI</th>
+                <th scope="col" class="synthese-qs__total-col">SAIFI</th>
+                <th scope="col" class="synthese-qs__total-col">SAIDI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of s.periodes; track p.cle) {
+                <tr>
+                  <th scope="row" class="synthese-qs__periode-col">
+                    {{ p.libelle }}
+                    <span class="synthese-qs__nb">{{ p.hta.nombre_interruptions }} interruption(s) HTA</span>
+                  </th>
+                  <td>{{ formatNumber(p.hta.saifi, 3) }}</td>
+                  <td>{{ formatNumber(p.hta.saidi, 3) }}</td>
+                  @if (p.htb && p.total) {
+                    <td>{{ formatNumber(p.htb.saifi, 3) }}</td>
+                    <td>{{ formatNumber(p.htb.saidi, 3) }}</td>
+                    <td class="synthese-qs__total-col">{{ formatNumber(p.total.saifi, 3) }}</td>
+                    <td class="synthese-qs__total-col">{{ formatNumber(p.total.saidi, 3) }}</td>
+                  } @else {
+                    <td colspan="4" class="synthese-qs__na">HTB : vue nationale uniquement</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="synthese-qs__note">
+          Semaine du samedi au vendredi. Base : {{ s.total_clients_reference | number: '1.0-0':'fr-FR' }} clients.
+          HTB calculé sur les clients touchés saisis pour les interruptions transport (formule à valider SAQS).
+        </p>
+      }
+    </section>
 
     <nav class="dashboard-tabs" role="tablist" aria-label="Vues du tableau de bord">
       @for (t of tabs; track t.id) {

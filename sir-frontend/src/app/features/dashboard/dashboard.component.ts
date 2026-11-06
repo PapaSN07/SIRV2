@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
@@ -8,12 +8,14 @@ import { NotificationService } from '../../core/notifications/notification.servi
 import { notificationEventLabel } from '../../core/notifications/notification.utils';
 import {
   CauseRepartitionItem,
+  GranulariteTableau,
   HistoriquePoint,
   IndicateurSuivi,
   NatureServiceRepartition,
   ObjectifsPilotageUpdate,
   PilotageResponse,
   PosteOuvertCarte,
+  SyntheseSaifiSaidiResponse,
   TableauDeBordResponse,
   TendanceResponse,
 } from '../../shared/models/indicateurs.models';
@@ -98,7 +100,7 @@ const CAUSE_COLORS = ['#5b2c6f', '#7a4b8c', '#9a74aa', '#b79ac4', '#d4c4dc'];
 @Component({
   selector: 'sir-dashboard',
   standalone: true,
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, DecimalPipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -147,10 +149,25 @@ export class DashboardComponent implements OnInit {
   readonly interruptionsLoading = signal(true);
   readonly interruptionsError = signal<string | null>(null);
 
-  readonly periode = signal(this.currentPeriode());
+  /** Niveau de la période (jour par défaut) et date de référence AAAA-MM-JJ. */
+  readonly granularite = signal<GranulariteTableau>('jour');
+  readonly dateRef = signal(aujourdHui());
+  readonly granularites: { value: GranulariteTableau; label: string }[] = [
+    { value: 'jour', label: 'Jour' },
+    { value: 'mois', label: 'Mois' },
+    { value: 'annee', label: 'Année' },
+  ];
+  readonly aujourdHuiIso = aujourdHui();
+  readonly moisCourantIso = aujourdHui().slice(0, 7);
 
-  readonly periodeAnnee = computed(() => Number(this.periode().slice(0, 4)));
-  readonly periodeMois = computed(() => Number(this.periode().slice(5, 7)));
+  /** Période envoyée au tableau de bord : AAAA-MM-JJ, AAAA-MM ou AAAA. */
+  readonly periode = computed(() => {
+    const d = this.dateRef();
+    return this.granularite() === 'jour' ? d : this.granularite() === 'mois' ? d.slice(0, 7) : d.slice(0, 4);
+  });
+  /** Mois de la période, pour les vues mensuelles (pilotage, historique 12 mois). */
+  readonly periodeMoisIso = computed(() => this.dateRef().slice(0, 7));
+  readonly periodeAnnee = computed(() => Number(this.dateRef().slice(0, 4)));
 
   /** Années proposées : de l'année en cours jusqu'au début de l'historique. */
   readonly anneeOptions = computed(() => {
@@ -158,14 +175,16 @@ export class DashboardComponent implements OnInit {
     return Array.from({ length: courante - PREMIERE_ANNEE + 1 }, (_, i) => courante - i);
   });
 
-  /** Mois de l'année choisie ; les mois futurs ne sont pas proposés. */
-  readonly moisOptions = computed(() => {
-    const now = new Date();
-    const dernier = this.periodeAnnee() === now.getFullYear() ? now.getMonth() + 1 : 12;
-    return MONTH_NAMES.slice(0, dernier).map((label, i) => ({ value: i + 1, label }));
-  });
+  readonly isPeriodeCourante = computed(() => this.periode() === this.periodeDe(this.granularite(), aujourdHui()));
 
-  readonly isPeriodeCourante = computed(() => this.periode() === this.currentPeriode());
+  /** Bornes de la période (AAAA-MM-JJ), pour ouvrir la liste des interruptions filtrée. */
+  readonly bornesPeriode = computed((): { du: string; au: string } => {
+    const d = this.dateRef();
+    const [a, m] = [Number(d.slice(0, 4)), Number(d.slice(5, 7))];
+    if (this.granularite() === 'jour') return { du: d, au: d };
+    if (this.granularite() === 'mois') return { du: `${d.slice(0, 7)}-01`, au: isoDate(new Date(a, m, 0)) };
+    return { du: `${a}-01-01`, au: `${a}-12-31` };
+  });
 
   /** Répartition par cause — données API tableau de bord. */
   readonly causeRepartition = computed((): CauseRepartitionItem[] => {
@@ -257,46 +276,78 @@ export class DashboardComponent implements OnInit {
   });
 
   readonly periodLabel = computed(() => {
-    const data = this.kpi();
-    if (!data) return '—';
-    return `${String(data.mois).padStart(2, '0')}/${data.annee}`;
+    const d = this.dateRef();
+    if (this.granularite() === 'jour') return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+    if (this.granularite() === 'mois') return `${MONTH_NAMES[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
+    return d.slice(0, 4);
   });
+
+  /** « du jour », « du mois », « de l'année » pour les libellés des cartes. */
+  readonly periodeSuffixe = computed(() =>
+    this.granularite() === 'jour' ? 'du jour' : this.granularite() === 'mois' ? 'du mois' : "de l'année",
+  );
+
+  readonly synthese = signal<SyntheseSaifiSaidiResponse | null>(null);
+  readonly syntheseLoading = signal(false);
+  readonly syntheseError = signal<string | null>(null);
 
   ngOnInit(): void {
     this.loadDashboard();
     this.loadPilotage();
+    this.loadSynthese();
     this.loadRecentInterruptions();
   }
 
-  onPeriodeChange(value: string): void {
-    if (value === this.periode()) return;
-    this.periode.set(value);
-    this.loadDashboard();
-    this.loadPilotage();
+  /** Change le niveau (jour / mois / année) en gardant la date de référence. */
+  onGranulariteChange(value: GranulariteTableau): void {
+    if (value === this.granularite()) return;
+    this.granularite.set(value);
+    this.rechargerPeriode();
   }
 
-  onAnneeChange(valeur: string): void {
-    const annee = Number(valeur);
-    const now = new Date();
-    // Année en cours : on ne dépasse pas le mois actuel
-    const mois = annee === now.getFullYear() ? Math.min(this.periodeMois(), now.getMonth() + 1) : this.periodeMois();
-    this.onPeriodeChange(`${annee}-${String(mois).padStart(2, '0')}`);
+  /** Nouvelle date de référence : AAAA-MM-JJ (jour), AAAA-MM (mois) ou AAAA (année). */
+  onDateChange(valeur: string): void {
+    if (!valeur) return;
+    const ref =
+      valeur.length === 4 ? `${valeur}-01-01` : valeur.length === 7 ? `${valeur}-01` : valeur;
+    const borne = ref > aujourdHui() ? aujourdHui() : ref;
+    if (borne === this.dateRef()) return;
+    this.dateRef.set(borne);
+    this.rechargerPeriode();
   }
 
-  onMoisChange(valeur: string): void {
-    this.onPeriodeChange(`${this.periodeAnnee()}-${valeur.padStart(2, '0')}`);
+  revenirAujourdhui(): void {
+    this.dateRef.set(aujourdHui());
+    this.rechargerPeriode();
   }
 
-  /** Décale la période d'un mois (−1 = précédent, +1 = suivant), bornée à l'historique et au mois courant. */
+  /** Jour, mois ou année précédent (−1) ou suivant (+1), borné à l'historique et à aujourd'hui. */
   decalerPeriode(delta: -1 | 1): void {
-    const d = new Date(this.periodeAnnee(), this.periodeMois() - 1 + delta, 1);
-    const now = new Date();
-    if (d.getFullYear() < PREMIERE_ANNEE || d > now) return;
-    this.onPeriodeChange(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    const [a, m, j] = this.dateRef().split('-').map(Number);
+    const g = this.granularite();
+    const d =
+      g === 'jour' ? new Date(a, m - 1, j + delta) : g === 'mois' ? new Date(a, m - 1 + delta, 1) : new Date(a + delta, 0, 1);
+    if (d.getFullYear() < PREMIERE_ANNEE || isoDate(d) > aujourdHui()) return;
+    this.dateRef.set(isoDate(d));
+    this.rechargerPeriode();
   }
 
   peutReculer(): boolean {
-    return !(this.periodeAnnee() === PREMIERE_ANNEE && this.periodeMois() === 1);
+    return this.dateRef() > `${PREMIERE_ANNEE}-01-01`;
+  }
+
+  /** Paramètres de la liste des interruptions apparues dans la période. */
+  lienPeriode(): Record<string, string> {
+    return this.bornesPeriode();
+  }
+
+  private periodeDe(g: GranulariteTableau, d: string): string {
+    return g === 'jour' ? d : g === 'mois' ? d.slice(0, 7) : d.slice(0, 4);
+  }
+
+  private rechargerPeriode(): void {
+    this.loadDashboard();
+    this.loadPilotage();
   }
 
   canCreateInterruption(): boolean {
@@ -487,10 +538,10 @@ export class DashboardComponent implements OnInit {
           return of(null);
         }),
       ),
-      saidi: this.dashboardService.getHistorique('saidi', 1, undefined, this.periode()).pipe(
+      saidi: this.dashboardService.getHistorique('saidi', 1, undefined, this.periodeMoisIso()).pipe(
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
-      saifi: this.dashboardService.getHistorique('saifi', 1, undefined, this.periode()).pipe(
+      saifi: this.dashboardService.getHistorique('saifi', 1, undefined, this.periodeMoisIso()).pipe(
         catchError(() => of({ points: [] as HistoriquePoint[] })),
       ),
     }).subscribe({
@@ -512,7 +563,7 @@ export class DashboardComponent implements OnInit {
   private loadPilotage(): void {
     this.pilotageLoading.set(true);
     this.pilotageError.set(null);
-    this.dashboardService.getPilotage({ periode: this.periode() }).subscribe({
+    this.dashboardService.getPilotage({ periode: this.periodeMoisIso() }).subscribe({
       next: (data) => {
         this.pilotage.set(data);
         this.pilotageLoading.set(false);
@@ -641,10 +692,26 @@ export class DashboardComponent implements OnInit {
     }));
   }
 
-  readonly currentPeriodeValue = this.currentPeriode();
-
-  private currentPeriode(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  private loadSynthese(): void {
+    this.syntheseLoading.set(true);
+    this.syntheseError.set(null);
+    this.dashboardService.getSyntheseSaifiSaidi().subscribe({
+      next: (data) => {
+        this.synthese.set(data);
+        this.syntheseLoading.set(false);
+      },
+      error: (err: Error) => {
+        this.syntheseError.set(err.message);
+        this.syntheseLoading.set(false);
+      },
+    });
   }
+}
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function aujourdHui(): string {
+  return isoDate(new Date());
 }

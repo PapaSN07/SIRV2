@@ -1,10 +1,16 @@
 import { PaginatedResponse } from './api.models';
 
+export type GranulariteTableau = 'jour' | 'mois' | 'annee';
+
 export interface TableauDeBordResponse {
   niveau: string;
   scope_id: number | null;
   annee: number;
   mois: number;
+  /** Période choisie ; end_mois et nb_interruptions_mois portent sur cette période. */
+  granularite: GranulariteTableau;
+  debut: string | null;
+  fin: string | null;
   end_mois: number;
   saifi: number;
   saidi: number;
@@ -248,4 +254,29 @@ export interface TendanceResponse {
   lecture: string;
   points: TendancePoint[];
   previsions: TendancePoint[];
+}
+
+/** SAIFI / SAIDI (heures) d'un niveau de tension sur une période. */
+export interface SaifiSaidiValeurs {
+  saifi: number;
+  saidi: number;
+  nombre_interruptions: number;
+}
+
+export interface SyntheseSaifiSaidiPeriode {
+  cle: 'semaine' | 'mois' | 'annee';
+  libelle: string;
+  debut: string;
+  fin: string;
+  hta: SaifiSaidiValeurs;
+  /** HTB (transport, OMVG) et total : vue nationale seulement. */
+  htb: SaifiSaidiValeurs | null;
+  total: SaifiSaidiValeurs | null;
+}
+
+export interface SyntheseSaifiSaidiResponse {
+  niveau: string;
+  scope_id: number | null;
+  total_clients_reference: number;
+  periodes: SyntheseSaifiSaidiPeriode[];
 }

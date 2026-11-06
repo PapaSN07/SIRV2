@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
+import { FONCTIONNALITES } from '../../../core/config/fonctionnalites';
 import { ReferentielService } from '../services/referentiel.service';
 import {
   ReferentielCreate,
@@ -45,6 +46,7 @@ interface ReferentielFormState {
   styleUrl: './referentiel-list.component.scss',
 })
 export class ReferentielListComponent implements OnInit {
+  readonly transport = FONCTIONNALITES.transport;
   private readonly referentiel = inject(ReferentielService);
   private readonly auth = inject(AuthService);
 

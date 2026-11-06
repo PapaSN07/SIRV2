@@ -12,6 +12,7 @@ import {
   SaidiIndicateurResponse,
   ObjectifsPilotageUpdate,
   PilotageResponse,
+  SyntheseSaifiSaidiResponse,
   TableauDeBordResponse,
   TendanceResponse,
   TopFeedersResponse,
@@ -28,6 +29,15 @@ export class IndicateursService {
       .get<ApiResponse<TableauDeBordResponse>>(`${this.apiUrl}/tableau-de-bord`, {
         params: this.buildParams(params),
       })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  /** SAIFI/SAIDI HTA, HTB et total : semaine passée, cumul du mois, cumul de l'année. */
+  getSyntheseSaifiSaidi(regionId?: number): Observable<SyntheseSaifiSaidiResponse> {
+    let params = new HttpParams();
+    if (regionId) params = params.set('region_id', regionId);
+    return this.http
+      .get<ApiResponse<SyntheseSaifiSaidiResponse>>(`${this.apiUrl}/synthese-saifi-saidi`, { params })
       .pipe(map((res) => this.unwrap(res)));
   }
 

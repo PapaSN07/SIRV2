@@ -44,7 +44,7 @@
         >
           <option value="">Tous</option>
           <option value="distribution">Distribution</option>
-          <option value="transport">Transport</option>
+          @if (transport) {<option value="transport">Transport</option>}
           <option value="commun">Commun</option>
         </select>
       </div>
@@ -86,7 +86,7 @@
             >
               <option value="">—</option>
               <option value="distribution">Distribution</option>
-              <option value="transport">Transport</option>
+              @if (transport) {<option value="transport">Transport</option>}
               <option value="commun">Commun</option>
             </select>
           </div>

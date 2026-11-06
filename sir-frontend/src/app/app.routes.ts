@@ -1,3 +1,4 @@
+import { transportActifGuard } from './core/config/fonctionnalites';
 import { Routes } from '@angular/router';
 import { authGuard, premiereConnexionGuard, roleGuard } from './core/auth/role.guard';
 
@@ -94,7 +95,7 @@ export const routes: Routes = [
       },
       {
         path: 'interruptions/transport',
-        canActivate: [roleGuard],
+        canActivate: [transportActifGuard, roleGuard],
         data: { roles: TRANSPORT_READ_ROLES },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-list/interruption-list.component').then(
@@ -103,7 +104,7 @@ export const routes: Routes = [
       },
       {
         path: 'interruptions/transport/nouveau',
-        canActivate: [roleGuard],
+        canActivate: [transportActifGuard, roleGuard],
         data: { roles: TRANSPORT_WRITE_ROLES },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-form/interruption-form.component').then(
@@ -112,7 +113,7 @@ export const routes: Routes = [
       },
       {
         path: 'interruptions/transport/:id/modifier',
-        canActivate: [roleGuard],
+        canActivate: [transportActifGuard, roleGuard],
         data: { roles: TRANSPORT_WRITE_ROLES },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-form/interruption-form.component').then(
@@ -121,7 +122,7 @@ export const routes: Routes = [
       },
       {
         path: 'interruptions/transport/:id',
-        canActivate: [roleGuard],
+        canActivate: [transportActifGuard, roleGuard],
         data: { roles: TRANSPORT_READ_ROLES },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-detail/interruption-detail.component').then(
@@ -212,7 +213,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/reseau/transport',
-        canActivate: [roleGuard],
+        canActivate: [transportActifGuard, roleGuard],
         data: { roles: ADMIN_RESEAU_TRANS_ROLES },
         loadComponent: () =>
           import('./features/admin/reseau-transport-admin/reseau-transport-admin.component').then(

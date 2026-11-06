@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { FONCTIONNALITES } from '../../../core/config/fonctionnalites';
 
 @Component({
   selector: 'sir-admin-nav',
@@ -26,7 +27,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
           Réseau distribution
         </a>
       }
-      @if (showReseauTrans) {
+      @if (showReseauTrans && transport) {
         <a
           class="admin-nav__tab"
           routerLink="/admin/reseau/transport"
@@ -92,6 +93,7 @@ export class AdminNavComponent {
   @Input() showReferentiel = true;
   @Input() showReseauDist = true;
   @Input() showReseauTrans = true;
+  readonly transport = FONCTIONNALITES.transport;
   @Input() showUsers = true;
   @Input() showAdvanced = true;
 }
