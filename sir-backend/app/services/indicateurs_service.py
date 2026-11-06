@@ -1,7 +1,8 @@
 """Service métier — lecture indicateurs END / SAIFI / SAIDI (Sprint 5.4+)."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from typing import Literal
 
 from fastapi import HTTPException, status
 from redis.asyncio import Redis
@@ -11,8 +12,12 @@ from app.core.deps import check_region_scope, check_service_scope
 from app.core.rbac_helpers import is_superadmin
 from app.models.utilisateurs import Utilisateur
 from app.repositories import indicateurs_repository as repo
+from app.repositories import pilotage_repository
 from app.schemas.common import PaginatedResponse
 from app.schemas.indicateurs import (
+    SaifiSaidiValeurs,
+    SyntheseSaifiSaidiPeriode,
+    SyntheseSaifiSaidiResponse,
     EndAggregateResponse,
     EndIndicateurResponse,
     EndServiceItemResponse,
@@ -202,9 +207,7 @@ async def _load_cached(
 ):
     if scope.niveau == "service":
         return response_type.model_validate(await loader())
-    return response_type.model_validate(
-        await get_or_load(redis, indicateur_type, cache_region_id, annee, mois, loader)
-    )
+    return response_type.model_validate(await get_or_load(redis, indicateur_type, cache_region_id, annee, mois, loader))
 
 
 async def get_end(
@@ -225,9 +228,7 @@ async def get_end(
         service_ids = await _load_service_ids(db, scope)
         if scope.niveau == "service" and scope.scope_id is not None:
             check_service_scope(user, scope.scope_id)
-        rows = await repo.aggregate_end_by_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
+        rows = await repo.aggregate_end_by_services(db, service_ids=service_ids, annee=annee, mois=mois)
         result = _aggregate_end_rows(rows, scope=scope, annee=annee, mois=mois)
         return result.model_dump()
 
@@ -237,9 +238,7 @@ async def get_end(
 
     if include_services and scope.niveau != "service":
         service_ids = await _load_service_ids(db, scope)
-        rows = await repo.aggregate_end_by_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
+        rows = await repo.aggregate_end_by_services(db, service_ids=service_ids, annee=annee, mois=mois)
         items = [
             EndServiceItemResponse(
                 service_id=r.service_id,
@@ -298,9 +297,7 @@ async def get_saifi(
 
     if include_services and scope.niveau != "service":
         service_ids = await _load_service_ids(db, scope)
-        records = await repo.list_saifi_saidi_for_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
+        records = await repo.list_saifi_saidi_for_services(db, service_ids=service_ids, annee=annee, mois=mois)
         items = [
             SaifiServiceItemResponse(
                 service_id=r.service_id,
@@ -360,9 +357,7 @@ async def get_saidi(
 
     if include_services and scope.niveau != "service":
         service_ids = await _load_service_ids(db, scope)
-        records = await repo.list_saifi_saidi_for_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
+        records = await repo.list_saifi_saidi_for_services(db, service_ids=service_ids, annee=annee, mois=mois)
         items = [
             SaidiServiceItemResponse(
                 service_id=r.service_id,
@@ -412,6 +407,8 @@ async def _count_interruptions_for_scope(
     statut: str | None = None,
     annee: int | None = None,
     mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
 ) -> int:
     directions = _type_directions_for_user(user)
     service_ids = await _load_service_ids(db, scope)
@@ -424,6 +421,8 @@ async def _count_interruptions_for_scope(
             statut=statut,
             annee=annee,
             mois=mois,
+            debut=debut,
+            fin=fin,
         )
 
     if "transport" in directions and scope.niveau == "national":
@@ -432,6 +431,8 @@ async def _count_interruptions_for_scope(
             statut=statut,
             annee=annee,
             mois=mois,
+            debut=debut,
+            fin=fin,
         )
 
     return total
@@ -476,9 +477,7 @@ def build_nature_service_repartition(
         row_end = 0.0
         for service_id, _meta in ordered_services:
             nombre, end_mwh = cells.get(service_id, (0, 0.0))
-            cellules.append(
-                NatureServiceCellResponse(nombre=int(nombre), end_kwh=round(float(end_mwh) * 1000, 2))
-            )
+            cellules.append(NatureServiceCellResponse(nombre=int(nombre), end_kwh=round(float(end_mwh) * 1000, 2)))
             row_nombre += int(nombre)
             row_end += float(end_mwh)
             service_nombre[service_id] += int(nombre)
@@ -511,6 +510,56 @@ def build_nature_service_repartition(
     )
 
 
+Granularite = Literal["jour", "mois", "annee"]
+
+
+@dataclass(frozen=True)
+class PeriodeTableau:
+    """Période du tableau de bord : jour, mois ou année ; bornes [debut, fin[."""
+
+    granularite: Granularite
+    debut: datetime
+    fin: datetime
+
+    @property
+    def annee(self) -> int:
+        return self.debut.year
+
+    @property
+    def mois(self) -> int:
+        return self.debut.month
+
+    @property
+    def cle_cache(self) -> tuple[str, int, int]:
+        if self.granularite == "jour":
+            return "tableau-de-bord-jour", self.annee, int(self.debut.strftime("%m%d"))
+        if self.granularite == "annee":
+            return "tableau-de-bord-annee", self.annee, 0
+        return "tableau-de-bord", self.annee, self.mois
+
+
+def resoudre_periode_tableau(
+    periode: str | None,
+    annee: int | None = None,
+    mois: int | None = None,
+    aujourd_hui: date | None = None,
+) -> PeriodeTableau:
+    """« AAAA » → année, « AAAA-MM » → mois, « AAAA-MM-JJ » → jour ; défaut : mois en cours."""
+    if periode and len(periode) == 10:
+        jour = date.fromisoformat(periode)
+        debut = datetime(jour.year, jour.month, jour.day)
+        return PeriodeTableau("jour", debut, debut + timedelta(days=1))
+    if periode and len(periode) == 4:
+        a = int(periode)
+        return PeriodeTableau("annee", datetime(a, 1, 1), datetime(a + 1, 1, 1))
+    if periode is None and annee is None:
+        ref = aujourd_hui or date.today()
+        annee, mois = ref.year, ref.month
+    a, m = _resolve_period(periode=periode, annee=annee, mois=mois)
+    debut, fin = _bornes_mois(a, m)
+    return PeriodeTableau("mois", debut, fin)
+
+
 async def get_tableau_de_bord(
     db: AsyncSession,
     redis: Redis,
@@ -521,39 +570,22 @@ async def get_tableau_de_bord(
     mois: int | None = None,
     region_id: int | None = None,
 ) -> TableauDeBordResponse:
-    resolved_annee, resolved_mois = _resolve_period(
-        periode=periode, annee=annee, mois=mois
-    )
+    per = resoudre_periode_tableau(periode, annee, mois)
     scope = _resolve_scope(user, region_id=region_id)
+    bornes = {"debut": per.debut, "fin": per.fin}
 
     async def _loader() -> dict:
-        end = await get_end(
-            db, redis, user, annee=resolved_annee, mois=resolved_mois, region_id=region_id
-        )
-        saifi = await get_saifi(
-            db, redis, user, annee=resolved_annee, mois=resolved_mois, region_id=region_id
-        )
-        saidi = await get_saidi(
-            db, redis, user, annee=resolved_annee, mois=resolved_mois, region_id=region_id
-        )
-        nb_actives = await _count_interruptions_for_scope(
-            db, scope, user, statut="en_cours"
-        )
-        nb_mois = await _count_interruptions_for_scope(
-            db,
-            scope,
-            user,
-            annee=resolved_annee,
-            mois=resolved_mois,
-        )
         service_ids = await _load_service_ids(db, scope)
-        cause_rows = await repo.aggregate_interruptions_by_cause(
-            db,
-            service_ids=service_ids,
-            annee=resolved_annee,
-            mois=resolved_mois,
-        )
-        cause_total = sum(r.nombre for r in cause_rows) or nb_mois or 1
+        if scope.niveau == "service" and scope.scope_id is not None:
+            check_service_scope(user, scope.scope_id)
+        # Mêmes définitions que les indicateurs mensuels : END des interruptions remises
+        # dans la période, SAIFI/SAIDI des interruptions apparues (formule SENELEC)
+        end_mwh = await pilotage_repository.sommer_end_mwh(db, service_ids, per.debut, per.fin)
+        calcul = await saifi_saidi_service.calculer_perimetre(db, service_ids, per.debut, per.fin)
+        nb_actives = await _count_interruptions_for_scope(db, scope, user, statut="en_cours")
+        nb_periode = await _count_interruptions_for_scope(db, scope, user, **bornes)
+        cause_rows = await repo.aggregate_interruptions_by_cause(db, service_ids=service_ids, **bornes)
+        cause_total = sum(r.nombre for r in cause_rows) or nb_periode or 1
         causes = [
             CauseRepartitionItemResponse(
                 label=row.label,
@@ -564,13 +596,8 @@ async def get_tableau_de_bord(
         ]
 
         # Répartition par nature (format Tableau de Bord FIS)
-        nature_rows = await repo.aggregate_interruptions_by_nature(
-            db,
-            service_ids=service_ids,
-            annee=resolved_annee,
-            mois=resolved_mois,
-        )
-        nature_total = sum(r.nombre for r in nature_rows) or nb_mois or 1
+        nature_rows = await repo.aggregate_interruptions_by_nature(db, service_ids=service_ids, **bornes)
+        nature_total = sum(r.nombre for r in nature_rows) or nb_periode or 1
         natures = [
             NatureRepartitionItemResponse(
                 code=row.code,
@@ -583,41 +610,36 @@ async def get_tableau_de_bord(
         ]
 
         nature_service = build_nature_service_repartition(
-            await repo.aggregate_interruptions_by_nature_and_service(
-                db,
-                service_ids=service_ids,
-                annee=resolved_annee,
-                mois=resolved_mois,
-            )
+            await repo.aggregate_interruptions_by_nature_and_service(db, service_ids=service_ids, **bornes)
         )
 
         payload = TableauDeBordResponse(
             niveau=scope.niveau,
             scope_id=scope.scope_id,
-            annee=resolved_annee,
-            mois=resolved_mois,
-            end_mois=end.aggregate.end_mwh,
-            saifi=saifi.aggregate.saifi,
-            saidi=saidi.aggregate.saidi,
+            annee=per.annee,
+            mois=per.mois,
+            granularite=per.granularite,
+            debut=per.debut.date(),
+            fin=(per.fin - timedelta(days=1)).date(),
+            end_mois=round(end_mwh, 4),
+            saifi=calcul.saifi,
+            saidi=calcul.saidi,
             nb_interruptions_actives=nb_actives,
-            nb_interruptions_mois=nb_mois,
+            nb_interruptions_mois=nb_periode,
             causes_repartition=causes,
             natures_repartition=natures,
             nature_service=nature_service,
         )
-        return payload.model_dump()
+        return payload.model_dump(mode="json")
 
-    if scope.niveau == "service":
+    # Service, ou journée en cours : pas de cache (les interruptions du jour bougent)
+    if scope.niveau == "service" or (per.granularite == "jour" and per.fin > datetime.now()):
         return TableauDeBordResponse.model_validate(await _loader())
 
-    cache_key = build_cache_key(
-        "tableau-de-bord",
-        scope.cache_region_id,
-        resolved_annee,
-        resolved_mois,
-    )
+    type_cache, annee_cache, mois_cache = per.cle_cache
+    cache_key = build_cache_key(type_cache, scope.cache_region_id, annee_cache, mois_cache)
     cached = await get_cached(redis, cache_key)
-    if not isinstance(cached, dict) or "nature_service" not in cached:
+    if not isinstance(cached, dict) or "granularite" not in cached:
         cached = await _loader()
         await set_cached(redis, cache_key, cached)
     return TableauDeBordResponse.model_validate(cached)
@@ -651,9 +673,7 @@ async def _historique_valeur_for_month(
     mois: int,
 ) -> float:
     if indicateur_type == "end":
-        rows = await repo.aggregate_end_by_services(
-            db, service_ids=service_ids, annee=annee, mois=mois
-        )
+        rows = await repo.aggregate_end_by_services(db, service_ids=service_ids, annee=annee, mois=mois)
         return sum(r.end_mwh for r in rows)
 
     debut, fin = _bornes_mois(annee, mois)
@@ -703,9 +723,7 @@ async def get_historique(
         service_ids = await _load_service_ids(db, scope)
         mois_serie = _iter_months_back(clamped_annees, end=end)
         serie = (
-            await saifi_saidi_service.serie_perimetre(db, service_ids, mois_serie)
-            if indicateur_type != "end"
-            else {}
+            await saifi_saidi_service.serie_perimetre(db, service_ids, mois_serie) if indicateur_type != "end" else {}
         )
         points: list[HistoriquePointResponse] = []
         for point_annee, point_mois in mois_serie:
@@ -720,9 +738,7 @@ async def get_historique(
             else:
                 calcul = serie[(point_annee, point_mois)]
                 valeur = calcul.saifi if indicateur_type == "saifi" else calcul.saidi
-            points.append(
-                HistoriquePointResponse(annee=point_annee, mois=point_mois, valeur=valeur)
-            )
+            points.append(HistoriquePointResponse(annee=point_annee, mois=point_mois, valeur=valeur))
         payload = HistoriqueResponse(
             type=indicateur_type,
             niveau=scope.niveau,
@@ -761,9 +777,7 @@ async def get_top_feeders(
     region_id: int | None = None,
     limit: int = _DEFAULT_TOP_FEEDERS_LIMIT,
 ) -> TopFeedersResponse:
-    resolved_annee, resolved_mois = _resolve_period(
-        periode=periode, annee=annee, mois=mois
-    )
+    resolved_annee, resolved_mois = _resolve_period(periode=periode, annee=annee, mois=mois)
     clamped_limit = max(1, min(limit, _MAX_TOP_FEEDERS_LIMIT))
     scope = _resolve_scope(user, region_id=region_id)
 
@@ -811,3 +825,117 @@ async def get_top_feeders(
         _loader,
     )
     return TopFeedersResponse.model_validate(cached)
+
+
+_MOIS_FR = (
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+)
+
+
+def periodes_synthese(aujourd_hui: date) -> list[tuple[str, str, datetime, datetime]]:
+    """(clé, libellé, début, fin exclue) : semaine passée, mois en cours, année en cours.
+
+    Semaine d'exploitation SENELEC : samedi → vendredi (rapport hebdomadaire DD) ; la semaine
+    passée est la dernière semaine complète. Les cumuls vont jusqu'à aujourd'hui inclus.
+    """
+    jour = datetime(aujourd_hui.year, aujourd_hui.month, aujourd_hui.day)
+    fin_semaine = jour - timedelta(days=(aujourd_hui.weekday() - 5) % 7)  # dernier samedi ≤ aujourd'hui
+    debut_semaine = fin_semaine - timedelta(days=7)
+    demain = jour + timedelta(days=1)
+    dernier = fin_semaine - timedelta(days=1)
+    return [
+        (
+            "semaine",
+            f"Semaine passée ({debut_semaine:%d/%m} → {dernier:%d/%m})",
+            debut_semaine,
+            fin_semaine,
+        ),
+        (
+            "mois",
+            f"Cumul {_MOIS_FR[aujourd_hui.month - 1]} {aujourd_hui.year}",
+            datetime(jour.year, jour.month, 1),
+            demain,
+        ),
+        ("annee", f"Cumul {aujourd_hui.year}", datetime(jour.year, 1, 1), demain),
+    ]
+
+
+async def get_synthese_saifi_saidi(
+    db: AsyncSession,
+    redis: Redis,
+    user: Utilisateur,
+    *,
+    region_id: int | None = None,
+    aujourd_hui: date | None = None,
+) -> SyntheseSaifiSaidiResponse:
+    """SAIFI/SAIDI HTA, HTB et les deux confondus, sur la semaine passée, le mois et l'année.
+
+    HTA : formule SENELEC du périmètre (``calculer_perimetre``). HTB : interruptions transport
+    et OMVG, clients touchés saisis, rapportés à la même base clients (vue nationale seule).
+    Total : somme des numérateurs sur la même base clients.
+    """
+    jour = aujourd_hui or date.today()
+    scope = _resolve_scope(user, region_id=region_id)
+
+    async def _loader() -> dict:
+        service_ids = await _load_service_ids(db, scope)
+        if scope.niveau == "service" and scope.scope_id is not None:
+            check_service_scope(user, scope.scope_id)
+        periodes: list[SyntheseSaifiSaidiPeriode] = []
+        reference = 0
+        for cle, libelle, debut, fin in periodes_synthese(jour):
+            hta = await saifi_saidi_service.calculer_perimetre(db, service_ids, debut, fin, today=jour)
+            reference = hta.total_clients_reference
+            valeurs_hta = SaifiSaidiValeurs(
+                saifi=hta.saifi, saidi=hta.saidi, nombre_interruptions=hta.nombre_interruptions
+            )
+            htb = total = None
+            if scope.niveau == "national":
+                trans = await pilotage_repository.sommer_clients_transport(db, debut, fin)
+                htb = SaifiSaidiValeurs(
+                    saifi=float(saifi_saidi_service.calcul_saifi(trans.clients, reference)),
+                    saidi=float(saifi_saidi_service.calcul_saidi(trans.client_heures, reference)),
+                    nombre_interruptions=trans.nombre,
+                )
+                total = SaifiSaidiValeurs(
+                    saifi=round(hta.saifi + htb.saifi, 6),
+                    saidi=round(hta.saidi + htb.saidi, 6),
+                    nombre_interruptions=hta.nombre_interruptions + trans.nombre,
+                )
+            periodes.append(
+                SyntheseSaifiSaidiPeriode(
+                    cle=cle,  # type: ignore[arg-type]
+                    libelle=libelle,
+                    debut=debut.date(),
+                    fin=(fin - timedelta(days=1)).date(),
+                    hta=valeurs_hta,
+                    htb=htb,
+                    total=total,
+                )
+            )
+        return SyntheseSaifiSaidiResponse(
+            niveau=scope.niveau,
+            scope_id=scope.scope_id,
+            total_clients_reference=reference,
+            periodes=periodes,
+        ).model_dump(mode="json")
+
+    if scope.niveau == "service":
+        return SyntheseSaifiSaidiResponse.model_validate(await _loader())
+    cache_key = build_cache_key("synthese-saifi-saidi", scope.cache_region_id, jour.year, int(jour.strftime("%m%d")))
+    cached = await get_cached(redis, cache_key)
+    if not isinstance(cached, dict) or "periodes" not in cached:
+        cached = await _loader()
+        await set_cached(redis, cache_key, cached)
+    return SyntheseSaifiSaidiResponse.model_validate(cached)

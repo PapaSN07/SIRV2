@@ -17,6 +17,7 @@ from app.schemas.indicateurs import (
     SaidiIndicateurResponse,
     SaifiIndicateurResponse,
     TableauDeBordResponse,
+    SyntheseSaifiSaidiResponse,
     TendanceResponse,
     TopFeedersResponse,
 )
@@ -119,16 +120,34 @@ async def get_saidi(
 
 
 @router.get(
+    "/synthese-saifi-saidi",
+    response_model=ApiResponse[SyntheseSaifiSaidiResponse],
+    status_code=status.HTTP_200_OK,
+    summary="SAIFI/SAIDI HTA, HTB et total : semaine passée, cumul du mois, cumul de l'année",
+)
+async def get_synthese_saifi_saidi(
+    region_id: int | None = Query(None, ge=1, description="Région (admins nationaux)"),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[SyntheseSaifiSaidiResponse]:
+    result = await indicateurs_service.get_synthese_saifi_saidi(
+        db, redis, current_user, region_id=region_id
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
     "/tableau-de-bord",
     response_model=ApiResponse[TableauDeBordResponse],
     status_code=status.HTTP_200_OK,
-    summary="Tableau de bord indicateurs — KPI du mois",
+    summary="Tableau de bord indicateurs — KPI d'un jour, d'un mois ou d'une année",
 )
 async def get_tableau_de_bord(
     periode: str | None = Query(
         None,
-        pattern=r"^\d{4}-\d{2}$",
-        description="Période YYYY-MM (défaut : mois courant)",
+        pattern=r"^\d{4}(-\d{2}(-\d{2})?)?$",
+        description="AAAA (année), AAAA-MM (mois) ou AAAA-MM-JJ (jour) ; défaut : mois courant",
     ),
     annee: int | None = Query(None, ge=2000, le=2100),
     mois: int | None = Query(None, ge=1, le=12),

@@ -1,6 +1,7 @@
 """Repository — requêtes agrégées indicateurs END / SAIFI / SAIDI (Sprint 5.4)."""
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,23 @@ from app.models.referentiel import Cause, Nature
 from app.models.reseau import Feeder
 from app.repositories import saifi_saidi_repository as saifi_repo
 from app.repositories.perimetre import interruptions_du_perimetre
+
+
+def periode_apparition(
+    annee: int | None = None,
+    mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
+) -> list:
+    """Filtre sur la date d'apparition : plage [debut, fin[ si donnée, sinon (année, mois)."""
+    if debut is not None and fin is not None:
+        return [Interruption.date_apparition >= debut, Interruption.date_apparition < fin]
+    if annee is not None and mois is not None:
+        return [
+            extract("year", Interruption.date_apparition) == annee,
+            extract("month", Interruption.date_apparition) == mois,
+        ]
+    return []
 
 
 @dataclass(frozen=True)
@@ -213,14 +231,14 @@ def _apply_interruption_filters(
     statut: str | None,
     annee: int | None,
     mois: int | None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
 ):
     if statut is not None:
         query = query.where(Interruption.statut == statut)
-    if annee is not None and mois is not None:
-        query = query.where(
-            extract("year", Interruption.date_apparition) == annee,
-            extract("month", Interruption.date_apparition) == mois,
-        )
+    conditions = periode_apparition(annee, mois, debut, fin)
+    if conditions:
+        query = query.where(*conditions)
     return query
 
 
@@ -231,6 +249,8 @@ async def count_distribution_interruptions(
     statut: str | None = None,
     annee: int | None = None,
     mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
 ) -> int:
     if not service_ids:
         return 0
@@ -239,7 +259,9 @@ async def count_distribution_interruptions(
         Interruption.type_direction == "distribution",
         interruptions_du_perimetre(service_ids),
     )
-    query = _apply_interruption_filters(query, statut=statut, annee=annee, mois=mois)
+    query = _apply_interruption_filters(
+        query, statut=statut, annee=annee, mois=mois, debut=debut, fin=fin
+    )
     result = await db.execute(query)
     return int(result.scalar_one())
 
@@ -248,8 +270,10 @@ async def aggregate_interruptions_by_cause(
     db: AsyncSession,
     *,
     service_ids: list[int],
-    annee: int,
-    mois: int,
+    annee: int | None = None,
+    mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
     limit: int = 5,
 ) -> list[CauseRepartitionRow]:
     if not service_ids:
@@ -265,8 +289,7 @@ async def aggregate_interruptions_by_cause(
         .where(
             Interruption.type_direction == "distribution",
             interruptions_du_perimetre(service_ids),
-            extract("year", Interruption.date_apparition) == annee,
-            extract("month", Interruption.date_apparition) == mois,
+            *periode_apparition(annee, mois, debut, fin),
         )
         .group_by(Cause.libelle)
         .order_by(func.count(Interruption.id).desc())
@@ -282,8 +305,10 @@ async def aggregate_interruptions_by_nature(
     db: AsyncSession,
     *,
     service_ids: list[int],
-    annee: int,
-    mois: int,
+    annee: int | None = None,
+    mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
 ) -> list[NatureRepartitionRow]:
     """Agregation par nature -- format Tableau de Bord FIS."""
     if not service_ids:
@@ -306,8 +331,7 @@ async def aggregate_interruptions_by_nature(
             Interruption.type_direction == "distribution",
             interruptions_du_perimetre(service_ids),
             Interruption.statut.in_(STATUTS_CLOTURES),
-            extract("year", Interruption.date_apparition) == annee,
-            extract("month", Interruption.date_apparition) == mois,
+            *periode_apparition(annee, mois, debut, fin),
         )
         .group_by(Nature.code, Nature.libelle)
         .order_by(func.count(Interruption.id).desc())
@@ -331,8 +355,10 @@ async def aggregate_interruptions_by_nature_and_service(
     db: AsyncSession,
     *,
     service_ids: list[int],
-    annee: int,
-    mois: int,
+    annee: int | None = None,
+    mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
 ) -> list[NatureServiceRow]:
     """Nombre d'interruptions et END par nature et par service (période mensuelle)."""
     if not service_ids:
@@ -359,8 +385,7 @@ async def aggregate_interruptions_by_nature_and_service(
             Interruption.type_direction == "distribution",
             interruptions_du_perimetre(service_ids),
             Interruption.statut.in_(STATUTS_CLOTURES),
-            extract("year", Interruption.date_apparition) == annee,
-            extract("month", Interruption.date_apparition) == mois,
+            *periode_apparition(annee, mois, debut, fin),
         )
         .group_by(
             Nature.code,
@@ -390,10 +415,14 @@ async def count_transport_interruptions(
     statut: str | None = None,
     annee: int | None = None,
     mois: int | None = None,
+    debut: datetime | None = None,
+    fin: datetime | None = None,
 ) -> int:
     query = select(func.count()).select_from(Interruption).where(
         Interruption.type_direction == "transport",
     )
-    query = _apply_interruption_filters(query, statut=statut, annee=annee, mois=mois)
+    query = _apply_interruption_filters(
+        query, statut=statut, annee=annee, mois=mois, debut=debut, fin=fin
+    )
     result = await db.execute(query)
     return int(result.scalar_one())

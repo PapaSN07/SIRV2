@@ -217,6 +217,37 @@ async def sommer_clients(
     )
 
 
+def requete_clients_transport(debut: datetime, fin: datetime):
+    """Σ clients touchés, Σ clients × durée (h) et nombre des interruptions HTB (transport, OMVG).
+
+    Pas de postes impactés en transport : clients touchés saisis sur l'interruption. Mêmes
+    règles que la distribution : clôturées, durée connue, datées par l'apparition.
+    """
+    nb = cast(func.coalesce(Interruption.nombre_clients_touches, 0), BigInteger)
+    return select(
+        func.coalesce(func.sum(nb), 0).label("clients"),
+        func.coalesce(
+            func.sum(cast(nb, Float) * func.coalesce(Interruption.duree_minutes, 0) / 60.0), 0
+        ).label("client_heures"),
+        func.count(Interruption.id).label("nombre"),
+    ).where(
+        Interruption.type_direction.in_(("transport", "omvg")),
+        Interruption.statut.in_(_CLOSED),
+        Interruption.date_remise.isnot(None),
+        Interruption.date_apparition >= debut,
+        Interruption.date_apparition < fin,
+    )
+
+
+async def sommer_clients_transport(db: AsyncSession, debut: datetime, fin: datetime) -> ClientsDureeRow:
+    row = (await db.execute(requete_clients_transport(debut, fin))).one()
+    return ClientsDureeRow(
+        clients=int(row.clients or 0),
+        client_heures=float(row.client_heures or 0),
+        nombre=int(row.nombre or 0),
+    )
+
+
 async def sommer_clients_par_mois(
     db: AsyncSession,
     service_ids: list[int],

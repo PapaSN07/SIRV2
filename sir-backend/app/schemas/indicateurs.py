@@ -1,6 +1,7 @@
 """Schemas Pydantic -- indicateurs CRSE (Sprint 5)."""
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -139,6 +140,11 @@ class TableauDeBordResponse(BaseModel):
     scope_id: int | None = None
     annee: int
     mois: int
+    # Période choisie : jour, mois ou année (bornes incluses) ; end_mois / nb_interruptions_mois
+    # portent sur cette période (noms conservés pour compatibilité)
+    granularite: Literal["jour", "mois", "annee"] = "mois"
+    debut: date | None = None
+    fin: date | None = None
     end_mois: float
     saifi: float
     saidi: float
@@ -285,3 +291,27 @@ class TendanceResponse(BaseModel):
     lecture: str
     points: list[TendancePointResponse]
     previsions: list[TendancePointResponse]
+
+
+class SaifiSaidiValeurs(BaseModel):
+    saifi: float
+    saidi: float = Field(..., description="Heures")
+    nombre_interruptions: int
+
+
+class SyntheseSaifiSaidiPeriode(BaseModel):
+    cle: Literal["semaine", "mois", "annee"]
+    libelle: str
+    debut: date
+    fin: date = Field(..., description="Dernier jour inclus")
+    hta: SaifiSaidiValeurs
+    # HTB (transport, OMVG) et total : vue nationale seulement (le transport n'a pas de région)
+    htb: SaifiSaidiValeurs | None = None
+    total: SaifiSaidiValeurs | None = None
+
+
+class SyntheseSaifiSaidiResponse(BaseModel):
+    niveau: str
+    scope_id: int | None = None
+    total_clients_reference: int
+    periodes: list[SyntheseSaifiSaidiPeriode]

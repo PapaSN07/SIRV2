@@ -50,3 +50,44 @@ def test_sommes_clients_en_bigint_et_float() -> None:
 
     sql = str(select(*repo._sommes_clients()).select_from(Interruption).compile(dialect=mssql.dialect()))
     assert "AS BIGINT" in sql and "AS FLOAT" in sql
+
+
+def test_periodes_synthese_semaine_samedi_vendredi() -> None:
+    from datetime import date, datetime
+
+    from app.services.indicateurs_service import periodes_synthese
+
+    # Vendredi 06/11/2026 : la semaine du 31/10 n'est pas finie → semaine passée 24/10 → 30/10
+    semaine, mois, annee = periodes_synthese(date(2026, 11, 6))
+    assert semaine[2:] == (datetime(2026, 10, 24), datetime(2026, 10, 31))
+    assert mois[2:] == (datetime(2026, 11, 1), datetime(2026, 11, 7))
+    assert annee[2:] == (datetime(2026, 1, 1), datetime(2026, 11, 7))
+    # Samedi 07/11 : la semaine 31/10 → 06/11 vient de finir
+    assert periodes_synthese(date(2026, 11, 7))[0][2:] == (datetime(2026, 10, 31), datetime(2026, 11, 7))
+
+
+def test_periode_tableau_jour_mois_annee() -> None:
+    from datetime import date, datetime
+
+    from app.services.indicateurs_service import resoudre_periode_tableau
+
+    jour = resoudre_periode_tableau("2026-11-06")
+    assert (jour.granularite, jour.debut, jour.fin) == ("jour", datetime(2026, 11, 6), datetime(2026, 11, 7))
+    mois = resoudre_periode_tableau("2026-02")
+    assert (mois.granularite, mois.debut, mois.fin) == ("mois", datetime(2026, 2, 1), datetime(2026, 3, 1))
+    annee = resoudre_periode_tableau("2025")
+    assert (annee.granularite, annee.debut, annee.fin) == ("annee", datetime(2025, 1, 1), datetime(2026, 1, 1))
+    defaut = resoudre_periode_tableau(None, aujourd_hui=date(2026, 12, 15))
+    assert (defaut.debut, defaut.fin) == (datetime(2026, 12, 1), datetime(2027, 1, 1))
+    assert len({jour.cle_cache, mois.cle_cache, annee.cle_cache}) == 3
+
+
+def test_requete_clients_transport_sql_server() -> None:
+    from datetime import datetime
+
+    from sqlalchemy.dialects import mssql
+
+    from app.repositories.pilotage_repository import requete_clients_transport
+
+    sql = str(requete_clients_transport(datetime(2026, 1, 1), datetime(2026, 2, 1)).compile(dialect=mssql.dialect()))
+    assert "BIGINT" in sql.upper() and "IS 1" not in sql
