@@ -5,6 +5,8 @@ import { switchMap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { ApiResponse } from '../../../shared/models/api.models';
 import {
+  ApercuHebdoDD,
+  ApercuMensuelDistribution,
   RapportAnnuelParams,
   RapportEnqueueResponse,
   RapportHebdoDDRequest,
@@ -19,6 +21,23 @@ export class RapportsService {
   private readonly apiUrl = `${environment.apiUrl}/rapports`;
 
   constructor(private readonly http: HttpClient) {}
+
+  /** Chiffres du rapport hebdomadaire DD pour les graphiques (semaine finissant le vendredi date_fin). */
+  getApercuHebdoDD(dateFin?: string): Observable<ApercuHebdoDD> {
+    let params = new HttpParams();
+    if (dateFin) params = params.set('date_fin', dateFin);
+    return this.http
+      .get<ApiResponse<ApercuHebdoDD>>(`${this.apiUrl}/apercu/hebdo-dd`, { params })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  getApercuMensuelDistribution(annee: number, mois: number, regionId?: number | null): Observable<ApercuMensuelDistribution> {
+    let params = new HttpParams().set('annee', annee).set('mois', mois);
+    if (regionId) params = params.set('region_id', regionId);
+    return this.http
+      .get<ApiResponse<ApercuMensuelDistribution>>(`${this.apiUrl}/apercu/mensuel-distribution`, { params })
+      .pipe(map((res) => this.unwrap(res)));
+  }
 
   enqueueJournalier(body: RapportJournalierRequest): Observable<RapportEnqueueResponse> {
     return this.http

@@ -258,13 +258,13 @@
                     {{ p.libelle }}
                     <span class="synthese-qs__nb">{{ p.hta.nombre_interruptions }} interruption(s) HTA</span>
                   </th>
-                  <td>{{ formatNumber(p.hta.saifi, 3) }}</td>
-                  <td>{{ formatNumber(p.hta.saidi, 3) }}</td>
+                  <td>{{ p.hta.saifi | number: '1.3-3' : 'fr-FR' }}</td>
+                  <td>{{ p.hta.saidi | number: '1.3-3' : 'fr-FR' }}</td>
                   @if (p.htb && p.total) {
-                    <td>{{ formatNumber(p.htb.saifi, 3) }}</td>
-                    <td>{{ formatNumber(p.htb.saidi, 3) }}</td>
-                    <td class="synthese-qs__total-col">{{ formatNumber(p.total.saifi, 3) }}</td>
-                    <td class="synthese-qs__total-col">{{ formatNumber(p.total.saidi, 3) }}</td>
+                    <td>{{ p.htb.saifi | number: '1.3-3' : 'fr-FR' }}</td>
+                    <td>{{ p.htb.saidi | number: '1.3-3' : 'fr-FR' }}</td>
+                    <td class="synthese-qs__total-col">{{ p.total.saifi | number: '1.3-3' : 'fr-FR' }}</td>
+                    <td class="synthese-qs__total-col">{{ p.total.saidi | number: '1.3-3' : 'fr-FR' }}</td>
                   } @else {
                     <td colspan="4" class="synthese-qs__na">HTB : vue nationale uniquement</td>
                   }

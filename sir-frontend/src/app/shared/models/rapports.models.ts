@@ -57,3 +57,39 @@ export interface RapportAnnuelParams {
   limit?: number;
   format?: RapportFormat;
 }
+
+/** Aperçu graphique d'un rapport : indicateurs comparés et séries pour les barres. */
+export interface ApercuValeur {
+  libelle: string;
+  valeur: number;
+  precedent: number | null;
+}
+
+export interface ApercuSerie {
+  libelle: string;
+  nombre: number;
+  end_mwh: number;
+  nombre_precedent: number | null;
+  end_mwh_precedent: number | null;
+  part_pct: number | null;
+}
+
+export interface ApercuHebdoDD {
+  debut: string;
+  fin: string;
+  numero: number;
+  numero_precedent: number;
+  indicateurs: ApercuValeur[];
+  categories: ApercuSerie[];
+  services: ApercuSerie[];
+  jours: ApercuSerie[];
+}
+
+export interface ApercuMensuelDistribution {
+  annee: number;
+  mois: number;
+  region_id: number | null;
+  indicateurs: ApercuValeur[];
+  services: ApercuSerie[];
+  top_feeders: ApercuSerie[];
+}

@@ -1445,6 +1445,9 @@
   }
 
   &__periode-col {
+    position: sticky;
+    left: 0;
+    background: #fff;
     text-align: left !important;
     font-weight: 600;
     color: $primary;

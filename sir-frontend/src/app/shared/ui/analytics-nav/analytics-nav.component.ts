@@ -28,7 +28,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         routerLinkActive="analytics-nav__tab--active"
         [routerLinkActiveOptions]="{ exact: true }"
       >
-        Rapports CRSE
+        Rapports Distribution
       </a>
       <a
         class="analytics-nav__tab"

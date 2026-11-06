@@ -1,19 +1,25 @@
+from datetime import date as DateType
+
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import FileResponse
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import require_permission
+from app.core.redis import get_redis
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse
 from app.schemas.rapports import (
+    ApercuHebdoDDResponse,
+    ApercuMensuelDistributionResponse,
     RapportEnqueueResponse,
     RapportHebdoDDRequest,
     RapportHebdomadaireRequest,
     RapportJournalierRequest,
     RapportStatusResponse,
 )
-from app.services import rapport_generation_service
+from app.services import rapport_apercu_service, rapport_generation_service
 
 router = APIRouter()
 
@@ -141,6 +147,42 @@ async def post_rapport_annuel(
         region_id=region_id,
         output_format=format,
         top_limit=limit,
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/apercu/hebdo-dd",
+    response_model=ApiResponse[ApercuHebdoDDResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Aperçu graphique du rapport hebdomadaire d'exploitation DD (semaine samedi → vendredi)",
+)
+async def get_apercu_hebdo_dd(
+    date_fin: DateType | None = Query(None, description="Vendredi de fin de semaine (défaut : semaine passée)"),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("rapports", "read")),
+) -> ApiResponse[ApercuHebdoDDResponse]:
+    result = await rapport_apercu_service.apercu_hebdo_dd(db, redis, current_user, date_fin=date_fin)
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/apercu/mensuel-distribution",
+    response_model=ApiResponse[ApercuMensuelDistributionResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Aperçu graphique du rapport mensuel distribution",
+)
+async def get_apercu_mensuel_distribution(
+    annee: int = Query(..., ge=2000, le=2100),
+    mois: int = Query(..., ge=1, le=12),
+    region_id: int | None = Query(None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("rapports", "read")),
+) -> ApiResponse[ApercuMensuelDistributionResponse]:
+    result = await rapport_apercu_service.apercu_mensuel_distribution(
+        db, redis, current_user, annee=annee, mois=mois, region_id=region_id
     )
     return ApiResponse.success(result)
 

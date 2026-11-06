@@ -58,3 +58,45 @@ class RapportStatusResponse(BaseModel):
     expires_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+# --------------------------------------------------------------------------------------
+# Aperçus graphiques (page Rapports) : les chiffres du rapport, sans générer le fichier
+# --------------------------------------------------------------------------------------
+
+
+class ApercuValeur(BaseModel):
+    libelle: str
+    valeur: float
+    precedent: float | None = None
+
+
+class ApercuSerie(BaseModel):
+    """Une ligne d'un graphique en barres : libellé, valeur (et valeur de comparaison)."""
+
+    libelle: str
+    nombre: int = 0
+    end_mwh: float = 0.0
+    nombre_precedent: int | None = None
+    end_mwh_precedent: float | None = None
+    part_pct: float | None = None
+
+
+class ApercuHebdoDDResponse(BaseModel):
+    debut: DateType
+    fin: DateType
+    numero: int
+    numero_precedent: int
+    indicateurs: list[ApercuValeur]
+    categories: list[ApercuSerie]
+    services: list[ApercuSerie]
+    jours: list[ApercuSerie]
+
+
+class ApercuMensuelDistributionResponse(BaseModel):
+    annee: int
+    mois: int
+    region_id: int | None = None
+    indicateurs: list[ApercuValeur]
+    services: list[ApercuSerie]
+    top_feeders: list[ApercuSerie]

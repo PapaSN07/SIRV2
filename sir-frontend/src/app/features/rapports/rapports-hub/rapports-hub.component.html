@@ -1,6 +1,6 @@
 <section class="rapports-hub">
   <sir-page-header
-    title="Rapports CRSE"
+    title="Rapports Distribution"
     [breadcrumbs]="[
       { label: 'Tableau de bord', route: '/' },
       { label: 'Rapports' },
@@ -12,29 +12,21 @@
   <div class="rapports-layout">
     <aside class="rapports-types">
       <h2>Type de rapport</h2>
-      @if (canDistributionReports()) {
-        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'journalier'" (click)="setKind('journalier')">
-          Journalier
-        </button>
-        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'hebdomadaire'" (click)="setKind('hebdomadaire')">
-          Hebdomadaire
-        </button>
-        @if (canHebdoDD()) {
-          <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'hebdo_dd'" (click)="setKind('hebdo_dd')">
-            Hebdomadaire d'exploitation DD
-          </button>
-        }
-        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_dist'" (click)="setKind('mensuel_dist')">
-          Mensuel distribution
+      @if (canHebdoDD()) {
+        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'hebdo_dd'" (click)="setKind('hebdo_dd')">
+          Hebdomadaire d'exploitation DD
+          <small>Samedi → vendredi · Word, Excel, PDF</small>
         </button>
       }
-      @if (canTransportReports()) {
-        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_trans'" (click)="setKind('mensuel_trans')">
-          Mensuel transport
+      @if (canDistributionReports()) {
+        <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'mensuel_dist'" (click)="setKind('mensuel_dist')">
+          Mensuel distribution
+          <small>Carte du poids de l'END · PDF, Excel</small>
         </button>
       }
       <button type="button" class="rapports-types__btn" [class.rapports-types__btn--active]="kind() === 'annuel'" (click)="setKind('annuel')">
         Annuel
+        <small>Distribution · PDF, Excel</small>
       </button>
     </aside>
 
@@ -59,15 +51,10 @@
         </select>
       </div>
 
-      @if (kind() === 'journalier' || kind() === 'hebdomadaire' || kind() === 'hebdo_dd') {
+      @if (kind() === 'hebdo_dd') {
         <div class="field">
-          <label class="field__label" for="date">
-            {{ kind() === 'hebdomadaire' ? 'Un jour de la semaine voulue' : kind() === 'hebdo_dd' ? 'Vendredi de fin de semaine' : 'Date' }}
-          </label>
-          <input id="date" class="field__select" type="date" [value]="date()" (change)="date.set($any($event.target).value)" />
-          @if (kind() === 'hebdomadaire') {
-            <p class="rapports-hint">Le rapport couvre la semaine du lundi au dimanche contenant cette date.</p>
-          }
+          <label class="field__label" for="date">Vendredi de fin de semaine</label>
+          <input id="date" class="field__select" type="date" [value]="date()" (change)="date.set($any($event.target).value); onParametre()" />
           @if (kind() === 'hebdo_dd') {
             <p class="rapports-hint">
               Semaine du samedi au vendredi se terminant à cette date (sinon la dernière semaine complète avant).
@@ -79,33 +66,17 @@
         <div class="form-row">
           <div class="field">
             <label class="field__label" for="annee">Année</label>
-            <input id="annee" class="field__select" type="number" min="2000" max="2100" [value]="annee()" (change)="annee.set(+$any($event.target).value)" />
+            <input id="annee" class="field__select" type="number" min="2000" max="2100" [value]="annee()" (change)="annee.set(+$any($event.target).value); onParametre()" />
           </div>
           @if (kind() !== 'annuel') {
             <div class="field">
               <label class="field__label" for="mois">Mois</label>
-              <input id="mois" class="field__select" type="number" min="1" max="12" [value]="mois()" (change)="mois.set(+$any($event.target).value)" />
+              <input id="mois" class="field__select" type="number" min="1" max="12" [value]="mois()" (change)="mois.set(+$any($event.target).value); onParametre()" />
             </div>
           }
         </div>
       }
 
-      @if (kind() === 'annuel') {
-        <div class="field">
-          <label class="field__label" for="direction">Direction</label>
-          <select id="direction" class="field__select" [value]="direction()" (change)="direction.set($any($event.target).value)">
-            @if (canDistributionReports()) {
-              <option value="distribution">Distribution</option>
-            }
-            @if (canTransportReports()) {
-              <option value="transport">Transport</option>
-            }
-            @if (canConsolide()) {
-              <option value="consolide">Consolidé</option>
-            }
-          </select>
-        </div>
-      }
 
       <button type="button" class="sir-btn sir-btn--primary" [disabled]="generating()" (click)="generate()">
         @if (generating()) {
@@ -144,7 +115,7 @@
             Archiver le mois {{ mois().toString().padStart(2, '0') }}/{{ annee() }}
           </h3>
           <p>
-            Une fois le rapport mensuel CRSE transmis, gelez les interruptions validées de ce mois :
+            Une fois le rapport mensuel transmis à la CRSE, gelez les interruptions validées de ce mois :
             elles ne pourront plus être dévalidées. Les interruptions non validées restent modifiables.
           </p>
           @if (archivage(); as a) {
@@ -174,4 +145,67 @@
       }
     </div>
   </div>
+
+  @if (kind() !== 'annuel') {
+    <section class="rapports-apercu" aria-labelledby="apercu-titre">
+      <header class="rapports-apercu__head">
+        <h2 id="apercu-titre">Visualisation</h2>
+        @if (kind() === 'hebdo_dd' && apercuHebdo(); as a) {
+          <p>Semaine {{ a.numero }} · du {{ a.debut.slice(8, 10) }}/{{ a.debut.slice(5, 7) }} au {{ a.fin.slice(8, 10) }}/{{ a.fin.slice(5, 7) }}/{{ a.fin.slice(0, 4) }} — comparée à la semaine {{ a.numero_precedent }}</p>
+        }
+        @if (kind() === 'mensuel_dist') {
+          <p>{{ libelleMois() }}</p>
+        }
+      </header>
+
+      @if (apercuLoading()) {
+        <p class="rapports-apercu__etat">Chargement des chiffres du rapport…</p>
+      } @else if (apercuError()) {
+        <p class="rapports-hub__error" role="alert">{{ apercuError() }}</p>
+      } @else {
+        <div class="rapports-apercu__kpis">
+          @for (v of apercuIndicateurs(); track v.libelle) {
+            <article class="rapports-apercu__kpi">
+              <p class="rapports-apercu__kpi-label">{{ v.libelle }}</p>
+              <p class="rapports-apercu__kpi-valeur">{{ v.valeur | number: '1.0-3' : 'fr-FR' }}</p>
+              @if (v.precedent !== null) {
+                <p class="rapports-apercu__kpi-prec">
+                  S-1 : {{ v.precedent | number: '1.0-3' : 'fr-FR' }}
+                  @if (ecart(v); as e) {
+                    <span [class.hausse]="e > 0" [class.baisse]="e < 0">{{ e > 0 ? '+' : '' }}{{ e }} %</span>
+                  }
+                </p>
+              }
+            </article>
+          }
+        </div>
+
+        <div class="rapports-apercu__grille">
+          @if (kind() === 'hebdo_dd') {
+            <article class="rapports-apercu__graphe">
+              <h3>END par catégorie (MWh)</h3>
+              <sir-barres [items]="hebdoCategories()" [legende]="['Semaine', 'Semaine précédente']" format="1.0-1" />
+            </article>
+            <article class="rapports-apercu__graphe">
+              <h3>END HTA par service (MWh)</h3>
+              <sir-barres [items]="hebdoServices()" [legende]="['Semaine', 'Semaine précédente']" format="1.0-1" />
+            </article>
+            <article class="rapports-apercu__graphe rapports-apercu__graphe--large">
+              <h3>END HTA jour par jour (MWh)</h3>
+              <sir-barres [items]="hebdoJours()" format="1.0-1" />
+            </article>
+          } @else {
+            <article class="rapports-apercu__graphe">
+              <h3>Poids de l'END par service (MWh)</h3>
+              <sir-barres [items]="mensuelServices()" format="1.0-1" />
+            </article>
+            <article class="rapports-apercu__graphe">
+              <h3>Départs les plus pénalisants (MWh)</h3>
+              <sir-barres [items]="mensuelFeeders()" format="1.0-1" />
+            </article>
+          }
+        </div>
+      }
+    </section>
+  }
 </section>
