@@ -25,6 +25,7 @@ class UtilisateurCreate(BaseModel):
     nom: str = Field(..., min_length=1, max_length=100)
     prenom: str = Field(..., min_length=1, max_length=100)
     email: str | None = Field(default=None, max_length=255)
+    matricule: str | None = Field(default=None, max_length=20)
     telephone: str | None = Field(default=None, max_length=20)
     roles: list[RoleAssignment] = Field(..., min_length=1)
 
@@ -33,6 +34,7 @@ class UtilisateurUpdate(BaseModel):
     nom: str | None = Field(default=None, min_length=1, max_length=100)
     prenom: str | None = Field(default=None, min_length=1, max_length=100)
     email: str | None = Field(default=None, max_length=255)
+    matricule: str | None = Field(default=None, max_length=20)
     telephone: str | None = Field(default=None, max_length=20)
     roles: list[RoleAssignment] | None = Field(default=None, min_length=1)
 
@@ -43,6 +45,7 @@ class UtilisateurResponse(BaseModel):
     nom: str
     prenom: str
     email: str | None
+    matricule: str | None = None
     telephone: str | None
     is_active: bool
     premiere_connexion: bool

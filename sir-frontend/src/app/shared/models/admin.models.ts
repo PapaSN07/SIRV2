@@ -15,6 +15,7 @@ export interface UtilisateurAdmin {
   nom: string;
   prenom: string;
   email: string | null;
+  matricule: string | null;
   telephone: string | null;
   is_active: boolean;
   premiere_connexion: boolean;
@@ -27,6 +28,7 @@ export interface UtilisateurCreate {
   nom: string;
   prenom: string;
   email?: string | null;
+  matricule?: string | null;
   telephone?: string | null;
   roles: RoleAssignment[];
 }
@@ -35,6 +37,7 @@ export interface UtilisateurUpdate {
   nom?: string;
   prenom?: string;
   email?: string | null;
+  matricule?: string | null;
   telephone?: string | null;
   roles?: RoleAssignment[];
 }

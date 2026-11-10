@@ -68,6 +68,8 @@ class Utilisateur(Base):
     nom: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)
     prenom: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False)
     email: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True)
+    # Matricule SENELEC (distinct du login AD) — recherche dans l'administration des comptes
+    matricule: Mapped[str | None] = mapped_column(NVARCHAR(20), nullable=True, index=True)
     telephone: Mapped[str | None] = mapped_column(NVARCHAR(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     premiere_connexion: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

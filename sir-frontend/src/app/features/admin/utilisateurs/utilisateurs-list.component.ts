@@ -19,6 +19,7 @@ interface UserFormState {
   nom: string;
   prenom: string;
   email: string;
+  matricule: string;
   telephone: string;
   selectedRoleIds: number[];
   reset_password: string;
@@ -42,6 +43,9 @@ export class UtilisateursListComponent implements OnInit {
   readonly users = signal<UtilisateurAdmin[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
+  /** Texte recherché : login, matricule, nom, prénom ou e-mail. */
+  readonly recherche = signal('');
+  private delaiRecherche: ReturnType<typeof setTimeout> | null = null;
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -80,6 +84,7 @@ export class UtilisateursListComponent implements OnInit {
       prenom: user.prenom,
       email: user.email ?? '',
       telephone: user.telephone ?? '',
+      matricule: user.matricule ?? '',
       selectedRoleIds: user.roles.map((r) => r.role_id),
       reset_password: '',
     });
@@ -140,6 +145,7 @@ export class UtilisateursListComponent implements OnInit {
         prenom: state.prenom.trim(),
         email: state.email.trim() || null,
         telephone: state.telephone.trim() || null,
+        matricule: state.matricule.trim() || null,
         roles,
       };
       this.adminUsers.create(body).subscribe({
@@ -194,10 +200,24 @@ export class UtilisateursListComponent implements OnInit {
     this.saving.set(false);
   }
 
+  /** Recherche à la frappe, lancée 300 ms après la dernière touche, depuis la première page. */
+  onRecherche(texte: string): void {
+    this.recherche.set(texte);
+    if (this.delaiRecherche) clearTimeout(this.delaiRecherche);
+    this.delaiRecherche = setTimeout(() => {
+      this.page.set(1);
+      this.load();
+    }, 300);
+  }
+
+  effacerRecherche(): void {
+    this.onRecherche('');
+  }
+
   private load(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.adminUsers.list(this.page(), this.pageSize).subscribe({
+    this.adminUsers.list(this.page(), this.pageSize, this.recherche()).subscribe({
       next: (res) => {
         this.users.set(res.items);
         this.total.set(res.total);
@@ -218,6 +238,7 @@ export class UtilisateursListComponent implements OnInit {
       prenom: '',
       email: '',
       telephone: '',
+      matricule: '',
       selectedRoleIds: [],
       reset_password: '',
     };

@@ -65,6 +65,16 @@
           />
         </div>
         <div class="field">
+          <label class="field__label" for="user-matricule">Matricule</label>
+          <input
+            id="user-matricule"
+            class="field__input"
+            maxlength="20"
+            [ngModel]="form().matricule"
+            (ngModelChange)="patchForm('matricule', $event)"
+          />
+        </div>
+        <div class="field">
           <label class="field__label" for="user-email">Email</label>
           <input
             id="user-email"
@@ -124,6 +134,23 @@
     <p class="alert alert--error">{{ error() }}</p>
   }
 
+  <div class="recherche">
+    <span class="material-symbols-outlined recherche__icone" aria-hidden="true">search</span>
+    <input
+      type="search"
+      class="recherche__champ"
+      placeholder="Rechercher par matricule, nom, login ou e-mail"
+      aria-label="Rechercher un utilisateur par matricule, nom, login ou e-mail"
+      [ngModel]="recherche()"
+      (ngModelChange)="onRecherche($event)"
+    />
+    @if (recherche()) {
+      <button type="button" class="recherche__effacer" (click)="effacerRecherche()" aria-label="Effacer la recherche">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    }
+  </div>
+
   @if (loading()) {
     <p class="loading">Chargement…</p>
   } @else {
@@ -132,6 +159,7 @@
         <thead>
           <tr>
             <th>Login</th>
+            <th>Matricule</th>
             <th>Nom</th>
             <th>Email</th>
             <th>Rôles</th>
@@ -145,6 +173,7 @@
           @for (user of users(); track user.id) {
             <tr>
               <td>{{ user.login }}</td>
+              <td>{{ user.matricule ?? '—' }}</td>
               <td>{{ user.prenom }} {{ user.nom }}</td>
               <td>{{ user.email ?? '—' }}</td>
               <td>{{ rolesLabel(user) }}</td>
@@ -164,7 +193,9 @@
             </tr>
           } @empty {
             <tr>
-              <td [attr.colspan]="canWrite() ? 6 : 5">Aucun utilisateur.</td>
+              <td [attr.colspan]="canWrite() ? 7 : 6">
+                {{ recherche() ? 'Aucun utilisateur ne correspond à « ' + recherche() + ' ».' : 'Aucun utilisateur.' }}
+              </td>
             </tr>
           }
         </tbody>

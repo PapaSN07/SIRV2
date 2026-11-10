@@ -1,6 +1,6 @@
 """Repository CRUD admin — gestion des utilisateurs avec filtre direction."""
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -56,11 +56,30 @@ async def get_role_by_id(db: AsyncSession, role_id: int) -> Role | None:
     return result.scalar_one_or_none()
 
 
+def filtre_recherche(recherche: str | None):
+    """Condition « contient » sur login, matricule, nom, prénom, e-mail et « prénom nom » / « nom prénom ».
+
+    Plusieurs mots : chacun doit être trouvé (« diop awa » trouve Awa Diop). Insensible à la casse.
+    """
+    mots = [m for m in (recherche or "").strip().lower().split() if m][:5]
+    if not mots:
+        return None
+    champs = [
+        Utilisateur.login, Utilisateur.matricule, Utilisateur.nom, Utilisateur.prenom, Utilisateur.email,
+    ]
+    conditions = []
+    for mot in mots:
+        motif = "%" + mot.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        conditions.append(or_(*(func.lower(c).like(motif, escape="\\") for c in champs)))
+    return and_(*conditions)
+
+
 async def list_by_direction(
     db: AsyncSession,
     direction: str,
     page: int,
     page_size: int,
+    recherche: str | None = None,
 ) -> tuple[list[Utilisateur], int]:
     """Liste paginée des utilisateurs ayant au moins un rôle de la direction."""
     allowed = allowed_roles_for_direction(direction)
@@ -75,14 +94,14 @@ async def list_by_direction(
         .distinct()
     )
 
-    count_result = await db.execute(
-        select(func.count()).select_from(user_ids_subq.subquery())
-    )
+    filtre = filtre_recherche(recherche)
+    conditions = [Utilisateur.id.in_(user_ids_subq)] + ([filtre] if filtre is not None else [])
+    count_result = await db.execute(select(func.count(Utilisateur.id)).where(*conditions))
     total = count_result.scalar_one()
 
     result = await db.execute(
         select(Utilisateur)
-        .where(Utilisateur.id.in_(user_ids_subq))
+        .where(*conditions)
         .options(*_utilisateur_options())
         .order_by(Utilisateur.id)
         .offset(offset)
@@ -95,17 +114,21 @@ async def list_all(
     db: AsyncSession,
     page: int,
     page_size: int,
+    recherche: str | None = None,
 ) -> tuple[list[Utilisateur], int]:
     """Liste paginée de tous les utilisateurs (super admin dev)."""
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
     offset = (page - 1) * page_size
 
-    count_result = await db.execute(select(func.count()).select_from(Utilisateur))
+    filtre = filtre_recherche(recherche)
+    conditions = [filtre] if filtre is not None else []
+    count_result = await db.execute(select(func.count(Utilisateur.id)).where(*conditions))
     total = count_result.scalar_one()
 
     result = await db.execute(
         select(Utilisateur)
+        .where(*conditions)
         .options(*_utilisateur_options())
         .order_by(Utilisateur.id)
         .offset(offset)
@@ -124,6 +147,7 @@ async def create(
     email: str | None,
     telephone: str | None,
     roles: list[tuple[int, int | None]],
+    matricule: str | None = None,
 ) -> Utilisateur:
     user = Utilisateur(
         login=login,
@@ -131,6 +155,7 @@ async def create(
         nom=nom,
         prenom=prenom,
         email=email,
+        matricule=matricule,
         telephone=telephone,
         is_active=True,
         premiere_connexion=True,
@@ -161,8 +186,11 @@ async def update_profile(
     prenom: str | None,
     email: str | None,
     telephone: str | None,
+    matricule: str | None = None,
 ) -> Utilisateur:
     values: dict = {}
+    if matricule is not None:
+        values["matricule"] = matricule.strip() or None
     if nom is not None:
         values["nom"] = nom
     if prenom is not None:

@@ -60,6 +60,7 @@ def _build_response(user: Utilisateur) -> UtilisateurResponse:
         nom=user.nom,
         prenom=user.prenom,
         email=user.email,
+        matricule=user.matricule,
         telephone=user.telephone,
         is_active=user.is_active,
         premiere_connexion=user.premiere_connexion,
@@ -143,12 +144,13 @@ async def list_utilisateurs(
     current_user: Utilisateur,
     page: int,
     page_size: int,
+    recherche: str | None = None,
 ) -> PaginatedResponse[UtilisateurResponse]:
     direction = _get_admin_direction(current_user)
     if direction == "all":
-        users, total = await admin_repo.list_all(db, page, page_size)
+        users, total = await admin_repo.list_all(db, page, page_size, recherche)
     else:
-        users, total = await admin_repo.list_by_direction(db, direction, page, page_size)
+        users, total = await admin_repo.list_by_direction(db, direction, page, page_size, recherche)
     items = [_build_response(u) for u in users]
     return PaginatedResponse(
         items=items,
@@ -188,6 +190,7 @@ async def create_utilisateur(
         email=body.email,
         telephone=body.telephone,
         roles=roles,
+        matricule=(body.matricule or "").strip() or None,
     )
 
     await log_audit(
@@ -232,6 +235,7 @@ async def update_utilisateur(
         prenom=body.prenom,
         email=body.email,
         telephone=body.telephone,
+        matricule=body.matricule,
     )
 
     if body.roles is not None:

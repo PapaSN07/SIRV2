@@ -31,13 +31,14 @@ router = APIRouter()
 async def list_utilisateurs(
     page: int = 1,
     page_size: int = 20,
+    q: str | None = Query(None, max_length=100, description="Login, matricule, nom, prénom ou e-mail"),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(
         require_permission("admin_utilisateurs", "read")
     ),
 ) -> ApiResponse[PaginatedResponse[UtilisateurResponse]]:
     result = await admin_utilisateur_service.list_utilisateurs(
-        db, current_user, page, page_size
+        db, current_user, page, page_size, q
     )
     return ApiResponse.success(result)
 

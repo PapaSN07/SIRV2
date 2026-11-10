@@ -16,8 +16,10 @@ export class AdminUtilisateurService {
 
   constructor(private readonly http: HttpClient) {}
 
-  list(page = 1, pageSize = 20): Observable<PaginatedResponse<UtilisateurAdmin>> {
-    const params = new HttpParams().set('page', page).set('page_size', pageSize);
+  /** `recherche` : login, matricule, nom, prénom ou e-mail (plusieurs mots : tous présents). */
+  list(page = 1, pageSize = 20, recherche = ''): Observable<PaginatedResponse<UtilisateurAdmin>> {
+    let params = new HttpParams().set('page', page).set('page_size', pageSize);
+    if (recherche.trim()) params = params.set('q', recherche.trim());
     return this.http
       .get<ApiResponse<PaginatedResponse<UtilisateurAdmin>>>(this.apiUrl, { params })
       .pipe(map((res) => this.unwrap(res)));
