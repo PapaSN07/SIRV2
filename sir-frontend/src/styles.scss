@@ -1,5 +1,13 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
-@import 'material-symbols/outlined.css';
+// Icônes : police Material Symbols réduite aux icônes du code (20 Ko au lieu de 4 Mo),
+// servie depuis assets — régénérer avec scripts/generer-icones.py (npm run verifier-icones)
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/assets/fonts/sir-icones.woff2') format('woff2');
+}
 // Police Inter embarquée : aucun appel à Google Fonts (build et usage hors internet)
 @import '@fontsource/inter/400.css';
 @import '@fontsource/inter/500.css';

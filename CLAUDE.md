@@ -240,6 +240,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : sans `SMS_GATEWAY_URL` / `SMS_GATEWAY_WSDL` dans le conteneur, `sms_service` simulait l'envoi et marquait le SMS « envoye » ; une seule tentative, donc une coupure réseau d'un instant faisait échouer le SMS.
 **Règles** : passerelle absente → statut « echec » avec motif, jamais « envoye » ; « envoye » = accepté par Orange (code 200 + `message_id`) ; nouvel essai seulement quand rien n'est parti (WSDL illisible, `ConnectError` / `ConnectTimeout`), jamais après un POST parti (doublon) ; contrôle : `python -m scripts.diag_sms <numéro>` et `python -m scripts.test_sms <numéro>` **dans le worker** (c'est lui qui envoie).
 
+### 10/11/2026 — Noms d'icônes affichés en texte (« visibility ») sur le serveur
+**Contexte** : application déployée sur `srv-applisnlcprod` (servie par `ng serve`, sans compression).
+**Erreur** : la police Material Symbols complète (4 Mo, tous les axes variables) était chargée en `font-display: block` ; tant qu'elle n'arrive pas, le navigateur affiche le nom de l'icône en texte.
+**Règles** : icônes = police réduite aux icônes du code, `src/assets/fonts/sir-icones.woff2` (~20 Ko), déclarée dans `styles.scss` ; une icône ajoutée au code → `python scripts/generer-icones.py` (sir-frontend), contrôle `npm run verifier-icones` (lancé par la CI avant le build).
+
 ---
 
 *Dernière mise à jour : Juin 2026*

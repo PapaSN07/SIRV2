@@ -43,4 +43,4 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Production build (templates stricts)
-        run: npm run build
+        run: npm run verifier-icones && npm run build
