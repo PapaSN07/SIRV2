@@ -20,7 +20,7 @@ services:
       - "srv-bddomtech:${SENELEC_DB_IP}"
       - "srv-bddomtech.electricite.sn:${SENELEC_DB_IP}"
     dns:
-      - 10.101.2.28
+      - ${SENELEC_DNS_IP:-10.101.2.30}
     depends_on: !override
       redis:
         condition: service_healthy
@@ -41,7 +41,7 @@ services:
       - "srv-bddomtech:${SENELEC_DB_IP}"
       - "srv-bddomtech.electricite.sn:${SENELEC_DB_IP}"
     dns:
-      - 10.101.2.28
+      - ${SENELEC_DNS_IP:-10.101.2.30}
     depends_on: !override
       redis:
         condition: service_healthy
