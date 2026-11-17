@@ -38,19 +38,19 @@
       </p>
     </div>
 
-    <div class="tabs">
+    <div class="sir-tabs">
       <button
         type="button"
-        class="tabs__btn"
-        [class.tabs__btn--active]="tab() === 'destinataires'"
+        class="sir-tab"
+        [class.sir-tab--active]="tab() === 'destinataires'"
         (click)="setTab('destinataires')"
       >
         Destinataires ({{ selectedDestIds().size }})
       </button>
       <button
         type="button"
-        class="tabs__btn"
-        [class.tabs__btn--active]="tab() === 'utilisateurs'"
+        class="sir-tab"
+        [class.sir-tab--active]="tab() === 'utilisateurs'"
         (click)="setTab('utilisateurs')"
       >
         Utilisateurs ({{ selectedUserIds().size }})

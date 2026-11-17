@@ -6,60 +6,31 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <nav class="analytics-nav" aria-label="Indicateurs et rapports">
+    <nav class="sir-tabs" aria-label="Indicateurs et rapports">
       <a
-        class="analytics-nav__tab"
+        class="sir-tab"
         routerLink="/indicateurs"
-        routerLinkActive="analytics-nav__tab--active"
+        routerLinkActive="sir-tab--active"
         [routerLinkActiveOptions]="{ exact: true }"
       >
         Indicateurs
       </a>
       <a
-        class="analytics-nav__tab"
+        class="sir-tab"
         routerLink="/indicateurs/base-clients"
-        routerLinkActive="analytics-nav__tab--active"
+        routerLinkActive="sir-tab--active"
       >
         Base clients
       </a>
       <a
-        class="analytics-nav__tab"
+        class="sir-tab"
         routerLink="/rapports"
-        routerLinkActive="analytics-nav__tab--active"
+        routerLinkActive="sir-tab--active"
         [routerLinkActiveOptions]="{ exact: true }"
       >
         Rapports Distribution
       </a>
     </nav>
   `,
-  styles: [
-    `
-      .analytics-nav {
-        display: flex;
-        gap: 0.25rem;
-        margin-bottom: 1rem;
-        padding: 0.25rem;
-        background: #f3eef8;
-        border-radius: 0.5rem;
-        width: fit-content;
-      }
-      .analytics-nav__tab {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-size: 13px;
-        font-weight: 600;
-        color: #5c4d68;
-        text-decoration: none;
-      }
-      .analytics-nav__tab:hover {
-        color: #3c1053;
-      }
-      .analytics-nav__tab--active {
-        background: #fff;
-        color: #3c1053;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-      }
-    `,
-  ],
 })
 export class AnalyticsNavComponent {}

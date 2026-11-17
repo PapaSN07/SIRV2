@@ -427,4 +427,17 @@ def build_me_response(user: Utilisateur) -> MeResponse:
         service_id=_scope_service_id(user),
         premiere_connexion=user.premiere_connexion,
         is_active=user.is_active,
+        permissions=_permissions(user),
     )
+
+
+def _permissions(user: Utilisateur) -> list[str]:
+    """Droits « ressource:action » cumulés sur les rôles actifs de l'utilisateur."""
+    droits = {
+        f"{rp.permission.ressource}:{rp.permission.action}"
+        for ur in user.user_roles
+        if ur.role is not None and getattr(ur.role, "is_active", True)
+        for rp in ur.role.role_permissions
+        if rp.permission is not None
+    }
+    return sorted(droits)

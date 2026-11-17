@@ -2,7 +2,7 @@
 
 from typing import Any, Type
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,18 +56,54 @@ def _to_dict(record: Any) -> dict[str, Any]:
     return data
 
 
+TRIS_REFERENTIEL: frozenset[str] = frozenset({"code", "libelle", "type_reseau", "is_active"})
+
+
+def filtre_recherche(model: ResourceModel, recherche: str | None) -> Any | None:
+    """Condition « contient » (insensible à la casse) sur code, libellé et description ; chaque mot doit être trouvé."""
+    mots = [m for m in (recherche or "").strip().lower().split() if m][:5]
+    if not mots:
+        return None
+    champs = [model.code, model.libelle]
+    if hasattr(model, "description"):
+        champs.append(model.description)
+    conditions = []
+    for mot in mots:
+        motif = "%" + mot.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        conditions.append(or_(*(func.lower(c).like(motif, escape="\\") for c in champs)))
+    return and_(*conditions)
+
+
 def build_select_query(
     resource: str,
     *,
     type_reseau: str | None = None,
     active_only: bool = True,
+    statut: str | None = None,
+    recherche: str | None = None,
+    tri: str | None = None,
 ) -> Select[Any]:
+    """Requête de liste. ``statut`` (actifs | inactifs | tous) remplace ``active_only`` quand il est fourni.
+
+    ``tri`` : nom de colonne (code, libelle, type_reseau, is_active), préfixé de « - » pour l'ordre décroissant.
+    """
     model = get_model(resource)
     query = select(model)
-    if active_only and hasattr(model, "is_active"):
-        query = query.where(model.is_active == True)  # noqa: E712
+    if hasattr(model, "is_active"):
+        if statut == "inactifs":
+            query = query.where(model.is_active == False)  # noqa: E712
+        elif statut == "actifs" or (statut is None and active_only):
+            query = query.where(model.is_active == True)  # noqa: E712
     if type_reseau and resource in RESOURCES_WITH_TYPE_RESEAU:
         query = query.where(model.type_reseau == type_reseau)
+    condition = filtre_recherche(model, recherche)
+    if condition is not None:
+        query = query.where(condition)
+    if tri:
+        colonne = tri.lstrip("-")
+        if colonne in TRIS_REFERENTIEL and hasattr(model, colonne):
+            attribut = getattr(model, colonne)
+            return query.order_by(attribut.desc() if tri.startswith("-") else attribut.asc(), model.id)
     if hasattr(model, "ordre"):
         return query.order_by(model.ordre)
     return query.order_by(model.id)

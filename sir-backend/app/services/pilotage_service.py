@@ -14,6 +14,9 @@ from app.repositories import pilotage_repository as repo
 from app.schemas.indicateurs import (
     Defauts100KmResponse,
     IndicateurSuiviResponse,
+    ObjectifsAdminResponse,
+    ObjectifsAdminUpdate,
+    ObjectifsLigneResponse,
     ObjectifsPilotageUpdate,
     PilotageResponse,
     PosteOuvertResponse,
@@ -305,26 +308,7 @@ async def _build_pilotage(
     ]
 
     ouverts = await repo.list_postes_impactes(db, service_ids, debut_mois, fin_mois)
-    noms = [item.libelle for item in ouverts] + [item.code for item in ouverts]
-    coords = await repo.coords_par_nom(db, noms)
-    postes_ouverts = []
-    for item in ouverts:
-        point = coords.get(item.libelle.casefold()) or coords.get(item.code.casefold())
-        postes_ouverts.append(
-            PosteOuvertResponse(
-                poste_id=item.poste_id,
-                code=item.code,
-                libelle=item.libelle,
-                interruption_id=item.interruption_id,
-                numero_interruption=item.numero_interruption,
-                date_apparition=item.date_apparition,
-                feeder_libelle=item.feeder_libelle,
-                service_libelle=item.service_libelle,
-                sans_remise=item.sans_remise,
-                longitude=point[0] if point else None,
-                latitude=point[1] if point else None,
-            )
-        )
+    postes_ouverts = await _localiser_postes(db, ouverts)
 
     top_poste_rows = await repo.top_postes(db, service_ids, debut_mois, fin_mois, 10)
     feeder_rows = await indicateurs_repo.aggregate_end_by_feeders(
@@ -597,3 +581,98 @@ async def get_tendance(
         points=points,
         previsions=previsions,
     )
+
+
+# ── Administration des objectifs (page Administration → Objectifs) ─────────────
+
+
+def _interdit_objectifs() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "status": "error",
+            "data": None,
+            "error": "Seuls les profils nationaux (Admin SCR, Admin SAQS) gèrent les objectifs",
+        },
+    )
+
+
+async def lister_objectifs_admin(db: AsyncSession, user: Utilisateur, annee: int) -> ObjectifsAdminResponse:
+    """Objectifs annuels de l'année : une ligne nationale puis une ligne par région d'exploitation."""
+    if not _peut_modifier(user):
+        raise _interdit_objectifs()
+    champs = {code: field for field, code in _CODES.items()}
+    valeurs: dict[int | None, dict[str, float]] = {}
+    for row in await repo.list_objectifs_annee(db, annee):
+        champ = champs.get(row.code)
+        if champ:
+            valeurs.setdefault(row.region_id, {})[champ] = float(row.valeur_annuelle)
+    lignes = [ObjectifsLigneResponse(region_id=None, libelle="National", **valeurs.get(None, {}))]
+    for region_id, libelle in await repo.list_regions_actives(db):
+        lignes.append(ObjectifsLigneResponse(region_id=region_id, libelle=libelle, **valeurs.get(region_id, {})))
+    return ObjectifsAdminResponse(annee=annee, peut_modifier=True, lignes=lignes)
+
+
+async def enregistrer_objectifs_admin(
+    db: AsyncSession,
+    redis: Redis,
+    user: Utilisateur,
+    body: ObjectifsAdminUpdate,
+) -> ObjectifsAdminResponse:
+    """Enregistre les objectifs d'un périmètre (national ou région) et vide le cache du pilotage."""
+    if not _peut_modifier(user):
+        raise _interdit_objectifs()
+    valeurs = {_CODES[field]: getattr(body, field) for field in _CODES if getattr(body, field) is not None}
+    if not valeurs:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"status": "error", "data": None, "error": "Indiquez au moins un objectif annuel"},
+        )
+    for code, valeur in valeurs.items():
+        await repo.upsert_objectif(
+            db, annee=body.annee, code=code, valeur_annuelle=float(valeur), region_id=body.region_id
+        )
+    await db.flush()
+    # Le pilotage national (clé 0) et celui de la région lisent ces objectifs
+    for cache_region in {0, body.region_id or 0}:
+        for mois in range(1, 13):
+            await redis.delete(_cache_key(cache_region, body.annee, mois, date.today()))
+    return await lister_objectifs_admin(db, user, body.annee)
+
+
+async def _localiser_postes(db: AsyncSession, lignes: list[repo.PosteOuvertRow]) -> list[PosteOuvertResponse]:
+    """Coordonnées SIG des postes : nom ou code du poste, homonymes départagés par le feeder."""
+    coords = await repo.coords_par_nom(db, [item.libelle for item in lignes] + [item.code for item in lignes])
+    resultat: list[PosteOuvertResponse] = []
+    for item in lignes:
+        candidats = coords.get(item.libelle.casefold()) or coords.get(item.code.casefold()) or []
+        point = repo.choisir_point(candidats, item.feeder_id)
+        resultat.append(
+            PosteOuvertResponse(
+                poste_id=item.poste_id,
+                code=item.code,
+                libelle=item.libelle,
+                interruption_id=item.interruption_id,
+                numero_interruption=item.numero_interruption,
+                date_apparition=item.date_apparition,
+                feeder_libelle=item.feeder_libelle,
+                service_libelle=item.service_libelle,
+                sans_remise=item.sans_remise,
+                longitude=point[0] if point else None,
+                latitude=point[1] if point else None,
+            )
+        )
+    return resultat
+
+
+async def postes_sans_remise(
+    db: AsyncSession,
+    user: Utilisateur,
+    *,
+    region_id: int | None = None,
+) -> list[PosteOuvertResponse]:
+    """Postes encore privés de courant (interruption sans date de remise), dans le périmètre du compte."""
+    scope = _resolve_scope(user, region_id=region_id)
+    service_ids = await _load_service_ids(db, scope)
+    lignes = await repo.list_postes_impactes(db, service_ids, None, None, 500, sans_remise_seulement=True)
+    return await _localiser_postes(db, lignes)

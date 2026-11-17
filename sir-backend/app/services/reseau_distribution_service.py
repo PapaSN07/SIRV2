@@ -49,6 +49,66 @@ def _feeder_response(record: Feeder) -> FeederResponse:
     )
 
 
+def _poste_response(record: Poste) -> PosteResponse:
+    base = PosteResponse.model_validate(record)
+    feeder = record.__dict__.get("feeder")  # chargé par la liste ; jamais de chargement paresseux en async
+    service = record.__dict__.get("service")
+    poste_source = feeder.__dict__.get("poste_source") if feeder is not None else None
+    return base.model_copy(
+        update={
+            "feeder_libelle": feeder.libelle if feeder is not None else None,
+            "poste_source_libelle": poste_source.libelle if poste_source is not None else None,
+            "service_libelle": service.libelle if service is not None else None,
+        }
+    )
+
+
+_TRIS_RESEAU = {"code", "libelle", "poste_source_libelle", "feeder_libelle", "service_libelle"}
+
+
+def _filtrer_trier(items: list[Any], recherche: str | None, tri: str | None, libelles: Callable[[Any], list[str | None]]) -> list[Any]:
+    """Recherche « contient » (chaque mot, sans casse) sur code, libellé et libellés liés ; tri par colonne."""
+    mots = [m for m in (recherche or "").lower().split() if m][:5]
+    if mots:
+        def correspond(item: Any) -> bool:
+            texte = " ".join(str(v) for v in [item.code, item.libelle, *libelles(item)] if v).lower()
+            return all(mot in texte for mot in mots)
+
+        items = [i for i in items if correspond(i)]
+    colonne = (tri or "").lstrip("-")
+    if colonne in _TRIS_RESEAU:
+        def cle(item: Any) -> tuple[int, str]:
+            if colonne in ("code", "libelle"):
+                valeur = getattr(item, colonne, None)
+            else:
+                valeur = dict(zip(("poste_source_libelle", "feeder_libelle", "service_libelle"), libelles(item))).get(colonne)
+            return (valeur is None, str(valeur or "").lower())
+
+        items = sorted(items, key=cle, reverse=(tri or "").startswith("-"))
+    return items
+
+
+def _libelles_feeder(record: Any) -> list[str | None]:
+    poste_source = record.__dict__.get("poste_source")
+    service = record.__dict__.get("service")
+    return [poste_source.libelle if poste_source else None, None, service.libelle if service else None]
+
+
+def _libelles_poste(record: Any) -> list[str | None]:
+    feeder = record.__dict__.get("feeder")
+    poste_source = feeder.__dict__.get("poste_source") if feeder is not None else None
+    service = record.__dict__.get("service")
+    return [
+        poste_source.libelle if poste_source else None,
+        feeder.libelle if feeder else None,
+        service.libelle if service else None,
+    ]
+
+
+def _libelles_poste_source(record: Any) -> list[str | None]:
+    return [None, None, None]
+
+
 def _validate_slug(slug: str) -> None:
     if slug not in VALID_SLUGS:
         raise HTTPException(
@@ -181,6 +241,8 @@ async def list_resources(
     poste_source_id: int | None = None,
     service_id: int | None = None,
     feeder_id: int | None = None,
+    recherche: str | None = None,
+    tri: str | None = None,
 ) -> PaginatedResponse[Any]:
     _validate_slug(slug)
     _ensure_can_read(user)
@@ -188,6 +250,7 @@ async def list_resources(
 
     if slug == "postes-sources":
         items = await repo.list_postes_sources(db, region_id=region_id, scope=scope)
+        items = _filtrer_trier(items, recherche, tri, _libelles_poste_source)
         return _paginate_list(
             items, page, page_size, PosteSourceResponse.model_validate, max_page_size=500
         )
@@ -200,13 +263,15 @@ async def list_resources(
             region_id=region_id,
             scope=scope,
         )
+        items = _filtrer_trier(items, recherche, tri, _libelles_feeder)
         return _paginate_list(items, page, page_size, _feeder_response, max_page_size=500)
 
     if slug == "postes":
         items = await repo.list_postes(
             db, feeder_id=feeder_id, service_id=service_id, scope=scope
         )
-        return _paginate_list(items, page, page_size, PosteResponse.model_validate, max_page_size=500)
+        items = _filtrer_trier(items, recherche, tri, _libelles_poste)
+        return _paginate_list(items, page, page_size, _poste_response, max_page_size=500)
 
     if slug == "troncons":
         items = await repo.list_troncons(db, feeder_id=feeder_id, scope=scope)

@@ -50,12 +50,14 @@ export const roleGuard: CanActivateFn = (route) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const roles = (route.data['roles'] as string[]) ?? [];
+  // Rôle créé dans la matrice des droits : l'accès suit la permission du module
+  const permission = route.data['permission'] as string | undefined;
 
   if (!auth.isAuthenticated()) {
     return router.createUrlTree(['/login']);
   }
 
-  if (roles.length === 0 || auth.hasRole(...roles)) {
+  if (roles.length === 0 || auth.hasRole(...roles) || (permission && auth.hasPermission(permission))) {
     return true;
   }
 

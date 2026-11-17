@@ -15,20 +15,37 @@
             "outputPath": "dist/sir-frontend",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
+            "polyfills": [
+              "zone.js"
+            ],
             "tsConfig": "tsconfig.app.json",
-            "assets": ["src/assets"],
-            "styles": ["src/styles.scss"],
-            "scripts": []
+            "assets": [
+              "src/assets"
+            ],
+            "styles": [
+              "node_modules/leaflet/dist/leaflet.css",
+              "src/styles.scss"
+            ],
+            "scripts": [],
+            "allowedCommonJsDependencies": [
+              "leaflet"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kb", "maximumError": "1mb" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                }
               ],
               "optimization": {
                 "scripts": true,
-                "styles": { "minify": true, "inlineCritical": false },
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
                 "fonts": true
               },
               "outputHashing": "all"
@@ -47,8 +64,12 @@
             "proxyConfig": "proxy.conf.js"
           },
           "configurations": {
-            "production": { "buildTarget": "sir-frontend:build:production" },
-            "development": { "buildTarget": "sir-frontend:build:development" }
+            "production": {
+              "buildTarget": "sir-frontend:build:production"
+            },
+            "development": {
+              "buildTarget": "sir-frontend:build:development"
+            }
           },
           "defaultConfiguration": "development"
         }

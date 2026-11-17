@@ -1,57 +1,74 @@
-// SENELEC / SEN-MISSION — palette officielle
-$senelec-purple-dark: #3c1053;
-$senelec-purple: #5a1a72;
-$senelec-magenta: #ad1457;
-$senelec-red: #c62828;
-$senelec-orange: #f4811f;
-$senelec-orange-light: #fb8c00;
-$senelec-page-bg: #2a0845;
-$senelec-page-bg-alt: #1a0a2e;
-$senelec-primary-dark: #2a0838;
-$senelec-orange-dark: #e65100;
+// Charte SENELEC — mêmes jetons que le tableau de bord « Suivi incidents SIR » (Direction générale)
+// Aplats uniquement dans l'interface (pas de dégradés sur les boutons ni les menus).
+$sen-navy: #262051;
+$sen-navy-hover: #322a63;
+$sen-indigo: #2e3192;
+$sen-violet: #7a1fa2;
+$sen-primary: #5b2a9e;
+$sen-primary-600: #4a2280;
+$sen-magenta: #e6007e;
+$sen-red: #e63329;
+$sen-orange: #f58220;
+$sen-amber: #fdb913;
 
-$gradient-brand: linear-gradient(90deg, #3c1053 0%, #ad1457 48%, #f4811f 100%);
+// Noms historiques conservés (utilisés dans les composants)
+$senelec-purple-dark: $sen-navy;
+$senelec-purple: $sen-primary;
+$senelec-magenta: $sen-magenta;
+$senelec-red: $sen-red;
+$senelec-orange: $sen-orange;
+$senelec-orange-light: #f79a4c;
+$senelec-page-bg: $sen-navy;
+$senelec-page-bg-alt: #1a1626;
+$senelec-primary-dark: $sen-navy;
+$senelec-orange-dark: #c4661a;
 
-$senelec-gradient: linear-gradient(
-  135deg,
-  $senelec-purple-dark 0%,
-  $senelec-magenta 55%,
-  $senelec-orange 100%
-);
-
-$senelec-gradient-sidebar: linear-gradient(
-  180deg,
-  $senelec-purple-dark 0%,
-  $senelec-primary-dark 100%
-);
+$gradient-brand: linear-gradient(90deg, $sen-navy 0%, $sen-primary 50%, $sen-magenta 100%);
+$senelec-gradient: linear-gradient(135deg, $sen-navy 0%, $sen-primary 55%, $sen-magenta 100%);
+$senelec-gradient-sidebar: $sen-navy;
 
 // Sémantique applicative
-$primary: $senelec-purple-dark;
-$primary-container: $senelec-purple;
-$primary-dark: $senelec-primary-dark;
-// Orange d'action : texte sombre obligatoire (7,1:1) ; le blanc n'atteint que 2,4:1
-$action-orange: #f39200;
-$on-action: #1f1d24;
-$secondary: $action-orange;
-$secondary-light: $senelec-orange-light;
-$secondary-dark: #db8300;
-$accent: $senelec-magenta;
+$primary: $sen-primary;
+$primary-container: $sen-primary-600;
+$primary-dark: $sen-navy;
+// Bouton d'action principal : violet plein, texte blanc (contraste 8,9:1)
+$action-orange: $sen-primary;
+$on-action: #ffffff;
+$secondary: $sen-primary;
+$secondary-light: #7b4fc0;
+$secondary-dark: $sen-primary-600;
+$accent: $sen-magenta;
 $on-primary: #ffffff;
-$on-surface: #1a0a2e;
-$on-surface-variant: #5c4d68;
-$on-surface-on-dark: rgba(#ffffff, 0.88);
-$on-surface-variant-on-dark: rgba(#ffffff, 0.65);
-$outline: #8a7a96;
-$outline-variant: #d4c8de;
-$surface: #faf8fc;
-$surface-container-low: #f3eef8;
-$surface-container-high: #e8dff0;
-$surface-container: #eee8f4;
+$on-surface: #1a1626;
+$on-surface-variant: #6b6580;
+$on-surface-on-dark: rgba(#ffffff, 0.92);
+$on-surface-variant-on-dark: rgba(#ffffff, 0.66);
+$outline: #8b85a0;
+$outline-variant: #dad6e4;
+$border-soft: #ede9f5;
+$surface: #f7f5fb;
+$surface-container-low: #f4f2fb;
+$surface-container-high: #efeafa;
+$surface-container: #f0edf7;
 $page-bg: $senelec-page-bg;
 $page-bg-alt: $senelec-page-bg-alt;
-$error: $senelec-red;
+$error: #e5484d;
 $tertiary-container: $senelec-orange-dark;
-$success: #15803d;
+$success: #1e9e6a;
+$success-bg: #e9f6ef;
+$warning: #f5a524;
+$warning-fg: #b47714;
+$warning-bg: #fdf3e2;
+$danger: #e5484d;
+$danger-bg: #fdecec;
 
-$sidebar-width: 260px;
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 14px;
+$shadow-1: 0 1px 2px rgba(26, 22, 38, 0.05);
+$shadow-2: 0 8px 22px rgba(38, 32, 81, 0.16);
+$shadow-focus: 0 0 0 3px rgba(91, 42, 158, 0.18);
+$font-display: 'Poppins', 'Inter', sans-serif;
+
+$sidebar-width: 248px;
 $header-height: 64px;

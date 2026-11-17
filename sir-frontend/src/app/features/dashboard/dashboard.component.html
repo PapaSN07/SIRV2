@@ -280,13 +280,13 @@
       }
     </section>
 
-    <nav class="dashboard-tabs" role="tablist" aria-label="Vues du tableau de bord">
+    <nav class="sir-tabs dashboard-tabs" role="tablist" aria-label="Vues du tableau de bord">
       @for (t of tabs; track t.id) {
         <button
           type="button"
           role="tab"
-          class="dashboard-tabs__tab"
-          [class.dashboard-tabs__tab--active]="tab() === t.id"
+          class="sir-tab"
+          [class.sir-tab--active]="tab() === t.id"
           [attr.aria-selected]="tab() === t.id"
           (click)="selectTab(t.id)"
         >
@@ -619,17 +619,11 @@
           </div>
 
           @if (board.peut_modifier_objectifs) {
-            <form class="objectif-form" (submit)="$event.preventDefault(); saveObjectifs()">
-              <h3>Objectifs annuels {{ board.annee_objectif }}</h3>
-              <label>END (MWh)<input type="number" min="0" step="0.01" [value]="objectifDraft().end_mwh" (input)="onObjectifInput('end_mwh', $any($event.target).value)" /></label>
-              <label>SAIFI<input type="number" min="0" step="0.001" [value]="objectifDraft().saifi" (input)="onObjectifInput('saifi', $any($event.target).value)" /></label>
-              <label>SAIDI (h)<input type="number" min="0" step="0.001" [value]="objectifDraft().saidi" (input)="onObjectifInput('saidi', $any($event.target).value)" /></label>
-              <label>Défauts / 100 km<input type="number" min="0" step="0.01" [value]="objectifDraft().defauts_100km" (input)="onObjectifInput('defauts_100km', $any($event.target).value)" /></label>
-              <button class="btn btn--primary" type="submit" [disabled]="objectifSaving()">Enregistrer</button>
-              @if (objectifMessage()) {
-                <p>{{ objectifMessage() }}</p>
-              }
-            </form>
+            <p class="objectif-lien">
+              <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+              Les objectifs annuels se saisissent dans
+              <a routerLink="/admin/objectifs">Administration → Objectifs</a>.
+            </p>
           }
           }
         }
@@ -640,27 +634,14 @@
         <div class="panel__head">
           <h2 class="panel__title">Postes impactés du mois</h2>
         </div>
-        <p class="pilotage__note">Chaque point est un poste touché pendant le mois choisi. Les points rouges n'ont pas encore de date de remise.</p>
+        <p class="pilotage__note">Chaque point est un poste touché pendant le mois choisi ; les points rouges n'ont pas encore de date de remise. Zoomez avec la molette ou les boutons + / −, cliquez sur un point pour le détail.</p>
         <div class="outage-layout">
-          <div class="outage-map" aria-label="Carte des postes encore coupés">
-            <img class="outage-map__bg" src="assets/maps/senegal.svg" alt="" aria-hidden="true" />
-            @for (city of mapCities; track city.name) {
-              <span class="outage-map__city" [class.outage-map__city--right]="city.side === 'right'" [style.left.%]="city.left" [style.top.%]="city.top" aria-hidden="true">{{ city.name }}</span>
-            }
-            @for (pin of mapPins(); track pin.interruption_id + '-' + pin.poste_id) {
-              <a
-                class="outage-map__pin"
-                [class.outage-map__pin--open]="pin.sans_remise"
-                [style.left.%]="pin.left"
-                [style.top.%]="pin.top"
-                [routerLink]="['/interruptions/distribution', pin.interruption_id]"
-                [title]="pin.libelle + (pin.sans_remise ? ' — sans date de remise' : '')"
-              ></a>
-            }
-            @if (!mapPins().length) {
-              <p class="outage-map__empty">Aucun poste de ce mois n'a de coordonnée SIG.</p>
-            }
-          </div>
+          <sir-carte-postes
+            class="outage-map-leaflet"
+            [points]="pilotage()?.postes_ouverts ?? []"
+            hauteur="520px"
+            (ouvrirInterruption)="ouvrirInterruption($event)"
+          />
           <div class="outage-list">
             @if (!pilotage()?.postes_ouverts?.length) {
               <p class="dashboard__hint">Aucun poste impacté sur ce mois.</p>

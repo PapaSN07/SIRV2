@@ -1,13 +1,18 @@
 """Service métier — administration des utilisateurs (phase 1.5)."""
 
+import asyncio
+import secrets
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rbac_helpers import SUPERADMIN_ROLE, is_superadmin
+from app.core.rbac_helpers import ROLES_SYSTEME, SUPERADMIN_ROLE, is_superadmin
 from app.core.security import hash_password
 from app.models.utilisateurs import Utilisateur
 from app.repositories import admin_utilisateur_repository as admin_repo
+from app.services import ldap_service
 from app.schemas.admin import (
+    AnnuaireUtilisateur,
     ResetPasswordRequest,
     RoleInfo,
     UtilisateurCreate,
@@ -104,7 +109,8 @@ async def _validate_role_assignments(
                 },
             )
 
-        if allowed is not None and role.nom not in allowed:
+        # Les rôles créés dans la matrice (hors rôles SIRV2) sont attribuables par les deux directions
+        if allowed is not None and role.nom not in allowed and role.nom in ROLES_SYSTEME:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -179,7 +185,17 @@ async def create_utilisateur(
         )
 
     roles = await _validate_role_assignments(db, direction, body.roles)
-    password_hash = hash_password(body.password)
+    if body.annuaire:
+        await _verifier_compte_annuaire(body.login)
+        # Connexion par le mot de passe Windows : mot de passe local aléatoire, jamais communiqué
+        password_hash = hash_password(secrets.token_urlsafe(32))
+    elif body.password:
+        password_hash = hash_password(body.password)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"status": "error", "data": None, "error": "Mot de passe obligatoire (8 caractères au moins)"},
+        )
 
     user = await admin_repo.create(
         db,
@@ -191,6 +207,7 @@ async def create_utilisateur(
         telephone=body.telephone,
         roles=roles,
         matricule=(body.matricule or "").strip() or None,
+        premiere_connexion=not body.annuaire,
     )
 
     await log_audit(
@@ -199,7 +216,7 @@ async def create_utilisateur(
         record_id=user.id,
         action=ACTION_CREATE,
         user_id=current_user.id,
-        new_values={"login": user.login, "roles": [r[0] for r in roles]},
+        new_values={"login": user.login, "roles": [r[0] for r in roles], "annuaire": body.annuaire},
     )
 
     return _build_response(user)
@@ -362,3 +379,49 @@ async def reset_password(
         user_id=current_user.id,
         new_values={"action": "reset_password"},
     )
+
+
+def _erreur_annuaire(code: int, message: str) -> HTTPException:
+    return HTTPException(status_code=code, detail={"status": "error", "data": None, "error": message})
+
+
+async def _verifier_compte_annuaire(login: str) -> None:
+    try:
+        compte = await asyncio.to_thread(ldap_service.search_user_by_login, login)
+    except ldap_service.LdapConfigurationError:
+        raise _erreur_annuaire(status.HTTP_503_SERVICE_UNAVAILABLE, "Annuaire LDAP non configuré") from None
+    except ldap_service.LdapBindError:
+        raise _erreur_annuaire(status.HTTP_503_SERVICE_UNAVAILABLE, "Annuaire LDAP injoignable") from None
+    if compte is None:
+        raise _erreur_annuaire(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Compte « {login} » absent de l'annuaire")
+
+
+async def rechercher_annuaire(
+    db: AsyncSession,
+    current_user: Utilisateur,
+    texte: str,
+) -> list[AnnuaireUtilisateur]:
+    """Comptes AD correspondant au texte ; ceux déjà présents dans SIRV2 sont signalés."""
+    _get_admin_direction(current_user)
+    try:
+        entrees = await asyncio.to_thread(ldap_service.rechercher_annuaire, texte)
+    except ldap_service.LdapConfigurationError:
+        raise _erreur_annuaire(status.HTTP_503_SERVICE_UNAVAILABLE, "Annuaire LDAP non configuré") from None
+    except ldap_service.LdapBindError:
+        raise _erreur_annuaire(status.HTTP_503_SERVICE_UNAVAILABLE, "Annuaire LDAP injoignable") from None
+    existants = await admin_repo.logins_existants(db, [e.login for e in entrees])
+    return [
+        AnnuaireUtilisateur(
+            login=e.login,
+            prenom=e.prenom,
+            nom=e.nom,
+            nom_affiche=e.nom_affiche,
+            email=e.email,
+            telephone=e.telephone,
+            matricule=e.matricule,
+            service=e.service,
+            fonction=e.fonction,
+            deja_dans_sir=e.login.lower() in existants,
+        )
+        for e in entrees
+    ]

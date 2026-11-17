@@ -1,0 +1,179 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Rôles et droits"
+    [breadcrumbs]="[{ label: 'Tableau de bord', route: '/' }, { label: 'Administration' }, { label: 'Rôles et droits' }]"
+  >
+    @if (peutModifier()) {
+      <div actions>
+        <button type="button" class="sir-btn sir-btn--primary" (click)="ouvrirCreation()">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Nouveau rôle
+        </button>
+      </div>
+    }
+  </sir-page-header>
+
+  <sir-admin-nav />
+
+  @if (formOuvert()) {
+    <form class="sir-card creation" (submit)="$event.preventDefault(); creer()">
+      <h2 class="creation__titre">Nouveau rôle</h2>
+      <div class="creation__grille">
+        <label class="champ">
+          <span>Nom du rôle</span>
+          <input
+            name="nom"
+            [ngModel]="nouveauNom()"
+            (ngModelChange)="nouveauNom.set($event)"
+            placeholder="ex. CHEF_UNITE"
+            maxlength="50"
+            required
+          />
+        </label>
+        <label class="champ">
+          <span>Description</span>
+          <input
+            name="description"
+            [ngModel]="nouvelleDescription()"
+            (ngModelChange)="nouvelleDescription.set($event)"
+            placeholder="À quoi sert ce rôle"
+            maxlength="255"
+          />
+        </label>
+        <label class="champ">
+          <span>Partir des droits de</span>
+          <select name="modele" [ngModel]="modeleId()" (ngModelChange)="modeleId.set($event === null ? null : +$event)">
+            <option [ngValue]="null">Aucun droit</option>
+            @for (r of colonnes(); track r.id) {
+              <option [ngValue]="r.id">{{ r.nom }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <p class="creation__note">
+        Un nouveau rôle donne accès aux modules cochés dans la matrice. Le périmètre (service, région) reste celui
+        indiqué sur chaque utilisateur.
+      </p>
+      <div class="creation__actions">
+        <button type="button" class="sir-btn sir-btn--outline" (click)="formOuvert.set(false)">Annuler</button>
+        <button type="submit" class="sir-btn sir-btn--primary" [disabled]="saving()">
+          <span class="material-symbols-outlined" aria-hidden="true">check</span>
+          Créer le rôle
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (error()) {
+    <p class="alerte alerte--erreur" role="alert">{{ error() }}</p>
+  }
+  @if (message()) {
+    <p class="alerte alerte--ok" role="status">{{ message() }}</p>
+  }
+
+  <div class="sir-card">
+    <div class="sir-toolbar">
+      <div class="legende">
+        <span><span class="case case--on" aria-hidden="true"></span> droit accordé</span>
+        <span><span class="case" aria-hidden="true"></span> non accordé</span>
+        <span><span class="material-symbols-outlined" aria-hidden="true">lock</span> non modifiable par votre compte</span>
+      </div>
+      <label class="bascule">
+        <input type="checkbox" [checked]="afficherInactifs()" (change)="afficherInactifs.set(!afficherInactifs())" />
+        Afficher les rôles désactivés
+      </label>
+    </div>
+
+    @if (loading()) {
+      <p class="vide">Chargement…</p>
+    } @else {
+      <div class="matrice-wrap">
+        <table class="matrice">
+          <thead>
+            <tr>
+              <th class="matrice__module" scope="col">Module / droit</th>
+              @for (role of colonnes(); track role.id) {
+                <th scope="col" class="matrice__role" [class.inactif]="!role.is_active" [class.modifie]="modifie(role)">
+                  <div class="role-tete" [title]="role.description ?? ''">
+                    <span class="role-tete__nom">
+                      @if (verrouille(role)) {
+                        <span class="material-symbols-outlined verrou" aria-label="Non modifiable">lock</span>
+                      }
+                      {{ role.nom }}
+                    </span>
+                    <span class="role-tete__meta">
+                      {{ role.nombre_utilisateurs }} utilisateur{{ role.nombre_utilisateurs > 1 ? 's' : '' }}
+                      @if (!role.systeme) { · créé }
+                    </span>
+                    @if (!role.systeme && peutModifier()) {
+                      <button
+                        type="button"
+                        class="sir-icon-btn"
+                        [class.sir-icon-btn--danger]="role.is_active"
+                        [class.sir-icon-btn--success]="!role.is_active"
+                        [attr.data-tip]="role.is_active ? 'Désactiver le rôle' : 'Réactiver le rôle'"
+                        [attr.aria-label]="(role.is_active ? 'Désactiver ' : 'Réactiver ') + role.nom"
+                        (click)="basculerActif(role)"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">{{ role.is_active ? 'block' : 'settings_backup_restore' }}</span>
+                      </button>
+                    }
+                  </div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (module of lignes(); track module.ressource) {
+              <tr class="matrice__groupe">
+                <th [attr.colspan]="colonnes().length + 1" scope="rowgroup">
+                  <span class="material-symbols-outlined" aria-hidden="true">{{ module.icone }}</span>
+                  {{ module.libelle }}
+                </th>
+              </tr>
+              @for (perm of module.permissions; track perm.id) {
+                <tr>
+                  <th scope="row" class="matrice__droit" [title]="perm.description ?? ''">{{ libelleAction(perm.action) }}</th>
+                  @for (role of colonnes(); track role.id) {
+                    <td class="matrice__cellule" [class.modifie]="modifie(role)">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        class="case"
+                        [class.case--on]="coche(role, perm.id)"
+                        [attr.aria-checked]="coche(role, perm.id)"
+                        [attr.aria-label]="role.nom + ' — ' + module.libelle + ' : ' + libelleAction(perm.action)"
+                        [disabled]="verrouille(role)"
+                        (click)="basculer(role, perm.id)"
+                      >
+                        @if (coche(role, perm.id)) {
+                          <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                        }
+                      </button>
+                    </td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  @if (nbModifies() > 0) {
+    <div class="barre-enregistrement" role="region" aria-label="Modifications en attente">
+      <span>
+        <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+        {{ nbModifies() }} rôle{{ nbModifies() > 1 ? 's' : '' }} modifié{{ nbModifies() > 1 ? 's' : '' }}
+      </span>
+      <div>
+        <button type="button" class="sir-btn sir-btn--outline" (click)="annuler()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="enregistrer()">
+          <span class="material-symbols-outlined" aria-hidden="true">save</span>
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer les droits' }}
+        </button>
+      </div>
+    </div>
+  }
+</section>

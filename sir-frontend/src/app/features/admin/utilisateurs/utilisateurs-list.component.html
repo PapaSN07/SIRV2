@@ -9,21 +9,92 @@
   >
     @if (canWrite()) {
       <div actions>
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="ouvrirAnnuaire()">
+          <span class="material-symbols-outlined" aria-hidden="true">contacts</span>
+          Ajouter depuis l'annuaire
+        </button>
         <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
           <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
-          Nouvel utilisateur
+          Compte local
         </button>
       </div>
     }
   </sir-page-header>
 
-  <sir-admin-nav [showUsers]="true" />
+  <sir-admin-nav />
+
+  @if (annuaireOuvert()) {
+    <div class="sir-card annuaire">
+      <div class="annuaire__tete">
+        <div>
+          <h2 class="annuaire__titre">Ajouter un utilisateur de l'annuaire SENELEC</h2>
+          <p class="annuaire__aide">
+            Recherchez par nom, prénom, login Windows, e-mail ou matricule. L'utilisateur se connectera avec son mot de
+            passe Windows.
+          </p>
+        </div>
+        <button type="button" class="sir-icon-btn" data-tip="Fermer" aria-label="Fermer" (click)="fermerAnnuaire()">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+      </div>
+      <div class="sir-search annuaire__recherche">
+        <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
+        <input
+          type="search"
+          placeholder="ex. Diop, adiop, 12345…"
+          aria-label="Rechercher dans l'annuaire"
+          [ngModel]="annuaireTexte()"
+          (ngModelChange)="onAnnuaire($event)"
+          autofocus
+        />
+      </div>
+      @if (annuaireErreur()) {
+        <p class="alert alert--error">{{ annuaireErreur() }}</p>
+      }
+      @if (annuaireChargement()) {
+        <p class="annuaire__vide">Recherche dans l'annuaire…</p>
+      } @else if (annuaireTexte().trim().length >= 2) {
+        <ul class="annuaire__liste">
+          @for (c of annuaireResultats(); track c.login) {
+            <li class="annuaire__item">
+              <span class="annuaire__avatar" aria-hidden="true">{{ (c.prenom ?? c.login).charAt(0) }}{{ (c.nom ?? '').charAt(0) }}</span>
+              <div class="annuaire__info">
+                <strong>{{ c.nom_affiche ?? ((c.prenom ?? '') + ' ' + (c.nom ?? '')) }}</strong>
+                <span>
+                  {{ c.login }}@if (c.matricule) { · mat. {{ c.matricule }} }@if (c.email) { · {{ c.email }} }
+                </span>
+                @if (c.service || c.fonction) {
+                  <span class="annuaire__poste">{{ c.fonction }}@if (c.fonction && c.service) { — }{{ c.service }}</span>
+                }
+              </div>
+              @if (c.deja_dans_sir) {
+                <span class="sir-pill sir-pill--off">Déjà dans SIR</span>
+              } @else {
+                <button type="button" class="sir-btn sir-btn--primary sir-btn--sm" (click)="ajouterDepuisAnnuaire(c)">
+                  <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                  Ajouter
+                </button>
+              }
+            </li>
+          } @empty {
+            <li class="annuaire__vide">Aucun compte actif ne correspond à « {{ annuaireTexte() }} ».</li>
+          }
+        </ul>
+      }
+    </div>
+  }
 
   @if (formOpen()) {
     <div class="form-panel">
       <h2 class="form-panel__title">
-        {{ editingId() === null ? 'Créer un utilisateur' : 'Modifier l\'utilisateur' }}
+        {{ editingId() === null ? (form().annuaire ? 'Ajouter un utilisateur de l\'annuaire' : 'Créer un compte local') : 'Modifier l\'utilisateur' }}
       </h2>
+      @if (form().annuaire) {
+        <p class="form-panel__info">
+          <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
+          Compte Active Directory : connexion avec le mot de passe Windows. Choisissez ses rôles puis enregistrez.
+        </p>
+      }
       <div class="form-grid">
         @if (editingId() === null) {
           <div class="field">
@@ -31,20 +102,23 @@
             <input
               id="user-login"
               class="field__input"
+              [readOnly]="form().annuaire"
               [ngModel]="form().login"
               (ngModelChange)="patchForm('login', $event)"
             />
           </div>
-          <div class="field">
-            <label class="field__label" for="user-password">Mot de passe</label>
-            <input
-              id="user-password"
-              type="password"
-              class="field__input"
-              [ngModel]="form().password"
-              (ngModelChange)="patchForm('password', $event)"
-            />
-          </div>
+          @if (!form().annuaire) {
+            <div class="field">
+              <label class="field__label" for="user-password">Mot de passe</label>
+              <input
+                id="user-password"
+                type="password"
+                class="field__input"
+                [ngModel]="form().password"
+                (ngModelChange)="patchForm('password', $event)"
+              />
+            </div>
+          }
         }
         <div class="field">
           <label class="field__label" for="user-nom">Nom</label>
@@ -122,7 +196,7 @@
         }
       </div>
       <div class="form-panel__actions">
-        <button type="button" class="sir-btn sir-btn--secondary" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--outline" (click)="closeForm()">Annuler</button>
         <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="saveForm()">
           {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
         </button>
@@ -155,7 +229,7 @@
     <p class="loading">Chargement…</p>
   } @else {
     <div class="table-wrap">
-      <table class="data-table">
+      <table class="sir-table">
         <thead>
           <tr>
             <th>Login</th>
@@ -165,7 +239,7 @@
             <th>Rôles</th>
             <th>Statut</th>
             @if (canWrite()) {
-              <th>Actions</th>
+              <th class="col-actions">Actions</th>
             }
           </tr>
         </thead>
@@ -178,16 +252,34 @@
               <td>{{ user.email ?? '—' }}</td>
               <td>{{ rolesLabel(user) }}</td>
               <td>
-                <span class="badge" [class.badge--active]="user.is_active">
+                <span class="sir-pill" [class.sir-pill--ok]="user.is_active" [class.sir-pill--off]="!user.is_active">
                   {{ user.is_active ? 'Actif' : 'Inactif' }}
                 </span>
               </td>
               @if (canWrite()) {
-                <td>
-                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEdit(user)">Modifier</button>
-                  <button type="button" class="sir-btn sir-btn--ghost" (click)="toggleActive(user)">
-                    {{ user.is_active ? 'Désactiver' : 'Activer' }}
-                  </button>
+                <td class="col-actions">
+                  <div class="sir-actions">
+                    <button
+                      type="button"
+                      class="sir-icon-btn"
+                      data-tip="Modifier"
+                      [attr.aria-label]="'Modifier ' + user.login"
+                      (click)="openEdit(user)"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="sir-icon-btn"
+                      [class.sir-icon-btn--danger]="user.is_active"
+                      [class.sir-icon-btn--success]="!user.is_active"
+                      [attr.data-tip]="user.is_active ? 'Désactiver' : 'Activer'"
+                      [attr.aria-label]="(user.is_active ? 'Désactiver ' : 'Activer ') + user.login"
+                      (click)="toggleActive(user)"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">{{ user.is_active ? 'person_off' : 'person_check' }}</span>
+                    </button>
+                  </div>
                 </td>
               }
             </tr>

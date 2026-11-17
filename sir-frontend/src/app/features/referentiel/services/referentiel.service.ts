@@ -25,6 +25,9 @@ export class ReferentielService {
     if (params.page) httpParams = httpParams.set('page', params.page);
     if (params.page_size) httpParams = httpParams.set('page_size', params.page_size);
     if (params.type_reseau) httpParams = httpParams.set('type_reseau', params.type_reseau);
+    if (params.statut) httpParams = httpParams.set('statut', params.statut);
+    if (params.q?.trim()) httpParams = httpParams.set('q', params.q.trim());
+    if (params.tri) httpParams = httpParams.set('tri', params.tri);
 
     return this.http
       .get<ApiResponse<PaginatedResponse<ReferentielItem>>>(`${this.apiUrl}/${resource}`, {

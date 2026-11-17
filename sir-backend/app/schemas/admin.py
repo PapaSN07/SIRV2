@@ -21,7 +21,9 @@ class RoleInfo(BaseModel):
 
 class UtilisateurCreate(BaseModel):
     login: str = Field(..., min_length=1, max_length=100)
-    password: str = Field(..., min_length=8, max_length=255)
+    # Absent pour un compte de l'annuaire (connexion avec le mot de passe Windows)
+    password: str | None = Field(default=None, min_length=8, max_length=255)
+    annuaire: bool = Field(default=False, description="Compte importé de l'Active Directory")
     nom: str = Field(..., min_length=1, max_length=100)
     prenom: str = Field(..., min_length=1, max_length=100)
     email: str | None = Field(default=None, max_length=255)
@@ -70,6 +72,22 @@ class RoleDetailResponse(BaseModel):
     nom: str
     description: str | None
     permissions: list[PermissionInfo]
+    is_active: bool = True
+    # Rôle prévu par SIRV2 (BCC, BRC…) : nom figé, ne peut pas être désactivé
+    systeme: bool = False
+    nombre_utilisateurs: int = 0
+
+
+class RoleCreate(BaseModel):
+    nom: str = Field(..., min_length=2, max_length=50, pattern=r"^[A-Za-z][A-Za-z0-9_]*$")
+    description: str | None = Field(default=None, max_length=255)
+    permission_ids: list[int] = Field(default_factory=list, max_length=200)
+
+
+class RoleUpdate(BaseModel):
+    description: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None
+    permission_ids: list[int] | None = Field(default=None, max_length=200)
 
 
 class AuditLogResponse(BaseModel):
@@ -95,3 +113,18 @@ class AppSettingsResponse(BaseModel):
 
 class AppSettingsUpdate(BaseModel):
     seuil_fugitif_minutes: int | None = Field(default=None, ge=1, le=120)
+
+
+class AnnuaireUtilisateur(BaseModel):
+    """Compte Active Directory proposé à l'ajout (page Utilisateurs → Ajouter depuis l'annuaire)."""
+
+    login: str
+    prenom: str | None = None
+    nom: str | None = None
+    nom_affiche: str | None = None
+    email: str | None = None
+    telephone: str | None = None
+    matricule: str | None = None
+    service: str | None = None
+    fonction: str | None = None
+    deja_dans_sir: bool = False

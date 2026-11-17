@@ -22,6 +22,9 @@ from fontTools.varLib import instancer
 RACINE = Path(__file__).resolve().parents[1]
 SOURCE = RACINE / "node_modules/material-symbols/material-symbols-outlined.woff2"
 SORTIE = RACINE / "src/assets/fonts/sir-icones.woff2"
+# Tous les noms reconnus par la police, alias compris (« assessment », « expand_more »…) :
+# index.d.ts du paquet n'a que les noms actuels, d'où des icônes oubliées affichées en texte (17/11/2026)
+NOMS = RACINE / "scripts/noms-icones.json"
 
 
 def icones() -> list[str]:
@@ -29,10 +32,7 @@ def icones() -> list[str]:
     return json.loads(subprocess.check_output(["node", "-e", code], cwd=RACINE, text=True))
 
 
-def main() -> None:
-    noms = icones()
-    police = TTFont(SOURCE, lazy=False)
-    cmap = police.getBestCmap()
+def _ligatures(police: TTFont) -> dict[tuple[str, ...], str]:
     ligatures = {}
     for lookup in police["GSUB"].table.LookupList.Lookup:
         for st in lookup.SubTable:
@@ -41,6 +41,28 @@ def main() -> None:
                 for premier, ligs in st.ligatures.items():
                     for lig in ligs:
                         ligatures[(premier, *lig.Component)] = lig.LigGlyph
+    return ligatures
+
+
+def ecrire_noms() -> None:
+    """Liste des noms d'icônes de la police (lue par scripts/icones-utilisees.mjs)."""
+    police = TTFont(SOURCE, lazy=False)
+    caractere = {glyphe: chr(code) for code, glyphe in police.getBestCmap().items()}
+    noms = set()
+    for sequence in _ligatures(police):
+        if all(g in caractere for g in sequence):
+            nom = "".join(caractere[g] for g in sequence)
+            if len(nom) > 1 and nom.replace("_", "").isalnum() and nom.islower():
+                noms.add(nom)
+    NOMS.write_text(json.dumps(sorted(noms)), encoding="utf-8")
+
+
+def main() -> None:
+    ecrire_noms()
+    noms = icones()
+    police = TTFont(SOURCE, lazy=False)
+    cmap = police.getBestCmap()
+    ligatures = _ligatures(police)
     glyphes = [ligatures[g] for g in (tuple(cmap.get(ord(c)) for c in n) for n in noms) if g in ligatures]
     options = subset.Options()
     options.layout_features = ["*"]

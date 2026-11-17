@@ -1,12 +1,16 @@
 // Icônes Material Symbols écrites dans le code (mots du code qui sont des noms d'icônes).
 // Liste large par construction : un mot du code qui est aussi un nom d'icône est gardé.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function iconesUtilisees(racine = 'src/app') {
-  const noms = new Set(
-    [...readFileSync('node_modules/material-symbols/index.d.ts', 'utf8').matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]),
-  );
+  // Noms de la police, alias compris (scripts/noms-icones.json, écrit par generer-icones.py) ;
+  // à défaut, noms actuels du paquet (sans les alias comme « assessment » ou « expand_more »).
+  const noms = existsSync('scripts/noms-icones.json')
+    ? new Set(JSON.parse(readFileSync('scripts/noms-icones.json', 'utf8')))
+    : new Set(
+        [...readFileSync('node_modules/material-symbols/index.d.ts', 'utf8').matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]),
+      );
   const mots = new Set();
   const parcourir = (dossier) => {
     for (const nom of readdirSync(dossier)) {

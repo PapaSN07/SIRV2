@@ -144,6 +144,7 @@ Pattern : lire Redis → miss → calculer DB → écrire Redis → retourner.
 | 30/10/2026 | Base clients SAIFI/SAIDI : contrats par UR lus chaque jour à 7 h dans `BI_ODS.dbo.CONTRATS_PAR_AGENCE_UR` (SRV-ASREPORTS, SSIS ; `BI_ODS_ODBC`), fichier H2MC en secours ; clients d'un poste = Σ contrats de ses UR (UR partagée = 1/n) ; lien poste ↔ UR proposé par les chefs d'unité BCC / BRC, validé par le BRC (ou Admin SCR / SAQS) — page Indicateurs → Base clients → Atelier clients | Validé |
 | 02/11/2026 | Région d'exploitation portée par l'interruption (`interruptions.region_id`) : Dakar (BCC) ou Régions (BRC), celle de son service (SDDV, SDPG, SDRBD → Dakar, services régionaux → Régions), le poste source seulement à défaut de service (sa région n'est pas fiable dans SIRV2) ; certains départs SDRBD touchent les Régions (exception à préciser départ par départ) ; la colonne `regions` de SIR v1 n'est pas fiable et n'est pas reprise ; un BCC ne saisit que Dakar, un BRC que Régions ; périmètre BCC / BRC, indicateurs, pilotage et rapports filtrent sur cette région (`app/repositories/perimetre.py`), la base clients par région sur les services représentatifs DD (Dakar) et BRC (Régions) | Validé |
 | 06/11/2026 | Rapport mensuel distribution = modèle « Analyse succincte statistiques exploitation distribution » (PR3-INS-108-a) + indicateurs DD : HTA seulement, Dakar / Régions, Word + Excel + PDF, cibles par service à fournir — voir `docs/rapport_mensuel_dd.md` ; écran : transport masqué, rapports Journalier / Hebdomadaire simple / Mensuel transport retirés, accueil jour / mois / année | Validé |
+| 17/11/2026 | Matrice rôles × modules (Administration → Rôles et droits) : droits `admin_roles:read/update` (Admin SCR modifie ; un admin ne modifie ni SUPERADMIN ni ses propres rôles et n'attribue pas `admin_roles`) ; rôles créés = accès par permission (`data.permission` des routes), rôles SIRV2 non renommables ni désactivables ; objectifs annuels saisis dans Administration → Objectifs ; utilisateurs ajoutés depuis l'annuaire AD (mot de passe Windows) ; charte graphique alignée sur « Suivi incidents SIR » (marine #262051, violet #5B2A9E, magenta #E6007E, Poppins/Inter) | Validé |
 | 28/10/2026 | SAIFI/SAIDI = formule Power BI SENELEC (clients estimés des postes, SAIDI en heures, base NombreClientMois du mois de la dernière apparition, sans exclusion) — voir `docs/indicateurs_sirv2.md` | Validé |
 
 ---
@@ -244,6 +245,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Contexte** : application déployée sur `srv-applisnlcprod` (servie par `ng serve`, sans compression).
 **Erreur** : la police Material Symbols complète (4 Mo, tous les axes variables) était chargée en `font-display: block` ; tant qu'elle n'arrive pas, le navigateur affiche le nom de l'icône en texte.
 **Règles** : icônes = police réduite aux icônes du code, `src/assets/fonts/sir-icones.woff2` (~20 Ko), déclarée dans `styles.scss` ; une icône ajoutée au code → `python scripts/generer-icones.py` (sir-frontend), contrôle `npm run verifier-icones` (lancé par la CI avant le build).
+
+### 17/11/2026 — Icônes « assessment », « expand_more » toujours affichées en texte
+**Contexte** : refonte graphique de l'administration (charte du tableau de bord « Suivi incidents SIR »).
+**Erreur** : la liste des noms d'icônes venait de `material-symbols/index.d.ts`, qui ne contient pas les anciens noms (alias) encore reconnus par la police (`assessment`, `expand_more`…) : ces icônes n'entraient pas dans la police réduite et le contrôle ne les signalait pas (menu Rapports, bouton Exporter).
+**Règles** : la liste des noms vient de la police elle-même, alias compris (`scripts/noms-icones.json`, écrit par `python scripts/generer-icones.py`) ; après tout ajout d'icône, régénérer puis `npm run verifier-icones` ; contrôler les écrans sur une capture du build, pas seulement la compilation.
 
 ---
 

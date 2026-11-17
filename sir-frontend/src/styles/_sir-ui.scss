@@ -1,24 +1,51 @@
+@use 'sass:color';
 @use 'sir-tokens' as *;
 
-// Boutons réutilisables (pages dashboard, liste, formulaires)
+// ── Titres : Poppins (charte SENELEC) ─────────────────────────────────────────
+h1,
+h2,
+h3,
+.sir-display {
+  font-family: $font-display;
+  letter-spacing: -0.01em;
+}
+
+// ── Boutons ───────────────────────────────────────────────────────────────────
 .sir-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   height: 2.5rem;
-  padding: 0 1rem;
-  border-radius: 0.25rem;
+  padding: 0 1.1rem;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
 
   .material-symbols-outlined {
     font-size: 18px;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-focus;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
   }
 
   &:disabled {
@@ -26,66 +53,405 @@
     cursor: not-allowed;
   }
 
-  // Un bouton plein désactivé ne reste pas orange pâle : gris lisible
-  &--primary:disabled {
-    opacity: 1;
-    background: #e4dfea;
-    color: #5f5a66;
-    box-shadow: none;
+  &--sm {
+    height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 12px;
+  }
+
+  // Action principale : violet plein, texte blanc
+  &--primary {
+    background: $primary;
+    color: #fff;
+    box-shadow: 0 2px 6px -1px rgba($primary, 0.35);
+
+    &:hover:not(:disabled) {
+      background: $primary-container;
+    }
+
+    &:disabled {
+      opacity: 1;
+      background: #e4e0ec;
+      color: #6b6580;
+      box-shadow: none;
+    }
   }
 
   &--outline {
-    border: 1px solid $outline-variant;
+    border-color: $outline-variant;
     background: #fff;
     color: $on-surface;
 
     &:hover:not(:disabled) {
+      border-color: $primary;
+      color: $primary;
       background: $surface-container-low;
     }
   }
 
   &--outline-primary {
-    border: 1px solid $primary;
+    border-color: $primary;
     background: #fff;
     color: $primary;
 
     &:hover:not(:disabled) {
-      background: rgba($primary, 0.05);
-    }
-  }
-
-  &--primary {
-    border: none;
-    background: $secondary;
-    color: $on-action;
-    box-shadow: 0 2px 4px -1px rgba($secondary, 0.35);
-
-    &:hover:not(:disabled) {
-      background: $secondary-dark;
-    }
-
-    &:active:not(:disabled) {
-      transform: scale(0.98);
+      background: $surface-container-high;
     }
   }
 
   &--secondary {
-    border: none;
     background: $surface-container-high;
-    color: $on-surface;
+    color: $primary;
 
     &:hover:not(:disabled) {
-      background: $outline-variant;
+      background: color.adjust($surface-container-high, $lightness: -4%);
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: $primary;
+
+    &:hover:not(:disabled) {
+      background: $surface-container-high;
+    }
+  }
+
+  &--danger {
+    background: $danger;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: color.adjust($danger, $lightness: -8%);
     }
   }
 
   &--filter {
-    border: none;
-    background: $primary;
-    color: $on-primary;
+    background: $sen-navy;
+    color: #fff;
 
     &:hover:not(:disabled) {
-      background: $primary-container;
+      background: $sen-navy-hover;
     }
+  }
+}
+
+// ── Boutons icône (actions des tableaux : modifier, désactiver, …) ───────────
+.sir-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.sir-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: $on-surface-variant;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  .material-symbols-outlined {
+    font-size: 19px;
+  }
+
+  &:hover:not(:disabled) {
+    background: $surface-container-high;
+    color: $primary;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-focus;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &--danger:hover:not(:disabled) {
+    background: $danger-bg;
+    color: $danger;
+  }
+
+  &--success:hover:not(:disabled) {
+    background: $success-bg;
+    color: $success;
+  }
+
+  // Info-bulle (attribut data-tip) : le libellé apparaît au survol et au focus clavier
+  &[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    z-index: 20;
+    transform: translateX(-50%) translateY(2px);
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: $on-surface;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s ease;
+  }
+
+  &[data-tip]:hover::after,
+  &[data-tip]:focus-visible::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+// ── Onglets / sous-menus : l'onglet actif est en surbrillance ────────────────
+.sir-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  padding: 0.3rem;
+  border: 1px solid $border-soft;
+  border-radius: $radius-md;
+  background: #fff;
+  box-shadow: $shadow-1;
+}
+
+.sir-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.95rem;
+  border: none;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: $on-surface-variant;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: $surface-container-low;
+    color: $primary;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-focus;
+  }
+
+  &--active,
+  &--active:hover {
+    background: $primary;
+    color: #fff;
+    box-shadow: 0 2px 6px -1px rgba($primary, 0.4);
+  }
+}
+
+// ── Cartes et tableaux ────────────────────────────────────────────────────────
+.sir-card {
+  background: #fff;
+  border: 1px solid $border-soft;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-1;
+}
+
+.sir-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    padding: 0.7rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid $border-soft;
+    vertical-align: middle;
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $on-surface-variant;
+    background: $surface-container-low;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    transition: background 0.1s ease;
+  }
+
+  tbody tr:hover {
+    background: $surface-container-low;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .col-actions {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+// En-tête de colonne triable
+.sir-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+
+  .material-symbols-outlined {
+    font-size: 16px;
+    opacity: 0.35;
+  }
+
+  &:hover,
+  &--active {
+    color: $primary;
+
+    .material-symbols-outlined {
+      opacity: 1;
+    }
+  }
+}
+
+// ── Barre de recherche / filtres ──────────────────────────────────────────────
+.sir-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid $border-soft;
+}
+
+.sir-search {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 420px;
+
+  .material-symbols-outlined {
+    position: absolute;
+    left: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 19px;
+    color: $outline;
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    height: 2.4rem;
+    padding: 0 0.75rem 0 2.25rem;
+    border: 1px solid $outline-variant;
+    border-radius: $radius-sm;
+    background: $surface-container-low;
+    font: inherit;
+    font-size: 14px;
+    color: $on-surface;
+
+    &:focus {
+      outline: none;
+      border-color: $primary;
+      background: #fff;
+      box-shadow: $shadow-focus;
+    }
+  }
+}
+
+.sir-select {
+  height: 2.4rem;
+  padding: 0 0.75rem;
+  border: 1px solid $outline-variant;
+  border-radius: $radius-sm;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: $on-surface;
+
+  &:focus {
+    outline: none;
+    border-color: $primary;
+    box-shadow: $shadow-focus;
+  }
+}
+
+// ── Pastilles d'état ──────────────────────────────────────────────────────────
+.sir-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: $surface-container;
+  color: $on-surface-variant;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &--ok {
+    background: $success-bg;
+    color: $success;
+  }
+
+  &--off {
+    background: $surface-container;
+    color: $outline;
+  }
+
+  &--warn {
+    background: $warning-bg;
+    color: $warning-fg;
+  }
+
+  &--danger {
+    background: $danger-bg;
+    color: $danger;
   }
 }

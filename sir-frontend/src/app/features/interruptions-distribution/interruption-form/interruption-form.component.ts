@@ -482,7 +482,7 @@ export class InterruptionFormComponent implements OnInit {
       { id: 'nature', label: 'Nature', missing: raw.nature_id < 1 },
       { id: 'siege', label: 'Siège', missing: raw.siege_id < 1 },
       { id: 'signalisation', label: 'Signalisation', missing: raw.signalisation_id < 1 },
-      { id: 'type-end', label: 'Type END', missing: raw.type_end_id < 1 },
+      { id: 'type-end', label: 'Type de rapport', missing: raw.type_end_id < 1 },
       { id: 'type-reseau', label: 'Type réseau', missing: raw.type_reseau_id < 1 },
     ];
     return checks.filter((c) => c.missing);

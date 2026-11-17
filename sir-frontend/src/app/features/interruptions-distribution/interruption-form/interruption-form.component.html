@@ -185,7 +185,7 @@
             </select>
           </div>
           <div class="field">
-            <label class="field__label" for="type-end">Type END</label>
+            <label class="field__label" for="type-end">Type de rapport</label>
             <select id="type-end" class="field__select" formControlName="type_end_id">
               <option [ngValue]="0">Sélectionner</option>
               @for (t of typesEnd(); track t.id) {

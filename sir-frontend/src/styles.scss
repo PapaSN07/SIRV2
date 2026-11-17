@@ -13,26 +13,34 @@
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
 @import 'styles/sir-ui';
 
 :root {
-  --senelec-purple-dark: #3c1053;
-  --senelec-purple: #5a1a72;
-  --senelec-magenta: #ad1457;
-  --senelec-red: #c62828;
-  --senelec-orange: #f4811f;
-  --senelec-orange-light: #fb8c00;
-  --senelec-page-bg: #2a0845;
-  --senelec-page-bg-alt: #1a0a2e;
-  --gradient-brand: linear-gradient(90deg, #3c1053 0%, #ad1457 48%, #f4811f 100%);
+  /* Charte SENELEC (identique au tableau de bord « Suivi incidents SIR ») */
+  --sen-navy: #262051;
+  --sen-primary: #5b2a9e;
+  --sen-primary-600: #4a2280;
+  --sen-magenta: #e6007e;
+  --senelec-purple-dark: #262051;
+  --senelec-purple: #5b2a9e;
+  --senelec-magenta: #e6007e;
+  --senelec-red: #e63329;
+  --senelec-orange: #f58220;
+  --senelec-orange-light: #f79a4c;
+  --senelec-page-bg: #262051;
+  --senelec-page-bg-alt: #1a1626;
+  --gradient-brand: linear-gradient(90deg, #262051 0%, #5b2a9e 50%, #e6007e 100%);
 
   /* extensions internes SIR */
-  --senelec-primary-dark: #2a0838;
-  --senelec-orange-dark: #e65100;
+  --senelec-primary-dark: #262051;
+  --senelec-orange-dark: #c4661a;
 
-  --mdc-theme-primary: var(--senelec-purple-dark);
-  --mdc-theme-secondary: var(--senelec-orange);
-  --mdc-theme-error: var(--senelec-red);
+  --mdc-theme-primary: var(--sen-primary);
+  --mdc-theme-secondary: var(--sen-magenta);
+  --mdc-theme-error: #e5484d;
 }
 
 .material-symbols-outlined {
@@ -61,21 +69,36 @@ body {
   height: 100%;
   margin: 0;
   font-family: Inter, Roboto, 'Helvetica Neue', sans-serif;
-  background: #f3eef8;
+  background: #f7f5fb;
+  color: #1a1626;
+  -webkit-font-smoothing: antialiased;
 }
 
 .mat-mdc-raised-button.mat-primary,
 .mat-mdc-unelevated-button.mat-primary,
 .mat-mdc-fab.mat-primary,
 .mat-mdc-mini-fab.mat-primary {
-  --mdc-protected-button-container-color: #f39200;
-  --mat-protected-button-state-layer-color: #1f1d24;
-  --mdc-protected-button-label-text-color: #1f1d24;
-  --mdc-filled-button-container-color: #f39200;
-  --mdc-filled-button-label-text-color: #1f1d24;
+  --mdc-protected-button-container-color: #5b2a9e;
+  --mat-protected-button-state-layer-color: #ffffff;
+  --mdc-protected-button-label-text-color: #ffffff;
+  --mdc-filled-button-container-color: #5b2a9e;
+  --mdc-filled-button-label-text-color: #ffffff;
 }
 
 .mat-mdc-raised-button.mat-primary:not(:disabled):hover,
 .mat-mdc-unelevated-button.mat-primary:not(:disabled):hover {
-  --mdc-protected-button-container-color: #db8300;
+  --mdc-protected-button-container-color: #4a2280;
+  --mdc-filled-button-container-color: #4a2280;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #dad6e4;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8b85a0;
 }

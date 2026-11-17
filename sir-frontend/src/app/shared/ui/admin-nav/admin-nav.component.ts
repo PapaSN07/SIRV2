@@ -1,99 +1,76 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
 import { FONCTIONNALITES } from '../../../core/config/fonctionnalites';
 
+interface AdminTab {
+  route: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+}
+
+/**
+ * Sous-menu de l'Administration : mêmes onglets sur toutes les pages (selon les droits du compte),
+ * l'onglet de la page affichée est en surbrillance.
+ */
 @Component({
   selector: 'sir-admin-nav',
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <nav class="admin-nav" aria-label="Administration">
-      @if (showReferentiel) {
+    <nav class="sir-tabs" aria-label="Administration">
+      @for (tab of tabs(); track tab.route) {
         <a
-          class="admin-nav__tab"
-          routerLink="/admin/referentiel"
-          routerLinkActive="admin-nav__tab--active"
-          [routerLinkActiveOptions]="{ exact: true }"
+          class="sir-tab"
+          [routerLink]="tab.route"
+          routerLinkActive="sir-tab--active"
+          [routerLinkActiveOptions]="{ exact: tab.exact ?? false }"
+          ariaCurrentWhenActive="page"
         >
-          Référentiels
-        </a>
-      }
-      @if (showReseauDist) {
-        <a
-          class="admin-nav__tab"
-          routerLink="/admin/reseau/distribution"
-          routerLinkActive="admin-nav__tab--active"
-        >
-          Réseau distribution
-        </a>
-      }
-      @if (showReseauTrans && transport) {
-        <a
-          class="admin-nav__tab"
-          routerLink="/admin/reseau/transport"
-          routerLinkActive="admin-nav__tab--active"
-        >
-          Réseau transport
-        </a>
-      }
-      @if (showUsers) {
-        <a
-          class="admin-nav__tab"
-          routerLink="/admin/utilisateurs"
-          routerLinkActive="admin-nav__tab--active"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Utilisateurs
-        </a>
-      }
-      @if (showAdvanced) {
-        <a class="admin-nav__tab" routerLink="/admin/roles" routerLinkActive="admin-nav__tab--active">
-          Rôles
-        </a>
-        <a class="admin-nav__tab" routerLink="/admin/audit-log" routerLinkActive="admin-nav__tab--active">
-          Audit
-        </a>
-        <a class="admin-nav__tab" routerLink="/admin/settings" routerLinkActive="admin-nav__tab--active">
-          Paramètres
+          <span class="material-symbols-outlined" aria-hidden="true">{{ tab.icon }}</span>
+          {{ tab.label }}
         </a>
       }
     </nav>
   `,
-  styles: [
-    `
-      .admin-nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-        margin-bottom: 1rem;
-        padding: 0.25rem;
-        background: #f3eef8;
-        border-radius: 0.5rem;
-      }
-      .admin-nav__tab {
-        padding: 0.5rem 1rem;
-        border-radius: 0.375rem;
-        font-size: 13px;
-        font-weight: 600;
-        color: #5c4d68;
-        text-decoration: none;
-      }
-      .admin-nav__tab:hover {
-        color: #3c1053;
-      }
-      .admin-nav__tab--active {
-        background: #fff;
-        color: #3c1053;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-      }
-    `,
-  ],
 })
 export class AdminNavComponent {
+  private readonly auth = inject(AuthService);
+
+  /** Entrées conservées pour compatibilité : les onglets suivent désormais les droits du compte. */
   @Input() showReferentiel = true;
   @Input() showReseauDist = true;
   @Input() showReseauTrans = true;
-  readonly transport = FONCTIONNALITES.transport;
   @Input() showUsers = true;
   @Input() showAdvanced = true;
+
+  readonly tabs = computed<AdminTab[]>(() => {
+    this.auth.currentUser();
+    const tabs: AdminTab[] = [
+      { route: '/admin/referentiel', label: 'Référentiels', icon: 'list_alt', exact: true },
+    ];
+    if (this.auth.hasRole('ADMIN_SCR', 'BCC', 'BRC', 'ADMIN_SAQS', 'SUPERVISEUR') || this.auth.hasPermission('reseau:read')) {
+      tabs.push({ route: '/admin/reseau/distribution', label: 'Réseau distribution', icon: 'lan' });
+    }
+    if (FONCTIONNALITES.transport && this.auth.hasRole('ADMIN_DISPATCHING', 'DISPATCHER', 'ADMIN_SAQS')) {
+      tabs.push({ route: '/admin/reseau/transport', label: 'Réseau transport', icon: 'electric_bolt' });
+    }
+    if (this.auth.hasRole('ADMIN_SCR', 'ADMIN_SAQS')) {
+      tabs.push({ route: '/admin/objectifs', label: 'Objectifs', icon: 'flag' });
+    }
+    if (this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING') || this.auth.hasPermission('admin_utilisateurs:read')) {
+      tabs.push({ route: '/admin/utilisateurs', label: 'Utilisateurs', icon: 'group', exact: true });
+    }
+    if (this.auth.hasPermission('admin_roles:read') || this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING')) {
+      tabs.push({ route: '/admin/roles', label: 'Rôles et droits', icon: 'admin_panel_settings' });
+    }
+    if (this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING')) {
+      tabs.push(
+        { route: '/admin/audit-log', label: 'Journal', icon: 'history' },
+        { route: '/admin/settings', label: 'Paramètres', icon: 'settings' },
+      );
+    }
+    return tabs;
+  });
 }

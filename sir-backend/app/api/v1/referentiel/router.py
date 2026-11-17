@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,12 +26,19 @@ async def list_referentiel(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     type_reseau: str | None = Query(default=None),
+    statut: Literal["actifs", "inactifs", "tous"] | None = Query(
+        default=None, description="Par défaut : actifs seulement"
+    ),
+    q: str | None = Query(default=None, max_length=100, description="Recherche code / libellé / description"),
+    tri: str | None = Query(
+        default=None, pattern=r"^-?(code|libelle|type_reseau|is_active)$", description="Colonne, « - » = décroissant"
+    ),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
     _current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[ReferentielResponse]]:
     result = await referentiel_service.list_items(
-        db, redis, resource, page, page_size, type_reseau
+        db, redis, resource, page, page_size, type_reseau, statut=statut, recherche=q, tri=tri
     )
     return ApiResponse.success(result)
 

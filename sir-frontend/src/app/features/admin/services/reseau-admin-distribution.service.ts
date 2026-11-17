@@ -71,6 +71,9 @@ export class ReseauAdminDistributionService {
     if (params.feeder_id) httpParams = httpParams.set('feeder_id', params.feeder_id);
     if (params.service_id) httpParams = httpParams.set('service_id', params.service_id);
     if (params.region_id) httpParams = httpParams.set('region_id', params.region_id);
+    if (params.poste_source_id) httpParams = httpParams.set('poste_source_id', params.poste_source_id);
+    if (params.q?.trim()) httpParams = httpParams.set('q', params.q.trim());
+    if (params.tri) httpParams = httpParams.set('tri', params.tri);
 
     return this.http
       .get<ApiResponse<PaginatedResponse<T>>>(`${this.apiUrl}/${resource}`, { params: httpParams })

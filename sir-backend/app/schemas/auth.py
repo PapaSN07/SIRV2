@@ -36,6 +36,8 @@ class MeResponse(BaseModel):
     service_id: int | None
     premiere_connexion: bool
     is_active: bool
+    # Droits « ressource:action » de tous les rôles (matrice Administration → Rôles)
+    permissions: list[str] = []
 
     model_config = {"from_attributes": True}
 

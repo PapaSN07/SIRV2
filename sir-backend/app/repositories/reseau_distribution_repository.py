@@ -208,7 +208,13 @@ async def list_postes(
     service_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[Poste]:
-    query = select(Poste).where(Poste.is_active == True).order_by(Poste.libelle, Poste.id)  # noqa: E712
+    query = (
+        select(Poste)
+        # Libellés du feeder et de son poste source affichés dans les listes (jamais l'identifiant)
+        .options(joinedload(Poste.feeder).joinedload(Feeder.poste_source), joinedload(Poste.service))
+        .where(Poste.is_active == True)  # noqa: E712
+        .order_by(Poste.libelle, Poste.id)
+    )
     if feeder_id is not None:
         # Postes rattachés au feeder, plus ceux sans feeder (migration) déjà impactés sur ce feeder
         historique = (
@@ -247,7 +253,7 @@ async def list_postes(
             )
         )
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 
 
 async def get_poste(db: AsyncSession, item_id: int) -> Poste | None:

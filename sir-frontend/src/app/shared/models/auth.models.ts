@@ -24,4 +24,6 @@ export interface MeResponse {
   service_id: number | null;
   premiere_connexion: boolean;
   is_active: boolean;
+  /** Droits « ressource:action » issus de la matrice des rôles */
+  permissions?: string[];
 }

@@ -1,3 +1,5 @@
+import { CartePostesComponent } from '../../../shared/ui/carte-postes/carte-postes.component';
+import { PosteOuvertCarte } from '../../../shared/models/indicateurs.models';
 import { DatePipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
@@ -54,12 +56,44 @@ function positiveInt(value: string | null): number | null {
     StatusChipComponent,
     PaginatorComponent,
     InterruptionsNavComponent,
+    CartePostesComponent,
   ],
   templateUrl: './interruption-list.component.html',
   styleUrl: './interruption-list.component.scss',
 })
 export class InterruptionListComponent implements OnInit {
   private readonly service = inject(InterruptionDistributionService);
+
+  // Carte des postes encore privés de courant (chargée à l'ouverture)
+  readonly carteOuverte = signal(false);
+  readonly carteChargement = signal(false);
+  readonly carteErreur = signal<string | null>(null);
+  readonly postesSansRemise = signal<PosteOuvertCarte[]>([]);
+
+  basculerCarte(): void {
+    const ouvrir = !this.carteOuverte();
+    this.carteOuverte.set(ouvrir);
+    if (ouvrir) this.chargerCarte();
+  }
+
+  chargerCarte(): void {
+    this.carteChargement.set(true);
+    this.carteErreur.set(null);
+    this.service.getPostesSansRemise().subscribe({
+      next: (postes) => {
+        this.postesSansRemise.set(postes);
+        this.carteChargement.set(false);
+      },
+      error: (err: Error) => {
+        this.carteErreur.set(err.message);
+        this.carteChargement.set(false);
+      },
+    });
+  }
+
+  ouvrirInterruptionCarte(id: number): void {
+    void this.router.navigate(['/interruptions/distribution', id]);
+  }
   private readonly reseau = inject(ReseauDistributionService);
   private readonly geo = inject(GeoService);
   private readonly referentiel = inject(ReferentielService);

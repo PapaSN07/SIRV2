@@ -37,6 +37,18 @@
       }
       <button
         type="button"
+        class="sir-btn"
+        [class.sir-btn--outline-primary]="!carteOuverte()"
+        [class.sir-btn--filter]="carteOuverte()"
+        [attr.aria-pressed]="carteOuverte()"
+        (click)="basculerCarte()"
+        title="Carte des postes encore privés de courant"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">map</span>
+        Carte
+      </button>
+      <button
+        type="button"
         class="sir-btn sir-btn--outline-primary"
         [matMenuTriggerFor]="exportMenu"
         [disabled]="exporting() !== null"
@@ -234,6 +246,38 @@
       </div>
     }
   </div>
+
+  @if (carteOuverte()) {
+    <section class="carte-panel" aria-labelledby="titre-carte">
+      <div class="carte-panel__tete">
+        <div>
+          <h2 id="titre-carte" class="carte-panel__titre">
+            <span class="material-symbols-outlined" aria-hidden="true">location_off</span>
+            Postes sans date de remise
+            @if (!carteChargement()) {
+              <span class="carte-panel__nombre">{{ postesSansRemise().length }}</span>
+            }
+          </h2>
+          <p class="carte-panel__aide">
+            Postes impactés par une interruption encore ouverte (sans date de remise), dans votre périmètre. Position :
+            nœud SIG du poste, départagé par le feeder en cas d'homonyme.
+          </p>
+        </div>
+        <div class="carte-panel__actions">
+          <button type="button" class="sir-icon-btn" data-tip="Actualiser" aria-label="Actualiser la carte" (click)="chargerCarte()">
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+          </button>
+          <button type="button" class="sir-icon-btn" data-tip="Fermer" aria-label="Fermer la carte" (click)="basculerCarte()">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </div>
+      </div>
+      @if (carteErreur()) {
+        <p class="carte-panel__erreur" role="alert">{{ carteErreur() }}</p>
+      }
+      <sir-carte-postes [points]="postesSansRemise()" hauteur="440px" (ouvrirInterruption)="ouvrirInterruptionCarte($event)" />
+    </section>
+  }
 
   <div class="table-panel">
     @if (loading()) {

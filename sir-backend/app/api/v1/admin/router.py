@@ -7,12 +7,15 @@ from app.core.database import get_db
 from app.core.deps import require_permission
 from app.models.utilisateurs import Utilisateur
 from app.schemas.admin import (
+    AnnuaireUtilisateur,
     AppSettingsResponse,
     AppSettingsUpdate,
     AuditLogResponse,
     PermissionInfo,
     ResetPasswordRequest,
+    RoleCreate,
     RoleDetailResponse,
+    RoleUpdate,
     UtilisateurCreate,
     UtilisateurResponse,
     UtilisateurUpdate,
@@ -135,6 +138,20 @@ async def reset_password(
 
 
 @router.get(
+    "/annuaire",
+    response_model=ApiResponse[list[AnnuaireUtilisateur]],
+    status_code=status.HTTP_200_OK,
+    summary="Recherche de comptes dans l'Active Directory (ajout d'utilisateurs LDAP)",
+)
+async def rechercher_annuaire(
+    q: str = Query(..., min_length=2, max_length=60, description="Login, nom, prénom, e-mail ou matricule"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("admin_utilisateurs", "create")),
+) -> ApiResponse[list[AnnuaireUtilisateur]]:
+    return ApiResponse.success(await admin_utilisateur_service.rechercher_annuaire(db, current_user, q))
+
+
+@router.get(
     "/roles",
     response_model=ApiResponse[list[RoleDetailResponse]],
     status_code=status.HTTP_200_OK,
@@ -145,6 +162,35 @@ async def list_roles(
 ) -> ApiResponse[list[RoleDetailResponse]]:
     result = await admin_advanced_service.list_roles(db)
     return ApiResponse.success(result)
+
+
+@router.post(
+    "/roles",
+    response_model=ApiResponse[RoleDetailResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Crée un rôle et ses droits (matrice rôles × modules)",
+)
+async def create_role(
+    body: RoleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("admin_roles", "update")),
+) -> ApiResponse[RoleDetailResponse]:
+    return ApiResponse.success(await admin_advanced_service.create_role(db, current_user, body))
+
+
+@router.put(
+    "/roles/{role_id}",
+    response_model=ApiResponse[RoleDetailResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Modifie les droits, la description ou l'état d'un rôle",
+)
+async def update_role(
+    role_id: int,
+    body: RoleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("admin_roles", "update")),
+) -> ApiResponse[RoleDetailResponse]:
+    return ApiResponse.success(await admin_advanced_service.update_role(db, current_user, role_id, body))
 
 
 @router.get(

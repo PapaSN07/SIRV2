@@ -713,3 +713,61 @@
   color: #8a7a96;
   font-style: italic;
 }
+
+.carte-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem 1.25rem;
+  background: #fff;
+  border: 1px solid $border-soft;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-1;
+
+  &__tete {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  &__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 16px;
+    color: $sen-navy;
+
+    .material-symbols-outlined {
+      color: $danger;
+    }
+  }
+
+  &__nombre {
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: $danger-bg;
+    color: $danger;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &__aide {
+    margin: 0.25rem 0 0;
+    font-size: 13px;
+    color: $on-surface-variant;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  &__erreur {
+    margin: 0 0 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: $radius-sm;
+    background: $danger-bg;
+    color: #b42328;
+    font-size: 13px;
+  }
+}

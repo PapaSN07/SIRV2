@@ -1,10 +1,11 @@
 """Requêtes du pilotage indicateurs : défauts aux 100 km, objectifs, carte, classements."""
 
 import math
+from typing import Any
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Float, cast, extract, func, or_, select
+from sqlalchemy import BigInteger, Float, Row, cast, extract, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Region, Service
@@ -35,6 +36,7 @@ class PosteOuvertRow:
     feeder_libelle: str | None
     service_libelle: str | None
     sans_remise: bool
+    feeder_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -436,13 +438,28 @@ async def region_id_du_service(db: AsyncSession, service_id: int) -> int | None:
 async def list_postes_impactes(
     db: AsyncSession,
     service_ids: list[int],
-    debut: datetime,
-    fin: datetime,
+    debut: datetime | None,
+    fin: datetime | None,
     limit: int = 400,
+    *,
+    sans_remise_seulement: bool = False,
 ) -> list[PosteOuvertRow]:
-    """Postes touchés sur la période. Un poste n'apparaît qu'une fois, via sa dernière interruption."""
+    """Postes touchés sur la période (ou, avec ``sans_remise_seulement``, encore privés de courant).
+
+    Un poste n'apparaît qu'une fois, via sa dernière interruption.
+    """
     if not service_ids:
         return []
+    conditions = [
+        interruptions_du_perimetre(service_ids),
+        Interruption.type_direction == "distribution",
+    ]
+    if debut is not None:
+        conditions.append(Interruption.date_apparition >= debut)
+    if fin is not None:
+        conditions.append(Interruption.date_apparition < fin)
+    if sans_remise_seulement:
+        conditions.append(Interruption.date_remise.is_(None))
     result = await db.execute(
         select(
             Poste.id,
@@ -452,6 +469,7 @@ async def list_postes_impactes(
             Interruption.numero_interruption,
             Interruption.date_apparition,
             Interruption.date_remise,
+            Interruption.feeder_id,
             Feeder.libelle.label("feeder_libelle"),
             Service.libelle.label("service_libelle"),
         )
@@ -459,12 +477,7 @@ async def list_postes_impactes(
         .join(Interruption, Interruption.id == PosteInterruption.interruption_id)
         .outerjoin(Feeder, Feeder.id == Interruption.feeder_id)
         .outerjoin(Service, Service.id == Interruption.service_id)
-        .where(
-            interruptions_du_perimetre(service_ids),
-            Interruption.type_direction == "distribution",
-            Interruption.date_apparition >= debut,
-            Interruption.date_apparition < fin,
-        )
+        .where(*conditions)
         .order_by(Interruption.date_apparition.desc())
         .limit(limit * 4)
     )
@@ -485,6 +498,7 @@ async def list_postes_impactes(
                 feeder_libelle=row.feeder_libelle,
                 service_libelle=row.service_libelle,
                 sans_remise=row.date_remise is None,
+                feeder_id=row.feeder_id,
             )
         )
         if len(lignes) >= limit:
@@ -492,30 +506,63 @@ async def list_postes_impactes(
     return lignes
 
 
+@dataclass(frozen=True)
+class PointSig:
+    feeder_id: int | None
+    longitude: float
+    latitude: float
+
+
 async def coords_par_nom(
     db: AsyncSession,
     noms: list[str],
-) -> dict[str, tuple[float, float]]:
-    """Coordonnées SIG indexées par nom, si elles tombent dans l'emprise du Sénégal."""
-    cleaned = [nom for nom in noms if nom]
+) -> dict[str, list[PointSig]]:
+    """Nœuds SIG (avec leur feeder) indexés par nom ou station, s'ils tombent dans l'emprise du Sénégal.
+
+    Un même nom peut désigner plusieurs postes (homonymes sur des départs différents) : tous sont rendus,
+    ``choisir_point`` départage avec le feeder de l'interruption.
+    """
+    cleaned = sorted({nom for nom in noms if nom})
     if not cleaned:
         return {}
-    result = await db.execute(
-        select(NoeudSig.nom, NoeudSig.station, NoeudSig.coord_x, NoeudSig.coord_y).where(
-            NoeudSig.coord_x.isnot(None),
-            NoeudSig.coord_y.isnot(None),
-            or_(NoeudSig.nom.in_(cleaned), NoeudSig.station.in_(cleaned)),
+    found: dict[str, list[PointSig]] = {}
+    # Lots de 500 noms : SQL Server limite le nombre de paramètres d'une requête (2 100)
+    for debut in range(0, len(cleaned), 500):
+        lot = cleaned[debut : debut + 500]
+        result = await db.execute(
+            select(NoeudSig.nom, NoeudSig.station, NoeudSig.feeder_id, NoeudSig.coord_x, NoeudSig.coord_y).where(
+                NoeudSig.coord_x.isnot(None),
+                NoeudSig.coord_y.isnot(None),
+                or_(NoeudSig.nom.in_(lot), NoeudSig.station.in_(lot)),
+            )
         )
-    )
-    found: dict[str, tuple[float, float]] = {}
-    for row in result.all():
-        longitude, latitude = _lon_lat(row.coord_x, row.coord_y)
-        if longitude is None or latitude is None:
-            continue
-        for key in (row.nom, row.station):
-            if key:
-                found.setdefault(key.casefold(), (longitude, latitude))
+        for row in result.all():
+            longitude, latitude = _lon_lat(row.coord_x, row.coord_y)
+            if longitude is None or latitude is None:
+                continue
+            point = PointSig(row.feeder_id, longitude, latitude)
+            for key in {k.casefold() for k in (row.nom, row.station) if k}:
+                found.setdefault(key, []).append(point)
     return found
+
+
+# Au-delà de cet écart entre homonymes (≈ 1 km), sans feeder pour départager, le poste n'est pas placé
+_ECART_HOMONYMES_DEG = 0.01
+
+
+def choisir_point(candidats: list[PointSig], feeder_id: int | None) -> tuple[float, float] | None:
+    """Point d'un poste : celui de son feeder si le nom est ambigu ; rien si les homonymes sont éloignés."""
+    if not candidats:
+        return None
+    if feeder_id is not None:
+        memes = [c for c in candidats if c.feeder_id == feeder_id]
+        if memes:
+            return memes[0].longitude, memes[0].latitude
+    lons = [c.longitude for c in candidats]
+    lats = [c.latitude for c in candidats]
+    if max(lons) - min(lons) <= _ECART_HOMONYMES_DEG and max(lats) - min(lats) <= _ECART_HOMONYMES_DEG:
+        return candidats[0].longitude, candidats[0].latitude
+    return None
 
 
 def _lon_lat(x: float | None, y: float | None) -> tuple[float | None, float | None]:
@@ -857,3 +904,21 @@ async def libelles_services(db: AsyncSession, service_ids: list[int]) -> dict[in
         return {}
     result = await db.execute(select(Service.id, Service.code, Service.libelle).where(Service.id.in_(service_ids)))
     return {int(i): (str(code), str(libelle)) for i, code, libelle in result.all()}
+
+
+async def list_objectifs_annee(db: AsyncSession, annee: int) -> list[Row[Any]]:
+    """Tous les objectifs d'une année (national : ``region_id`` NULL, puis chaque région)."""
+    stmt = select(
+        ObjectifIndicateur.id,
+        ObjectifIndicateur.annee,
+        ObjectifIndicateur.code,
+        ObjectifIndicateur.valeur_annuelle,
+        ObjectifIndicateur.region_id,
+    ).where(ObjectifIndicateur.annee == annee)
+    return list((await db.execute(stmt)).all())
+
+
+async def list_regions_actives(db: AsyncSession) -> list[tuple[int, str]]:
+    """Régions d'exploitation actives (id, libellé), dans l'ordre des identifiants."""
+    stmt = select(Region.id, Region.libelle).where(Region.is_active == true()).order_by(Region.id)
+    return [(row.id, row.libelle) for row in (await db.execute(stmt)).all()]

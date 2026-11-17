@@ -5,75 +5,161 @@
   margin: 0 auto;
 }
 
-.tabs {
+.ref-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Liste des référentiels
+.ref-menu {
+  position: sticky;
+  top: calc(#{$header-height} + 1rem);
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid $outline-variant;
-  padding-bottom: 0.5rem;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.75rem;
 
-  &__btn {
-    padding: 0.5rem 1rem;
+  &__titre {
+    margin: 0.25rem 0.5rem 0.5rem;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $outline;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.6rem 0.7rem;
     border: none;
+    border-left: 3px solid transparent;
+    border-radius: $radius-sm;
     background: transparent;
-    font-size: 13px;
-    font-weight: 600;
     color: $on-surface-variant;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
     cursor: pointer;
-    border-radius: 0.25rem 0.25rem 0 0;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
 
-    &--active {
-      color: $primary;
+    .material-symbols-outlined {
+      font-size: 20px;
+    }
+
+    &:hover {
       background: $surface-container-low;
+      color: $primary;
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: $shadow-focus;
+    }
+
+    &--active,
+    &--active:hover {
+      background: $surface-container-high;
+      border-left-color: $sen-magenta;
+      color: $primary;
+      font-weight: 700;
+
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 1;
+      }
+    }
+  }
+
+  &__label {
+    flex: 1;
+  }
+
+  &__count {
+    min-width: 26px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: $primary;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  @media (max-width: 900px) {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+
+    &__titre {
+      display: none;
+    }
+
+    &__item {
+      width: auto;
     }
   }
 }
 
-.filters-panel {
-  background: #fff;
-  border: 1px solid $outline-variant;
-  border-radius: 0.25rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.field {
+.ref-entete {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem 0.9rem;
+  border-bottom: 1px solid $border-soft;
 
-  &--full {
-    grid-column: 1 / -1;
+  &__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 18px;
+    color: $sen-navy;
+
+    .material-symbols-outlined {
+      color: $primary;
+      font-size: 22px;
+    }
   }
 
-  &__label {
-    font-size: 12px;
-    font-weight: 600;
+  &__aide {
+    margin: 0.25rem 0 0;
+    font-size: 13px;
     color: $on-surface-variant;
   }
+}
 
-  &__input,
-  &__select {
-    border: 1px solid $outline-variant;
-    border-radius: 0.25rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 14px;
-    background: $surface-container-low;
-  }
+.ref-total {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: $on-surface-variant;
 }
 
 .form-panel {
-  background: #fff;
-  border: 1px solid $outline-variant;
-  border-radius: 0.25rem;
+  margin: 1rem 1.25rem 0;
   padding: 1rem;
-  margin-bottom: 1rem;
+  border: 1px solid $border-soft;
+  border-radius: $radius-md;
+  background: $surface-container-low;
 
   &__title {
     margin: 0 0 1rem;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
+    color: $sen-navy;
   }
 
   &__actions {
@@ -94,14 +180,56 @@
   }
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  &--full {
+    grid-column: 1 / -1;
+  }
+
+  &--check {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 13px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__input,
+  &__select {
+    height: 2.4rem;
+    border: 1px solid $outline-variant;
+    border-radius: $radius-sm;
+    padding: 0 0.75rem;
+    font: inherit;
+    font-size: 14px;
+    background: #fff;
+
+    &:focus {
+      outline: none;
+      border-color: $primary;
+      box-shadow: $shadow-focus;
+    }
+  }
+}
+
 .alert {
+  margin: 1rem 1.25rem 0;
   padding: 0.75rem 1rem;
-  border-radius: 0.25rem;
-  margin-bottom: 1rem;
+  border-radius: $radius-sm;
 
   &--error {
-    background: #ffdad6;
-    color: #93000a;
+    background: $danger-bg;
+    color: #b42328;
   }
 }
 
@@ -113,50 +241,39 @@
 
 .table-wrap {
   overflow-x: auto;
-  background: #fff;
-  border: 1px solid $outline-variant;
-  border-radius: 0.25rem;
-  margin-bottom: 1rem;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-
-  th,
-  td {
-    padding: 0.75rem 1rem;
-    text-align: left;
-    border-bottom: 1px solid $outline-variant;
-  }
-
-  th {
-    font-size: 12px;
-    font-weight: 600;
-    color: $on-surface-variant;
-    background: $surface-container-low;
-  }
-}
-
-.col-actions {
+.code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12.5px;
+  color: $on-surface-variant;
   white-space: nowrap;
 }
 
-.badge {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  font-size: 12px;
-  background: $surface-container-high;
-  color: $on-surface-variant;
-
-  &--active {
-    background: #d3e4ff;
-    color: $primary;
-  }
+.libelle {
+  display: block;
+  font-weight: 500;
+  color: $on-surface;
 }
 
-.sir-btn.danger {
-  color: #ba1a1a;
+.description {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: $outline;
+}
+
+tr.inactif td:not(.col-actions) {
+  opacity: 0.6;
+}
+
+.vide {
+  padding: 2rem !important;
+  text-align: center !important;
+  color: $on-surface-variant;
+}
+
+.ref-pagination {
+  padding: 0.5rem 1rem;
+  border-top: 1px solid $border-soft;
 }

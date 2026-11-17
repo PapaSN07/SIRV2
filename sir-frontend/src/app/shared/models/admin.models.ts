@@ -24,7 +24,9 @@ export interface UtilisateurAdmin {
 
 export interface UtilisateurCreate {
   login: string;
-  password: string;
+  /** Absent pour un compte de l'annuaire (mot de passe Windows) */
+  password?: string | null;
+  annuaire?: boolean;
   nom: string;
   prenom: string;
   email?: string | null;
@@ -58,6 +60,59 @@ export interface RoleDetail {
   nom: string;
   description: string | null;
   permissions: PermissionInfo[];
+  is_active: boolean;
+  /** Rôle prévu par SIRV2 (nom figé, non désactivable) */
+  systeme: boolean;
+  nombre_utilisateurs: number;
+}
+
+export interface RoleCreate {
+  nom: string;
+  description?: string | null;
+  permission_ids: number[];
+}
+
+export interface RoleUpdate {
+  description?: string | null;
+  is_active?: boolean;
+  permission_ids?: number[];
+}
+
+export interface AnnuaireUtilisateur {
+  login: string;
+  prenom: string | null;
+  nom: string | null;
+  nom_affiche: string | null;
+  email: string | null;
+  telephone: string | null;
+  matricule: string | null;
+  service: string | null;
+  fonction: string | null;
+  deja_dans_sir: boolean;
+}
+
+export interface ObjectifsLigne {
+  region_id: number | null;
+  libelle: string;
+  end_mwh: number | null;
+  saifi: number | null;
+  saidi: number | null;
+  defauts_100km: number | null;
+}
+
+export interface ObjectifsAdmin {
+  annee: number;
+  peut_modifier: boolean;
+  lignes: ObjectifsLigne[];
+}
+
+export interface ObjectifsAdminUpdate {
+  annee: number;
+  region_id: number | null;
+  end_mwh?: number | null;
+  saifi?: number | null;
+  saidi?: number | null;
+  defauts_100km?: number | null;
 }
 
 export interface AuditLogEntry {

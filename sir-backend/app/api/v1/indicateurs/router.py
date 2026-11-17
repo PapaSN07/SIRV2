@@ -12,8 +12,11 @@ from app.schemas.common import ApiResponse
 from app.schemas.indicateurs import (
     EndIndicateurResponse,
     HistoriqueResponse,
+    ObjectifsAdminResponse,
+    ObjectifsAdminUpdate,
     ObjectifsPilotageUpdate,
     PilotageResponse,
+    PosteOuvertResponse,
     SaidiIndicateurResponse,
     SaifiIndicateurResponse,
     TableauDeBordResponse,
@@ -255,6 +258,49 @@ async def get_pilotage(
         region_id=region_id,
     )
     return ApiResponse.success(result)
+
+
+@router.get(
+    "/carte/postes-sans-remise",
+    response_model=ApiResponse[list[PosteOuvertResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Postes encore privés de courant (interruptions sans date de remise), avec coordonnées SIG",
+)
+async def get_postes_sans_remise(
+    region_id: int | None = Query(None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("interruptions_distribution", "read")),
+) -> ApiResponse[list[PosteOuvertResponse]]:
+    return ApiResponse.success(await pilotage_service.postes_sans_remise(db, current_user, region_id=region_id))
+
+
+@router.get(
+    "/pilotage/objectifs/admin",
+    response_model=ApiResponse[ObjectifsAdminResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Objectifs annuels (national et par région) — page Administration",
+)
+async def lister_objectifs_admin(
+    annee: int = Query(..., ge=2000, le=2100),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[ObjectifsAdminResponse]:
+    return ApiResponse.success(await pilotage_service.lister_objectifs_admin(db, current_user, annee))
+
+
+@router.put(
+    "/pilotage/objectifs/admin",
+    response_model=ApiResponse[ObjectifsAdminResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Enregistre les objectifs annuels d'un périmètre (national ou région)",
+)
+async def enregistrer_objectifs_admin(
+    body: ObjectifsAdminUpdate,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[ObjectifsAdminResponse]:
+    return ApiResponse.success(await pilotage_service.enregistrer_objectifs_admin(db, redis, current_user, body))
 
 
 @router.put(

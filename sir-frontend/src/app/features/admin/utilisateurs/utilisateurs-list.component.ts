@@ -4,6 +4,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { AdminAdvancedService } from '../services/admin-advanced.service';
 import { AdminUtilisateurService } from '../services/admin-utilisateur.service';
 import {
+  AnnuaireUtilisateur,
   RoleDetail,
   UtilisateurAdmin,
   UtilisateurCreate,
@@ -23,6 +24,8 @@ interface UserFormState {
   telephone: string;
   selectedRoleIds: number[];
   reset_password: string;
+  /** Compte importé de l'Active Directory : connexion avec le mot de passe Windows */
+  annuaire: boolean;
 }
 
 @Component({
@@ -55,9 +58,17 @@ export class UtilisateursListComponent implements OnInit {
 
   readonly canWrite = computed(() => this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING'));
 
+  // Ajout depuis l'annuaire (LDAP / Active Directory)
+  readonly annuaireOuvert = signal(false);
+  readonly annuaireTexte = signal('');
+  readonly annuaireResultats = signal<AnnuaireUtilisateur[]>([]);
+  readonly annuaireChargement = signal(false);
+  readonly annuaireErreur = signal<string | null>(null);
+  private delaiAnnuaire: ReturnType<typeof setTimeout> | null = null;
+
   ngOnInit(): void {
     this.adminAdvanced.listRoles().subscribe({
-      next: (roles) => this.roleOptions.set(roles),
+      next: (roles) => this.roleOptions.set(roles.filter((r) => r.is_active && r.nom !== 'SUPERADMIN')),
       error: () => {},
     });
     this.load();
@@ -68,7 +79,63 @@ export class UtilisateursListComponent implements OnInit {
     this.load();
   }
 
+  ouvrirAnnuaire(): void {
+    this.closeForm();
+    this.annuaireOuvert.set(true);
+    this.annuaireErreur.set(null);
+  }
+
+  fermerAnnuaire(): void {
+    this.annuaireOuvert.set(false);
+    this.annuaireTexte.set('');
+    this.annuaireResultats.set([]);
+  }
+
+  /** Recherche dans l'annuaire 400 ms après la dernière touche (2 caractères au moins). */
+  onAnnuaire(texte: string): void {
+    this.annuaireTexte.set(texte);
+    if (this.delaiAnnuaire) clearTimeout(this.delaiAnnuaire);
+    if (texte.trim().length < 2) {
+      this.annuaireResultats.set([]);
+      return;
+    }
+    this.delaiAnnuaire = setTimeout(() => {
+      this.annuaireChargement.set(true);
+      this.annuaireErreur.set(null);
+      this.adminAdvanced.rechercherAnnuaire(texte.trim()).subscribe({
+        next: (res) => {
+          this.annuaireResultats.set(res);
+          this.annuaireChargement.set(false);
+        },
+        error: (err: Error) => {
+          this.annuaireErreur.set(err.message);
+          this.annuaireChargement.set(false);
+        },
+      });
+    }, 400);
+  }
+
+  /** Prépare la fiche avec les informations de l'annuaire ; il reste à choisir les rôles. */
+  ajouterDepuisAnnuaire(compte: AnnuaireUtilisateur): void {
+    const morceaux = (compte.nom_affiche ?? '').trim().split(/\s+/);
+    this.editingId.set(null);
+    this.form.set({
+      ...this.emptyForm(),
+      login: compte.login,
+      nom: compte.nom ?? morceaux.slice(1).join(' '),
+      prenom: compte.prenom ?? morceaux[0] ?? '',
+      email: compte.email ?? '',
+      telephone: compte.telephone ?? '',
+      matricule: compte.matricule ?? '',
+      annuaire: true,
+    });
+    this.fermerAnnuaire();
+    this.formOpen.set(true);
+    this.error.set(null);
+  }
+
   openCreate(): void {
+    this.annuaireOuvert.set(false);
     this.editingId.set(null);
     this.form.set(this.emptyForm());
     this.formOpen.set(true);
@@ -87,6 +154,7 @@ export class UtilisateursListComponent implements OnInit {
       matricule: user.matricule ?? '',
       selectedRoleIds: user.roles.map((r) => r.role_id),
       reset_password: '',
+      annuaire: false,
     });
     this.formOpen.set(true);
     this.error.set(null);
@@ -98,7 +166,7 @@ export class UtilisateursListComponent implements OnInit {
     this.form.set(this.emptyForm());
   }
 
-  patchForm(field: keyof UserFormState, value: string | number[]): void {
+  patchForm(field: keyof UserFormState, value: string | number[] | boolean): void {
     this.form.update((current) => ({ ...current, [field]: value }));
   }
 
@@ -133,14 +201,15 @@ export class UtilisateursListComponent implements OnInit {
     const roles = state.selectedRoleIds.map((role_id) => ({ role_id }));
 
     if (editId === null) {
-      if (!state.login.trim() || state.password.length < 8) {
+      if (!state.login.trim() || (!state.annuaire && state.password.length < 8)) {
         this.error.set('Login et mot de passe (8 car. min.) sont obligatoires.');
         this.saving.set(false);
         return;
       }
       const body: UtilisateurCreate = {
         login: state.login.trim(),
-        password: state.password,
+        password: state.annuaire ? null : state.password,
+        annuaire: state.annuaire,
         nom: state.nom.trim(),
         prenom: state.prenom.trim(),
         email: state.email.trim() || null,
@@ -160,6 +229,7 @@ export class UtilisateursListComponent implements OnInit {
       prenom: state.prenom.trim(),
       email: state.email.trim() || null,
       telephone: state.telephone.trim() || null,
+      matricule: state.matricule.trim() || null,
       roles,
     };
     this.adminUsers.update(editId, body).subscribe({
@@ -241,6 +311,7 @@ export class UtilisateursListComponent implements OnInit {
       matricule: '',
       selectedRoleIds: [],
       reset_password: '',
+      annuaire: false,
     };
   }
 }

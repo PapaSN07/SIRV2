@@ -63,6 +63,9 @@ export interface Poste {
   puissance_kva: number | null;
   nombre_clients: number | null;
   is_active: boolean;
+  feeder_libelle?: string | null;
+  poste_source_libelle?: string | null;
+  service_libelle?: string | null;
 }
 
 export interface PosteCreate {
@@ -109,4 +112,8 @@ export interface ReseauListParams {
   service_id?: number;
   region_id?: number;
   poste_source_id?: number;
+  /** Recherche : code, libellé, poste source, feeder, service */
+  q?: string;
+  /** Colonne de tri, « - » devant = décroissant */
+  tri?: string;
 }

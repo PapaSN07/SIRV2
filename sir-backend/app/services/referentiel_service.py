@@ -138,9 +138,13 @@ def _cache_key(
     type_reseau: str | None,
     page: int,
     page_size: int,
+    statut: str | None = None,
+    recherche: str | None = None,
+    tri: str | None = None,
 ) -> str:
     tr = type_reseau or "all"
-    return f"referentiel:{resource}:v{version}:{tr}:{page}:{page_size}"
+    filtres = f"{statut or ''}:{(recherche or '').strip().lower()}:{tri or ''}"
+    return f"referentiel:{resource}:v{version}:{tr}:{page}:{page_size}:{filtres}"
 
 
 async def _get_cache_version(redis: Redis, resource: str) -> int:
@@ -159,11 +163,14 @@ async def list_items(
     page: int,
     page_size: int,
     type_reseau: str | None = None,
+    statut: str | None = None,
+    recherche: str | None = None,
+    tri: str | None = None,
 ) -> PaginatedResponse[ReferentielResponse]:
     _validate_resource(resource)
 
     version = await _get_cache_version(redis, resource)
-    key = _cache_key(resource, version, type_reseau, page, page_size)
+    key = _cache_key(resource, version, type_reseau, page, page_size, statut, recherche, tri)
 
     cached = await redis.get(key)
     if cached:
@@ -176,7 +183,9 @@ async def list_items(
             page_size=data["page_size"],
         )
 
-    query = ref_repo.build_select_query(resource, type_reseau=type_reseau)
+    query = ref_repo.build_select_query(
+        resource, type_reseau=type_reseau, statut=statut, recherche=recherche, tri=tri
+    )
     model = ref_repo.get_model(resource)
     result = await paginate(db, query, page, page_size, scalar_type=model)
     items = [_build_response(r) for r in result.items]

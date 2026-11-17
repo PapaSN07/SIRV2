@@ -10,6 +10,13 @@ NATIONAL_ROLES: frozenset[str] = frozenset(
 )
 
 
+# Rôles prévus par SIRV2 : leur nom est utilisé dans le code (périmètres, workflow).
+# Tout autre rôle est un rôle créé dans Administration → Rôles : ses droits viennent de la matrice.
+ROLES_SYSTEME: frozenset[str] = frozenset(
+    {"BCC", "BRC", "DISPATCHER", "ADMIN_SCR", "ADMIN_DISPATCHING", "ADMIN_SAQS", "SUPERVISEUR", SUPERADMIN_ROLE}
+)
+
+
 def role_names(user: Utilisateur) -> set[str]:
     return {ur.role.nom for ur in user.user_roles}
 

@@ -101,6 +101,15 @@ export class AuthService {
     return roles.includes(user.role_label);
   }
 
+  /** Droit « ressource:action » donné par la matrice Administration → Rôles (SUPERADMIN : tout). */
+  hasPermission(...permissions: string[]): boolean {
+    const user = this.currentUser();
+    if (!user) return false;
+    if (user.role_label === 'SUPERADMIN') return true;
+    const droits = user.permissions ?? [];
+    return permissions.some((p) => droits.includes(p));
+  }
+
   /** Rôle réel du compte, sans le passe-droit SUPERADMIN. Sert au périmètre (région). */
   isExactRole(...roles: string[]): boolean {
     const label = this.currentUser()?.role_label;

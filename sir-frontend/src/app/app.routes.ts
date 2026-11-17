@@ -51,7 +51,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/distribution',
         canActivate: [roleGuard],
-        data: { roles: DISTRIBUTION_READ_ROLES },
+        data: { roles: DISTRIBUTION_READ_ROLES, permission: 'interruptions_distribution:read' },
         loadComponent: () =>
           import('./features/interruptions-distribution/interruption-list/interruption-list.component').then(
             (m) => m.InterruptionListComponent,
@@ -60,7 +60,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/distribution/nouveau',
         canActivate: [roleGuard],
-        data: { roles: DISTRIBUTION_WRITE_ROLES },
+        data: { roles: DISTRIBUTION_WRITE_ROLES, permission: 'interruptions_distribution:create' },
         loadComponent: () =>
           import('./features/interruptions-distribution/interruption-form/interruption-form.component').then(
             (m) => m.InterruptionFormComponent,
@@ -69,7 +69,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/distribution/import-fis',
         canActivate: [roleGuard],
-        data: { roles: DISTRIBUTION_WRITE_ROLES },
+        data: { roles: DISTRIBUTION_WRITE_ROLES, permission: 'interruptions_distribution:create' },
         loadComponent: () =>
           import('./features/interruptions-distribution/fis-import/fis-import.component').then(
             (m) => m.FisImportComponent,
@@ -78,7 +78,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/distribution/:id/modifier',
         canActivate: [roleGuard],
-        data: { roles: DISTRIBUTION_WRITE_ROLES },
+        data: { roles: DISTRIBUTION_WRITE_ROLES, permission: 'interruptions_distribution:update' },
         loadComponent: () =>
           import('./features/interruptions-distribution/interruption-form/interruption-form.component').then(
             (m) => m.InterruptionFormComponent,
@@ -87,7 +87,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/distribution/:id',
         canActivate: [roleGuard],
-        data: { roles: DISTRIBUTION_READ_ROLES },
+        data: { roles: DISTRIBUTION_READ_ROLES, permission: 'interruptions_distribution:read' },
         loadComponent: () =>
           import('./features/interruptions-distribution/interruption-detail/interruption-detail.component').then(
             (m) => m.InterruptionDetailComponent,
@@ -96,7 +96,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/transport',
         canActivate: [transportActifGuard, roleGuard],
-        data: { roles: TRANSPORT_READ_ROLES },
+        data: { roles: TRANSPORT_READ_ROLES, permission: 'interruptions_transport:read' },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-list/interruption-list.component').then(
             (m) => m.InterruptionTransportListComponent,
@@ -105,7 +105,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/transport/nouveau',
         canActivate: [transportActifGuard, roleGuard],
-        data: { roles: TRANSPORT_WRITE_ROLES },
+        data: { roles: TRANSPORT_WRITE_ROLES, permission: 'interruptions_transport:create' },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-form/interruption-form.component').then(
             (m) => m.InterruptionTransportFormComponent,
@@ -114,7 +114,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/transport/:id/modifier',
         canActivate: [transportActifGuard, roleGuard],
-        data: { roles: TRANSPORT_WRITE_ROLES },
+        data: { roles: TRANSPORT_WRITE_ROLES, permission: 'interruptions_transport:update' },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-form/interruption-form.component').then(
             (m) => m.InterruptionTransportFormComponent,
@@ -123,7 +123,7 @@ export const routes: Routes = [
       {
         path: 'interruptions/transport/:id',
         canActivate: [transportActifGuard, roleGuard],
-        data: { roles: TRANSPORT_READ_ROLES },
+        data: { roles: TRANSPORT_READ_ROLES, permission: 'interruptions_transport:read' },
         loadComponent: () =>
           import('./features/interruptions-transport/interruption-detail/interruption-detail.component').then(
             (m) => m.InterruptionTransportDetailComponent,
@@ -132,7 +132,7 @@ export const routes: Routes = [
       {
         path: 'workflow/validation',
         canActivate: [roleGuard],
-        data: { roles: VALIDATION_ROLES },
+        data: { roles: VALIDATION_ROLES, permission: 'interruptions_distribution:validate' },
         loadComponent: () =>
           import('./features/workflow/validation-queue/validation-queue.component').then(
             (m) => m.ValidationQueueComponent,
@@ -141,7 +141,7 @@ export const routes: Routes = [
       {
         path: 'indicateurs',
         canActivate: [roleGuard],
-        data: { roles: INDICATEURS_ROLES },
+        data: { roles: INDICATEURS_ROLES, permission: 'indicateurs:read' },
         loadComponent: () =>
           import('./features/indicateurs/indicateurs-hub/indicateurs-hub.component').then(
             (m) => m.IndicateursHubComponent,
@@ -150,7 +150,7 @@ export const routes: Routes = [
       {
         path: 'indicateurs/base-clients/atelier',
         canActivate: [roleGuard],
-        data: { roles: INDICATEURS_ROLES },
+        data: { roles: INDICATEURS_ROLES, permission: 'indicateurs:read' },
         loadComponent: () =>
           import('./features/indicateurs/atelier-clients/atelier-clients.component').then(
             (m) => m.AtelierClientsComponent,
@@ -159,7 +159,7 @@ export const routes: Routes = [
       {
         path: 'indicateurs/base-clients',
         canActivate: [roleGuard],
-        data: { roles: INDICATEURS_ROLES },
+        data: { roles: INDICATEURS_ROLES, permission: 'indicateurs:read' },
         loadComponent: () =>
           import('./features/indicateurs/base-clients/base-clients.component').then(
             (m) => m.BaseClientsComponent,
@@ -168,7 +168,7 @@ export const routes: Routes = [
       {
         path: 'assistant',
         canActivate: [roleGuard],
-        data: { roles: ASSISTANT_ROLES },
+        data: { roles: ASSISTANT_ROLES, permission: 'assistant:read' },
         loadComponent: () =>
           import('./features/assistant/assistant-hub/assistant-hub.component').then(
             (m) => m.AssistantHubComponent,
@@ -177,7 +177,7 @@ export const routes: Routes = [
       {
         path: 'rapports',
         canActivate: [roleGuard],
-        data: { roles: RAPPORTS_ROLES },
+        data: { roles: RAPPORTS_ROLES, permission: 'rapports:read' },
         loadComponent: () =>
           import('./features/rapports/rapports-hub/rapports-hub.component').then(
             (m) => m.RapportsHubComponent,
@@ -205,7 +205,7 @@ export const routes: Routes = [
       {
         path: 'admin/reseau/distribution',
         canActivate: [roleGuard],
-        data: { roles: ADMIN_RESEAU_DIST_ROLES },
+        data: { roles: ADMIN_RESEAU_DIST_ROLES, permission: 'reseau:read' },
         loadComponent: () =>
           import('./features/admin/reseau-distribution-admin/reseau-distribution-admin.component').then(
             (m) => m.ReseauDistributionAdminComponent,
@@ -223,7 +223,7 @@ export const routes: Routes = [
       {
         path: 'admin/utilisateurs',
         canActivate: [roleGuard],
-        data: { roles: ADMIN_USERS_ROLES },
+        data: { roles: ADMIN_USERS_ROLES, permission: 'admin_utilisateurs:read' },
         loadComponent: () =>
           import('./features/admin/utilisateurs/utilisateurs-list.component').then(
             (m) => m.UtilisateursListComponent,
@@ -232,16 +232,25 @@ export const routes: Routes = [
       {
         path: 'admin/roles',
         canActivate: [roleGuard],
-        data: { roles: ADMIN_USERS_ROLES },
+        data: { roles: ADMIN_USERS_ROLES, permission: 'admin_roles:read' },
         loadComponent: () =>
           import('./features/admin/roles-list/roles-list.component').then(
             (m) => m.RolesListComponent,
           ),
       },
       {
+        path: 'admin/objectifs',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN_SCR', 'ADMIN_SAQS'] },
+        loadComponent: () =>
+          import('./features/admin/objectifs-admin/objectifs-admin.component').then(
+            (m) => m.ObjectifsAdminComponent,
+          ),
+      },
+      {
         path: 'admin/audit-log',
         canActivate: [roleGuard],
-        data: { roles: ADMIN_USERS_ROLES },
+        data: { roles: ADMIN_USERS_ROLES, permission: 'admin_utilisateurs:read' },
         loadComponent: () =>
           import('./features/admin/audit-log-list/audit-log-list.component').then(
             (m) => m.AuditLogListComponent,
@@ -259,14 +268,14 @@ export const routes: Routes = [
       {
         path: 'napt',
         canActivate: [roleGuard],
-        data: { roles: ['BCC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR'] },
+        data: { roles: ['BCC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR'], permission: 'napt:read' },
         loadComponent: () =>
           import('./features/napt/napt-list/napt-list.component').then((m) => m.NaptListComponent),
       },
       {
         path: 'notifications/sms',
         canActivate: [roleGuard],
-        data: { roles: NOTIFICATIONS_READ_ROLES },
+        data: { roles: NOTIFICATIONS_READ_ROLES, permission: 'notifications:read' },
         loadComponent: () =>
           import('./features/notifications/sms-list/sms-list.component').then(
             (m) => m.SmsListComponent,
@@ -275,7 +284,7 @@ export const routes: Routes = [
       {
         path: 'notifications/sms/envoyer',
         canActivate: [roleGuard],
-        data: { roles: NOTIFICATIONS_ADMIN_ROLES },
+        data: { roles: NOTIFICATIONS_ADMIN_ROLES, permission: 'notifications:admin' },
         loadComponent: () =>
           import('./features/notifications/sms-send/sms-send.component').then(
             (m) => m.SmsSendComponent,
@@ -284,7 +293,7 @@ export const routes: Routes = [
       {
         path: 'notifications/destinataires',
         canActivate: [roleGuard],
-        data: { roles: NOTIFICATIONS_READ_ROLES },
+        data: { roles: NOTIFICATIONS_READ_ROLES, permission: 'notifications:read' },
         loadComponent: () =>
           import('./features/notifications/destinataires-list/destinataires-list.component').then(
             (m) => m.DestinatairesListComponent,
@@ -293,7 +302,7 @@ export const routes: Routes = [
       {
         path: 'notifications/emails',
         canActivate: [roleGuard],
-        data: { roles: NOTIFICATIONS_READ_ROLES },
+        data: { roles: NOTIFICATIONS_READ_ROLES, permission: 'notifications:read' },
         loadComponent: () =>
           import('./features/notifications/emails-list/emails-list.component').then(
             (m) => m.EmailsListComponent,

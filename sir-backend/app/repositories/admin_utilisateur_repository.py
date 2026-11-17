@@ -4,6 +4,7 @@ from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.rbac_helpers import ROLES_SYSTEME
 from app.models.utilisateurs import Role, UserRole, Utilisateur
 
 # Rôles gérés par chaque direction admin
@@ -32,7 +33,8 @@ def allowed_roles_for_direction(direction: str) -> frozenset[str]:
 def user_has_direction_role(user: Utilisateur, direction: str) -> bool:
     """Vérifie si l'utilisateur possède au moins un rôle de la direction."""
     allowed = allowed_roles_for_direction(direction)
-    return any(ur.role.nom in allowed for ur in user.user_roles)
+    # Rôle créé dans la matrice (hors rôles SIRV2) : visible des deux directions
+    return any(ur.role.nom in allowed or ur.role.nom not in ROLES_SYSTEME for ur in user.user_roles)
 
 
 async def get_by_id(db: AsyncSession, user_id: int) -> Utilisateur | None:
@@ -90,7 +92,7 @@ async def list_by_direction(
     user_ids_subq = (
         select(UserRole.utilisateur_id)
         .join(Role, UserRole.role_id == Role.id)
-        .where(Role.nom.in_(allowed))
+        .where(or_(Role.nom.in_(allowed), Role.nom.notin_(ROLES_SYSTEME)))
         .distinct()
     )
 
@@ -148,6 +150,7 @@ async def create(
     telephone: str | None,
     roles: list[tuple[int, int | None]],
     matricule: str | None = None,
+    premiere_connexion: bool = True,
 ) -> Utilisateur:
     user = Utilisateur(
         login=login,
@@ -158,7 +161,7 @@ async def create(
         matricule=matricule,
         telephone=telephone,
         is_active=True,
-        premiere_connexion=True,
+        premiere_connexion=premiere_connexion,
     )
     db.add(user)
     await db.flush()
@@ -250,3 +253,12 @@ async def reset_password(
     )
     await db.flush()
     return await get_by_id(db, user_id)
+
+
+async def logins_existants(db: AsyncSession, logins: list[str]) -> set[str]:
+    """Logins (en minuscules) déjà présents dans SIRV2 parmi ceux donnés."""
+    if not logins:
+        return set()
+    minuscules = sorted({login.lower() for login in logins})
+    result = await db.execute(select(Utilisateur.login).where(func.lower(Utilisateur.login).in_(minuscules)))
+    return {login.lower() for (login,) in result.all()}

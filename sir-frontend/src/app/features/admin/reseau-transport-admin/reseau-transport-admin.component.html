@@ -19,19 +19,19 @@
 
   <sir-admin-nav />
 
-  <div class="tabs">
+  <div class="sir-tabs">
     <button
       type="button"
-      class="tabs__btn"
-      [class.tabs__btn--active]="activeTab() === 'equipements'"
+      class="sir-tab"
+      [class.sir-tab--active]="activeTab() === 'equipements'"
       (click)="onTabChange('equipements')"
     >
       Équipements
     </button>
     <button
       type="button"
-      class="tabs__btn"
-      [class.tabs__btn--active]="activeTab() === 'sources'"
+      class="sir-tab"
+      [class.sir-tab--active]="activeTab() === 'sources'"
       (click)="onTabChange('sources')"
     >
       Sources

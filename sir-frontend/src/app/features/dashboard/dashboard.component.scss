@@ -1099,7 +1099,7 @@
 }
 
 .outage-list {
-  max-height: 360px;
+  max-height: 520px;
   overflow: auto;
 
   a {
@@ -1147,39 +1147,10 @@
 
 // ── Onglets du tableau de bord ──────────────────────────────────────────────
 .dashboard-tabs {
-  display: flex;
-  gap: 0.25rem;
-  margin: 1.5rem 0 1rem;
-  border-bottom: 1px solid $outline-variant;
+  margin-top: 1.5rem;
+  width: fit-content;
+  max-width: 100%;
   overflow-x: auto;
-
-  &__tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 44px;
-    padding: 0 1rem;
-    border: none;
-    border-bottom: 3px solid transparent;
-    background: transparent;
-    font: 600 14px Inter, sans-serif;
-    color: $on-surface-variant;
-    cursor: pointer;
-    white-space: nowrap;
-
-    .material-symbols-outlined {
-      font-size: 20px;
-    }
-
-    &:hover {
-      color: $on-surface;
-    }
-
-    &--active {
-      border-bottom-color: $primary;
-      color: $primary;
-    }
-  }
 }
 
 // ── Deux graphiques d'évolution, une échelle chacun ─────────────────────────
@@ -1468,5 +1439,27 @@
     text-align: center !important;
     font-weight: 400 !important;
     color: $on-surface-variant !important;
+  }
+}
+
+.objectif-lien {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: #f4f2fb;
+  color: #403a52;
+  font-size: 13px;
+
+  .material-symbols-outlined {
+    font-size: 18px;
+    color: #5b2a9e;
+  }
+
+  a {
+    color: #5b2a9e;
+    font-weight: 600;
   }
 }

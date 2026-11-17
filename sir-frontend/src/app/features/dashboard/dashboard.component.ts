@@ -1,6 +1,7 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { CartePostesComponent } from '../../shared/ui/carte-postes/carte-postes.component';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
@@ -10,11 +11,8 @@ import {
   CauseRepartitionItem,
   GranulariteTableau,
   HistoriquePoint,
-  IndicateurSuivi,
   NatureServiceRepartition,
-  ObjectifsPilotageUpdate,
   PilotageResponse,
-  PosteOuvertCarte,
   SyntheseSaifiSaidiResponse,
   TableauDeBordResponse,
   TendanceResponse,
@@ -37,43 +35,6 @@ interface ChartMonth {
 }
 
 type DashboardTab = 'synthese' | 'objectifs' | 'reseau';
-
-/**
- * Cadre du fond de carte assets/maps/senegal.svg (Natural Earth 1:10m, domaine public) :
- * toute position est exprimée en % de ce cadre, pour les postes comme pour les repères.
- */
-const MAP_FRAME = { lonMin: -17.55, lonMax: -11.3, latMin: 12.25, latMax: 16.75 };
-
-function projectSenegal(lon: number, lat: number): { left: number; top: number } {
-  return {
-    left: ((lon - MAP_FRAME.lonMin) / (MAP_FRAME.lonMax - MAP_FRAME.lonMin)) * 100,
-    top: ((MAP_FRAME.latMax - lat) / (MAP_FRAME.latMax - MAP_FRAME.latMin)) * 100,
-  };
-}
-
-const MAP_CITIES: { name: string; lon: number; lat: number; side?: 'right' }[] = [
-  // Dakar est au bord ouest du cadre : étiquette à droite du point
-  { name: 'Dakar', lon: -17.45, lat: 14.69, side: 'right' },
-  { name: 'Thiès', lon: -16.93, lat: 14.79 },
-  { name: 'Saint-Louis', lon: -16.49, lat: 16.03 },
-  { name: 'Touba', lon: -15.88, lat: 14.86 },
-  { name: 'Kaolack', lon: -16.07, lat: 14.15 },
-  { name: 'Ziguinchor', lon: -16.27, lat: 12.57 },
-  { name: 'Tambacounda', lon: -13.67, lat: 13.77 },
-  { name: 'Matam', lon: -13.25, lat: 15.66 },
-];
-
-interface ObjectifDraft {
-  end_mwh: string;
-  saifi: string;
-  saidi: string;
-  defauts_100km: string;
-}
-
-interface MapPin extends PosteOuvertCarte {
-  left: number;
-  top: number;
-}
 
 interface ServiceBar {
   service_id: number;
@@ -100,7 +61,7 @@ const CAUSE_COLORS = ['#5b2c6f', '#7a4b8c', '#9a74aa', '#b79ac4', '#d4c4dc'];
 @Component({
   selector: 'sir-dashboard',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe],
+  imports: [RouterLink, DatePipe, DecimalPipe, CartePostesComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -219,14 +180,6 @@ export class DashboardComponent implements OnInit {
   readonly pilotage = signal<PilotageResponse | null>(null);
   readonly pilotageLoading = signal(false);
   readonly pilotageError = signal<string | null>(null);
-  readonly objectifDraft = signal<ObjectifDraft>({
-    end_mwh: '',
-    saifi: '',
-    saidi: '',
-    defauts_100km: '',
-  });
-  readonly objectifSaving = signal(false);
-  readonly objectifMessage = signal<string | null>(null);
   readonly tendanceCible = signal<'feeder' | 'poste'>('feeder');
   readonly tendanceAnnees = signal(3);
   readonly tendance = signal<TendanceResponse | null>(null);
@@ -236,17 +189,9 @@ export class DashboardComponent implements OnInit {
 
   readonly natureService = computed((): NatureServiceRepartition | null => this.kpi()?.nature_service ?? null);
 
-  readonly mapPins = computed((): MapPin[] =>
-    (this.pilotage()?.postes_ouverts ?? [])
-      .filter((poste) => poste.latitude !== null && poste.longitude !== null)
-      .map((poste) => {
-        const { left, top } = projectSenegal(poste.longitude!, poste.latitude!);
-        return { ...poste, left: Math.min(97, Math.max(3, left)), top: Math.min(97, Math.max(3, top)) };
-      }),
-  );
-
-  /** Repères sur le fond de carte (même projection que les postes). */
-  readonly mapCities = MAP_CITIES.map((c) => ({ ...c, ...projectSenegal(c.lon, c.lat) }));
+  ouvrirInterruption(id: number): void {
+    void this.router.navigate(['/interruptions/distribution', id]);
+  }
 
   readonly postesSansCoord = computed(() =>
     (this.pilotage()?.postes_ouverts ?? []).filter(
@@ -394,51 +339,6 @@ export class DashboardComponent implements OnInit {
     return 'gauge gauge--over';
   }
 
-  onObjectifInput(field: keyof ObjectifDraft, value: string): void {
-    this.objectifDraft.update((draft) => ({ ...draft, [field]: value }));
-  }
-
-  saveObjectifs(): void {
-    const data = this.pilotage();
-    if (!data) return;
-    const draft = this.objectifDraft();
-    const body: ObjectifsPilotageUpdate = { annee: data.annee_objectif };
-    const end = this.parseObjectif(draft.end_mwh);
-    const saifi = this.parseObjectif(draft.saifi);
-    const saidi = this.parseObjectif(draft.saidi);
-    const defauts = this.parseObjectif(draft.defauts_100km);
-    if (end === null || saifi === null || saidi === null || defauts === null) {
-      this.objectifMessage.set('Chaque objectif saisi doit être un nombre positif ou nul.');
-      return;
-    }
-    if (end !== undefined) body.end_mwh = end;
-    if (saifi !== undefined) body.saifi = saifi;
-    if (saidi !== undefined) body.saidi = saidi;
-    if (defauts !== undefined) body.defauts_100km = defauts;
-    if (
-      body.end_mwh === undefined &&
-      body.saifi === undefined &&
-      body.saidi === undefined &&
-      body.defauts_100km === undefined
-    ) {
-      this.objectifMessage.set('Saisissez au moins un objectif annuel.');
-      return;
-    }
-    this.objectifSaving.set(true);
-    this.objectifMessage.set(null);
-    this.dashboardService.saveObjectifs(body).subscribe({
-      next: () => {
-        this.objectifSaving.set(false);
-        this.objectifMessage.set('Objectifs enregistrés.');
-        this.loadPilotage();
-      },
-      error: (err: Error) => {
-        this.objectifSaving.set(false);
-        this.objectifMessage.set(err.message);
-      },
-    });
-  }
-
   onTendanceCibleChange(value: string): void {
     const cible = value === 'poste' ? 'poste' : 'feeder';
     this.tendanceCible.set(cible);
@@ -567,7 +467,6 @@ export class DashboardComponent implements OnInit {
       next: (data) => {
         this.pilotage.set(data);
         this.pilotageLoading.set(false);
-        this.syncObjectifDraft(data);
         this.ensureTendance(data);
       },
       error: (err: Error) => {
@@ -575,29 +474,6 @@ export class DashboardComponent implements OnInit {
         this.pilotageLoading.set(false);
       },
     });
-  }
-
-  private syncObjectifDraft(data: PilotageResponse): void {
-    const byCode = new Map(data.indicateurs.map((item) => [item.code, item]));
-    this.objectifDraft.set({
-      end_mwh: this.draftValue(byCode.get('END')),
-      saifi: this.draftValue(byCode.get('SAIFI')),
-      saidi: this.draftValue(byCode.get('SAIDI')),
-      defauts_100km: this.draftValue(byCode.get('DEFAUTS_100KM')),
-    });
-  }
-
-  private draftValue(item: IndicateurSuivi | undefined): string {
-    if (!item || item.objectif_annuel === null || item.objectif_annuel === undefined) return '';
-    return String(item.objectif_annuel);
-  }
-
-  private parseObjectif(value: string): number | null | undefined {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const parsed = Number(trimmed.replace(',', '.'));
-    if (!Number.isFinite(parsed) || parsed < 0) return null;
-    return parsed;
   }
 
   private ensureTendance(data: PilotageResponse): void {

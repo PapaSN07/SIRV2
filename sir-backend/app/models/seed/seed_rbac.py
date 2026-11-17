@@ -45,6 +45,8 @@ _PERMISSIONS: list[tuple[str, str, str]] = [
     ("admin_utilisateurs", "create", "Créer un utilisateur"),
     ("admin_utilisateurs", "read", "Lire les utilisateurs"),
     ("admin_utilisateurs", "update", "Modifier un utilisateur"),
+    ("admin_roles", "read", "Consulter les rôles et la matrice des droits"),
+    ("admin_roles", "update", "Créer des rôles et modifier la matrice des droits"),
 ]
 
 # Format : (nom_role, description, [(ressource, action), ...])
@@ -102,6 +104,8 @@ _ROLES: list[tuple[str, str, list[tuple[str, str]]]] = [
             ("admin_utilisateurs", "create"),
             ("admin_utilisateurs", "read"),
             ("admin_utilisateurs", "update"),
+            ("admin_roles", "read"),
+            ("admin_roles", "update"),
             ("indicateurs", "read"),
             ("assistant", "read"),
             ("assistant", "admin"),
@@ -125,6 +129,7 @@ _ROLES: list[tuple[str, str, list[tuple[str, str]]]] = [
             ("admin_utilisateurs", "create"),
             ("admin_utilisateurs", "read"),
             ("admin_utilisateurs", "update"),
+            ("admin_roles", "read"),
             ("rapports", "read"),
             ("notifications", "read"),
             ("notifications", "admin"),

@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiResponse, PaginatedResponse } from '../../../shared/models/api.models';
+import { PosteOuvertCarte } from '../../../shared/models/indicateurs.models';
 import {
   InterruptionClotureRequest,
   InterruptionDistribution,
@@ -28,6 +29,13 @@ import {
 @Injectable({ providedIn: 'root' })
 export class InterruptionDistributionService {
   private readonly apiUrl = `${environment.apiUrl}/interruptions/distribution`;
+
+  /** Postes encore privés de courant (interruptions sans date de remise), avec coordonnées SIG. */
+  getPostesSansRemise(): Observable<PosteOuvertCarte[]> {
+    return this.http
+      .get<ApiResponse<PosteOuvertCarte[]>>(`${environment.apiUrl}/indicateurs/carte/postes-sans-remise`)
+      .pipe(map((res) => this.unwrap(res)));
+  }
 
   constructor(private readonly http: HttpClient) {}
 

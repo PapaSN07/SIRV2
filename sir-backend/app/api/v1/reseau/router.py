@@ -120,6 +120,12 @@ async def list_feeders(
     poste_source_id: int | None = Query(default=None),
     service_id: int | None = Query(default=None),
     region_id: int | None = Query(default=None, ge=1),
+    q: str | None = Query(default=None, max_length=100, description="Recherche code / libellé / poste source / feeder"),
+    tri: str | None = Query(
+        default=None,
+        pattern=r"^-?(code|libelle|poste_source_libelle|feeder_libelle|service_libelle)$",
+        description="Colonne de tri, « - » = décroissant",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[FeederResponse]]:
@@ -132,6 +138,8 @@ async def list_feeders(
         poste_source_id=poste_source_id,
         service_id=service_id,
         region_id=region_id,
+        recherche=q,
+        tri=tri,
     )
     return ApiResponse.success(result)
 
@@ -205,6 +213,12 @@ async def list_postes(
     page_size: int = Query(20, ge=1, le=500),
     feeder_id: int | None = Query(default=None),
     service_id: int | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=100, description="Recherche code / libellé / poste source / feeder"),
+    tri: str | None = Query(
+        default=None,
+        pattern=r"^-?(code|libelle|poste_source_libelle|feeder_libelle|service_libelle)$",
+        description="Colonne de tri, « - » = décroissant",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[PosteResponse]]:
@@ -216,6 +230,8 @@ async def list_postes(
         page_size,
         feeder_id=feeder_id,
         service_id=service_id,
+        recherche=q,
+        tri=tri,
     )
     return ApiResponse.success(result)
 

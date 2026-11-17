@@ -272,6 +272,27 @@ class ObjectifsPilotageUpdate(BaseModel):
     defauts_100km: float | None = Field(default=None, ge=0)
 
 
+class ObjectifsLigneResponse(BaseModel):
+    """Objectifs annuels d'un périmètre : national (``region_id`` absent) ou une région."""
+
+    region_id: int | None = None
+    libelle: str
+    end_mwh: float | None = None
+    saifi: float | None = None
+    saidi: float | None = None
+    defauts_100km: float | None = None
+
+
+class ObjectifsAdminResponse(BaseModel):
+    annee: int
+    peut_modifier: bool
+    lignes: list[ObjectifsLigneResponse]
+
+
+class ObjectifsAdminUpdate(ObjectifsPilotageUpdate):
+    region_id: int | None = Field(default=None, ge=1, description="Absent : objectifs nationaux")
+
+
 class TendancePointResponse(BaseModel):
     annee: int
     mois: int

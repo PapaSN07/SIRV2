@@ -8,6 +8,7 @@ import {
   ReferentielItem,
   ReferentielResource,
   ReferentielUpdate,
+  StatutReferentiel,
   TypeReseau,
 } from '../../../shared/models/referentiel.models';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
@@ -18,16 +19,18 @@ interface ReferentielTab {
   key: ReferentielResource;
   label: string;
   filterType: boolean;
+  icon: string;
+  aide: string;
 }
 
 const TABS: ReferentielTab[] = [
-  { key: 'causes', label: 'Causes', filterType: true },
-  { key: 'sieges', label: 'Sièges', filterType: true },
-  { key: 'signalisations', label: 'Signalisations', filterType: true },
-  { key: 'natures', label: 'Natures', filterType: false },
-  { key: 'types_end', label: 'Types de fin', filterType: false },
-  { key: 'entreprises', label: 'Entreprises', filterType: false },
-  { key: 'prestataires', label: 'Prestataires', filterType: false },
+  { key: 'causes', label: 'Causes', filterType: true, icon: 'report', aide: 'Causes des interruptions (saisie, rapports, indicateurs).' },
+  { key: 'sieges', label: 'Sièges', filterType: true, icon: 'location_on', aide: 'Siège du défaut sur le réseau (câble, cellule, transformateur…).' },
+  { key: 'signalisations', label: 'Signalisations', filterType: true, icon: 'notification_important', aide: 'Protections et signalisations relevées au déclenchement.' },
+  { key: 'natures', label: 'Natures', filterType: false, icon: 'category', aide: 'Nature de l\'interruption (permanent, fugitif, travaux…).' },
+  { key: 'types_end', label: 'Types de rapport', filterType: false, icon: 'assessment', aide: 'Classement de l\'END dans les rapports (incident, travaux, délestage…).' },
+  { key: 'entreprises', label: 'Entreprises', filterType: false, icon: 'domain', aide: 'Entreprises intervenant sur le réseau.' },
+  { key: 'prestataires', label: 'Prestataires', filterType: false, icon: 'engineering', aide: 'Prestataires de travaux.' },
 ];
 
 interface ReferentielFormState {
@@ -59,6 +62,10 @@ export class ReferentielListComponent implements OnInit {
   readonly total = signal(0);
   readonly page = signal(1);
   readonly typeReseau = signal<TypeReseau | null>(null);
+  readonly statut = signal<StatutReferentiel>('tous');
+  readonly recherche = signal('');
+  readonly tri = signal<string>('libelle');
+  private delaiRecherche: ReturnType<typeof setTimeout> | null = null;
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -76,8 +83,57 @@ export class ReferentielListComponent implements OnInit {
     this.activeTabIndex.set(index);
     this.page.set(1);
     this.typeReseau.set(null);
+    this.recherche.set('');
     this.closeForm();
     this.load();
+  }
+
+  /** Recherche à la frappe (300 ms après la dernière touche), depuis la première page. */
+  onRecherche(texte: string): void {
+    this.recherche.set(texte);
+    if (this.delaiRecherche) clearTimeout(this.delaiRecherche);
+    this.delaiRecherche = setTimeout(() => {
+      this.page.set(1);
+      this.load();
+    }, 300);
+  }
+
+  onStatutChange(value: string): void {
+    this.statut.set((value as StatutReferentiel) || 'tous');
+    this.page.set(1);
+    this.load();
+  }
+
+  /** Clic sur un en-tête : tri croissant, puis décroissant. */
+  trier(colonne: string): void {
+    this.tri.set(this.tri() === colonne ? '-' + colonne : colonne);
+    this.page.set(1);
+    this.load();
+  }
+
+  iconeTri(colonne: string): string {
+    if (this.tri() === colonne) return 'arrow_upward';
+    if (this.tri() === '-' + colonne) return 'arrow_downward';
+    return 'unfold_more';
+  }
+
+  libelleType(type: TypeReseau | null): string {
+    return type === 'distribution' ? 'Distribution' : type === 'transport' ? 'Transport' : type === 'commun' ? 'Commun' : '—';
+  }
+
+  reactivate(item: ReferentielItem): void {
+    this.referentiel
+      .update(this.activeTab().key, item.id, {
+        code: item.code,
+        libelle: item.libelle,
+        type_reseau: item.type_reseau,
+        description: item.description,
+        is_active: true,
+      })
+      .subscribe({
+        next: () => this.load(),
+        error: (err: Error) => this.error.set(err.message),
+      });
   }
 
   onTypeChange(value: string): void {
@@ -193,6 +249,9 @@ export class ReferentielListComponent implements OnInit {
         page: this.page(),
         page_size: this.pageSize,
         type_reseau: tab.filterType ? (this.typeReseau() ?? undefined) : undefined,
+        statut: this.statut(),
+        q: this.recherche(),
+        tri: this.tri(),
       })
       .subscribe({
         next: (res) => {

@@ -35,6 +35,36 @@ class LdapUser:
     mail: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class AnnuaireEntree:
+    """Compte de l'annuaire proposé à l'ajout dans SIRV2 (jamais de mot de passe)."""
+
+    login: str
+    prenom: str | None
+    nom: str | None
+    nom_affiche: str | None
+    email: str | None
+    telephone: str | None
+    matricule: str | None
+    service: str | None
+    fonction: str | None
+
+
+_ANNUAIRE_ATTRIBUTES = (
+    "sAMAccountName",
+    "givenName",
+    "sn",
+    "displayName",
+    "mail",
+    "telephoneNumber",
+    "mobile",
+    "employeeID",
+    "employeeNumber",
+    "department",
+    "title",
+)
+
+
 class LdapConfigurationError(RuntimeError):
     """LDAP activé mais paramètres incomplets."""
 
@@ -155,6 +185,65 @@ def search_user_by_login(login: str) -> LdapUser | None:
         raise LdapBindError(str(exc)) from exc
     finally:
         conn.unbind()
+
+
+def rechercher_annuaire(texte: str, limite: int = 15) -> list[AnnuaireEntree]:
+    """Comptes AD dont le login, le nom, le prénom, l'e-mail ou le matricule contient chaque mot saisi.
+
+    Comptes désactivés exclus (bit 2 de userAccountControl). Lève LdapConfigurationError si l'annuaire
+    n'est pas configuré, LdapBindError s'il est injoignable.
+    """
+    if not settings.ldap_is_configured:
+        raise LdapConfigurationError("Annuaire LDAP non configuré")
+    mots = [m for m in texte.strip().split() if m][:4]
+    if not mots:
+        return []
+    criteres = "".join(
+        "(|(sAMAccountName=*{m}*)(displayName=*{m}*)(sn=*{m}*)(givenName=*{m}*)(mail=*{m}*)(employeeID={m}*))".format(
+            m=escape_filter_chars(mot)
+        )
+        for mot in mots
+    )
+    filt = (
+        "(&(objectCategory=person)(objectClass=user)"
+        "(!(userAccountControl:1.2.840.113556.1.4.803:=2))" + criteres + ")"
+    )
+    conn = _service_connection()
+    try:
+        try:
+            conn.search(
+                search_base=_strip_quotes(settings.ldap_base_dn),
+                search_filter=filt,
+                search_scope=SUBTREE,
+                attributes=list(_ANNUAIRE_ATTRIBUTES),
+                size_limit=max(1, min(limite, 50)),
+            )
+        except LDAPException as exc:
+            # Limite de taille atteinte : les premières entrées lues restent exploitables
+            if "sizelimit" not in type(exc).__name__.lower():
+                raise LdapBindError(str(exc)) from exc
+        resultats = [e for e in (_entree_annuaire(entry) for entry in conn.entries) if e is not None]
+        return sorted(resultats, key=lambda e: (e.nom or "", e.prenom or "", e.login))
+    finally:
+        conn.unbind()
+
+
+def _entree_annuaire(entry: object) -> AnnuaireEntree | None:
+    attrs = entry.entry_attributes_as_dict  # type: ignore[attr-defined]
+    login = _first_str(attrs.get("sAMAccountName"))
+    if not login:
+        return None
+    return AnnuaireEntree(
+        login=login,
+        prenom=_first_str(attrs.get("givenName")),
+        nom=_first_str(attrs.get("sn")),
+        nom_affiche=_first_str(attrs.get("displayName")),
+        email=_first_str(attrs.get("mail")),
+        telephone=_first_str(attrs.get("mobile")) or _first_str(attrs.get("telephoneNumber")),
+        matricule=_first_str(attrs.get("employeeID")) or _first_str(attrs.get("employeeNumber")),
+        service=_first_str(attrs.get("department")),
+        fonction=_first_str(attrs.get("title")),
+    )
 
 
 def verify_user_password(login: str, password: str) -> bool | None:

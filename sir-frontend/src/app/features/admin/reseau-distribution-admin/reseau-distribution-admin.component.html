@@ -11,7 +11,7 @@
       <div actions>
         <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
           <span class="material-symbols-outlined" aria-hidden="true">add</span>
-          Nouvel élément
+          {{ activeTab() === 'feeders' ? 'Nouveau feeder' : 'Nouveau poste' }}
         </button>
       </div>
     }
@@ -19,23 +19,59 @@
 
   <sir-admin-nav />
 
-  <div class="tabs">
-    <button
-      type="button"
-      class="tabs__btn"
-      [class.tabs__btn--active]="activeTab() === 'feeders'"
-      (click)="onTabChange('feeders')"
-    >
-      Feeders
-    </button>
-    <button
-      type="button"
-      class="tabs__btn"
-      [class.tabs__btn--active]="activeTab() === 'postes'"
-      (click)="onTabChange('postes')"
-    >
-      Postes
-    </button>
+  <div class="sir-card">
+  <div class="reseau-tete">
+    <div class="segment" role="tablist" aria-label="Élément du réseau">
+      <button
+        type="button"
+        role="tab"
+        class="segment__btn"
+        [class.segment__btn--active]="activeTab() === 'feeders'"
+        [attr.aria-selected]="activeTab() === 'feeders'"
+        (click)="onTabChange('feeders')"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">cable</span>
+        Feeders (départs)
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="segment__btn"
+        [class.segment__btn--active]="activeTab() === 'postes'"
+        [attr.aria-selected]="activeTab() === 'postes'"
+        (click)="onTabChange('postes')"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
+        Postes HTA/BT
+      </button>
+    </div>
+  </div>
+
+  <div class="sir-toolbar">
+    <div class="sir-search">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input
+        type="search"
+        [placeholder]="activeTab() === 'feeders' ? 'Rechercher un feeder, un poste source…' : 'Rechercher un poste, un feeder, un poste source…'"
+        aria-label="Rechercher"
+        [ngModel]="recherche()"
+        (ngModelChange)="onRecherche($event)"
+      />
+    </div>
+    @if (activeTab() === 'feeders') {
+      <select
+        class="sir-select"
+        aria-label="Poste source"
+        [value]="filtrePosteSource() ?? ''"
+        (change)="onFiltrePosteSource($any($event.target).value)"
+      >
+        <option value="">Tous les postes sources</option>
+        @for (ps of postesSources(); track ps.id) {
+          <option [value]="ps.id">{{ ps.libelle }}</option>
+        }
+      </select>
+    }
+    <span class="total">{{ total() }} {{ activeTab() === 'feeders' ? 'feeder' : 'poste' }}{{ total() > 1 ? 's' : '' }}</span>
   </div>
 
   @if (formOpen()) {
@@ -118,7 +154,7 @@
         </div>
       }
       <div class="form-panel__actions">
-        <button type="button" class="sir-btn sir-btn--secondary" (click)="closeForm()">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--outline" (click)="closeForm()">Annuler</button>
         <button type="button" class="sir-btn sir-btn--primary" [disabled]="saving()" (click)="saveForm()">
           {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
         </button>
@@ -134,82 +170,100 @@
     <p class="loading">Chargement…</p>
   } @else if (activeTab() === 'feeders') {
     <div class="table-wrap">
-      <table class="data-table">
+      <table class="sir-table">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Libellé</th>
-            <th>Poste source</th>
-            <th>Actif</th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('code')" (click)="trier('code')">Code <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('code') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('libelle')" (click)="trier('libelle')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('libelle') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('poste_source_libelle')" (click)="trier('poste_source_libelle')">Poste source <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('poste_source_libelle') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('service_libelle')" (click)="trier('service_libelle')">Service <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('service_libelle') }}</span></button></th>
+            <th>État</th>
             @if (canWrite()) {
-              <th>Actions</th>
+              <th class="col-actions">Actions</th>
             }
           </tr>
         </thead>
         <tbody>
           @for (row of feeders(); track row.id) {
             <tr>
-              <td>{{ row.code }}</td>
-              <td>{{ row.libelle }}</td>
-              <td>{{ row.poste_source_id }}</td>
-              <td>{{ row.is_active ? 'Oui' : 'Non' }}</td>
+              <td class="code">{{ row.code }}</td>
+              <td class="libelle">{{ row.libelle }}</td>
+              <td>{{ row.poste_source_libelle ?? '—' }}</td>
+              <td>{{ row.service_libelle ?? '—' }}</td>
+              <td>
+                <span class="sir-pill" [class.sir-pill--ok]="row.is_active" [class.sir-pill--off]="!row.is_active">{{ row.is_active ? 'Actif' : 'Inactif' }}</span>
+              </td>
               @if (canWrite()) {
-                <td>
-                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEditFeeder(row)">Modifier</button>
-                  @if (row.is_active) {
-                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivateFeeder(row)">Désactiver</button>
-                  }
+                <td class="col-actions">
+                  <div class="sir-actions">
+                    <button type="button" class="sir-icon-btn" data-tip="Modifier" [attr.aria-label]="'Modifier ' + row.libelle" (click)="openEditFeeder(row)">
+                      <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                    @if (row.is_active) {
+                      <button type="button" class="sir-icon-btn sir-icon-btn--danger" data-tip="Désactiver" [attr.aria-label]="'Désactiver ' + row.libelle" (click)="deactivateFeeder(row)">
+                        <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                      </button>
+                    }
+                  </div>
                 </td>
               }
             </tr>
           } @empty {
-            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun feeder.</td></tr>
+            <tr><td class="vide" [attr.colspan]="canWrite() ? 6 : 5">{{ recherche() ? 'Aucun feeder ne correspond à « ' + recherche() + ' ».' : 'Aucun feeder.' }}</td></tr>
           }
         </tbody>
       </table>
     </div>
   } @else {
     <div class="table-wrap">
-      <table class="data-table">
+      <table class="sir-table">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Libellé</th>
-            <th>Feeder</th>
-            <th>Actif</th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('code')" (click)="trier('code')">Code <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('code') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('libelle')" (click)="trier('libelle')">Poste <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('libelle') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('feeder_libelle')" (click)="trier('feeder_libelle')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('feeder_libelle') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('poste_source_libelle')" (click)="trier('poste_source_libelle')">Poste source <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('poste_source_libelle') }}</span></button></th>
+            <th>État</th>
             @if (canWrite()) {
-              <th>Actions</th>
+              <th class="col-actions">Actions</th>
             }
           </tr>
         </thead>
         <tbody>
           @for (row of postes(); track row.id) {
             <tr>
-              <td>{{ row.code }}</td>
-              <td>{{ row.libelle }}</td>
-              <td>{{ row.feeder_id ?? '—' }}</td>
-              <td>{{ row.is_active ? 'Oui' : 'Non' }}</td>
+              <td class="code">{{ row.code }}</td>
+              <td class="libelle">{{ row.libelle }}</td>
+              <td>{{ row.feeder_libelle ?? '—' }}</td>
+              <td>{{ row.poste_source_libelle ?? '—' }}</td>
+              <td>
+                <span class="sir-pill" [class.sir-pill--ok]="row.is_active" [class.sir-pill--off]="!row.is_active">{{ row.is_active ? 'Actif' : 'Inactif' }}</span>
+              </td>
               @if (canWrite()) {
-                <td>
-                  <button type="button" class="sir-btn sir-btn--ghost" (click)="openEditPoste(row)">Modifier</button>
-                  @if (row.is_active) {
-                    <button type="button" class="sir-btn sir-btn--ghost danger" (click)="deactivatePoste(row)">Désactiver</button>
-                  }
+                <td class="col-actions">
+                  <div class="sir-actions">
+                    <button type="button" class="sir-icon-btn" data-tip="Modifier" [attr.aria-label]="'Modifier ' + row.libelle" (click)="openEditPoste(row)">
+                      <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                    @if (row.is_active) {
+                      <button type="button" class="sir-icon-btn sir-icon-btn--danger" data-tip="Désactiver" [attr.aria-label]="'Désactiver ' + row.libelle" (click)="deactivatePoste(row)">
+                        <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                      </button>
+                    }
+                  </div>
                 </td>
               }
             </tr>
           } @empty {
-            <tr><td [attr.colspan]="canWrite() ? 5 : 4">Aucun poste.</td></tr>
+            <tr><td class="vide" [attr.colspan]="canWrite() ? 6 : 5">{{ recherche() ? 'Aucun poste ne correspond à « ' + recherche() + ' ».' : 'Aucun poste.' }}</td></tr>
           }
         </tbody>
       </table>
     </div>
   }
 
-  <sir-paginator
-    [total]="total()"
-    [page]="page()"
-    [pageSize]="pageSize"
-    (pageChange)="onPageChange($event)"
-  />
+  <div class="pagination">
+    <sir-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="onPageChange($event)" />
+  </div>
+  </div>
 </section>

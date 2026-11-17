@@ -42,6 +42,11 @@ export class ReseauDistributionAdminComponent implements OnInit {
   readonly formOpen = signal(false);
   readonly editingId = signal<number | null>(null);
 
+  readonly recherche = signal('');
+  readonly tri = signal('libelle');
+  readonly filtrePosteSource = signal<number | null>(null);
+  private delaiRecherche: ReturnType<typeof setTimeout> | null = null;
+
   readonly feederForm = signal({ code: '', libelle: '', poste_source_id: '', is_active: true });
   readonly posteForm = signal({ code: '', libelle: '', feeder_id: '', is_active: true });
 
@@ -56,8 +61,41 @@ export class ReseauDistributionAdminComponent implements OnInit {
   onTabChange(tab: ReseauDistTab): void {
     this.activeTab.set(tab);
     this.page.set(1);
+    this.recherche.set('');
+    this.tri.set('libelle');
     this.closeForm();
     this.load();
+  }
+
+  onRecherche(texte: string): void {
+    this.recherche.set(texte);
+    if (this.delaiRecherche) clearTimeout(this.delaiRecherche);
+    this.delaiRecherche = setTimeout(() => {
+      this.page.set(1);
+      this.load();
+    }, 300);
+  }
+
+  onFiltrePosteSource(value: string): void {
+    this.filtrePosteSource.set(value ? Number(value) : null);
+    this.page.set(1);
+    this.load();
+  }
+
+  trier(colonne: string): void {
+    this.tri.set(this.tri() === colonne ? '-' + colonne : colonne);
+    this.page.set(1);
+    this.load();
+  }
+
+  iconeTri(colonne: string): string {
+    if (this.tri() === colonne) return 'arrow_upward';
+    if (this.tri() === '-' + colonne) return 'arrow_downward';
+    return 'unfold_more';
+  }
+
+  triActif(colonne: string): boolean {
+    return this.tri() === colonne || this.tri() === '-' + colonne;
   }
 
   onPageChange(nextPage: number): void {
@@ -227,7 +265,13 @@ export class ReseauDistributionAdminComponent implements OnInit {
   private load(): void {
     this.loading.set(true);
     this.error.set(null);
-    const params = { page: this.page(), page_size: this.pageSize };
+    const params = {
+      page: this.page(),
+      page_size: this.pageSize,
+      q: this.recherche(),
+      tri: this.tri(),
+      poste_source_id: this.activeTab() === 'feeders' ? (this.filtrePosteSource() ?? undefined) : undefined,
+    };
 
     if (this.activeTab() === 'feeders') {
       this.reseau.listFeeders(params).subscribe({
