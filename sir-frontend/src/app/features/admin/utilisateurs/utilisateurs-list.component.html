@@ -181,6 +181,27 @@
               </label>
             }
           </div>
+          @for (role of roleOptions(); track role.id) {
+            @if (afficherService(role)) {
+              <div class="role-service">
+                <label class="role-service__label" [for]="'service-role-' + role.id">
+                  Service de rattachement — {{ role.nom }}
+                  @if (roleAvecService(role.nom)) { <span class="obligatoire">*</span> }
+                </label>
+                <select
+                  class="field__input role-service__select"
+                  [id]="'service-role-' + role.id"
+                  [value]="serviceDuRole(role.id) ?? ''"
+                  (change)="choisirService(role.id, $any($event.target).value)"
+                >
+                  <option value="">{{ roleAvecService(role.nom) ? 'Choisir le service…' : 'Aucun (national)' }}</option>
+                  @for (sv of services(); track sv.id) {
+                    <option [value]="sv.id" [selected]="serviceDuRole(role.id) === sv.id">{{ sv.libelle }} ({{ sv.code }})</option>
+                  }
+                </select>
+              </div>
+            }
+          }
         </div>
         @if (editingId() !== null) {
           <div class="field">

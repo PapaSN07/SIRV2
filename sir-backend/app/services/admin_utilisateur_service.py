@@ -127,7 +127,7 @@ async def _validate_role_assignments(
                 detail={
                     "status": "error",
                     "data": None,
-                    "error": f"Le rôle '{role.nom}' est national — scope_service_id doit être null",
+                    "error": f"Le rôle {role.nom} est national : il ne se rattache à aucun service",
                 },
             )
         if role.nom in _SCOPED_ROLES and scope is None:
@@ -136,7 +136,7 @@ async def _validate_role_assignments(
                 detail={
                     "status": "error",
                     "data": None,
-                    "error": f"Le rôle '{role.nom}' requiert un scope_service_id",
+                    "error": f"Choisissez le service de rattachement du rôle {role.nom}",
                 },
             )
 

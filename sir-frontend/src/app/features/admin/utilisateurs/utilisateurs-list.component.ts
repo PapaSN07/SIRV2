@@ -1,5 +1,8 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of, switchMap } from 'rxjs';
+import { GeoService } from '../../geo/services/geo.service';
+import { Service } from '../../../shared/models/geo.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AdminAdvancedService } from '../services/admin-advanced.service';
 import { AdminUtilisateurService } from '../services/admin-utilisateur.service';
@@ -14,6 +17,8 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.
 import { AdminNavComponent } from '../../../shared/ui/admin-nav/admin-nav.component';
 import { PaginatorComponent } from '../../../shared/ui/paginator/paginator.component';
 
+const ROLES_AVEC_SERVICE = ['BCC', 'BRC', 'SUPERVISEUR'];
+
 interface UserFormState {
   login: string;
   password: string;
@@ -23,6 +28,8 @@ interface UserFormState {
   matricule: string;
   telephone: string;
   selectedRoleIds: number[];
+  /** Service de rattachement par rôle (BCC, BRC, Superviseur : obligatoire) */
+  roleScopes: Record<number, number | null>;
   reset_password: string;
   /** Compte importé de l'Active Directory : connexion avec le mot de passe Windows */
   annuaire: boolean;
@@ -41,6 +48,9 @@ export class UtilisateursListComponent implements OnInit {
   private readonly auth = inject(AuthService);
 
   readonly roleOptions = signal<RoleDetail[]>([]);
+  private readonly geo = inject(GeoService);
+  /** Services de toutes les régions, pour le rattachement des rôles BCC / BRC / Superviseur */
+  readonly services = signal<Service[]>([]);
   readonly pageSize = 20;
 
   readonly users = signal<UtilisateurAdmin[]>([]);
@@ -71,6 +81,18 @@ export class UtilisateursListComponent implements OnInit {
       next: (roles) => this.roleOptions.set(roles.filter((r) => r.is_active && r.nom !== 'SUPERADMIN')),
       error: () => {},
     });
+    this.geo
+      .getRegions()
+      .pipe(
+        switchMap((regions) => (regions.length ? forkJoin(regions.map((r) => this.geo.getServicesByRegion(r.id))) : of([]))),
+      )
+      .subscribe({
+        next: (listes) => {
+          const parId = new Map(listes.flat().map((sv) => [sv.id, sv]));
+          this.services.set([...parId.values()].sort((a, b) => a.libelle.localeCompare(b.libelle)));
+        },
+        error: () => {},
+      });
     this.load();
   }
 
@@ -153,6 +175,7 @@ export class UtilisateursListComponent implements OnInit {
       telephone: user.telephone ?? '',
       matricule: user.matricule ?? '',
       selectedRoleIds: user.roles.map((r) => r.role_id),
+      roleScopes: Object.fromEntries(user.roles.map((r) => [r.role_id, r.scope_service_id])),
       reset_password: '',
       annuaire: false,
     });
@@ -168,6 +191,24 @@ export class UtilisateursListComponent implements OnInit {
 
   patchForm(field: keyof UserFormState, value: string | number[] | boolean): void {
     this.form.update((current) => ({ ...current, [field]: value }));
+  }
+
+  /** Rôles opérationnels rattachés à un service (périmètre de saisie, de lecture ou de validation). */
+  roleAvecService(nom: string): boolean {
+    return ROLES_AVEC_SERVICE.includes(nom);
+  }
+
+  /** Liste « Service » affichée pour un rôle coché : rôle opérationnel ou rôle créé dans la matrice. */
+  afficherService(role: RoleDetail): boolean {
+    return this.isRoleSelected(role.id) && (this.roleAvecService(role.nom) || !role.systeme);
+  }
+
+  serviceDuRole(roleId: number): number | null {
+    return this.form().roleScopes[roleId] ?? null;
+  }
+
+  choisirService(roleId: number, valeur: string): void {
+    this.form.update((f) => ({ ...f, roleScopes: { ...f.roleScopes, [roleId]: valeur ? Number(valeur) : null } }));
   }
 
   isRoleSelected(roleId: number): boolean {
@@ -194,11 +235,22 @@ export class UtilisateursListComponent implements OnInit {
       this.error.set('Au moins un rôle est obligatoire.');
       return;
     }
+    const sansService = this.roleOptions().find(
+      (r) => state.selectedRoleIds.includes(r.id) && this.roleAvecService(r.nom) && !state.roleScopes[r.id],
+    );
+    if (sansService) {
+      this.error.set(`Choisissez le service de rattachement du rôle ${sansService.nom}.`);
+      return;
+    }
 
     this.saving.set(true);
     this.error.set(null);
     const editId = this.editingId();
-    const roles = state.selectedRoleIds.map((role_id) => ({ role_id }));
+    const roles = state.selectedRoleIds.map((role_id) => {
+      const role = this.roleOptions().find((r) => r.id === role_id);
+      const avecService = role !== undefined && (this.roleAvecService(role.nom) || !role.systeme);
+      return { role_id, scope_service_id: avecService ? (state.roleScopes[role_id] ?? null) : null };
+    });
 
     if (editId === null) {
       if (!state.login.trim() || (!state.annuaire && state.password.length < 8)) {
@@ -310,6 +362,7 @@ export class UtilisateursListComponent implements OnInit {
       telephone: '',
       matricule: '',
       selectedRoleIds: [],
+      roleScopes: {},
       reset_password: '',
       annuaire: false,
     };
