@@ -137,11 +137,11 @@
     <div class="charts-grid">
       <section class="panel panel--chart">
         <div class="panel__head">
-          <h2 class="panel__title">Historique END (24 mois max)</h2>
+          <h2 class="panel__title">Historique de l'END HTA — 24 derniers mois (MWh)</h2>
         </div>
         <div class="bar-chart">
           @for (month of endChart(); track month.key) {
-            <div class="bar-chart__group">
+            <div class="bar-chart__group" [title]="month.label + ' : ' + formatNumber(month.valeur, 1) + ' MWh'">
               <div class="bar-chart__bars">
                 <div
                   class="bar-chart__bar bar-chart__bar--saidi"

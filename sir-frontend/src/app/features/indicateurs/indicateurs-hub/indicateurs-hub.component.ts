@@ -13,6 +13,7 @@ interface ChartMonth {
   key: string;
   label: string;
   height: number;
+  valeur: number;
 }
 
 const MONTH_LABELS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUN', 'JUL', 'AOÛ', 'SEP', 'OCT', 'NOV', 'DÉC'];
@@ -145,12 +146,14 @@ export class IndicateursHubComponent implements OnInit {
     const sorted = [...points].sort((a, b) =>
       a.annee !== b.annee ? a.annee - b.annee : a.mois - b.mois,
     );
-    const slice = sorted.slice(-12);
-    const max = Math.max(...slice.map((p) => p.valeur), 1);
-    return slice.map((p) => ({
+    const slice = sorted.slice(-24);
+    const max = Math.max(...slice.map((p) => p.valeur), 0.001);
+    return slice.map((p, i) => ({
       key: `${p.annee}-${p.mois}`,
-      label: MONTH_LABELS[p.mois - 1] ?? String(p.mois),
-      height: Math.round((p.valeur / max) * 100),
+      // l'année sous janvier et sous le premier mois affiché
+      label: `${MONTH_LABELS[p.mois - 1] ?? p.mois}${p.mois === 1 || i === 0 ? ` ${String(p.annee).slice(2)}` : ''}`,
+      height: Math.max(Math.round((p.valeur / max) * 100), p.valeur > 0 ? 1 : 0),
+      valeur: p.valeur,
     }));
   }
 }

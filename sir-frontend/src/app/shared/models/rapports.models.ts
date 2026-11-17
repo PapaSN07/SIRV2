@@ -94,7 +94,7 @@ export interface ApercuMensuelDistribution {
   indicateurs: ApercuValeur[];
   natures: ApercuSerie[];
   services: ApercuSerie[];
-  /** Top des tops (permanent, semi-permanent, fugitif) par zone, avec le mois précédent. */
+  /** Top 10 des départs les plus perturbés (permanent, semi-permanent, fugitif) par zone, avec le mois précédent. */
   top_feeders: ApercuSerie[];
   synthese: string[];
 }

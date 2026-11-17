@@ -11,7 +11,7 @@ Contenu :
   2. Réalisations par nature (Dakar / Régions), répartition de l'END, END par service / cible ;
   3. Récapitulatif par service ; évolution M-1 et N-1 par service ;
   4. Top 10 des départs (permanent, semi-permanent, fugitif) avec sièges et évolution ;
-     sièges des permanents ; tronçons fragilisés ; top des tops ;
+     sièges des permanents ; tronçons fragilisés ; top 10 des départs les plus perturbés ;
   5. Travaux programmés ; agressions par entreprise ; carte du poids de l'END.
 """
 

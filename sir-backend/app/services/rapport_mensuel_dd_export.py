@@ -181,7 +181,7 @@ def construire_tableaux(d: RapportMensuelData) -> Tableaux:
         (f"{z} — Top {len(d.tops[z][cle])} {LIBELLE_TOP[cle].lower()}", lignes_top(d.tops[z][cle]))
         for z in d.zones for cle in INCIDENTS if d.tops.get(z, {}).get(cle)
     ]
-    tdt = [(f"{z} — Top des tops (permanent, semi-permanent, fugitif)", lignes_top(d.top_des_tops[z]))
+    tdt = [(f"{z} — Top 10 des départs les plus perturbés (permanent, semi-permanent, fugitif)", lignes_top(d.top_des_tops[z]))
            for z in d.zones if d.top_des_tops.get(z)]
 
     sieges = []
@@ -536,7 +536,7 @@ def exporter_pdf(chemin: Path, d: RapportMensuelData) -> None:
         for titre, lignes in t.troncons:
             el += [KeepTogether([p(titre, h3), tableau(lignes, [2.6 * cm, 3.6 * cm, 7.4 * cm, 1.6 * cm, 2.8 * cm],
                                                        total=False, gauche=3, textes=(-1,))])]
-    el += [CondPageBreak(5 * cm), p("I.1.6 Le top des tops incidents", h2)]
+    el += [CondPageBreak(5 * cm), p("I.1.6 Top 10 des départs les plus perturbés", h2)]
     for titre, lignes in t.top_des_tops:
         el += [KeepTogether([p(titre, h3), tableau(lignes, largeurs_top, total=False, gauche=2, textes=(-1,))])]
 
@@ -749,7 +749,7 @@ def exporter_docx(chemin: Path, d: RapportMensuelData) -> None:
         for sous, lignes in t.troncons:
             titre(sous, 2)
             tab(lignes, largeurs_cm=[2.5, 3.3, 6.6, 1.6, 3.0], taille=7.5)
-    titre("I.1.6 Le top des tops incidents")
+    titre("I.1.6 Top 10 des départs les plus perturbés")
     for sous, lignes in t.top_des_tops:
         titre(sous, 2)
         tab(lignes, largeurs_cm=[3.8, 2.8, 1.3, 1.3, 1.2, 6.6], taille=7.5)

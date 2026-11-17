@@ -30,14 +30,6 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       >
         Rapports Distribution
       </a>
-      <a
-        class="analytics-nav__tab"
-        routerLink="/assistant"
-        routerLinkActive="analytics-nav__tab--active"
-        [routerLinkActiveOptions]="{ exact: true }"
-      >
-        Assistant
-      </a>
     </nav>
   `,
   styles: [
