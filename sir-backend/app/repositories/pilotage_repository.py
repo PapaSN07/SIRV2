@@ -81,13 +81,25 @@ def _clients_par_interruption():
     )
 
 
-def _distribution_saifi_saidi():
-    """Interruptions comptées dans SAIFI/SAIDI : clôturées (durée connue), sans exclusion."""
-    return (
+# Règle SENELEC validée le 19/11/2026 (outil SAIFI-SAIDI, norme IEEE 1366) : les interruptions
+# de 5 minutes ou moins n'entrent pas dans SAIFI / SAIDI.
+SAIFI_DUREE_MIN_MINUTES = 5
+
+
+def _distribution_saifi_saidi(*, avec_duree_min: bool = True):
+    """Interruptions comptées dans SAIFI/SAIDI : clôturées (durée connue), de plus de 5 minutes.
+
+    `avec_duree_min=False` : toutes les clôturées (mois de la dernière apparition, comme la
+    mesure de l'outil, qui compte encore les interruptions brèves pour MAX(DateApparition)).
+    """
+    conditions = [
         Interruption.type_direction == "distribution",
         Interruption.statut.in_(_CLOSED),
         Interruption.date_remise.isnot(None),
-    )
+    ]
+    if avec_duree_min:
+        conditions.append(func.coalesce(Interruption.duree_minutes, 0) > SAIFI_DUREE_MIN_MINUTES)
+    return tuple(conditions)
 
 
 def _closed_distribution():
@@ -323,7 +335,7 @@ async def mois_derniere_apparition(
     derniere = await db.scalar(
         select(func.max(Interruption.date_apparition)).where(
             interruptions_du_perimetre(service_ids),
-            *_distribution_saifi_saidi(),
+            *_distribution_saifi_saidi(avec_duree_min=False),
             Interruption.date_apparition >= debut,
             Interruption.date_apparition < fin,
         )

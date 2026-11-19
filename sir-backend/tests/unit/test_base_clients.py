@@ -56,6 +56,7 @@ async def test_importer_recalcule_postes_et_services() -> None:
         for ddl in (
             "CREATE TABLE agences (id INTEGER PRIMARY KEY, code TEXT, delegation_id INT)",
             "CREATE TABLE delegations (id INTEGER PRIMARY KEY, region_id INT)",
+            "CREATE TABLE regions (id INTEGER PRIMARY KEY, code TEXT)",
             "CREATE TABLE services (id INTEGER PRIMARY KEY, agence_id INT, region_id INT)",
             "CREATE TABLE postes (id INTEGER PRIMARY KEY, nombre_clients INT)",
             "CREATE TABLE nombre_client_mois (id INTEGER PRIMARY KEY, service_id INT, annee INT, mois INT, "
@@ -66,6 +67,7 @@ async def test_importer_recalcule_postes_et_services() -> None:
             "modifie_par_id INT, modifie_le DATETIME, valide_par_id INT, valide_le DATETIME)",
             "INSERT INTO agences VALUES (1, 'AG110', 1), (2, 'AG140', 2), (3, 'AG150', 2)",
             "INSERT INTO delegations VALUES (1, 1), (2, 2)",
+            "INSERT INTO regions VALUES (1, 'DAKAR'), (2, 'REGIONS')",
             # agence 3 sans service propre : clients portés par le service le plus chargé de sa région (8)
             "INSERT INTO services VALUES (5, 1, 1), (6, 1, 1), (7, 2, 2), (8, NULL, 2)",
             "INSERT INTO postes VALUES (100, 999), (101, NULL), (102, 50)",
@@ -106,3 +108,54 @@ async def test_importer_recalcule_postes_et_services() -> None:
         2026, 10, 5, 175, 2, 110
     )
     assert resume["liens"] == {"ajout_propose": 1, "suppression_proposee": 1, "valide": 2}
+
+
+def test_region_exploitation_delegation() -> None:
+    assert svc.region_exploitation_delegation("DC1") == "DAKAR"
+    assert svc.region_exploitation_delegation(" dc3 ") == "DAKAR"
+    assert svc.region_exploitation_delegation("DGC") == "DAKAR"
+    assert svc.region_exploitation_delegation("DRCO") == "REGIONS"
+    assert svc.region_exploitation_delegation("DRS") == "REGIONS"
+    assert svc.region_exploitation_delegation(None) is None
+    assert svc.region_exploitation_delegation("XYZ") is None
+
+
+@pytest.mark.asyncio
+async def test_recalculer_code_delegation_prioritaire() -> None:
+    """Délégations SIRV2 toutes rangées à Dakar : le code délégation BI_ODS répartit Dakar / Régions."""
+    engine = create_async_engine("sqlite+aiosqlite://", execution_options={"schema_translate_map": {"dbo": None}})
+    async with engine.begin() as c:
+        for ddl in (
+            "CREATE TABLE agences (id INTEGER PRIMARY KEY, code TEXT, delegation_id INT)",
+            "CREATE TABLE delegations (id INTEGER PRIMARY KEY, region_id INT)",
+            "CREATE TABLE regions (id INTEGER PRIMARY KEY, code TEXT)",
+            "CREATE TABLE services (id INTEGER PRIMARY KEY, agence_id INT, region_id INT)",
+            "CREATE TABLE postes (id INTEGER PRIMARY KEY, nombre_clients INT)",
+            "CREATE TABLE nombre_client_mois (id INTEGER PRIMARY KEY, service_id INT, annee INT, mois INT, "
+            "nombre_clients INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE contrats_unites_releve (id INTEGER PRIMARY KEY, annee INT, mois INT, unite_releve TEXT, "
+            "libelle TEXT, code_agence TEXT, delegation TEXT, agence_id INT, nb_contrats INT, date_maj DATETIME, source TEXT)",
+            "CREATE TABLE postes_unites_releve (id INTEGER PRIMARY KEY, poste_id INT, unite_releve TEXT, statut TEXT, "
+            "modifie_par_id INT, modifie_le DATETIME, valide_par_id INT, valide_le DATETIME)",
+            "INSERT INTO regions VALUES (1, 'DAKAR'), (2, 'REGIONS')",
+            "INSERT INTO delegations VALUES (1, 1)",  # toutes les délégations SIRV2 à Dakar
+            "INSERT INTO agences VALUES (1, 'AG110', 1), (2, 'AG410', 1)",
+            "INSERT INTO services VALUES (10, NULL, 1), (20, NULL, 2)",  # DD, BRC
+            "INSERT INTO nombre_client_mois (service_id, annee, mois, nombre_clients) VALUES (10, 2026, 10, 900), "
+            "(20, 2026, 10, 1500)",
+        ):
+            await c.exec_driver_sql(ddl)
+    brutes = [
+        {"unite_releve": "1100200I", "nb_contrats": 100, "code_agence": "110", "delegation": "DC1"},
+        {"unite_releve": "4100001W", "nb_contrats": 300, "code_agence": "410", "delegation": "DRCO"},
+        {"unite_releve": "4100002W", "nb_contrats": 7, "code_agence": "410"},  # sans délégation : région de l'agence
+    ]
+    try:
+        async with AsyncSession(engine) as db:
+            await svc.importer(db, 2026, 11, brutes, svc.SOURCE_BI)
+            ncm = (
+                await db.execute(text("SELECT service_id, nombre_clients FROM nombre_client_mois WHERE mois = 11 ORDER BY service_id"))
+            ).all()
+    finally:
+        await engine.dispose()
+    assert ncm == [(10, 107), (20, 300)]

@@ -2,13 +2,14 @@
 
 from datetime import datetime
 
-from sqlalchemy import extract, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.models.geo import Agence, Delegation, Service
 from app.models.indicateurs import NombreClientMois, SaifiSaidi
 from app.models.interruptions import Interruption, PosteInterruption, STATUTS_VALIDES
+from app.repositories.pilotage_repository import SAIFI_DUREE_MIN_MINUTES
 
 
 async def get_interruption_for_saifi_saidi(
@@ -59,6 +60,7 @@ async def list_validated_interruptions_for_service_period(
             Interruption.type_direction == "distribution",
             Interruption.statut.in_(STATUTS_VALIDES),
             Interruption.service_id == service_id,
+            func.coalesce(Interruption.duree_minutes, 0) > SAIFI_DUREE_MIN_MINUTES,
             extract("year", Interruption.date_apparition) == annee,
             extract("month", Interruption.date_apparition) == mois,
         )

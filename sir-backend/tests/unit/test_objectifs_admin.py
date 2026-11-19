@@ -49,7 +49,7 @@ def base(monkeypatch: pytest.MonkeyPatch) -> dict[tuple[int | None, str], float]
 
 async def test_lignes_nationale_puis_regions(base: dict) -> None:
     res = await pilotage_service.lister_objectifs_admin(_Db(), _user("ADMIN_SCR"), 2026)  # type: ignore[arg-type]
-    assert [l.libelle for l in res.lignes] == ["National", "Dakar", "Régions"]
+    assert [ligne.libelle for ligne in res.lignes] == ["National", "Dakar", "Régions"]
     assert res.lignes[0].end_mwh == 1200.0
     assert res.lignes[2].saifi == 4.5 and res.lignes[1].saifi is None
 

@@ -6,7 +6,7 @@ from sqlalchemy import BigInteger, Float, case, cast, delete, func, insert, sele
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clients import ContratsUniteReleve, PosteUniteReleve
-from app.models.geo import Agence, Delegation, Service
+from app.models.geo import Agence, Delegation, Region, Service
 from app.models.indicateurs import NombreClientMois
 from app.models.reseau import Poste
 
@@ -44,16 +44,24 @@ async def contrats_par_agence(db: AsyncSession, annee: int, mois: int) -> list[t
     return [(a, int(n or 0)) for a, n in (await db.execute(stmt)).all()]
 
 
-async def services_par_agence(db: AsyncSession) -> dict[int, int]:
-    """Service qui porte les clients de chaque agence (règle SIR v1).
+async def contrats_par_agence_delegation(
+    db: AsyncSession, annee: int, mois: int
+) -> list[tuple[int | None, str | None, int]]:
+    """Contrats du mois par (agence, code délégation BI_ODS : DC1, DRCO…)."""
+    stmt = (
+        select(
+            ContratsUniteReleve.agence_id,
+            ContratsUniteReleve.delegation,
+            func.sum(cast(ContratsUniteReleve.nb_contrats, BigInteger)),
+        )
+        .where(ContratsUniteReleve.annee == annee, ContratsUniteReleve.mois == mois)
+        .group_by(ContratsUniteReleve.agence_id, ContratsUniteReleve.delegation)
+    )
+    return [(a, d, int(n or 0)) for a, d, n in (await db.execute(stmt)).all()]
 
-    SIR v1 range sa base clients par région d'exploitation, sur un service représentatif :
-    DD pour Dakar, BRC pour Régions (services rattachés à leur région par la migration
-    b8c9d0e1f2a3). Une agence va donc au représentant de la région de sa délégation, choisi
-    comme le service de la région qui portait le plus de clients dans nombre_client_mois, à défaut
-    le premier service de la région. Sans région connue, le premier service de l'agence.
-    (Novembre 2026 : rattacher au service de l'agence perdait la plupart des contrats.)
-    """
+
+async def _representants_par_region(db: AsyncSession) -> dict[int, int]:
+    """Service représentatif de chaque région : le plus chargé dans nombre_client_mois, sinon le premier."""
     charge = (
         select(Service.region_id, NombreClientMois.service_id, func.max(NombreClientMois.nombre_clients).label("n"))
         .join(Service, Service.id == NombreClientMois.service_id)
@@ -74,6 +82,25 @@ async def services_par_agence(db: AsyncSession) -> dict[int, int]:
         )
     ).all():
         par_region.setdefault(int(region_id), int(service_id))
+    return par_region
+
+
+async def representants_exploitation(db: AsyncSession) -> dict[str, int]:
+    """Service représentatif des régions d'exploitation : {"DAKAR": DD, "REGIONS": BRC}."""
+    par_region = await _representants_par_region(db)
+    rows = (await db.execute(select(Region.id, Region.code).where(Region.code.in_(("DAKAR", "REGIONS"))))).all()
+    return {str(code): par_region[int(rid)] for rid, code in rows if int(rid) in par_region}
+
+
+async def services_par_agence(db: AsyncSession) -> dict[int, int]:
+    """Service qui porte les clients de chaque agence, à défaut de code délégation exploitable.
+
+    SIR v1 range sa base clients par région d'exploitation, sur un service représentatif :
+    DD pour Dakar, BRC pour Régions. Une agence va au représentant de la région de sa délégation
+    SIRV2, sans région connue au premier service de l'agence. La région des délégations SIRV2
+    n'est pas fiable : le code délégation BI_ODS passe en premier (base_clients_service).
+    """
+    par_region = await _representants_par_region(db)
     resultat: dict[int, int] = {}
     for agence_id, region_id in (
         await db.execute(

@@ -91,3 +91,21 @@ def test_requete_clients_transport_sql_server() -> None:
 
     sql = str(requete_clients_transport(datetime(2026, 1, 1), datetime(2026, 2, 1)).compile(dialect=mssql.dialect()))
     assert "BIGINT" in sql.upper() and "IS 1" not in sql
+
+
+def test_regle_des_cinq_minutes() -> None:
+    """Règle validée le 19/11/2026 : SAIFI/SAIDI sans les interruptions de 5 minutes ou moins."""
+    from sqlalchemy import select
+    from sqlalchemy.dialects import mssql
+
+    from app.models.interruptions import Interruption
+    from app.repositories import pilotage_repository as repo
+
+    def compiler(conditions: tuple) -> str:
+        requete = select(Interruption.id).where(*conditions)
+        return str(requete.compile(dialect=mssql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert repo.SAIFI_DUREE_MIN_MINUTES == 5
+    assert "duree_minutes, 0) > 5" in compiler(repo._distribution_saifi_saidi())
+    # mois de la dernière apparition : interruptions brèves comprises (mesure de l'outil SAIFI-SAIDI)
+    assert "duree_minutes" not in compiler(repo._distribution_saifi_saidi(avec_duree_min=False))

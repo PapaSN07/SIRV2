@@ -190,14 +190,32 @@ async def importer(
     return bilan
 
 
+def region_exploitation_delegation(code: str | None) -> str | None:
+    """Région d'exploitation d'une délégation BI_ODS : DR… → Régions, DC… et DGC → Dakar.
+
+    Novembre 2026 : la région des délégations SIRV2 rangeait toutes les agences à Dakar
+    (2,6 millions de clients sur DD, aucun sur BRC) ; le code délégation des contrats fait foi.
+    """
+    c = (code or "").strip().upper()
+    if c.startswith("DR"):
+        return "REGIONS"
+    if c.startswith("DC") or c == "DGC":
+        return "DAKAR"
+    return None
+
+
 async def recalculer(db: AsyncSession, annee: int, mois: int) -> BilanImport:
     """Clients de chaque poste et nombre de clients par service pour le mois (sans commit)."""
-    par_agence = await repo.contrats_par_agence(db, annee, mois)
+    par_agence = await repo.contrats_par_agence_delegation(db, annee, mois)
     services = await repo.services_par_agence(db)
+    exploitation = await repo.representants_exploitation(db)
     par_service: dict[int, int] = defaultdict(int)
     sans_agence = 0
-    for agence_id, contrats in par_agence:
-        service_id = services.get(agence_id) if agence_id is not None else None
+    for agence_id, delegation, contrats in par_agence:
+        zone = region_exploitation_delegation(delegation)
+        service_id = exploitation.get(zone) if zone else None
+        if service_id is None and agence_id is not None:
+            service_id = services.get(agence_id)
         if service_id is None:
             sans_agence += contrats
             continue
@@ -210,7 +228,7 @@ async def recalculer(db: AsyncSession, annee: int, mois: int) -> BilanImport:
         mois=mois,
         source="",
         unites_releve=0,
-        contrats=sum(n for _, n in par_agence),
+        contrats=sum(n for _, _, n in par_agence),
         contrats_sans_agence=sans_agence,
         postes_mis_a_jour=len(clients_postes),
         clients_postes=sum(clients_postes.values()),

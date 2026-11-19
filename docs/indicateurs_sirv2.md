@@ -149,7 +149,11 @@ SAIDI = DIVIDE(SUMX('Interruptions', [NombreClient] * [TotalDureeInterruption]),
 | Mois de `MAX(DateApparition)` | mois de la dernière apparition de la période, dans le périmètre (service, région, national) |
 
 - **SAIDI en heures** (client-heures / clients).
-- **Aucune exclusion** : la force majeure est comptée (la formule SENELEC n'en prévoit pas).
+- **Règle des 5 minutes** (validée le 19/11/2026) : les interruptions de 5 minutes ou moins
+  (`duree_minutes <= 5`) n'entrent pas dans SAIFI / SAIDI, comme l'outil bureau SAIFI-SAIDI et la
+  norme IEEE 1366 (`pilotage_repository.SAIFI_DUREE_MIN_MINUTES`). Elles comptent encore pour le mois
+  de la dernière apparition. Contrôle juillet 2026, Dakar : SIRV2 = outil, nature par nature (±160 clients).
+- La force majeure est comptée (la formule SENELEC n'en prévoit pas l'exclusion).
 - Datation par `date_apparition`.
 - Tableau de bord, `/indicateurs/saifi|saidi`, historique 12 mois, rapports et pilotage : calcul direct
   par périmètre (`saifi_saidi_service.calculer_perimetre`) sur les interruptions clôturées, validées
@@ -518,7 +522,7 @@ Aligné sur `seed_rbac.py` et `indicateurs_service._resolve_scope` (BCC/BRC : `u
 ## Points en attente de validation SENELEC/CRSE
 
 1. **Coefficients de pondération END** : les coefficients par nature (INCIDENT, DELESTAGE, MAINTENANCE) sont provisoirement à 1.0 — les vrais coefficients CRSE doivent être saisis dans la table `types_end`.
-2. ~~Exclusions SAIFI/SAIDI~~ — tranché le 28/10/2026 : aucune exclusion (formule Power BI SENELEC).
+2. ~~Exclusions SAIFI/SAIDI~~ — tranché le 28/10/2026 (aucune exclusion), revu le 19/11/2026 : interruptions de 5 minutes ou moins exclues.
 3. ~~Base clients de référence~~ — tranché : NombreClientMois du mois de la dernière apparition.
 4. ~~Unité SAIDI~~ — tranché : heures.
 5. **Objectifs annuels** : les seuils CRSE cibles (END max, SAIFI max, SAIDI max) ne sont pas encore configurés.
