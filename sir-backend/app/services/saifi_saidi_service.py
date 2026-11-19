@@ -296,12 +296,16 @@ async def serie_perimetre(
     debut = datetime(premier[0], premier[1], 1)
     fin = datetime(dernier[0] + (dernier[1] == 12), dernier[1] % 12 + 1, 1)
     totaux = await pilotage_repository.sommer_clients_par_mois(db, service_ids, debut, fin)
-    bases = await pilotage_repository.clients_reference_par_mois(db, service_ids, premier, dernier)
+    # Un an de bases en amont : un mois sans photo (mois en cours) prend le dernier mois connu
+    bases = await pilotage_repository.clients_reference_par_mois(
+        db, service_ids, (premier[0] - 1, premier[1]), dernier
+    )
     vide = pilotage_repository.ClientsDureeRow(0, 0.0, 0)
     serie: dict[tuple[int, int], SaifiSaidiPerimetre] = {}
     for cle in mois:
         t = totaux.get(cle, vide)
-        base = bases.get(cle, 0)
+        connus = [k for k, v in bases.items() if k <= cle and v > 0]
+        base = bases[max(connus)] if connus else 0
         serie[cle] = SaifiSaidiPerimetre(
             saifi=float(calcul_saifi(t.clients, base)),
             saidi=float(calcul_saidi(t.client_heures, base)),

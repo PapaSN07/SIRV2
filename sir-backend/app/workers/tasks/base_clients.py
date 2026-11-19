@@ -1,4 +1,4 @@
-"""Base clients SAIFI/SAIDI : synchronisation BI_ODS (quotidienne) et import du fichier H2MC déposé."""
+"""Base clients SAIFI/SAIDI : synchronisation BI_ODS (le 1er du mois à 0 h) et import du fichier H2MC déposé."""
 
 from __future__ import annotations
 
@@ -13,11 +13,11 @@ from app.workers.db import WorkerSessionLocal
 logger = logging.getLogger(__name__)
 
 
-async def _synchroniser() -> dict[str, object]:
+async def _synchroniser(mois_clos: bool) -> dict[str, object]:
     from app.services import base_clients_service as svc
 
     async with WorkerSessionLocal() as db:
-        return dataclasses.asdict(await svc.synchroniser_bi_ods(db))
+        return dataclasses.asdict(await svc.synchroniser_bi_ods(db, mois_clos=mois_clos))
 
 
 async def _importer_fichier(chemin: str, annee: int, mois: int) -> dict[str, object]:
@@ -29,13 +29,14 @@ async def _importer_fichier(chemin: str, annee: int, mois: int) -> dict[str, obj
 
 
 @celery_app.task(name="synchroniser_contrats_ur")
-def synchroniser_contrats_ur_task() -> dict[str, object]:
+def synchroniser_contrats_ur_task(mois_clos: bool = False) -> dict[str, object]:
+    """`mois_clos` (tâche planifiée du 1er à 0 h) : la photo est celle du mois qui vient de finir."""
     from app.core.config import settings
 
     if not settings.bi_ods_odbc:
         logger.info("Base clients : BI_ODS non configurée, synchronisation ignorée")
         return {"ignore": "BI_ODS_ODBC vide"}
-    return asyncio.run(_synchroniser())
+    return asyncio.run(_synchroniser(mois_clos))
 
 
 @celery_app.task(name="importer_contrats_fichier")

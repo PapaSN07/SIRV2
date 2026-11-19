@@ -343,20 +343,44 @@ async def mois_derniere_apparition(
     return (derniere.year, derniere.month) if derniere else None
 
 
+async def dernier_mois_base(
+    db: AsyncSession, service_ids: list[int], annee: int, mois: int
+) -> tuple[int, int] | None:
+    """Mois de base clients à utiliser pour (annee, mois) : lui-même, sinon le dernier mois connu avant.
+
+    La photo BI_ODS d'un mois n'est prise que le 1er du mois suivant (décision du 19/11/2026) :
+    le mois en cours prend la base du dernier mois connu (comme l'outil SAIFI-SAIDI).
+    """
+    cle = NombreClientMois.annee * 100 + NombreClientMois.mois
+    trouve = await db.scalar(
+        select(func.max(cle)).where(
+            clients_du_perimetre(service_ids),
+            cle <= annee * 100 + mois,
+            NombreClientMois.nombre_clients > 0,
+        )
+    )
+    if trouve is None:
+        return None
+    return int(trouve) // 100, int(trouve) % 100
+
+
 async def clients_reference_exacte(
     db: AsyncSession,
     service_ids: list[int],
     annee: int,
     mois: int,
 ) -> int:
-    """Σ NombreClientMois du mois demandé, sans repli (comme la mesure Power BI SENELEC)."""
+    """Σ NombreClientMois du mois demandé (mesure SENELEC), sinon du dernier mois connu avant."""
     if not service_ids:
         return 0
+    base = await dernier_mois_base(db, service_ids, annee, mois)
+    if base is None:
+        return 0
     total = await db.scalar(
-        select(func.coalesce(func.sum(NombreClientMois.nombre_clients), 0)).where(
+        select(func.coalesce(func.sum(cast(NombreClientMois.nombre_clients, BigInteger)), 0)).where(
             clients_du_perimetre(service_ids),
-            NombreClientMois.annee == annee,
-            NombreClientMois.mois == mois,
+            NombreClientMois.annee == base[0],
+            NombreClientMois.mois == base[1],
         )
     )
     return int(total or 0)
@@ -806,6 +830,10 @@ async def clients_reference_par_zone(
 ) -> dict[int, int]:
     if not service_ids:
         return {}
+    base = await dernier_mois_base(db, service_ids, annee, mois)
+    if base is None:
+        return {}
+    annee, mois = base
     zone_id = Service.region_id if par_region else Service.id
     result = await db.execute(
         select(

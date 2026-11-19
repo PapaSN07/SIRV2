@@ -159,3 +159,13 @@ async def test_recalculer_code_delegation_prioritaire() -> None:
     finally:
         await engine.dispose()
     assert ncm == [(10, 107), (20, 300)]
+
+
+def test_mois_photo_bi_ods() -> None:
+    """Tâche du 1er à 0 h : le mois qui vient de finir ; synchronisation manuelle : mois du chargement."""
+    maintenant = datetime(2026, 12, 1, 0, 0)
+    chargements = [datetime(2026, 11, 30, 5, 30), datetime(2026, 12, 1, 0, 0)]
+    assert svc.mois_photo(chargements, maintenant, mois_clos=True) == (2026, 11)
+    assert svc.mois_photo([], datetime(2027, 1, 1), mois_clos=True) == (2026, 12)
+    assert svc.mois_photo([datetime(2026, 11, 19, 5, 30)], maintenant, mois_clos=False) == (2026, 11)
+    assert svc.mois_photo([], datetime(2026, 11, 19), mois_clos=False) == (2026, 11)

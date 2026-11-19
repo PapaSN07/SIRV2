@@ -24,9 +24,10 @@ export class BaseClientsService {
     return this.http.get<ApiResponse<BaseClientsResume>>(this.apiUrl).pipe(map((res) => this.unwrap(res)));
   }
 
-  synchroniser(): Observable<TacheLancee> {
+  /** `moisClos` : photo du mois précédent (comme la tâche automatique du 1er à 0 h). */
+  synchroniser(moisClos = false): Observable<TacheLancee> {
     return this.http
-      .post<ApiResponse<TacheLancee>>(`${this.apiUrl}/synchroniser`, {})
+      .post<ApiResponse<TacheLancee>>(`${this.apiUrl}/synchroniser`, {}, { params: { mois_clos: String(moisClos) } })
       .pipe(map((res) => this.unwrap(res)));
   }
 

@@ -154,6 +154,9 @@ SAIDI = DIVIDE(SUMX('Interruptions', [NombreClient] * [TotalDureeInterruption]),
   norme IEEE 1366 (`pilotage_repository.SAIFI_DUREE_MIN_MINUTES`). Elles comptent encore pour le mois
   de la dernière apparition. Contrôle juillet 2026, Dakar : SIRV2 = outil, nature par nature (±160 clients).
 - La force majeure est comptée (la formule SENELEC n'en prévoit pas l'exclusion).
+- **Base clients** : photo BI_ODS automatique le 1er du mois à 0 h pour le mois clos (décision du
+  19/11/2026), synchronisation manuelle possible ; un mois sans photo (le mois en cours) prend la base
+  du dernier mois connu (`pilotage_repository.dernier_mois_base`).
 - Datation par `date_apparition`.
 - Tableau de bord, `/indicateurs/saifi|saidi`, historique 12 mois, rapports et pilotage : calcul direct
   par périmètre (`saifi_saidi_service.calculer_perimetre`) sur les interruptions clôturées, validées

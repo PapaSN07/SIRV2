@@ -201,3 +201,18 @@ table {
     font-weight: 600;
   }
 }
+
+.synchro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 13px;
+    font-weight: 600;
+  }
+}

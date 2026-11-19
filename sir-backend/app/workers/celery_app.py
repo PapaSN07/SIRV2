@@ -29,11 +29,12 @@ celery_app.conf.update(
     # Tâches planifiées : le worker est lancé avec -B (beat intégré, un seul worker)
     beat_schedule={
         "alertes-retard-24h": {"task": "alertes_retard_24h", "schedule": 3600.0},
-        # Base clients SAIFI/SAIDI : BI_ODS est rechargée par SSIS vers 5 h 30 ; la photo du mois
-        # est remplacée chaque jour, la dernière du mois fait foi (comme le fichier H2MC mensuel)
-        "base-clients-bi-ods-7h": {
+        # Base clients SAIFI/SAIDI : une photo par mois, prise automatiquement le 1er à 0 h (heure
+        # de Dakar) pour le mois qui vient de se terminer — décision SENELEC du 19/11/2026
+        "base-clients-bi-ods-1er-0h": {
             "task": "synchroniser_contrats_ur",
-            "schedule": crontab(hour=7, minute=0),
+            "schedule": crontab(hour=0, minute=0, day_of_month=1),
+            "kwargs": {"mois_clos": True},
         },
         # Heure de Dakar (timezone ci-dessus) — décision SENELEC du 27/10/2026
         # Rapport hebdomadaire d'exploitation DD (samedi → vendredi) — décision du 29/10/2026

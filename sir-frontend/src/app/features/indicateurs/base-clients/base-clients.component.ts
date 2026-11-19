@@ -16,7 +16,7 @@ const MOIS = [
 const RE_NOM_FICHIER = /(\d{2})(\d{4})\.xlsx$/i;
 
 /**
- * Base clients SAIFI/SAIDI : contrats par unité de relève (BI_ODS chaque jour à 7 h,
+ * Base clients SAIFI/SAIDI : contrats par unité de relève (BI_ODS le 1er du mois à 0 h,
  * ou fichier mensuel H2MC), reprise de l'atelier de l'application bureau SIR.
  */
 @Component({
@@ -41,6 +41,11 @@ export class BaseClientsComponent implements OnInit {
   readonly mois = signal(new Date().getMonth() + 1);
 
   readonly moisLibelles = MOIS;
+
+  /** Synchronisation manuelle : par défaut le mois qui vient de se terminer (comme la tâche du 1er). */
+  readonly cibleSynchro = signal<'precedent' | 'courant'>('precedent');
+  readonly libelleMoisCourant = libelleMois(new Date());
+  readonly libelleMoisPrecedent = libelleMois(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
   readonly annees = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   readonly dernier = computed<PeriodeContrats | null>(() => this.resume()?.periodes[0] ?? null);
@@ -81,8 +86,14 @@ export class BaseClientsComponent implements OnInit {
     });
   }
 
+  choisirCible(event: Event): void {
+    const valeur = (event.target as HTMLSelectElement).value;
+    this.cibleSynchro.set(valeur === 'courant' ? 'courant' : 'precedent');
+  }
+
   synchroniser(): void {
-    this.lancer(() => this.service.synchroniser());
+    const moisClos = this.cibleSynchro() === 'precedent';
+    this.lancer(() => this.service.synchroniser(moisClos));
   }
 
   choisirFichier(event: Event): void {
@@ -125,4 +136,8 @@ export class BaseClientsComponent implements OnInit {
       },
     });
   }
+}
+
+function libelleMois(d: Date): string {
+  return `${MOIS[d.getMonth()]} ${d.getFullYear()}`;
 }

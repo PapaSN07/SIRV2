@@ -58,12 +58,21 @@
           <h2>Synchronisation BI_ODS</h2>
           <p>
             Table <code>CONTRATS_PAR_AGENCE_UR</code> (SRV-ASREPORTS), alimentée par SSIS.
-            Lecture automatique chaque jour à 7 h pour le mois en cours.
+            Lecture automatique le 1er de chaque mois à 0 h, pour le mois qui vient de se terminer. Tant que cette photo n’existe pas, le mois en cours utilise la base du dernier mois connu.
           </p>
           @if (r.bi_ods_configure) {
-            <button type="button" class="sir-btn sir-btn--primary" [disabled]="envoi()" (click)="synchroniser()">
-              Synchroniser maintenant
-            </button>
+            <div class="synchro">
+              <label>
+                Photo du
+                <select class="sir-select" [value]="cibleSynchro()" (change)="choisirCible($event)">
+                  <option value="precedent">mois précédent ({{ libelleMoisPrecedent }})</option>
+                  <option value="courant">mois en cours ({{ libelleMoisCourant }})</option>
+                </select>
+              </label>
+              <button type="button" class="sir-btn sir-btn--primary" [disabled]="envoi()" (click)="synchroniser()">
+                Synchroniser maintenant
+              </button>
+            </div>
           } @else {
             <p class="carte__note">
               Connexion non configurée (variable <code>BI_ODS_ODBC</code>). En attendant, déposer le fichier mensuel.

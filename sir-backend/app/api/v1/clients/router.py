@@ -51,11 +51,14 @@ async def resume_contrats(
     summary="Relire BI_ODS.CONTRATS_PAR_AGENCE_UR et recalculer les clients",
 )
 async def synchroniser_contrats(
+    mois_clos: bool = Query(
+        False, description="true : photo du mois précédent (comme la tâche du 1er à 0 h) ; false : mois en cours"
+    ),
     current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
 ) -> ApiResponse[TacheLancee]:
     _verifier_admin(current_user)
     try:
-        task_id = svc.lancer_synchronisation()
+        task_id = svc.lancer_synchronisation(mois_clos=mois_clos)
     except svc.BaseClientsErreur as exc:
         raise _erreur(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     return ApiResponse.success(TacheLancee(task_id=task_id, message="Synchronisation lancée"))

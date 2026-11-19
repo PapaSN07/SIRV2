@@ -13,7 +13,7 @@ import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -237,12 +237,27 @@ async def recalculer(db: AsyncSession, annee: int, mois: int) -> BilanImport:
     )
 
 
-async def synchroniser_bi_ods(db: AsyncSession, maintenant: datetime | None = None) -> BilanImport:
-    """Photo du mois de mise à jour BI_ODS (le dernier chargement du mois fait foi)."""
+def mois_photo(dates_maj: list[datetime], maintenant: datetime, mois_clos: bool) -> tuple[int, int]:
+    """Mois de la photo BI_ODS.
+
+    Tâche planifiée (le 1er à 0 h, `mois_clos`) : le mois qui vient de se terminer, quelle que
+    soit la date de chargement BI_ODS. Synchronisation manuelle : le mois du dernier chargement.
+    """
+    if mois_clos:
+        precedent = maintenant.replace(day=1) - timedelta(days=1)
+        return precedent.year, precedent.month
+    ref = max(dates_maj) if dates_maj else maintenant
+    return ref.year, ref.month
+
+
+async def synchroniser_bi_ods(
+    db: AsyncSession, maintenant: datetime | None = None, *, mois_clos: bool = False
+) -> BilanImport:
+    """Photo mensuelle de la base clients BI_ODS (automatique le 1er du mois à 0 h)."""
     brutes = await lire_bi_ods()
     dates = [b["date_maj"] for b in brutes if isinstance(b.get("date_maj"), datetime)]
-    ref = max(dates) if dates else (maintenant or datetime.now())
-    return await importer(db, ref.year, ref.month, brutes, SOURCE_BI)
+    annee, mois = mois_photo(dates, maintenant or datetime.now(), mois_clos)
+    return await importer(db, annee, mois, brutes, SOURCE_BI)
 
 
 # ── API ──────────────────────────────────────────────────────────────────────
@@ -265,12 +280,13 @@ async def resume(db: AsyncSession) -> dict[str, Any]:
     }
 
 
-def lancer_synchronisation() -> str:
+def lancer_synchronisation(*, mois_clos: bool = False) -> str:
+    """Synchronisation manuelle, au moment voulu (la tâche planifiée tourne le 1er à 0 h)."""
     from app.workers.celery_app import celery_app
 
     if not settings.bi_ods_odbc:
         raise BaseClientsErreur("Connexion BI_ODS non configurée (BI_ODS_ODBC) : déposez le fichier mensuel")
-    return celery_app.send_task("synchroniser_contrats_ur").id
+    return celery_app.send_task("synchroniser_contrats_ur", kwargs={"mois_clos": mois_clos}).id
 
 
 def lancer_import_fichier(contenu: bytes, annee: int, mois: int) -> str:

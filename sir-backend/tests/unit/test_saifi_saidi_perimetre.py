@@ -109,3 +109,17 @@ def test_regle_des_cinq_minutes() -> None:
     assert "duree_minutes, 0) > 5" in compiler(repo._distribution_saifi_saidi())
     # mois de la dernière apparition : interruptions brèves comprises (mesure de l'outil SAIFI-SAIDI)
     assert "duree_minutes" not in compiler(repo._distribution_saifi_saidi(avec_duree_min=False))
+
+
+@pytest.mark.asyncio
+async def test_serie_mois_sans_photo_prend_le_dernier_mois_connu() -> None:
+    """Photo BI_ODS prise le 1er du mois suivant : le mois en cours garde la base du mois précédent."""
+    totaux = {(2026, 11): ClientsDureeRow(1_000, 500.0, 3), (2026, 12): ClientsDureeRow(2_000, 100.0, 4)}
+    with (
+        patch(f"{PREFIXE}.sommer_clients_par_mois", AsyncMock(return_value=totaux)),
+        patch(f"{PREFIXE}.clients_reference_par_mois", AsyncMock(return_value={(2026, 11): 10_000})) as bases,
+    ):
+        serie = await saifi_saidi_service.serie_perimetre(None, [1], [(2026, 11), (2026, 12)])  # type: ignore[arg-type]
+    bases.assert_awaited_once_with(None, [1], (2025, 11), (2026, 12))
+    assert serie[(2026, 12)].total_clients_reference == 10_000
+    assert serie[(2026, 12)].saifi == 0.2
