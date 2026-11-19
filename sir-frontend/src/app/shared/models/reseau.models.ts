@@ -103,6 +103,21 @@ export interface SousFeeder {
   libelle: string;
   feeder_id: number;
   is_active: boolean;
+  feeder_libelle?: string | null;
+  poste_source_libelle?: string | null;
+}
+
+export interface SousFeederCreate {
+  code: string;
+  libelle: string;
+  feeder_id: number;
+}
+
+export interface SousFeederUpdate {
+  code?: string;
+  libelle?: string;
+  feeder_id?: number;
+  is_active?: boolean;
 }
 
 export interface ReseauListParams {

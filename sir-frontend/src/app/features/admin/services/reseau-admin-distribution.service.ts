@@ -7,6 +7,9 @@ import {
   Feeder,
   FeederCreate,
   FeederUpdate,
+  SousFeeder,
+  SousFeederCreate,
+  SousFeederUpdate,
   Poste,
   PosteCreate,
   PosteSource,
@@ -62,6 +65,26 @@ export class ReseauAdminDistributionService {
 
   deletePoste(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/postes/${id}`);
+  }
+
+  listSousFeeders(params: ReseauListParams = {}): Observable<PaginatedResponse<SousFeeder>> {
+    return this.list<SousFeeder>('sous-feeders', params);
+  }
+
+  createSousFeeder(body: SousFeederCreate): Observable<SousFeeder> {
+    return this.http
+      .post<ApiResponse<SousFeeder>>(`${this.apiUrl}/sous-feeders`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  updateSousFeeder(id: number, body: SousFeederUpdate): Observable<SousFeeder> {
+    return this.http
+      .put<ApiResponse<SousFeeder>>(`${this.apiUrl}/sous-feeders/${id}`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  deleteSousFeeder(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/sous-feeders/${id}`);
   }
 
   private list<T>(resource: string, params: ReseauListParams): Observable<PaginatedResponse<T>> {

@@ -345,7 +345,13 @@ async def list_sous_feeders(
     feeder_id: int | None = None,
     scope: ScopeFilter | None = None,
 ) -> list[SousFeeder]:
-    query = select(SousFeeder).where(SousFeeder.is_active == True).order_by(SousFeeder.libelle, SousFeeder.id)  # noqa: E712
+    query = (
+        select(SousFeeder)
+        # Feeder et poste source affichés par leur nom dans la liste
+        .options(joinedload(SousFeeder.feeder).joinedload(Feeder.poste_source))
+        .where(SousFeeder.is_active == True)  # noqa: E712
+        .order_by(SousFeeder.libelle, SousFeeder.id)
+    )
     if feeder_id is not None:
         query = query.where(SousFeeder.feeder_id == feeder_id)
     if scope and (scope.service_id is not None or scope.region_id is not None):

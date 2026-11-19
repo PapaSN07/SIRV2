@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac_helpers import is_superadmin
-from app.models.reseau import Feeder, Poste, PosteSource
+from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder
 from app.models.utilisateurs import Utilisateur
 from app.repositories import reseau_distribution_repository as repo
 from app.repositories.reseau_distribution_repository import ScopeFilter
@@ -103,6 +103,19 @@ def _libelles_poste(record: Any) -> list[str | None]:
         feeder.libelle if feeder else None,
         service.libelle if service else None,
     ]
+
+
+def _libelles_sous_feeder(record: Any) -> list[str | None]:
+    feeder = record.__dict__.get("feeder")
+    poste_source = feeder.__dict__.get("poste_source") if feeder is not None else None
+    return [poste_source.libelle if poste_source else None, feeder.libelle if feeder else None, None]
+
+
+def _sous_feeder_response(record: SousFeeder) -> SousFeederResponse:
+    poste_source, feeder, _ = _libelles_sous_feeder(record)
+    return SousFeederResponse.model_validate(record).model_copy(
+        update={"feeder_libelle": feeder, "poste_source_libelle": poste_source}
+    )
 
 
 def _libelles_poste_source(record: Any) -> list[str | None]:
@@ -278,9 +291,8 @@ async def list_resources(
         return _paginate_list(items, page, page_size, TronconResponse.model_validate)
 
     items = await repo.list_sous_feeders(db, feeder_id=feeder_id, scope=scope)
-    return _paginate_list(
-        items, page, page_size, SousFeederResponse.model_validate, max_page_size=500
-    )
+    items = _filtrer_trier(items, recherche, tri, _libelles_sous_feeder)
+    return _paginate_list(items, page, page_size, _sous_feeder_response, max_page_size=500)
 
 
 async def get_resource(db: AsyncSession, user: Utilisateur, slug: str, item_id: int) -> Any:

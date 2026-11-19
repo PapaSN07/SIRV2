@@ -81,6 +81,8 @@ export interface PosteImpacte {
   poste_code: string | null;
   poste_libelle: string | null;
   nombre_clients_touches: number | null;
+  /** Clients estimés du poste (base SAIFI / SAIDI) */
+  nombre_clients_estime?: number | null;
   date_interruption?: string | null;
   feeder_id?: number | null;
   service_id?: number | null;

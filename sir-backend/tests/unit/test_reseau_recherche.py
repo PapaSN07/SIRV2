@@ -32,3 +32,17 @@ def test_poste_affiche_les_libelles_et_pas_les_identifiants() -> None:
     poste.__dict__["service"] = None
     res = _poste_response(poste)  # type: ignore[arg-type]
     assert (res.feeder_libelle, res.poste_source_libelle) == ("Ouakam", "Hann")
+
+
+def test_sous_feeder_affiche_feeder_et_poste_source() -> None:
+    from app.services.reseau_distribution_service import _libelles_sous_feeder, _sous_feeder_response
+
+    feeder = SimpleNamespace(libelle="Ouakam")
+    feeder.__dict__["poste_source"] = SimpleNamespace(libelle="Hann")
+    sf = SimpleNamespace(id=1, code="SF1", libelle="Ouakam Nord", feeder_id=3, is_active=True)
+    sf.__dict__["feeder"] = feeder
+    res = _sous_feeder_response(sf)  # type: ignore[arg-type]
+    assert (res.feeder_libelle, res.poste_source_libelle) == ("Ouakam", "Hann")
+    autre = SimpleNamespace(id=2, code="SF2", libelle="Yoff", feeder_id=4, is_active=True)
+    autre.__dict__["feeder"] = None
+    assert [i.code for i in _filtrer_trier([sf, autre], "hann", None, _libelles_sous_feeder)] == ["SF1"]

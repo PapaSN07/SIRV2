@@ -10,12 +10,15 @@ import {
   PosteCreate,
   PosteSource,
   PosteUpdate,
+  SousFeeder,
+  SousFeederCreate,
+  SousFeederUpdate,
 } from '../../../shared/models/reseau.models';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { AdminNavComponent } from '../../../shared/ui/admin-nav/admin-nav.component';
 import { PaginatorComponent } from '../../../shared/ui/paginator/paginator.component';
 
-type ReseauDistTab = 'feeders' | 'postes';
+type ReseauDistTab = 'feeders' | 'sous-feeders' | 'postes';
 
 @Component({
   selector: 'sir-reseau-distribution-admin',
@@ -33,6 +36,7 @@ export class ReseauDistributionAdminComponent implements OnInit {
   readonly feeders = signal<Feeder[]>([]);
   readonly feedersOptions = signal<Feeder[]>([]);
   readonly postes = signal<Poste[]>([]);
+  readonly sousFeeders = signal<SousFeeder[]>([]);
   readonly postesSources = signal<PosteSource[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
@@ -49,6 +53,9 @@ export class ReseauDistributionAdminComponent implements OnInit {
 
   readonly feederForm = signal({ code: '', libelle: '', poste_source_id: '', is_active: true });
   readonly posteForm = signal({ code: '', libelle: '', feeder_id: '', is_active: true });
+  readonly sousFeederForm = signal({ code: '', libelle: '', feeder_id: '', is_active: true });
+  /** Filtre par feeder (onglets Sous-feeders et Postes) */
+  readonly filtreFeeder = signal<number | null>(null);
 
   readonly canWrite = computed(() => this.auth.hasRole('ADMIN_SCR'));
 
@@ -63,7 +70,14 @@ export class ReseauDistributionAdminComponent implements OnInit {
     this.page.set(1);
     this.recherche.set('');
     this.tri.set('libelle');
+    this.filtreFeeder.set(null);
     this.closeForm();
+    this.load();
+  }
+
+  onFiltreFeeder(value: string): void {
+    this.filtreFeeder.set(value ? Number(value) : null);
+    this.page.set(1);
     this.load();
   }
 
@@ -107,6 +121,13 @@ export class ReseauDistributionAdminComponent implements OnInit {
     this.editingId.set(null);
     if (this.activeTab() === 'feeders') {
       this.feederForm.set({ code: '', libelle: '', poste_source_id: '', is_active: true });
+    } else if (this.activeTab() === 'sous-feeders') {
+      this.sousFeederForm.set({
+        code: '',
+        libelle: '',
+        feeder_id: this.filtreFeeder() ? String(this.filtreFeeder()) : '',
+        is_active: true,
+      });
     } else {
       this.posteForm.set({ code: '', libelle: '', feeder_id: '', is_active: true });
     }
@@ -136,6 +157,29 @@ export class ReseauDistributionAdminComponent implements OnInit {
     this.formOpen.set(true);
   }
 
+  openEditSousFeeder(item: SousFeeder): void {
+    this.editingId.set(item.id);
+    this.sousFeederForm.set({
+      code: item.code,
+      libelle: item.libelle,
+      feeder_id: String(item.feeder_id),
+      is_active: item.is_active,
+    });
+    this.formOpen.set(true);
+  }
+
+  patchSousFeederForm(field: 'code' | 'libelle' | 'feeder_id' | 'is_active', value: string | boolean): void {
+    this.sousFeederForm.update((current) => ({ ...current, [field]: value }));
+  }
+
+  deactivateSousFeeder(item: SousFeeder): void {
+    if (!confirm(`Désactiver le sous-feeder « ${item.libelle} » ?`)) return;
+    this.reseau.deleteSousFeeder(item.id).subscribe({
+      next: () => this.load(),
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
   closeForm(): void {
     this.formOpen.set(false);
     this.editingId.set(null);
@@ -152,6 +196,8 @@ export class ReseauDistributionAdminComponent implements OnInit {
   saveForm(): void {
     if (this.activeTab() === 'feeders') {
       this.saveFeeder();
+    } else if (this.activeTab() === 'sous-feeders') {
+      this.saveSousFeeder();
     } else {
       this.savePoste();
     }
@@ -239,6 +285,35 @@ export class ReseauDistributionAdminComponent implements OnInit {
     });
   }
 
+  private saveSousFeeder(): void {
+    const f = this.sousFeederForm();
+    const feederId = Number(f.feeder_id);
+    if (!f.code.trim() || !f.libelle.trim() || !feederId) {
+      this.error.set('Code, libellé et feeder sont obligatoires.');
+      return;
+    }
+    this.saving.set(true);
+    const editId = this.editingId();
+    if (editId === null) {
+      const body: SousFeederCreate = { code: f.code.trim(), libelle: f.libelle.trim(), feeder_id: feederId };
+      this.reseau.createSousFeeder(body).subscribe({
+        next: () => this.afterSave(),
+        error: (err: Error) => this.onSaveError(err),
+      });
+      return;
+    }
+    const body: SousFeederUpdate = {
+      code: f.code.trim(),
+      libelle: f.libelle.trim(),
+      feeder_id: feederId,
+      is_active: f.is_active,
+    };
+    this.reseau.updateSousFeeder(editId, body).subscribe({
+      next: () => this.afterSave(),
+      error: (err: Error) => this.onSaveError(err),
+    });
+  }
+
   private afterSave(): void {
     this.saving.set(false);
     this.closeForm();
@@ -257,7 +332,7 @@ export class ReseauDistributionAdminComponent implements OnInit {
   }
 
   private loadFeedersForSelect(): void {
-    this.reseau.listFeeders({ page: 1, page_size: 200 }).subscribe({
+    this.reseau.listFeeders({ page: 1, page_size: 500, tri: 'libelle' }).subscribe({
       next: (res) => this.feedersOptions.set(res.items),
     });
   }
@@ -271,7 +346,23 @@ export class ReseauDistributionAdminComponent implements OnInit {
       q: this.recherche(),
       tri: this.tri(),
       poste_source_id: this.activeTab() === 'feeders' ? (this.filtrePosteSource() ?? undefined) : undefined,
+      feeder_id: this.activeTab() !== 'feeders' ? (this.filtreFeeder() ?? undefined) : undefined,
     };
+
+    if (this.activeTab() === 'sous-feeders') {
+      this.reseau.listSousFeeders(params).subscribe({
+        next: (res) => {
+          this.sousFeeders.set(res.items);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: (err: Error) => {
+          this.error.set(err.message);
+          this.loading.set(false);
+        },
+      });
+      return;
+    }
 
     if (this.activeTab() === 'feeders') {
       this.reseau.listFeeders(params).subscribe({

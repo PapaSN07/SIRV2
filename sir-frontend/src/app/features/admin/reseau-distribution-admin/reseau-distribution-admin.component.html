@@ -11,7 +11,7 @@
       <div actions>
         <button type="button" class="sir-btn sir-btn--primary" (click)="openCreate()">
           <span class="material-symbols-outlined" aria-hidden="true">add</span>
-          {{ activeTab() === 'feeders' ? 'Nouveau feeder' : 'Nouveau poste' }}
+          {{ activeTab() === 'feeders' ? 'Nouveau feeder' : activeTab() === 'sous-feeders' ? 'Nouveau sous-feeder' : 'Nouveau poste' }}
         </button>
       </div>
     }
@@ -37,6 +37,17 @@
         type="button"
         role="tab"
         class="segment__btn"
+        [class.segment__btn--active]="activeTab() === 'sous-feeders'"
+        [attr.aria-selected]="activeTab() === 'sous-feeders'"
+        (click)="onTabChange('sous-feeders')"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+        Sous-feeders
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="segment__btn"
         [class.segment__btn--active]="activeTab() === 'postes'"
         [attr.aria-selected]="activeTab() === 'postes'"
         (click)="onTabChange('postes')"
@@ -52,7 +63,7 @@
       <span class="material-symbols-outlined" aria-hidden="true">search</span>
       <input
         type="search"
-        [placeholder]="activeTab() === 'feeders' ? 'Rechercher un feeder, un poste source…' : 'Rechercher un poste, un feeder, un poste source…'"
+        [placeholder]="activeTab() === 'feeders' ? 'Rechercher un feeder, un poste source…' : activeTab() === 'sous-feeders' ? 'Rechercher un sous-feeder, un feeder, un poste source…' : 'Rechercher un poste, un feeder, un poste source…'"
         aria-label="Rechercher"
         [ngModel]="recherche()"
         (ngModelChange)="onRecherche($event)"
@@ -71,14 +82,22 @@
         }
       </select>
     }
-    <span class="total">{{ total() }} {{ activeTab() === 'feeders' ? 'feeder' : 'poste' }}{{ total() > 1 ? 's' : '' }}</span>
+    @if (activeTab() !== 'feeders') {
+      <select class="sir-select" aria-label="Feeder" [value]="filtreFeeder() ?? ''" (change)="onFiltreFeeder($any($event.target).value)">
+        <option value="">Tous les feeders</option>
+        @for (fd of feedersOptions(); track fd.id) {
+          <option [value]="fd.id">{{ fd.libelle }}</option>
+        }
+      </select>
+    }
+    <span class="total">{{ total() }} {{ activeTab() === 'feeders' ? 'feeder' : activeTab() === 'sous-feeders' ? 'sous-feeder' : 'poste' }}{{ total() > 1 ? 's' : '' }}</span>
   </div>
 
   @if (formOpen()) {
     <div class="form-panel">
       <h2 class="form-panel__title">
         {{ editingId() === null ? 'Créer' : 'Modifier' }}
-        {{ activeTab() === 'feeders' ? 'un feeder' : 'un poste' }}
+        {{ activeTab() === 'feeders' ? 'un feeder' : activeTab() === 'sous-feeders' ? 'un sous-feeder' : 'un poste' }}
       </h2>
       @if (activeTab() === 'feeders') {
         <div class="form-grid">
@@ -111,6 +130,34 @@
                   [ngModel]="feederForm().is_active"
                   (ngModelChange)="patchFeederForm('is_active', $event)"
                 />
+                Actif
+              </label>
+            </div>
+          }
+        </div>
+      } @else if (activeTab() === 'sous-feeders') {
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label" for="sf-code">Code</label>
+            <input id="sf-code" class="field__input" [ngModel]="sousFeederForm().code" (ngModelChange)="patchSousFeederForm('code', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="sf-libelle">Libellé</label>
+            <input id="sf-libelle" class="field__input" [ngModel]="sousFeederForm().libelle" (ngModelChange)="patchSousFeederForm('libelle', $event)" />
+          </div>
+          <div class="field">
+            <label class="field__label" for="sf-feeder">Feeder</label>
+            <select id="sf-feeder" class="field__select" [ngModel]="sousFeederForm().feeder_id" (ngModelChange)="patchSousFeederForm('feeder_id', $event)">
+              <option value="">—</option>
+              @for (fd of feedersOptions(); track fd.id) {
+                <option [value]="fd.id">{{ fd.libelle }} ({{ fd.code }})</option>
+              }
+            </select>
+          </div>
+          @if (editingId() !== null) {
+            <div class="field">
+              <label class="field__label">
+                <input type="checkbox" [ngModel]="sousFeederForm().is_active" (ngModelChange)="patchSousFeederForm('is_active', $event)" />
                 Actif
               </label>
             </div>
@@ -210,6 +257,52 @@
             </tr>
           } @empty {
             <tr><td class="vide" [attr.colspan]="canWrite() ? 6 : 5">{{ recherche() ? 'Aucun feeder ne correspond à « ' + recherche() + ' ».' : 'Aucun feeder.' }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (activeTab() === 'sous-feeders') {
+    <div class="table-wrap">
+      <table class="sir-table">
+        <thead>
+          <tr>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('code')" (click)="trier('code')">Code <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('code') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('libelle')" (click)="trier('libelle')">Sous-feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('libelle') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('feeder_libelle')" (click)="trier('feeder_libelle')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('feeder_libelle') }}</span></button></th>
+            <th><button type="button" class="sir-sort" [class.sir-sort--active]="triActif('poste_source_libelle')" (click)="trier('poste_source_libelle')">Poste source <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('poste_source_libelle') }}</span></button></th>
+            <th>État</th>
+            @if (canWrite()) {
+              <th class="col-actions">Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of sousFeeders(); track row.id) {
+            <tr>
+              <td class="code">{{ row.code }}</td>
+              <td class="libelle">{{ row.libelle }}</td>
+              <td>{{ row.feeder_libelle ?? '—' }}</td>
+              <td>{{ row.poste_source_libelle ?? '—' }}</td>
+              <td>
+                <span class="sir-pill" [class.sir-pill--ok]="row.is_active" [class.sir-pill--off]="!row.is_active">{{ row.is_active ? 'Actif' : 'Inactif' }}</span>
+              </td>
+              @if (canWrite()) {
+                <td class="col-actions">
+                  <div class="sir-actions">
+                    <button type="button" class="sir-icon-btn" data-tip="Modifier" [attr.aria-label]="'Modifier ' + row.libelle" (click)="openEditSousFeeder(row)">
+                      <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                    @if (row.is_active) {
+                      <button type="button" class="sir-icon-btn sir-icon-btn--danger" data-tip="Désactiver" [attr.aria-label]="'Désactiver ' + row.libelle" (click)="deactivateSousFeeder(row)">
+                        <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr><td class="vide" [attr.colspan]="canWrite() ? 6 : 5">{{ recherche() ? 'Aucun sous-feeder ne correspond à « ' + recherche() + ' ».' : 'Aucun sous-feeder.' }}</td></tr>
           }
         </tbody>
       </table>

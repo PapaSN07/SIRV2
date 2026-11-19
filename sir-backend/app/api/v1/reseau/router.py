@@ -355,11 +355,17 @@ async def list_sous_feeders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=500),
     feeder_id: int | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=100, description="Recherche code / libellé / feeder / poste source"),
+    tri: str | None = Query(
+        default=None,
+        pattern=r"^-?(code|libelle|poste_source_libelle|feeder_libelle)$",
+        description="Colonne de tri, « - » = décroissant",
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[SousFeederResponse]]:
     result = await svc.list_resources(
-        db, current_user, "sous-feeders", page, page_size, feeder_id=feeder_id
+        db, current_user, "sous-feeders", page, page_size, feeder_id=feeder_id, recherche=q, tri=tri
     )
     return ApiResponse.success(result)
 

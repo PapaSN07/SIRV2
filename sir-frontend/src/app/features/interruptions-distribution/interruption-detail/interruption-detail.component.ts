@@ -115,7 +115,7 @@ export class InterruptionDetailComponent implements OnInit {
         libelle: poste.libelle,
         code: poste.code,
         checked: linked !== undefined,
-        nombreClientsTouches: linked?.nombre_clients_touches ?? poste.nombre_clients ?? null,
+        nombreClientsTouches: linked?.nombre_clients_touches ?? linked?.nombre_clients_estime ?? poste.nombre_clients ?? null,
         dateInterruption: linked?.date_interruption ?? null,
       });
     }
@@ -127,7 +127,7 @@ export class InterruptionDetailComponent implements OnInit {
         libelle: linked.poste_libelle ?? linked.poste_code ?? `Poste #${linked.poste_id}`,
         code: linked.poste_code,
         checked: true,
-        nombreClientsTouches: linked.nombre_clients_touches,
+        nombreClientsTouches: linked.nombre_clients_touches ?? linked.nombre_clients_estime ?? null,
         dateInterruption: linked.date_interruption ?? null,
       });
     }

@@ -867,6 +867,7 @@ def _poste_to_response(pi: PosteInterruption) -> PosteImpacteResponse:
         poste_code=pi.poste.code if pi.poste else None,
         poste_libelle=pi.poste.libelle if pi.poste else None,
         nombre_clients_touches=pi.nombre_clients_touches,
+        nombre_clients_estime=pi.nombre_clients_estime,
         date_interruption=pi.date_interruption,
         feeder_id=pi.feeder_id,
         service_id=pi.service_id,

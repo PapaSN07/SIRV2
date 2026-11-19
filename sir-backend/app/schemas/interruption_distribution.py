@@ -146,6 +146,8 @@ class PosteImpacteResponse(BaseModel):
     poste_code: str | None = None
     poste_libelle: str | None = None
     nombre_clients_touches: int | None = None
+    # Clients estimés du poste (SIR v1 : nombreclientposteEstime), base des SAIFI / SAIDI
+    nombre_clients_estime: int | None = None
     date_interruption: datetime | None = None
     feeder_id: int | None = None
     service_id: int | None = None

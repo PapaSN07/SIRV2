@@ -185,5 +185,7 @@ class SousFeederResponse(BaseModel):
     libelle: str
     feeder_id: int
     is_active: bool
+    feeder_libelle: str | None = None
+    poste_source_libelle: str | None = None
 
     model_config = {"from_attributes": True}
