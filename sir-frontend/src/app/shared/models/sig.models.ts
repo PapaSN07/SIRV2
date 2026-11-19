@@ -25,3 +25,84 @@ export interface SigListParams {
   page_size?: number;
   search?: string;
 }
+
+
+export interface CategorieSig {
+  categorie: string;
+  nombre: number;
+}
+
+export interface SyntheseSig {
+  noeuds: number;
+  noeuds_localises: number;
+  noeuds_rattaches: number;
+  troncons: number;
+  longueur_km: number;
+  feeders_sig: number;
+  feeders_rattaches: number;
+  stations: number;
+  dernier_chargement: string | null;
+  categories: CategorieSig[];
+}
+
+export interface StationSig {
+  station: string;
+  noeuds: number;
+  feeders: number;
+  latitude: number | null;
+  longitude: number | null;
+  poste_source_sirv2: string | null;
+}
+
+export interface FeederSig {
+  nom_feeder: string;
+  troncons: number;
+  longueur_km: number;
+  tension_kv: number | null;
+  noeuds: number;
+  noeuds_localises: number;
+  feeder_id: number | null;
+  feeder_libelle: string | null;
+  poste_source_libelle: string | null;
+  date_chargement: string | null;
+}
+
+export interface TronconSigAdmin {
+  id: number;
+  nom_troncon: string | null;
+  nom_feeder: string | null;
+  feeder_id: number | null;
+  nom_noeud_amont: string | null;
+  code_noeud_amont: string | null;
+  nom_noeud_aval: string | null;
+  code_noeud_aval: string | null;
+  tension_kv: number | null;
+  longueur_m: number | null;
+  date_chargement: string | null;
+}
+
+export interface NoeudSigAdmin {
+  id: number;
+  legacy_fid: number;
+  nom: string | null;
+  nom_feeder: string | null;
+  feeder_id: number | null;
+  station: string | null;
+  categorie: string | null;
+  coord_x: number | null;
+  coord_y: number | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface SigListeParams {
+  page?: number;
+  page_size?: number;
+  q?: string;
+  tri?: string;
+  nom_feeder?: string;
+  station?: string;
+  categorie?: string;
+  localisation?: 'localise' | 'non_localise';
+  rattachement?: 'rattache' | 'non_rattache';
+}

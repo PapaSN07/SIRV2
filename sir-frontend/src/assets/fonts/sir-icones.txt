@@ -69,10 +69,12 @@ fact_check
 feedback
 files
 filter
+filter_alt_off
 filter_list
 first_page
 flag
 floor
+fort
 function
 gradient
 group
@@ -103,6 +105,7 @@ list
 list_alt
 location_off
 location_on
+location_searching
 lock
 login
 logout

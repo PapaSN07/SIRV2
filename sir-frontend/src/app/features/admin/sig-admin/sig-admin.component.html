@@ -1,0 +1,279 @@
+<section class="admin-page">
+  <sir-page-header
+    title="SIG — topologie du réseau"
+    [breadcrumbs]="[{ label: 'Tableau de bord', route: '/' }, { label: 'Administration' }, { label: 'SIG' }]"
+  />
+
+  <sir-admin-nav />
+
+  <div class="sig-layout">
+    <nav class="sir-card sig-menu" aria-label="Rubriques SIG">
+      <p class="sig-menu__titre">SIG</p>
+      @for (o of onglets; track o.id) {
+        <button
+          type="button"
+          class="sig-menu__item"
+          [class.sig-menu__item--active]="onglet() === o.id"
+          [attr.aria-current]="onglet() === o.id ? 'page' : null"
+          (click)="changerOnglet(o.id)"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">{{ o.icone }}</span>
+          {{ o.libelle }}
+        </button>
+      }
+      <p class="sig-menu__note">
+        Données importées du SIG (lecture seule). Coordonnées SIG en UTM 28N, converties en latitude / longitude.
+      </p>
+    </nav>
+
+    <div class="sig-contenu">
+      @if (error()) {
+        <p class="alerte" role="alert">{{ error() }}</p>
+      }
+
+      <!-- ── Synthèse ─────────────────────────────────────────────── -->
+      @if (onglet() === 'synthese') {
+        @if (synthese(); as s) {
+          <div class="kpis">
+            <div class="sir-card kpi">
+              <span class="kpi__label">Postes sources (stations)</span>
+              <strong class="kpi__valeur">{{ s.stations | number: '1.0-0' }}</strong>
+            </div>
+            <div class="sir-card kpi">
+              <span class="kpi__label">Feeders SIG</span>
+              <strong class="kpi__valeur">{{ s.feeders_sig | number: '1.0-0' }}</strong>
+              <span class="kpi__aide">{{ s.feeders_rattaches }} rattachés à un feeder SIRV2 ({{ pourcentage(s.feeders_rattaches, s.feeders_sig) }} %)</span>
+              <div class="jauge"><span [style.width.%]="pourcentage(s.feeders_rattaches, s.feeders_sig)"></span></div>
+            </div>
+            <div class="sir-card kpi">
+              <span class="kpi__label">Tronçons SIG</span>
+              <strong class="kpi__valeur">{{ s.troncons | number: '1.0-0' }}</strong>
+              <span class="kpi__aide">{{ s.longueur_km | number: '1.0-1' }} km de réseau</span>
+            </div>
+            <div class="sir-card kpi">
+              <span class="kpi__label">Nœuds</span>
+              <strong class="kpi__valeur">{{ s.noeuds | number: '1.0-0' }}</strong>
+              <span class="kpi__aide">{{ s.noeuds_localises | number: '1.0-0' }} localisés ({{ pourcentage(s.noeuds_localises, s.noeuds) }} %)</span>
+              <div class="jauge"><span [style.width.%]="pourcentage(s.noeuds_localises, s.noeuds)"></span></div>
+            </div>
+          </div>
+
+          <div class="sir-card bloc">
+            <div class="bloc__tete">
+              <h2>Nœuds par catégorie</h2>
+              <span class="bloc__meta">Dernier chargement SIG : {{ s.dernier_chargement ? (s.dernier_chargement | date: 'dd/MM/yyyy') : '—' }}</span>
+            </div>
+            <ul class="categories">
+              @for (c of s.categories; track c.categorie) {
+                <li>
+                  <button type="button" class="categories__ligne" (click)="voirNoeuds({ categorie: c.categorie === '(sans catégorie)' ? '' : c.categorie })">
+                    <span class="categories__nom">{{ c.categorie }}</span>
+                    <span class="categories__barre"><span [style.width.%]="pourcentage(c.nombre, s.categories[0].nombre)"></span></span>
+                    <span class="categories__nb">{{ c.nombre | number: '1.0-0' }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          </div>
+        } @else if (loading()) {
+          <p class="vide">Chargement…</p>
+        }
+      }
+
+      <!-- ── Listes ───────────────────────────────────────────────── -->
+      @if (onglet() !== 'synthese' && onglet() !== 'carte') {
+        <div class="sir-card">
+          <div class="sir-toolbar">
+            <div class="sir-search">
+              <span class="material-symbols-outlined" aria-hidden="true">search</span>
+              <input type="search" placeholder="Rechercher…" aria-label="Rechercher" [ngModel]="recherche()" (ngModelChange)="onRecherche($event)" />
+            </div>
+            @if (onglet() === 'feeders') {
+              <select class="sir-select" aria-label="Rattachement" [ngModel]="filtreRattachement()" (ngModelChange)="filtreRattachement.set($event); appliquerFiltres()">
+                <option value="">Tous les départs</option>
+                <option value="rattache">Rattachés à SIRV2</option>
+                <option value="non_rattache">Non rattachés</option>
+              </select>
+            }
+            @if (onglet() === 'troncons' || onglet() === 'noeuds') {
+              <input class="sir-select filtre-texte" placeholder="Feeder SIG (nom exact)" aria-label="Feeder SIG" [ngModel]="filtreFeeder()" (ngModelChange)="filtreFeeder.set($event)" (keyup.enter)="appliquerFiltres()" (blur)="appliquerFiltres()" />
+            }
+            @if (onglet() === 'noeuds') {
+              <input class="sir-select filtre-texte" placeholder="Station" aria-label="Station" [ngModel]="filtreStation()" (ngModelChange)="filtreStation.set($event)" (keyup.enter)="appliquerFiltres()" (blur)="appliquerFiltres()" />
+              <input class="sir-select filtre-texte" placeholder="Catégorie" aria-label="Catégorie" [ngModel]="filtreCategorie()" (ngModelChange)="filtreCategorie.set($event)" (keyup.enter)="appliquerFiltres()" (blur)="appliquerFiltres()" />
+              <select class="sir-select" aria-label="Localisation" [ngModel]="filtreLocalisation()" (ngModelChange)="filtreLocalisation.set($event); appliquerFiltres()">
+                <option value="">Localisés ou non</option>
+                <option value="localise">Avec coordonnées</option>
+                <option value="non_localise">Sans coordonnées</option>
+              </select>
+            }
+            @if (filtreFeeder() || filtreStation() || filtreCategorie() || filtreLocalisation() || filtreRattachement()) {
+              <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="reinitialiserFiltres()">
+                <span class="material-symbols-outlined" aria-hidden="true">filter_alt_off</span>
+                Effacer les filtres
+              </button>
+            }
+            <span class="total">{{ total() | number: '1.0-0' }} élément{{ total() > 1 ? 's' : '' }}</span>
+          </div>
+
+          <div class="table-wrap" [class.chargement]="loading()">
+            @switch (onglet()) {
+              @case ('stations') {
+                <table class="sir-table">
+                  <thead>
+                    <tr><th>Station (poste source SIG)</th><th>Poste source SIRV2</th><th>Feeders</th><th>Nœuds</th><th>Position moyenne</th><th class="col-actions">Actions</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (r of stations(); track r.station) {
+                      <tr>
+                        <td class="fort">{{ r.station }}</td>
+                        <td>
+                          @if (r.poste_source_sirv2) { <span class="sir-pill sir-pill--ok">{{ r.poste_source_sirv2 }}</span> } @else { <span class="sir-pill sir-pill--warn">Non trouvé</span> }
+                        </td>
+                        <td>{{ r.feeders }}</td>
+                        <td>{{ r.noeuds | number: '1.0-0' }}</td>
+                        <td class="coord">{{ r.latitude !== null ? (r.latitude | number: '1.4-4' : 'en') + ', ' + (r.longitude | number: '1.4-4' : 'en') : '—' }}</td>
+                        <td class="col-actions">
+                          <div class="sir-actions">
+                            <button type="button" class="sir-icon-btn" data-tip="Nœuds" aria-label="Voir les nœuds" (click)="voirNoeuds({ station: r.station })"><span class="material-symbols-outlined" aria-hidden="true">hub</span></button>
+                            <button type="button" class="sir-icon-btn" data-tip="Carte" aria-label="Voir sur la carte" (click)="voirCarte({ station: r.station })"><span class="material-symbols-outlined" aria-hidden="true">map</span></button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="6" class="vide">Aucune station.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+              @case ('feeders') {
+                <table class="sir-table">
+                  <thead>
+                    <tr><th>Feeder SIG</th><th>Feeder SIRV2</th><th>Poste source</th><th>Tension</th><th>Tronçons</th><th>Longueur</th><th>Nœuds localisés</th><th class="col-actions">Actions</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (r of feeders(); track r.nom_feeder) {
+                      <tr>
+                        <td class="fort">{{ r.nom_feeder }}</td>
+                        <td>
+                          @if (r.feeder_libelle) { <span class="sir-pill sir-pill--ok">{{ r.feeder_libelle }}</span> } @else { <span class="sir-pill sir-pill--warn">Non rattaché</span> }
+                        </td>
+                        <td>{{ r.poste_source_libelle ?? '—' }}</td>
+                        <td>{{ r.tension_kv !== null ? r.tension_kv + ' kV' : '—' }}</td>
+                        <td>{{ r.troncons | number: '1.0-0' }}</td>
+                        <td>{{ r.longueur_km | number: '1.0-2' }} km</td>
+                        <td>{{ r.noeuds_localises }} / {{ r.noeuds }}</td>
+                        <td class="col-actions">
+                          <div class="sir-actions">
+                            <button type="button" class="sir-icon-btn" data-tip="Tronçons" aria-label="Voir les tronçons" (click)="voirTroncons(r.nom_feeder)"><span class="material-symbols-outlined" aria-hidden="true">timeline</span></button>
+                            <button type="button" class="sir-icon-btn" data-tip="Nœuds" aria-label="Voir les nœuds" (click)="voirNoeuds({ nom_feeder: r.nom_feeder })"><span class="material-symbols-outlined" aria-hidden="true">hub</span></button>
+                            <button type="button" class="sir-icon-btn" data-tip="Carte" aria-label="Voir sur la carte" (click)="voirCarte({ nom_feeder: r.nom_feeder })"><span class="material-symbols-outlined" aria-hidden="true">map</span></button>
+                          </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="8" class="vide">Aucun feeder.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+              @case ('troncons') {
+                <table class="sir-table">
+                  <thead>
+                    <tr>
+                      <th><button type="button" class="sir-sort" (click)="trier('nom_troncon')">Tronçon <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom_troncon') }}</span></button></th>
+                      <th><button type="button" class="sir-sort" (click)="trier('nom_feeder')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom_feeder') }}</span></button></th>
+                      <th>Nœud amont</th>
+                      <th>Nœud aval</th>
+                      <th><button type="button" class="sir-sort" (click)="trier('tension_kv')">Tension <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('tension_kv') }}</span></button></th>
+                      <th><button type="button" class="sir-sort" (click)="trier('longueur_m')">Longueur <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('longueur_m') }}</span></button></th>
+                      <th>Chargement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (r of troncons(); track r.id) {
+                      <tr>
+                        <td class="fort">{{ r.nom_troncon ?? '—' }}</td>
+                        <td>{{ r.nom_feeder ?? '—' }}</td>
+                        <td>{{ r.nom_noeud_amont ?? '—' }} @if (r.code_noeud_amont) { <span class="code">{{ r.code_noeud_amont }}</span> }</td>
+                        <td>{{ r.nom_noeud_aval ?? '—' }} @if (r.code_noeud_aval) { <span class="code">{{ r.code_noeud_aval }}</span> }</td>
+                        <td>{{ r.tension_kv !== null ? r.tension_kv + ' kV' : '—' }}</td>
+                        <td>{{ r.longueur_m !== null ? (r.longueur_m | number: '1.0-0') + ' m' : '—' }}</td>
+                        <td>{{ r.date_chargement ? (r.date_chargement | date: 'dd/MM/yyyy') : '—' }}</td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="7" class="vide">Aucun tronçon.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+              @case ('noeuds') {
+                <table class="sir-table">
+                  <thead>
+                    <tr>
+                      <th><button type="button" class="sir-sort" (click)="trier('nom')">Nœud <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom') }}</span></button></th>
+                      <th><button type="button" class="sir-sort" (click)="trier('categorie')">Catégorie <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('categorie') }}</span></button></th>
+                      <th><button type="button" class="sir-sort" (click)="trier('nom_feeder')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom_feeder') }}</span></button></th>
+                      <th><button type="button" class="sir-sort" (click)="trier('station')">Station <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('station') }}</span></button></th>
+                      <th>X / Y (UTM 28N)</th>
+                      <th>Latitude, longitude</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (r of noeuds(); track r.id) {
+                      <tr>
+                        <td class="fort">{{ r.nom ?? '—' }}</td>
+                        <td>{{ r.categorie ?? '—' }}</td>
+                        <td>{{ r.nom_feeder ?? '—' }}</td>
+                        <td>{{ r.station ?? '—' }}</td>
+                        <td class="coord">{{ r.coord_x !== null ? (r.coord_x | number: '1.0-0' : 'en') + ' / ' + (r.coord_y | number: '1.0-0' : 'en') : '—' }}</td>
+                        <td class="coord">
+                          @if (r.latitude !== null) {
+                            {{ r.latitude | number: '1.5-5' : 'en' }}, {{ r.longitude | number: '1.5-5' : 'en' }}
+                          } @else {
+                            <span class="sir-pill sir-pill--warn">Non localisé</span>
+                          }
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="6" class="vide">Aucun nœud.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            }
+          </div>
+          <div class="pagination">
+            <sir-paginator [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="onPage($event)" />
+          </div>
+        </div>
+      }
+
+      <!-- ── Localisation (carte) : toujours présente, masquée hors onglet ── -->
+      <div class="sir-card carte-bloc" [hidden]="onglet() !== 'carte'">
+        <div class="sir-toolbar">
+          <div class="sir-search">
+            <span class="material-symbols-outlined" aria-hidden="true">location_searching</span>
+            <input type="search" placeholder="Nom exact d'un feeder SIG ou d'une station" aria-label="Feeder ou station" [ngModel]="carteSaisie()" (ngModelChange)="carteSaisie.set($event)" (keyup.enter)="rechercherCarte('feeder')" />
+          </div>
+          <button type="button" class="sir-btn sir-btn--primary sir-btn--sm" (click)="rechercherCarte('feeder')">Feeder</button>
+          <button type="button" class="sir-btn sir-btn--outline-primary sir-btn--sm" (click)="rechercherCarte('station')">Station</button>
+          <span class="total">
+            @if (carteCible(); as c) { {{ carteNoeuds().length | number: '1.0-0' }} nœuds localisés — {{ c.nom_feeder ?? c.station }} }
+          </span>
+        </div>
+        @if (carteLegende().length > 0) {
+          <div class="legende">
+            @for (l of carteLegende(); track l.categorie) {
+              <span><span class="pastille" [style.background]="l.couleur"></span>{{ l.categorie }} ({{ l.nombre }})</span>
+            }
+          </div>
+        }
+        <div #carte class="carte" role="application" aria-label="Carte des nœuds SIG"></div>
+        @if (!carteCible()) {
+          <p class="carte-aide">Choisissez un feeder ou une station (ou cliquez sur l'icône carte dans les listes) pour afficher ses nœuds.</p>
+        }
+      </div>
+    </div>
+  </div>
+</section>

@@ -239,6 +239,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'admin/sig',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN_SCR', 'ADMIN_SAQS', 'BCC', 'BRC', 'SUPERVISEUR'], permission: 'reseau:read' },
+        loadComponent: () =>
+          import('./features/admin/sig-admin/sig-admin.component').then((m) => m.SigAdminComponent),
+      },
+      {
         path: 'admin/objectifs',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN_SCR', 'ADMIN_SAQS'] },
