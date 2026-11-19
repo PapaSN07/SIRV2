@@ -12,6 +12,27 @@ import { AssistantService } from '../services/assistant.service';
   styleUrl: './assistant-panel.component.scss',
 })
 export class AssistantPanelComponent implements OnInit {
+  /** Questions d'exemple (un clic les pose). */
+  readonly exemples = [
+    'Top 5 des départs les plus perturbés ce mois',
+    'END du mois dernier',
+    'Combien d\'interruptions en cours ?',
+    'Principales causes cette semaine',
+    'SAIFI et SAIDI de l\'année',
+    'Quels travaux prioriser ?',
+  ];
+
+  poser(question: string): void {
+    this.form.patchValue({ question });
+    this.ask();
+  }
+
+  /** Réponse en texte : échappée, « **gras** » rendu en gras, retours à la ligne conservés. */
+  formater(texte: string): string {
+    const sur = texte.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+    return sur.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
+
   private readonly assistant = inject(AssistantService);
   private readonly fb = inject(FormBuilder);
 

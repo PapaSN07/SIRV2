@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiResponse, PaginatedResponse } from '../../../shared/models/api.models';
 import {
+  Defauts100Km,
   FeederSig,
   NoeudSigAdmin,
   SigListeParams,
@@ -36,6 +37,10 @@ export class SigAdminService {
 
   noeuds(params: SigListeParams): Observable<PaginatedResponse<NoeudSigAdmin>> {
     return this.get<PaginatedResponse<NoeudSigAdmin>>('noeuds', params);
+  }
+
+  defauts100km(params: { annee?: number; mois?: number }): Observable<Defauts100Km> {
+    return this.get<Defauts100Km>('defauts-100km', params);
   }
 
   carte(params: { nom_feeder?: string; station?: string }): Observable<NoeudSigAdmin[]> {

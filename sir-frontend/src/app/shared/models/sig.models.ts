@@ -106,3 +106,29 @@ export interface SigListeParams {
   localisation?: 'localise' | 'non_localise';
   rattachement?: 'rattache' | 'non_rattache';
 }
+
+export interface Defauts100KmLigne {
+  libelle: string;
+  detail: string | null;
+  defauts: number;
+  permanents: number;
+  longueur_km: number;
+  defauts_100km: number | null;
+  permanents_100km: number | null;
+}
+
+export interface Defauts100KmNature {
+  nature: string;
+  defauts: number;
+  defauts_100km: number | null;
+}
+
+export interface Defauts100Km {
+  debut: string;
+  fin: string;
+  global: Defauts100KmLigne;
+  par_nature: Defauts100KmNature[];
+  par_service: Defauts100KmLigne[];
+  par_feeder: Defauts100KmLigne[];
+  defauts_sans_longueur: number;
+}

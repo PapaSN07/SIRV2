@@ -80,8 +80,114 @@
         }
       }
 
+      <!-- ── Défauts aux 100 km ───────────────────────────────────── -->
+      @if (onglet() === 'defauts') {
+        <div class="sir-card bloc periode">
+          <label>
+            Année
+            <select class="sir-select" [ngModel]="defautsAnnee()" (ngModelChange)="changerPeriodeDefauts(+$event, defautsMois())">
+              @for (a of annees; track a) { <option [ngValue]="a">{{ a }}</option> }
+            </select>
+          </label>
+          <label>
+            Mois
+            <select class="sir-select" [ngModel]="defautsMois()" (ngModelChange)="changerPeriodeDefauts(defautsAnnee(), $event)">
+              <option [ngValue]="null">Toute l'année</option>
+              @for (m of moisListe; track m; let i = $index) { <option [ngValue]="i + 1">{{ m }}</option> }
+            </select>
+          </label>
+          <p class="periode__note">
+            Défaut = interruption de distribution hors force majeure, datée par son apparition. Longueur = tronçons SIG
+            (dernier chargement) des feeders rattachés à SIRV2.
+          </p>
+        </div>
+
+        @if (defauts(); as d) {
+          <div class="kpis kpis--3">
+            <div class="sir-card kpi kpi--accent">
+              <span class="kpi__label">Défauts aux 100 km</span>
+              <strong class="kpi__valeur">{{ d.global.defauts_100km !== null ? (d.global.defauts_100km | number: '1.1-1') : '—' }}</strong>
+              <span class="kpi__aide">{{ d.global.defauts | number: '1.0-0' }} défauts / {{ d.global.longueur_km | number: '1.0-0' }} km</span>
+            </div>
+            <div class="sir-card kpi">
+              <span class="kpi__label">Défauts permanents aux 100 km</span>
+              <strong class="kpi__valeur">{{ d.global.permanents_100km !== null ? (d.global.permanents_100km | number: '1.1-1') : '—' }}</strong>
+              <span class="kpi__aide">{{ d.global.permanents | number: '1.0-0' }} défauts permanents (indicateur du rapport DD)</span>
+            </div>
+            <div class="sir-card kpi">
+              <span class="kpi__label">Hors calcul</span>
+              <strong class="kpi__valeur">{{ d.defauts_sans_longueur | number: '1.0-0' }}</strong>
+              <span class="kpi__aide">défauts sur des feeders sans longueur SIG (non rattachés)</span>
+            </div>
+          </div>
+
+          <div class="sir-card">
+            <div class="sir-toolbar">
+              <div class="segment" role="tablist" aria-label="Découpage">
+                <button type="button" role="tab" class="segment__btn" [class.segment__btn--active]="defautsVue() === 'service'" (click)="defautsVue.set('service')">Par service</button>
+                <button type="button" role="tab" class="segment__btn" [class.segment__btn--active]="defautsVue() === 'feeder'" (click)="defautsVue.set('feeder')">Par feeder SIG</button>
+                <button type="button" role="tab" class="segment__btn" [class.segment__btn--active]="defautsVue() === 'nature'" (click)="defautsVue.set('nature')">Par nature</button>
+              </div>
+              @if (defautsVue() === 'feeder') {
+                <div class="sir-search">
+                  <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                  <input type="search" placeholder="Feeder, poste source, service…" aria-label="Filtrer les feeders" [ngModel]="defautsFiltre()" (ngModelChange)="defautsFiltre.set($event)" />
+                </div>
+                <span class="total">{{ feedersDefautsFiltres().length }} feeders (les plus touchés d'abord)</span>
+              }
+            </div>
+            <div class="table-wrap">
+              @if (defautsVue() === 'nature') {
+                <table class="sir-table">
+                  <thead><tr><th>Nature</th><th>Défauts</th><th>Aux 100 km</th><th class="col-barre"></th></tr></thead>
+                  <tbody>
+                    @for (n of d.par_nature; track n.nature) {
+                      <tr>
+                        <td class="fort">{{ n.nature }}</td>
+                        <td>{{ n.defauts | number: '1.0-0' }}</td>
+                        <td class="fort">{{ n.defauts_100km !== null ? (n.defauts_100km | number: '1.2-2') : '—' }}</td>
+                        <td class="col-barre"><span class="barre"><span [style.width.%]="pourcentage(n.defauts, maxNature())"></span></span></td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="4" class="vide">Aucun défaut sur la période.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <table class="sir-table">
+                  <thead>
+                    <tr>
+                      <th>{{ defautsVue() === 'service' ? 'Service' : 'Feeder' }}</th>
+                      @if (defautsVue() === 'feeder') { <th>Poste source · service</th> }
+                      <th>Longueur SIG</th><th>Défauts</th><th>Aux 100 km</th><th>Permanents</th><th>Permanents aux 100 km</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (l of (defautsVue() === 'service' ? d.par_service : feedersDefautsFiltres()); track $index) {
+                      <tr>
+                        <td class="fort">{{ l.libelle }}</td>
+                        @if (defautsVue() === 'feeder') { <td>{{ l.detail ?? '—' }}</td> }
+                        <td>{{ l.longueur_km | number: '1.0-1' }} km</td>
+                        <td>{{ l.defauts | number: '1.0-0' }}</td>
+                        <td class="fort">{{ l.defauts_100km !== null ? (l.defauts_100km | number: '1.1-1') : '—' }}</td>
+                        <td>{{ l.permanents | number: '1.0-0' }}</td>
+                        <td>{{ l.permanents_100km !== null ? (l.permanents_100km | number: '1.1-1') : '—' }}</td>
+                      </tr>
+                    } @empty {
+                      <tr><td [attr.colspan]="defautsVue() === 'feeder' ? 7 : 6" class="vide">Aucune donnée.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          </div>
+        } @else if (loading()) {
+          <p class="vide">Calcul en cours…</p>
+        }
+      }
+
       <!-- ── Listes ───────────────────────────────────────────────── -->
-      @if (onglet() !== 'synthese' && onglet() !== 'carte') {
+      @if (onglet() !== 'synthese' && onglet() !== 'carte' && onglet() !== 'defauts') {
         <div class="sir-card">
           <div class="sir-toolbar">
             <div class="sir-search">

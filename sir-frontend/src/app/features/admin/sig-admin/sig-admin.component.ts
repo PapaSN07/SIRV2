@@ -1,9 +1,10 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as L from 'leaflet';
 import { SigAdminService } from '../services/sig-admin.service';
 import {
+  Defauts100Km,
   FeederSig,
   NoeudSigAdmin,
   SigListeParams,
@@ -15,10 +16,11 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.
 import { AdminNavComponent } from '../../../shared/ui/admin-nav/admin-nav.component';
 import { PaginatorComponent } from '../../../shared/ui/paginator/paginator.component';
 
-type OngletSig = 'synthese' | 'stations' | 'feeders' | 'troncons' | 'noeuds' | 'carte';
+type OngletSig = 'synthese' | 'defauts' | 'stations' | 'feeders' | 'troncons' | 'noeuds' | 'carte';
 
 const ONGLETS: { id: OngletSig; libelle: string; icone: string }[] = [
   { id: 'synthese', libelle: 'Synthèse', icone: 'dashboard' },
+  { id: 'defauts', libelle: 'Défauts aux 100 km', icone: 'query_stats' },
   { id: 'stations', libelle: 'Postes sources SIG', icone: 'domain' },
   { id: 'feeders', libelle: 'Feeders SIG', icone: 'cable' },
   { id: 'troncons', libelle: 'Tronçons SIG', icone: 'timeline' },
@@ -61,6 +63,21 @@ export class SigAdminComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly feeders = signal<FeederSig[]>([]);
   readonly troncons = signal<TronconSigAdmin[]>([]);
   readonly noeuds = signal<NoeudSigAdmin[]>([]);
+
+  // Défauts aux 100 km
+  readonly annees = [new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2];
+  readonly moisListe = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  readonly defautsAnnee = signal(new Date().getFullYear());
+  readonly defautsMois = signal<number | null>(null);
+  readonly defauts = signal<Defauts100Km | null>(null);
+  readonly defautsVue = signal<'service' | 'feeder' | 'nature'>('service');
+  readonly defautsFiltre = signal('');
+  readonly feedersDefautsFiltres = computed(() => {
+    const t = this.defautsFiltre().trim().toLowerCase();
+    const lignes = this.defauts()?.par_feeder ?? [];
+    return t ? lignes.filter((l) => (l.libelle + ' ' + (l.detail ?? '')).toLowerCase().includes(t)) : lignes;
+  });
+  readonly maxNature = computed(() => Math.max(1, ...(this.defauts()?.par_nature ?? []).map((n) => n.defauts)));
 
   // Carte
   readonly carteCible = signal<{ nom_feeder?: string; station?: string } | null>(null);
@@ -162,6 +179,12 @@ export class SigAdminComponent implements OnInit, AfterViewInit, OnDestroy {
     this.chargerCarte(type === 'feeder' ? { nom_feeder: valeur } : { station: valeur });
   }
 
+  changerPeriodeDefauts(annee: number, mois: number | null): void {
+    this.defautsAnnee.set(annee);
+    this.defautsMois.set(mois);
+    this.charger();
+  }
+
   pourcentage(n: number, total: number): number {
     return total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
   }
@@ -192,6 +215,11 @@ export class SigAdminComponent implements OnInit, AfterViewInit, OnDestroy {
     const fin = () => this.loading.set(false);
     const p = this.params();
     switch (onglet) {
+      case 'defauts':
+        this.sig
+          .defauts100km({ annee: this.defautsAnnee(), mois: this.defautsMois() ?? undefined })
+          .subscribe({ next: (d) => (this.defauts.set(d), fin()), error: erreur });
+        break;
       case 'synthese':
         this.sig.synthese().subscribe({ next: (s) => (this.synthese.set(s), fin()), error: erreur });
         break;

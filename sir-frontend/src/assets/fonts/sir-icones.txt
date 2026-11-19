@@ -150,6 +150,7 @@ priority
 progress_activity
 psychology
 public
+query_stats
 queue
 radio
 radio_button_unchecked

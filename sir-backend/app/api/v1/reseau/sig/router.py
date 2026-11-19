@@ -8,6 +8,7 @@ from app.core.deps import get_current_user
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.sig import (
+    Defauts100KmResponse,
     FeederSigResponse,
     NoeudSigAdminResponse,
     StationSigResponse,
@@ -183,3 +184,18 @@ async def carte_sig(
     return ApiResponse.success(
         await sig_admin_service.carte(db, current_user, nom_feeder=nom_feeder, station=station)
     )
+
+
+@router.get(
+    "/admin/defauts-100km",
+    response_model=ApiResponse[Defauts100KmResponse],
+    response_model_by_alias=True,
+    summary="Défauts aux 100 km : global, par service, par feeder SIG, par nature",
+)
+async def defauts_100km_sig(
+    annee: int | None = Query(default=None, ge=2000, le=2100),
+    mois: int | None = Query(default=None, ge=1, le=12),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(get_current_user),
+) -> ApiResponse[Defauts100KmResponse]:
+    return ApiResponse.success(await sig_admin_service.defauts_100km(db, current_user, annee=annee, mois=mois))

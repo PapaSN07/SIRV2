@@ -1,7 +1,7 @@
 <section class="assistant-panel" [class.assistant-panel--compact]="compact()">
   <header class="assistant-panel__header">
-    <h2>Assistant risque</h2>
-    <p>Conseil P0 (stats) — ne bloque pas la clôture / validation.</p>
+    <h2>Assistant</h2>
+    <p>Questions sur les interruptions (postes, départs, END, SAIFI/SAIDI, causes, en cours…) et risques de panne.</p>
   </header>
 
   @if (error()) {
@@ -15,8 +15,13 @@
       class="assistant-panel__input"
       rows="2"
       formControlName="question"
-      placeholder="Ex. Quels départs prioriser pour travaux ?"
+      placeholder="Ex. Le poste le plus affecté du feeder Yeumbeul 30 kV ce mois ?"
     ></textarea>
+    <div class="assistant-panel__exemples" aria-label="Exemples de questions">
+      @for (ex of exemples; track ex) {
+        <button type="button" class="assistant-panel__exemple" (click)="poser(ex)">{{ ex }}</button>
+      }
+    </div>
     <button type="submit" class="sir-btn sir-btn--primary" [disabled]="form.invalid || loading()">
       Demander
     </button>
@@ -24,7 +29,7 @@
 
   @if (reply(); as r) {
     <article class="assistant-panel__reply">
-      <p>{{ r.answer }}</p>
+      <p class="assistant-panel__answer" [innerHTML]="formater(r.answer)"></p>
       <p class="assistant-panel__disclaimer">{{ r.disclaimer }}</p>
       <div class="assistant-panel__feedback">
         <button type="button" class="sir-btn sir-btn--outline-primary" (click)="feedback(true)">Utile</button>

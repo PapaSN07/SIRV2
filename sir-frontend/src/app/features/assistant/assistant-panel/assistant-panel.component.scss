@@ -143,3 +143,31 @@
     color: #b71c1c;
   }
 }
+
+.assistant-panel__exemples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.assistant-panel__exemple {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #ede9f5;
+  border-radius: 999px;
+  background: #f4f2fb;
+  color: #5b2a9e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background: #efeafa;
+    border-color: #5b2a9e;
+  }
+}
+
+.assistant-panel__answer {
+  white-space: pre-line;
+  line-height: 1.55;
+}

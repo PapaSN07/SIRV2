@@ -13,6 +13,7 @@ from app.models.indicateurs import NombreClientMois, ObjectifIndicateur
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption, STATUTS_CLOTURES
 from app.models.reseau import Feeder, Poste, Troncon
 from app.models.sig import NoeudSig, TronconSig
+from app.repositories.sig_admin_repository import _dernier_chargement as dernier_chargement_sig
 from app.repositories.perimetre import clients_du_perimetre, interruptions_du_perimetre
 
 _CLOSED = STATUTS_CLOTURES
@@ -105,7 +106,8 @@ async def longueur_reseau_km(db: AsyncSession, service_ids: list[int]) -> float:
     metres = await db.scalar(
         select(func.coalesce(func.sum(TronconSig.longueur_m), 0))
         .join(Feeder, Feeder.id == TronconSig.feeder_id)
-        .where(Feeder.service_id.in_(service_ids))
+        # Dernier chargement SIG seulement : chaque import ajoute un instantané des tronçons
+        .where(Feeder.service_id.in_(service_ids), dernier_chargement_sig())
     )
     if metres and float(metres) > 0:
         return float(metres) / 1000.0

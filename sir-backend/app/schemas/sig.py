@@ -115,3 +115,33 @@ class NoeudSigAdminResponse(BaseModel):
     coord_y: float | None = None
     latitude: float | None = None
     longitude: float | None = None
+
+
+class Defauts100KmLigne(BaseModel):
+    """Défauts (interruptions hors force majeure) rapportés à 100 km de réseau SIG."""
+
+    libelle: str
+    detail: str | None = None
+    defauts: int
+    permanents: int = 0
+    longueur_km: float
+    defauts_100km: float | None = None
+    permanents_100km: float | None = None
+
+
+class Defauts100KmNature(BaseModel):
+    nature: str
+    defauts: int
+    defauts_100km: float | None = None
+
+
+class Defauts100KmResponse(BaseModel):
+    debut: datetime
+    fin: datetime
+    global_: Defauts100KmLigne = Field(alias="global")
+    par_nature: list[Defauts100KmNature] = Field(default_factory=list)
+    par_service: list[Defauts100KmLigne] = Field(default_factory=list)
+    par_feeder: list[Defauts100KmLigne] = Field(default_factory=list)
+    defauts_sans_longueur: int = 0
+
+    model_config = {"populate_by_name": True}

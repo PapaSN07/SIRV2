@@ -13,6 +13,9 @@ from sqlalchemy import BigInteger, Float, Select, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.models.geo import Service
+from app.models.interruptions import Interruption
+from app.models.referentiel import Nature
 from app.models.reseau import Feeder, PosteSource
 from app.models.sig import NoeudSig, TronconSig
 
@@ -319,3 +322,66 @@ async def noeuds_carte(
     if station:
         query = query.where(NoeudSig.station == station)
     return list((await db.execute(query.order_by(NoeudSig.id).limit(limite))).all())
+
+
+# ── Défauts aux 100 km ──────────────────────────────────────────────────────────
+
+
+async def longueurs_feeders(db: AsyncSession) -> dict[int, float]:
+    """Longueur SIG (mètres, dernier chargement) de chaque feeder SIRV2 rattaché."""
+    rows = (
+        await db.execute(
+            select(TronconSig.feeder_id, func.coalesce(func.sum(cast(TronconSig.longueur_m, Float)), 0.0))
+            .where(_dernier_chargement(), TronconSig.feeder_id.isnot(None))
+            .group_by(TronconSig.feeder_id)
+        )
+    ).all()
+    return {int(r[0]): float(r[1] or 0) for r in rows}
+
+
+async def defauts_par_feeder_nature(db: AsyncSession, debut: datetime, fin: datetime) -> list[Any]:
+    """Interruptions distribution (hors force majeure), par feeder et par nature, datées par l'apparition."""
+    return list(
+        (
+            await db.execute(
+                select(
+                    Interruption.feeder_id,
+                    func.coalesce(Nature.libelle, "Non renseignée").label("nature"),
+                    func.count(Interruption.id).label("nombre"),
+                )
+                .outerjoin(Nature, Nature.id == Interruption.nature_id)
+                .where(
+                    Interruption.type_direction == "distribution",
+                    Interruption.is_force_majeure == False,  # noqa: E712
+                    Interruption.feeder_id.isnot(None),
+                    Interruption.date_apparition >= debut,
+                    Interruption.date_apparition < fin,
+                )
+                .group_by(Interruption.feeder_id, func.coalesce(Nature.libelle, "Non renseignée"))
+            )
+        ).all()
+    )
+
+
+async def feeders_avec_service(db: AsyncSession, ids: list[int]) -> dict[int, tuple[str, str | None, str | None]]:
+    """Feeder SIRV2 → (libellé, poste source, service)."""
+    if not ids:
+        return {}
+    resultat: dict[int, tuple[str, str | None, str | None]] = {}
+    tries = sorted(set(ids))
+    for debut in range(0, len(tries), 1000):
+        rows = (
+            await db.execute(
+                select(
+                    Feeder.id,
+                    Feeder.libelle,
+                    PosteSource.libelle.label("poste_source"),
+                    Service.libelle.label("service"),
+                )
+                .outerjoin(PosteSource, PosteSource.id == Feeder.poste_source_id)
+                .outerjoin(Service, Service.id == Feeder.service_id)
+                .where(Feeder.id.in_(tries[debut : debut + 1000]))
+            )
+        ).all()
+        resultat.update({r.id: (r.libelle, r.poste_source, r.service) for r in rows})
+    return resultat

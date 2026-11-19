@@ -26,7 +26,7 @@ from app.schemas.assistant import (
     RiskPredictionResponse,
     ScoringJobResponse,
 )
-from app.services import ml_scoring_service
+from app.services import assistant_qa_service, ml_scoring_service
 
 
 def _parse_factors(raw: str | None) -> list[RiskFactor]:
@@ -265,9 +265,11 @@ async def chat(
         limit=30,
     )
     predictions = [_prediction_to_response(r) for r in rows]
-    answer = _build_chat_answer(
-        body.question, predictions, feeder_id=body.feeder_id
-    )
+    # Questions d'exploitation (postes, départs, END, SAIFI…) : réponse chiffrée depuis la base ;
+    # les questions de risque / travaux gardent la réponse des scores P0.
+    answer = await assistant_qa_service.repondre(db, current_user, body.question, service_ids)
+    if answer is None:
+        answer = _build_chat_answer(body.question, predictions, feeder_id=body.feeder_id)
     context: dict[str, Any] = {
         "phase": "P0",
         "feeder_id": body.feeder_id,

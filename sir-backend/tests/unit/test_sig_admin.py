@@ -80,3 +80,35 @@ def test_requetes_compilees_sql_server() -> None:
     query = repo.select(repo.TronconSig.id).where(repo._dernier_chargement())
     sql = str(query.compile(dialect=mssql.dialect()))
     assert "max(" in sql.lower() and "troncons_sig_1" in sql
+
+
+async def test_defauts_100km_global_service_feeder_nature(db: AsyncSession) -> None:
+    from app.models.geo import Service
+    from app.models.interruptions import Interruption
+    from app.models.referentiel import Nature
+
+    async with db.bind.begin() as conn:  # type: ignore[union-attr]
+        for table in (Service.__table__, Nature.__table__, Interruption.__table__):
+            await conn.run_sync(table.create)
+    db.add_all([
+        Service(id=5, agence_id=1, code="SDDV", libelle="SDDV", is_active=True),
+        Nature(id=1, code="P", libelle="Permanent", is_active=True),
+        Nature(id=2, code="F", libelle="Fugitif", is_active=True),
+        Nature(id=3, code="S", libelle="Semi-permanent", is_active=True),
+    ])
+    feeder = await db.get(Feeder, 10)
+    feeder.service_id = 5  # type: ignore[union-attr]
+    for i, (nature, fm) in enumerate([(1, False), (1, False), (2, False), (3, False), (2, True)]):
+        db.add(Interruption(
+            numero_interruption=900 + i, type_direction="distribution", statut="valide", feeder_id=10,
+            service_id=5, nature_id=nature, is_force_majeure=fm,
+            date_apparition=datetime(2026, 3, 1 + i), date_remise=datetime(2026, 3, 1 + i, 2), created_by_id=1,
+        ))
+    await db.commit()
+    res = await svc.defauts_100km(db, _ADMIN, annee=2026, mois=None)  # type: ignore[arg-type]
+    # OUAKAM : 2 km SIG (dernier chargement), 4 défauts hors force majeure dont 2 permanents
+    assert (res.global_.defauts, res.global_.permanents, res.global_.longueur_km) == (4, 2, 2.0)
+    assert res.global_.defauts_100km == 200.0 and res.global_.permanents_100km == 100.0
+    assert res.par_service[0].libelle == "SDDV"
+    assert res.par_feeder[0].detail == "HANN · SDDV"
+    assert {n.nature: n.defauts for n in res.par_nature} == {"Permanent": 2, "Fugitif": 1, "Semi-permanent": 1}
