@@ -36,15 +36,23 @@ def _recherche(colonnes: list[Any], texte: str | None) -> Any | None:
 
 
 def _dernier_chargement() -> Any:
-    """Tronçon du dernier chargement SIG de son départ (ou sans date de chargement)."""
-    recent = aliased(TronconSig)
-    dernier = (
-        select(func.max(recent.date_chargement))
-        .where(recent.nom_feeder == TronconSig.nom_feeder)
-        .correlate(TronconSig)
-        .scalar_subquery()
+    """Tronçon du dernier chargement SIG de son départ (ou sans date de chargement).
+
+    Sous-requête non corrélée (dernière date par départ, puis identifiants des tronçons de cette date) :
+    la version corrélée recalculait le MAX pour chacune des ~480 000 lignes et bloquait l'API
+    (19/11/2026). Index ix_troncons_sig_feeder_chargement (nom_feeder, date_chargement).
+    """
+    derniers = (
+        select(TronconSig.nom_feeder.label("nom_feeder"), func.max(TronconSig.date_chargement).label("date_max"))
+        .group_by(TronconSig.nom_feeder)
+        .subquery("derniers_chargements")
     )
-    return or_(TronconSig.date_chargement.is_(None), TronconSig.date_chargement == dernier)
+    recent = aliased(TronconSig)
+    ids_recents = select(recent.id).join(
+        derniers,
+        and_(derniers.c.nom_feeder == recent.nom_feeder, derniers.c.date_max == recent.date_chargement),
+    )
+    return or_(TronconSig.date_chargement.is_(None), TronconSig.id.in_(ids_recents))
 
 
 @dataclass(frozen=True)

@@ -87,7 +87,7 @@ async def test_stations_et_noeuds_localises(db: AsyncSession) -> None:
 def test_requetes_compilees_sql_server() -> None:
     query = repo.select(repo.TronconSig.id).where(repo._dernier_chargement())
     sql = str(query.compile(dialect=mssql.dialect()))
-    assert "max(" in sql.lower() and "troncons_sig_1" in sql
+    assert "max(" in sql.lower()
 
 
 async def test_defauts_100km_global_service_feeder_nature(db: AsyncSession) -> None:
@@ -120,3 +120,11 @@ async def test_defauts_100km_global_service_feeder_nature(db: AsyncSession) -> N
     assert res.par_service[0].libelle == "SDDV"
     assert res.par_feeder[0].detail == "HANN · SDDV"
     assert {n.nature: n.defauts for n in res.par_nature} == {"Permanent": 2, "Fugitif": 1, "Semi-permanent": 1}
+
+
+def test_dernier_chargement_non_correle() -> None:
+    """Le filtre ne doit pas recalculer le MAX ligne par ligne (API bloquée le 19/11/2026)."""
+    query = repo.select(repo.TronconSig.id).where(repo._dernier_chargement())
+    sql = str(query.compile(dialect=mssql.dialect()))
+    assert "GROUP BY dbo.troncons_sig.nom_feeder" in sql
+    assert "WHERE troncons_sig_1.nom_feeder = dbo.troncons_sig.nom_feeder" not in sql
