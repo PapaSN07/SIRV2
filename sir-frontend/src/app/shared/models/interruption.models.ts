@@ -6,6 +6,15 @@ export interface InterruptionDistribution {
   id: number;
   /** Listes : date de clôture des interruptions en attente de validation. */
   date_cloture?: string | null;
+  /** Listes : colonnes de l'export SIR v1. */
+  signalisation_libelle?: string | null;
+  saisi_par_matricule?: string | null;
+  saisi_par_prenom?: string | null;
+  saisi_par_nom?: string | null;
+  date_interpellation_pdm?: string | null;
+  date_arrivee_pdm?: string | null;
+  /** Renvoyée en correction, pas encore re-clôturée. */
+  a_modifier?: boolean;
   numero_interruption: number;
   type_direction: 'distribution';
   direction_source_id?: number | null;

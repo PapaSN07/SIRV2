@@ -300,18 +300,37 @@
                   aria-label="Tout sélectionner"
                 />
               </th>
+              <!-- Colonnes et ordre de la liste SIR v1 (export du 19/11/2026) -->
+              <th class="data-table__actions">Action</th>
               <th>N°</th>
-              <th>Service</th>
+              <th>Service distribution</th>
+              <th>Date</th>
+              <th>Source</th>
+              <th class="data-table__num">Tension primaire</th>
+              <th>Feeder</th>
+              <th>Nature présumée</th>
+              <th>Cause présumée</th>
+              <th>Siège présumé</th>
+              <th>Signalisation</th>
               <th>Date d'apparition</th>
               <th>Date de remise</th>
-              <th>Statut</th>
-              <th>Source</th>
-              <th class="data-table__num">Tension (kV)</th>
-              <th>Feeder</th>
-              <th>Nature</th>
-              <th>Cause</th>
-              <th>Siège</th>
-              <th class="data-table__actions data-table__sticky-end">Actions</th>
+              <th class="data-table__num">Durée</th>
+              <th class="data-table__num">Puissance coupée (kW)</th>
+              <th class="data-table__num">END (kWh)</th>
+              <th>Tronçons</th>
+              <th>Observation</th>
+              <th>Matricule</th>
+              <th>Prénom</th>
+              <th>Nom</th>
+              <th>État</th>
+              <th>Régions</th>
+              <th>Type END</th>
+              <th>Entreprise</th>
+              <th>Prestataire</th>
+              <th>Validation</th>
+              <th>À modifier</th>
+              <th>Date interpellation PDM</th>
+              <th>Date arrivée PDM</th>
             </tr>
           </thead>
           <tbody>
@@ -330,34 +349,7 @@
                     [attr.aria-label]="'Sélectionner interruption ' + row.numero_interruption"
                   />
                 </td>
-                <td class="data-table__nowrap">
-                  <a
-                    class="data-table__numero"
-                    [routerLink]="['/interruptions/distribution', row.id]"
-                    (click)="$event.stopPropagation()"
-                  >
-                    INT-{{ row.date_apparition | date: 'yyyy' }}-{{ row.numero_interruption }}
-                  </a>
-                </td>
-                <td class="data-table__truncate">{{ row.service_libelle || '—' }}</td>
-                <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
-                <td class="data-table__nowrap">
-                  @if (row.date_remise) {
-                    {{ row.date_remise | date: 'dd/MM/yyyy HH:mm' }}
-                  } @else {
-                    <span class="data-table__muted">En cours</span>
-                  }
-                </td>
                 <td>
-                  <sir-status-chip [statut]="row.statut" />
-                </td>
-                <td class="data-table__truncate">{{ row.poste_source_libelle || '—' }}</td>
-                <td class="data-table__num">{{ row.tension_kv ?? '—' }}</td>
-                <td class="data-table__truncate">{{ row.feeder_libelle || '—' }}</td>
-                <td class="data-table__truncate">{{ row.nature_libelle || '—' }}</td>
-                <td class="data-table__truncate">{{ row.cause_libelle || '—' }}</td>
-                <td class="data-table__truncate">{{ row.siege_libelle || '—' }}</td>
-                <td class="data-table__sticky-end">
                   <div class="row-actions">
                     <a
                       class="row-actions__btn"
@@ -389,10 +381,53 @@
                     }
                   </div>
                 </td>
+                <td class="data-table__nowrap">
+                  <a
+                    class="data-table__numero"
+                    [routerLink]="['/interruptions/distribution', row.id]"
+                    (click)="$event.stopPropagation()"
+                  >
+                    {{ row.numero_interruption }}
+                  </a>
+                </td>
+                <td class="data-table__truncate">{{ row.service_libelle || '—' }}</td>
+                <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy' }}</td>
+                <td class="data-table__truncate">{{ row.poste_source_libelle || '—' }}</td>
+                <td class="data-table__num">{{ row.tension_kv ?? '—' }}</td>
+                <td class="data-table__truncate">{{ row.feeder_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.nature_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.cause_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.siege_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.signalisation_libelle || '—' }}</td>
+                <td class="data-table__nowrap">{{ row.date_apparition | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="data-table__nowrap">
+                  @if (row.date_remise) {
+                    {{ row.date_remise | date: 'dd/MM/yyyy HH:mm' }}
+                  } @else {
+                    <span class="data-table__muted">En cours</span>
+                  }
+                </td>
+                <td class="data-table__num data-table__nowrap">{{ duree(row.duree_minutes) }}</td>
+                <td class="data-table__num">{{ row.puissance_coupee_mw !== null ? (row.puissance_coupee_mw * 1000 | number: '1.0-0') : '—' }}</td>
+                <td class="data-table__num">{{ row.end_mwh !== null && row.end_mwh !== undefined ? (row.end_mwh * 1000 | number: '1.0-2') : '—' }}</td>
+                <td class="data-table__truncate" [title]="row.localisation || ''">{{ row.localisation || '—' }}</td>
+                <td class="data-table__truncate" [title]="row.observations || ''">{{ row.observations || '—' }}</td>
+                <td class="data-table__nowrap">{{ row.saisi_par_matricule || '—' }}</td>
+                <td class="data-table__truncate">{{ row.saisi_par_prenom || '—' }}</td>
+                <td class="data-table__truncate">{{ row.saisi_par_nom || '—' }}</td>
+                <td class="data-table__nowrap">{{ row.date_remise ? 'Fermé' : 'Ouvert' }}</td>
+                <td class="data-table__nowrap">{{ row.region_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.type_end_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.entreprise_libelle || '—' }}</td>
+                <td class="data-table__truncate">{{ row.prestataire_libelle || '—' }}</td>
+                <td><sir-status-chip [statut]="row.statut" /></td>
+                <td class="data-table__nowrap">{{ row.a_modifier ? 'Oui' : 'Non' }}</td>
+                <td class="data-table__nowrap">{{ row.date_interpellation_pdm ? (row.date_interpellation_pdm | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+                <td class="data-table__nowrap">{{ row.date_arrivee_pdm ? (row.date_arrivee_pdm | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="13" class="data-table__empty">
+                <td colspan="31" class="data-table__empty">
                   @if (emptyFilterHint()) {
                     {{ emptyFilterHint() }}
                   } @else if (hasActiveFilters()) {

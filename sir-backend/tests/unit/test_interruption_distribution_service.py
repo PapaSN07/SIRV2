@@ -384,11 +384,21 @@ async def test_list_items_bcc_scope_passed_to_repository() -> None:
         "app.services.interruption_distribution_service.repo.list_interruptions_paginated",
         new_callable=AsyncMock,
         return_value=paginated,
-    ) as mock_list:
+    ) as mock_list, patch(
+        "app.services.interruption_distribution_service.workflow_repo.dates_etape",
+        new_callable=AsyncMock,
+        return_value={1: (now, None)},
+    ), patch(
+        "app.services.interruption_distribution_service.interruption_cycle_service.dernieres_actions",
+        new_callable=AsyncMock,
+        return_value={1: "renvoi_correction"},
+    ):
         result = await svc.list_items(db, user, page=1, page_size=20)
 
     assert result.total == 1
     assert result.items[0].service_id == 3
+    assert result.items[0].date_interpellation_pdm == now
+    assert result.items[0].a_modifier is True
     mock_list.assert_awaited_once()
     assert mock_list.await_args.kwargs["scope"].region_id == 3
 

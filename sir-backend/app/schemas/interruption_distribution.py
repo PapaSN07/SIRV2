@@ -144,6 +144,15 @@ class InterruptionDistributionResponse(BaseModel):
 
     # Renseignée dans les listes pour les interruptions clôturées (file de validation)
     date_cloture: datetime | None = None
+    # Liste des interruptions (colonnes de l'export SIR v1)
+    signalisation_libelle: str | None = None
+    saisi_par_matricule: str | None = None
+    saisi_par_prenom: str | None = None
+    saisi_par_nom: str | None = None
+    date_interpellation_pdm: datetime | None = None
+    date_arrivee_pdm: datetime | None = None
+    # Renvoyée en correction et pas encore re-clôturée (« A Modifier » de SIR v1)
+    a_modifier: bool = False
 
     model_config = {"from_attributes": True}
 

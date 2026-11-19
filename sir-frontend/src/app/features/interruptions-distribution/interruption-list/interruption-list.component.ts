@@ -1,6 +1,6 @@
 import { CartePostesComponent } from '../../../shared/ui/carte-postes/carte-postes.component';
 import { PosteOuvertCarte } from '../../../shared/models/indicateurs.models';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { MatMenuModule } from '@angular/material/menu';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -52,6 +52,7 @@ function positiveInt(value: string | null): number | null {
     MatMenuModule,
     RouterLink,
     DatePipe,
+    DecimalPipe,
     PageHeaderComponent,
     StatusChipComponent,
     PaginatorComponent,
@@ -536,5 +537,13 @@ export class InterruptionListComponent implements OnInit {
       parts.push('Vérifiez que le feeder appartient bien à la région sélectionnée.');
     }
     return parts.join(' ');
+  }
+
+  /** Durée au format de SIR v1 : « 1 h 05 » ou « 12 min ». */
+  duree(minutes: number | null | undefined): string {
+    if (minutes === null || minutes === undefined) return '—';
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    return `${h} h ${String(minutes % 60).padStart(2, '0')}`;
   }
 }

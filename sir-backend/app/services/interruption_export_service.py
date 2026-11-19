@@ -12,46 +12,87 @@ MAX_LIGNES_EXPORT = 5000
 
 _STATUTS = {"en_cours": "En cours", "cloture": "Clôturée", "valide": "Validée", "archive": "Archivée"}
 
+# Colonnes et ordre de la liste SIR v1 (export du 19/11/2026), sans les identifiants techniques
 COLONNES = [
     "N°",
-    "Statut",
-    "Apparition",
-    "Remise",
-    "Durée (min)",
-    "Région",
-    "Service",
-    "Poste source",
+    "Service Distribution",
+    "Date",
+    "Source",
+    "Tension primaire",
     "Feeder",
-    "Cause",
-    "Nature",
-    "END (MWh)",
-    "Puissance coupée (MW)",
-    "Clients MT",
-    "Clients BT",
+    "Nature présumée",
+    "Cause présumée",
+    "Siège présumé",
+    "Signalisation",
+    "Date d'apparition",
+    "Date de remise",
+    "Durée",
+    "Puissance coupée (kW)",
+    "END (kWh)",
+    "Tronçons",
+    "Observation",
+    "Matricule",
+    "Prénom",
+    "Nom",
+    "Etat",
+    "Régions",
+    "Type END",
+    "Entreprise",
+    "Prestataire",
+    "Validation",
+    "A Modifier",
+    "Date Interpellation PDM",
+    "Date Arrivée PDM",
 ]
+_LARGEURS = [9, 14, 11, 20, 9, 22, 15, 24, 16, 16, 17, 17, 9, 11, 11, 30, 30, 10, 18, 14, 8, 10, 24, 18, 18, 11, 9, 17, 17]
 
 
 def _date(value: datetime | None) -> str:
     return value.strftime("%d/%m/%Y %H:%M") if value else ""
 
 
+def _duree(minutes: int | None) -> str:
+    if minutes is None:
+        return ""
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _kilo(valeur: float | None, decimales: int) -> float | None:
+    """MW → kW, MWh → kWh (unités de SIR v1)."""
+    return round(valeur * 1000, decimales) if valeur is not None else None
+
+
 def ligne(item: InterruptionDistributionResponse) -> list[object]:
     return [
         item.numero_interruption,
-        _STATUTS.get(item.statut, item.statut),
+        item.service_libelle or "",
+        item.date_apparition.strftime("%d/%m/%Y"),
+        item.poste_source_libelle or "",
+        item.tension_kv,
+        item.feeder_libelle or "",
+        item.nature_libelle or "",
+        item.cause_libelle or "",
+        item.siege_libelle or "",
+        item.signalisation_libelle or "",
         _date(item.date_apparition),
         _date(item.date_remise),
-        item.duree_minutes,
+        _duree(item.duree_minutes),
+        _kilo(item.puissance_coupee_mw, 0),
+        _kilo(item.end_mwh, 2),
+        item.localisation or "",
+        item.observations or "",
+        item.saisi_par_matricule or "",
+        item.saisi_par_prenom or "",
+        item.saisi_par_nom or "",
+        "Fermé" if item.date_remise else "Ouvert",
         item.region_libelle or "",
-        item.service_libelle or "",
-        item.poste_source_libelle or "",
-        item.feeder_libelle or "",
-        item.cause_libelle or "",
-        item.nature_libelle or "",
-        item.end_mwh,
-        item.puissance_coupee_mw,
-        item.nombre_clients_mt,
-        item.nombre_clients_bt,
+        item.type_end_libelle or "",
+        item.entreprise_libelle or "",
+        item.prestataire_libelle or "",
+        _STATUTS.get(item.statut, item.statut),
+        "Oui" if item.a_modifier else "Non",
+        _date(item.date_interpellation_pdm),
+        _date(item.date_arrivee_pdm),
     ]
 
 
@@ -73,8 +114,7 @@ def construire_xlsx(items: list[InterruptionDistributionResponse], filtres: str)
         cell.fill = PatternFill("solid", fgColor="3C1053")
     for item in items:
         ws.append(ligne(item))
-    largeurs = [10, 11, 17, 17, 11, 16, 26, 22, 20, 26, 16, 11, 12, 10, 10]
-    for i, largeur in enumerate(largeurs, start=1):
+    for i, largeur in enumerate(_LARGEURS, start=1):
         ws.column_dimensions[get_column_letter(i)].width = largeur
     ws.freeze_panes = "A5"
     ws.auto_filter.ref = f"A4:{get_column_letter(len(COLONNES))}{4 + len(items)}"

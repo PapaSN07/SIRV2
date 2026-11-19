@@ -40,3 +40,14 @@ async def test_export_refuse_au_dela_du_plafond() -> None:
     with patch.object(svc, "list_items", AsyncMock(return_value=trop)), pytest.raises(HTTPException) as exc:
         await svc.exporter_liste(AsyncMock(), object(), format="xlsx", filtres_libelle="x")
     assert exc.value.status_code == 422
+
+
+async def test_colonnes_sir_v1_alignees() -> None:
+    """Une valeur par colonne de l'export SIR v1, kW et kWh comme dans SIR v1."""
+    item = _item(1)
+    valeurs = export.ligne(item)
+    assert len(valeurs) == len(export.COLONNES) == len(export._LARGEURS)
+    assert valeurs[export.COLONNES.index("Puissance coupée (kW)")] == 1500
+    assert valeurs[export.COLONNES.index("END (kWh)")] == 1250
+    assert valeurs[export.COLONNES.index("Durée")] == "00:45"
+    assert valeurs[export.COLONNES.index("Etat")] == "Fermé"

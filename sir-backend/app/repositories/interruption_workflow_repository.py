@@ -1,5 +1,7 @@
 """Repository — workflow opérationnel interruptions distribution (étapes chaînées)."""
 
+from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -106,3 +108,17 @@ async def synchroniser_remise(db: AsyncSession, interruption_id: int, date_remis
     if existing is None or existing.date_debut is None:
         values["date_debut"] = date_remise
     await upsert_workflow(db, interruption_id, etape.id, values)
+
+
+async def dates_etape(
+    db: AsyncSession, interruption_ids: list[int], code_etape: str
+) -> dict[int, tuple[datetime | None, datetime | None]]:
+    """Début et fin d'une étape du workflow pour plusieurs interruptions (liste des interruptions)."""
+    if not interruption_ids:
+        return {}
+    result = await db.execute(
+        select(Workflow.interruption_id, Workflow.date_debut, Workflow.date_fin)
+        .join(EtapeWorkflow, EtapeWorkflow.id == Workflow.etape_workflow_id)
+        .where(Workflow.interruption_id.in_(interruption_ids), EtapeWorkflow.code == code_etape)
+    )
+    return {int(i): (debut, fin) for i, debut, fin in result.all()}

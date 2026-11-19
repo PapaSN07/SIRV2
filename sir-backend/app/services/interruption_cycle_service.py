@@ -113,6 +113,10 @@ async def dates_cloture(db: AsyncSession, interruption_ids: list[int]) -> dict:
     return await repo.dates_cloture(db, interruption_ids)
 
 
+async def dernieres_actions(db: AsyncSession, interruption_ids: list[int]) -> dict[int, str]:
+    return await repo.dernieres_actions(db, interruption_ids)
+
+
 async def _region_id(db: AsyncSession, interruption: Interruption) -> int | None:
     if interruption.service_id is None:
         return None

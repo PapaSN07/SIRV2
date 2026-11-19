@@ -35,6 +35,8 @@ def _base_distribution_query():
         .options(
             *_intervenant_options(),
             joinedload(Interruption.interruption_distribution),
+            joinedload(Interruption.signalisation),
+            joinedload(Interruption.created_by),
             joinedload(Interruption.cause),
             joinedload(Interruption.nature),
             joinedload(Interruption.siege),

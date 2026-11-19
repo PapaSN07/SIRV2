@@ -146,3 +146,20 @@ async def appliquer(db: AsyncSession, interruption: Interruption, **valeurs: obj
     for nom, valeur in valeurs.items():
         setattr(interruption, nom, valeur)
     await db.flush()
+
+
+async def dernieres_actions(db: AsyncSession, interruption_ids: list[int]) -> dict[int, str]:
+    """Dernière action de l'historique de chaque interruption (ex. « renvoi_correction »)."""
+    if not interruption_ids:
+        return {}
+    derniere = (
+        select(func.max(InterruptionStatutHistorique.id))
+        .where(InterruptionStatutHistorique.interruption_id.in_(interruption_ids))
+        .group_by(InterruptionStatutHistorique.interruption_id)
+    )
+    result = await db.execute(
+        select(InterruptionStatutHistorique.interruption_id, InterruptionStatutHistorique.action).where(
+            InterruptionStatutHistorique.id.in_(derniere)
+        )
+    )
+    return {int(i): str(a) for i, a in result.all()}

@@ -10,8 +10,10 @@ from app.core.rbac_helpers import is_superadmin
 from app.models.interruption_statut_historique import (
     ACTION_CLOTURE,
     ACTION_CREATION,
+    ACTION_RENVOI,
     ACTION_VALIDATION,
 )
+from app.models.interruption_workflow import ETAPE_INTERPELLATION
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
 from app.models.reseau import Feeder, Poste
 from app.models.sig import TronconSig as TronconSigOrm
@@ -275,10 +277,12 @@ def _to_detail_response(
 
     detail_data = base.model_dump()
     detail_data["end_mwh"] = end_mwh
+    detail_data["signalisation_libelle"] = (
+        interruption.signalisation.libelle if interruption.signalisation else None
+    )
 
     return InterruptionDistributionDetailResponse(
         **detail_data,
-        signalisation_libelle=interruption.signalisation.libelle if interruption.signalisation else None,
         service_code=interruption.service.code if interruption.service else None,
         postes_impactes=postes,
         energie_nd=energie_nd_summary,
@@ -486,7 +490,21 @@ def _to_response(
         type_reseau_libelle=interruption.type_reseau.libelle if interruption.type_reseau else None,
         sous_feeder_libelle=interruption.sous_feeder.libelle if interruption.sous_feeder else None,
         region_libelle=_region_libelle(interruption),
+        **_colonnes_liste(interruption),
     )
+
+
+def _colonnes_liste(interruption: Interruption) -> dict[str, object]:
+    """Signalisation et saisisseur, quand la requête les a chargés (jamais de chargement paresseux)."""
+    charge = interruption.__dict__
+    signalisation = charge.get("signalisation")
+    auteur = charge.get("created_by")
+    return {
+        "signalisation_libelle": signalisation.libelle if signalisation is not None else None,
+        "saisi_par_matricule": auteur.matricule if auteur is not None else None,
+        "saisi_par_prenom": auteur.prenom if auteur is not None else None,
+        "saisi_par_nom": auteur.nom if auteur is not None else None,
+    }
 
 
 async def _response_after_commit(
@@ -782,6 +800,17 @@ async def list_items(
         if distribution is None:
             continue
         items.append(_to_response(interruption, distribution))
+
+    # Colonnes de l'export SIR v1 : interpellation / arrivée PDM et « à modifier »
+    ids = [i.id for i in items]
+    pdm = await workflow_repo.dates_etape(db, ids, ETAPE_INTERPELLATION)
+    en_cours = [i.id for i in items if i.statut == "en_cours"]
+    actions = await interruption_cycle_service.dernieres_actions(db, en_cours)
+    for item in items:
+        debut, fin = pdm.get(item.id, (None, None))
+        item.date_interpellation_pdm = debut
+        item.date_arrivee_pdm = fin
+        item.a_modifier = actions.get(item.id) == ACTION_RENVOI
 
     # Ancienneté dans la file de validation : date de clôture (historique), sinon dernière mise à jour
     clotures = [i for i in items if i.statut == "cloture"]

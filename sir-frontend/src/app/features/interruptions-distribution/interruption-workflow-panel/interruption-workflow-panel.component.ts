@@ -211,10 +211,14 @@ export class InterruptionWorkflowPanelComponent {
       { allowSignalWrites: true },
     );
 
-    effect(() => {
-      const etape = this.currentEtape();
-      if (etape) this.patchForm(etape);
-    });
+    // patchForm écrit des signaux (sélection du tronçon) : NG0600 sans allowSignalWrites
+    effect(
+      () => {
+        const etape = this.currentEtape();
+        if (etape) this.patchForm(etape);
+      },
+      { allowSignalWrites: true },
+    );
 
     effect(
       () => {
