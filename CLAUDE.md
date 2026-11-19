@@ -263,6 +263,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : `services_par_agence` choisissait le représentant d'après la région des délégations SIRV2, toutes rangées à Dakar. Les SAIFI/SAIDI de novembre étaient divisés par la base nationale côté Dakar et sans base côté Régions. En plus, SIRV2 comptait les interruptions de 5 minutes ou moins (SAIFI août Dakar 7,7 au lieu de 1,0 dans l'outil).
 **Règles** : la région d'exploitation d'un contrat vient de son code délégation BI_ODS (`base_clients_service.region_exploitation_delegation`), la région de l'agence seulement à défaut ; contrôler après chaque synchronisation la répartition Dakar / Régions de `nombre_client_mois`, pas seulement le total national ; SAIFI/SAIDI = interruptions de plus de 5 minutes (`SAIFI_DUREE_MIN_MINUTES`).
 
+### 19/11/2026 — SIG Synthèse / Défauts aux 100 km en 500 : COALESCE dans GROUP BY (8120)
+**Contexte** : Administration → SIG ; tests verts sous SQLite.
+**Erreur** : `select(func.coalesce(col, "x")).group_by(func.coalesce(col, "x"))` : chaque littéral devient un paramètre distinct, SQL Server ne reconnaît pas l'expression du SELECT dans le GROUP BY (« n'est pas valide dans la liste de sélection », 8120).
+**Règle** : regrouper sur la colonne elle-même (`group_by(col)`) et garder le COALESCE dans le SELECT ; contrôle `tests/unit/test_group_by_sql_server.py`.
+
 ---
 
 *Dernière mise à jour : Juin 2026*

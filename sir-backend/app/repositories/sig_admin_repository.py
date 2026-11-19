@@ -104,7 +104,7 @@ async def synthese(db: AsyncSession) -> SyntheseSig:
     categories = (
         await db.execute(
             select(func.coalesce(NoeudSig.categorie, "(sans catégorie)"), func.count(NoeudSig.id))
-            .group_by(func.coalesce(NoeudSig.categorie, "(sans catégorie)"))
+            .group_by(NoeudSig.categorie)
             .order_by(func.count(NoeudSig.id).desc())
         )
     ).all()
@@ -381,7 +381,7 @@ async def defauts_par_feeder_nature(db: AsyncSession, debut: datetime, fin: date
                     Interruption.date_apparition >= debut,
                     Interruption.date_apparition < fin,
                 )
-                .group_by(Interruption.feeder_id, func.coalesce(Nature.libelle, "Non renseignée"))
+                .group_by(Interruption.feeder_id, Nature.libelle)
             )
         ).all()
     )
