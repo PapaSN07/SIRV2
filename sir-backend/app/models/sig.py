@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, NVARCHAR, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, NVARCHAR, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import DECIMAL, Float
 
@@ -67,6 +67,8 @@ class TronconSig(Base):
     type_conducteur: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
     delegation: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
     date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    # Tronçon du dernier chargement SIG de son départ (recalculé à chaque import) : filtre des écrans
+    est_dernier: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )

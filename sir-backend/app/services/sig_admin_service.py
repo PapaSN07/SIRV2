@@ -5,6 +5,11 @@ import re
 from collections import defaultdict
 from datetime import date, datetime
 
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
+
+from pydantic import BaseModel
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.utilisateurs import Utilisateur
@@ -25,6 +30,33 @@ from app.schemas.sig import (
 from app.services.rapport_hebdo_dd_service import _norme
 from app.services.sig_service import _ensure_sig_read
 from app.utils.pagination import clamp_page_size
+
+T = TypeVar("T", bound=BaseModel)
+
+
+SIG_CACHE_TTL_SECONDES = 6 * 3600  # données SIG : changent seulement à l'import
+
+
+async def _avec_cache(redis: Redis | None, cle: str, modele: type[T], calcul: Callable[[], Awaitable[T]]) -> T:
+    """Résultat en cache Redis (clé ``sig:…``) ; Redis indisponible → calcul direct."""
+    if redis is not None:
+        try:
+            brut = await redis.get(cle)
+            if brut:
+                return modele.model_validate_json(brut)
+        except Exception:  # noqa: BLE001 — le cache ne doit jamais bloquer l'écran
+            pass
+    resultat = await calcul()
+    if redis is not None:
+        try:
+            await redis.setex(cle, SIG_CACHE_TTL_SECONDES, resultat.model_dump_json(by_alias=True))
+        except Exception:  # noqa: BLE001
+            pass
+    return resultat
+
+
+def _cle_cache(*parties: object) -> str:
+    return "sig:" + ":".join(str(p if p is not None else "") for p in parties)
 
 
 def _cle(valeur: object) -> str:
@@ -64,8 +96,12 @@ def _paginee(items: list, total: int, page: int, page_size: int) -> PaginatedRes
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
 
-async def synthese(db: AsyncSession, user: Utilisateur) -> SyntheseSigResponse:
+async def synthese(db: AsyncSession, user: Utilisateur, redis: Redis | None = None) -> SyntheseSigResponse:
     _ensure_sig_read(user)
+    return await _avec_cache(redis, _cle_cache("synthese"), SyntheseSigResponse, lambda: _synthese(db))
+
+
+async def _synthese(db: AsyncSession) -> SyntheseSigResponse:
     s = await repo.synthese(db)
     return SyntheseSigResponse(
         noeuds=s.noeuds,
@@ -82,10 +118,27 @@ async def synthese(db: AsyncSession, user: Utilisateur) -> SyntheseSigResponse:
 
 
 async def stations(
-    db: AsyncSession, user: Utilisateur, *, recherche: str | None, page: int, page_size: int
+    db: AsyncSession,
+    user: Utilisateur,
+    *,
+    recherche: str | None,
+    page: int,
+    page_size: int,
+    redis: Redis | None = None,
 ) -> PaginatedResponse[StationSigResponse]:
     _ensure_sig_read(user)
     page, page_size = _pagination(page, page_size)
+    return await _avec_cache(
+        redis,
+        _cle_cache("stations", (recherche or "").strip().lower(), page, page_size),
+        PaginatedResponse[StationSigResponse],
+        lambda: _stations(db, recherche, page, page_size),
+    )
+
+
+async def _stations(
+    db: AsyncSession, recherche: str | None, page: int, page_size: int
+) -> PaginatedResponse[StationSigResponse]:
     rows, total = await repo.lister_stations(db, recherche=recherche, page=page, page_size=page_size)
     noms_feeders = await repo.feeders_par_station(db, [r.station for r in rows])
     # PosteSource_SIG : la station des nœuds peut être un identifiant ou un code → nom du poste source
@@ -126,9 +179,21 @@ async def feeders(
     rattachement: str | None,
     page: int,
     page_size: int,
+    redis: Redis | None = None,
 ) -> PaginatedResponse[FeederSigResponse]:
     _ensure_sig_read(user)
     page, page_size = _pagination(page, page_size)
+    return await _avec_cache(
+        redis,
+        _cle_cache("feeders", (recherche or "").strip().lower(), rattachement, page, page_size),
+        PaginatedResponse[FeederSigResponse],
+        lambda: _feeders(db, recherche, rattachement, page, page_size),
+    )
+
+
+async def _feeders(
+    db: AsyncSession, recherche: str | None, rattachement: str | None, page: int, page_size: int
+) -> PaginatedResponse[FeederSigResponse]:
     rows, total = await repo.lister_feeders(
         db, recherche=recherche, rattachement=rattachement, page=page, page_size=page_size
     )
@@ -267,6 +332,21 @@ async def defauts_100km(
     annee: int | None,
     mois: int | None,
     limite_feeders: int = 300,
+    redis: Redis | None = None,
+) -> Defauts100KmResponse:
+    _ensure_sig_read(user)
+    debut, _ = bornes_periode(annee, mois)
+    # Mois ou année en cours : les défauts bougent dans la journée → cache court
+    return await _avec_cache(
+        redis,
+        _cle_cache("defauts", debut.year, mois, date.today().isoformat()),
+        Defauts100KmResponse,
+        lambda: _defauts_100km(db, annee, mois, limite_feeders),
+    )
+
+
+async def _defauts_100km(
+    db: AsyncSession, annee: int | None, mois: int | None, limite_feeders: int
 ) -> Defauts100KmResponse:
     """Défauts aux 100 km de réseau : global, par service, par feeder SIG et par nature.
 
@@ -274,7 +354,6 @@ async def defauts_100km(
     Longueur = tronçons SIG du dernier chargement rattachés au feeder (ceux sans longueur SIG
     sont comptés à part, ils n'entrent pas dans les ratios).
     """
-    _ensure_sig_read(user)
     debut, fin = bornes_periode(annee, mois)
     longueurs_m = await repo.longueurs_feeders(db)
     lignes = await repo.defauts_par_feeder_nature(db, debut, fin)

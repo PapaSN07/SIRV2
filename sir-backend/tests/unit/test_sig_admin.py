@@ -28,7 +28,7 @@ async def db():
             PosteSource(id=1, code="HANN", libelle="HANN", is_active=True),
             Feeder(id=10, code="OUAKAM", libelle="OUAKAM", poste_source_id=1, is_active=True),
             # OUAKAM : un ancien chargement (ignoré) et le dernier ; YOFF non rattaché
-            TronconSig(legacy_id=1, nom_feeder="OUAKAM", feeder_id=10, nom_troncon="T-old", longueur_m=999, date_chargement=ANCIEN),
+            TronconSig(legacy_id=1, nom_feeder="OUAKAM", feeder_id=10, nom_troncon="T-old", longueur_m=999, date_chargement=ANCIEN, est_dernier=False),
             TronconSig(legacy_id=2, nom_feeder="OUAKAM", feeder_id=10, nom_troncon="T1", longueur_m=1500, tension_kv=30, date_chargement=RECENT),
             TronconSig(legacy_id=3, nom_feeder="OUAKAM", feeder_id=10, nom_troncon="T2", longueur_m=500, tension_kv=30, date_chargement=RECENT),
             TronconSig(legacy_id=4, nom_feeder="YOFF", feeder_id=None, nom_troncon="Y1", longueur_m=2000, date_chargement=ANCIEN),
@@ -84,10 +84,6 @@ async def test_stations_et_noeuds_localises(db: AsyncSession) -> None:
     assert len(carte) == 1 and carte[0].longitude is not None
 
 
-def test_requetes_compilees_sql_server() -> None:
-    query = repo.select(repo.TronconSig.id).where(repo._dernier_chargement())
-    sql = str(query.compile(dialect=mssql.dialect()))
-    assert "max(" in sql.lower()
 
 
 async def test_defauts_100km_global_service_feeder_nature(db: AsyncSession) -> None:
@@ -122,9 +118,28 @@ async def test_defauts_100km_global_service_feeder_nature(db: AsyncSession) -> N
     assert {n.nature: n.defauts for n in res.par_nature} == {"Permanent": 2, "Fugitif": 1, "Semi-permanent": 1}
 
 
-def test_dernier_chargement_non_correle() -> None:
-    """Le filtre ne doit pas recalculer le MAX ligne par ligne (API bloquée le 19/11/2026)."""
+def test_dernier_chargement_indicateur_indexe() -> None:
+    """Filtre = colonne est_dernier (API bloquée le 19/11/2026 par un MAX recalculé ligne par ligne)."""
     query = repo.select(repo.TronconSig.id).where(repo._dernier_chargement())
     sql = str(query.compile(dialect=mssql.dialect()))
-    assert "GROUP BY dbo.troncons_sig.nom_feeder" in sql
-    assert "WHERE troncons_sig_1.nom_feeder = dbo.troncons_sig.nom_feeder" not in sql
+    assert "est_dernier = 1" in sql and "max(" not in sql.lower()
+    assert any("MAX(date_chargement)" in r for r in repo.RECALCUL_DERNIER_CHARGEMENT)
+
+
+async def test_synthese_mise_en_cache(db: AsyncSession) -> None:
+    class _Redis:
+        def __init__(self) -> None:
+            self.data: dict[str, str] = {}
+
+        async def get(self, k: str) -> str | None:
+            return self.data.get(k)
+
+        async def setex(self, k: str, ttl: int, v: str) -> None:
+            self.data[k] = v
+
+    redis = _Redis()
+    premiere = await svc.synthese(db, _ADMIN, redis)  # type: ignore[arg-type]
+    assert "sig:synthese" in redis.data
+    redis.data["sig:synthese"] = redis.data["sig:synthese"].replace('"troncons":3', '"troncons":99')
+    assert (await svc.synthese(db, _ADMIN, redis)).troncons == 99  # type: ignore[arg-type]
+    assert premiere.troncons == 3

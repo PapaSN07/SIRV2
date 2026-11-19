@@ -9,9 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Float, Select, and_, cast, func, or_, select
+from sqlalchemy import BigInteger, Float, Select, and_, cast, func, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 
 from app.models.geo import Service
 from app.models.interruptions import Interruption
@@ -36,23 +35,29 @@ def _recherche(colonnes: list[Any], texte: str | None) -> Any | None:
 
 
 def _dernier_chargement() -> Any:
-    """Tronçon du dernier chargement SIG de son départ (ou sans date de chargement).
+    """Tronçon du dernier chargement SIG de son départ.
 
-    Sous-requête non corrélée (dernière date par départ, puis identifiants des tronçons de cette date) :
-    la version corrélée recalculait le MAX pour chacune des ~480 000 lignes et bloquait l'API
-    (19/11/2026). Index ix_troncons_sig_feeder_chargement (nom_feeder, date_chargement).
+    Indicateur ``est_dernier`` calculé à l'import (migration 2c3d4e5f6a7b, scripts SIG) et indexé :
+    le recalcul à chaque requête sur ~480 000 tronçons bloquait l'API (19/11/2026).
     """
-    derniers = (
-        select(TronconSig.nom_feeder.label("nom_feeder"), func.max(TronconSig.date_chargement).label("date_max"))
-        .group_by(TronconSig.nom_feeder)
-        .subquery("derniers_chargements")
-    )
-    recent = aliased(TronconSig)
-    ids_recents = select(recent.id).join(
-        derniers,
-        and_(derniers.c.nom_feeder == recent.nom_feeder, derniers.c.date_max == recent.date_chargement),
-    )
-    return or_(TronconSig.date_chargement.is_(None), TronconSig.id.in_(ids_recents))
+    return TronconSig.est_dernier == true()
+
+
+async def recalculer_dernier_chargement(db: AsyncSession) -> None:
+    """Recalcule ``est_dernier`` après un import SIG."""
+    for requete in RECALCUL_DERNIER_CHARGEMENT:
+        await db.execute(text(requete))
+
+
+RECALCUL_DERNIER_CHARGEMENT = (
+    "UPDATE dbo.troncons_sig SET est_dernier = 1",
+    "UPDATE t SET est_dernier = 0 FROM dbo.troncons_sig t JOIN ("
+    " SELECT nom_feeder, MAX(date_chargement) AS date_max FROM dbo.troncons_sig"
+    " WHERE nom_feeder IS NOT NULL GROUP BY nom_feeder) m ON m.nom_feeder = t.nom_feeder"
+    " WHERE t.date_chargement < m.date_max",
+    "UPDATE dbo.troncons_sig SET est_dernier = 0 WHERE nom_feeder IS NULL AND date_chargement <"
+    " (SELECT MAX(date_chargement) FROM dbo.troncons_sig WHERE nom_feeder IS NULL)",
+)
 
 
 @dataclass(frozen=True)

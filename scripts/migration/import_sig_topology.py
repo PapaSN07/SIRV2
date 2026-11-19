@@ -52,6 +52,15 @@ def run(*, dry_run: bool, skip_extract: bool) -> dict:
         id_maps.save("noeuds_sig")
         id_maps.save("troncons_sig")
         report["etl"] = loader.summary()
+        if not dry_run:
+            # Tronçons du dernier chargement de chaque départ (filtre des écrans SIG et du pilotage)
+            from sqlalchemy import text
+
+            from app.repositories.sig_admin_repository import RECALCUL_DERNIER_CHARGEMENT
+
+            for requete in RECALCUL_DERNIER_CHARGEMENT:
+                session.execute(text(requete))
+            session.commit()
 
     report["after"] = _counts() if not dry_run else report["before"]
     return report

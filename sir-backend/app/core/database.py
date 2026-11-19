@@ -12,7 +12,7 @@ metadata = MetaData(schema="dbo")
 
 engine = create_async_engine(
     url_sql_server(settings.database_url),
-    echo=settings.environment == "development",
+    echo=settings.sql_echo,
     pool_pre_ping=True,
     # Le serveur SQL distant / pare-feu coupe les connexions inactives (TCP 10054)
     pool_recycle=280,

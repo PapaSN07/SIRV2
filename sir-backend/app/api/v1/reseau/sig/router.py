@@ -1,9 +1,11 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.core.deps import get_current_user
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse, PaginatedResponse
@@ -74,9 +76,10 @@ _Q = Query(default=None, max_length=100, description="Recherche (chaque mot, san
 @router.get("/admin/synthese", response_model=ApiResponse[SyntheseSigResponse], summary="Synthèse de la topologie SIG")
 async def synthese_sig(
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[SyntheseSigResponse]:
-    return ApiResponse.success(await sig_admin_service.synthese(db, current_user))
+    return ApiResponse.success(await sig_admin_service.synthese(db, current_user, redis))
 
 
 @router.get(
@@ -89,10 +92,11 @@ async def stations_sig(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[StationSigResponse]]:
     return ApiResponse.success(
-        await sig_admin_service.stations(db, current_user, recherche=q, page=page, page_size=page_size)
+        await sig_admin_service.stations(db, current_user, recherche=q, page=page, page_size=page_size, redis=redis)
     )
 
 
@@ -107,11 +111,12 @@ async def feeders_sig(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[PaginatedResponse[FeederSigResponse]]:
     return ApiResponse.success(
         await sig_admin_service.feeders(
-            db, current_user, recherche=q, rattachement=rattachement, page=page, page_size=page_size
+            db, current_user, recherche=q, rattachement=rattachement, page=page, page_size=page_size, redis=redis
         )
     )
 
@@ -196,6 +201,9 @@ async def defauts_100km_sig(
     annee: int | None = Query(default=None, ge=2000, le=2100),
     mois: int | None = Query(default=None, ge=1, le=12),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
     current_user: Utilisateur = Depends(get_current_user),
 ) -> ApiResponse[Defauts100KmResponse]:
-    return ApiResponse.success(await sig_admin_service.defauts_100km(db, current_user, annee=annee, mois=mois))
+    return ApiResponse.success(
+        await sig_admin_service.defauts_100km(db, current_user, annee=annee, mois=mois, redis=redis)
+    )

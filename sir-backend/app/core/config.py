@@ -59,6 +59,8 @@ class Settings(BaseSettings):
 
     # App
     environment: str = "development"
+    # Journal de chaque requête SQL (très verbeux, ralentit l'API) : seulement pour un diagnostic ponctuel
+    sql_echo: bool = False
     api_version: str = "v1"
     cors_origins: str = Field(default="http://localhost:4200", validation_alias="CORS_ORIGINS")
 

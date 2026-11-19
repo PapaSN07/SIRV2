@@ -252,9 +252,9 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Règles** : la liste des noms vient de la police elle-même, alias compris (`scripts/noms-icones.json`, écrit par `python scripts/generer-icones.py`) ; après tout ajout d'icône, régénérer puis `npm run verifier-icones` ; contrôler les écrans sur une capture du build, pas seulement la compilation.
 
 ### 19/11/2026 — API bloquée (page blanche) par la requête « dernier chargement SIG »
-**Contexte** : rubrique Administration → SIG et pilotage (longueur réseau) ; page blanche, `vite http proxy error /api/v1/auth/me ECONNRESET`.
-**Erreur** : le filtre « dernier chargement » des tronçons SIG était une sous-requête corrélée (`MAX(date_chargement)` recalculé pour chacune des ~480 000 lignes de `troncons_sig`) ; quelques appels simultanés occupaient toutes les connexions du pool et l'API ne répondait plus, même à `/auth/me`.
-**Règles** : sur `troncons_sig` (et toute grande table), jamais de sous-requête corrélée par ligne : sous-requête groupée non corrélée (`sig_admin_repository._dernier_chargement`) et index adapté (`ix_troncons_sig_feeder_chargement`) ; une requête nouvelle sur une grande table est testée compilée en mssql (`tests/unit/test_sig_admin.py`) ; page blanche → regarder d'abord si l'API répond (`dcs logs api`).
+**Contexte** : rubrique Administration → SIG et pilotage (longueur réseau) ; page blanche, `vite http proxy error /api/v1/auth/me ECONNRESET` ; ensuite lenteurs générales et rubrique SIG vide.
+**Erreurs** : le filtre « dernier chargement » des tronçons SIG recalculait `MAX(date_chargement)` à chaque requête (d'abord ligne par ligne) sur ~480 000 tronçons ; quelques appels simultanés occupaient toutes les connexions du pool et l'API ne répondait plus, même à `/auth/me`. En plus, `echo` SQLAlchemy était actif sur le serveur (`ENVIRONMENT=development`) : chaque requête et ses paramètres étaient journalisés.
+**Règles** : un état dérivé coûteux d'une grande table est calculé à l'import et stocké/indexé (`troncons_sig.est_dernier`, migration 2c3d4e5f6a7b, recalcul `sig_admin_repository.RECALCUL_DERNIER_CHARGEMENT` dans les scripts SIG) ; les écrans de consultation SIG passent par un cache Redis `sig:*` (6 h) ; journal SQL seulement avec `SQL_ECHO=true` (diagnostic ponctuel) ; page blanche → regarder d'abord si l'API répond (`dcs logs api`).
 
 ---
 

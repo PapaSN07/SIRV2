@@ -270,6 +270,10 @@ def main() -> int:
             troncons,
         )
         print(f"Tronçons complétés : {t}")
+        from app.repositories.sig_admin_repository import RECALCUL_DERNIER_CHARGEMENT
+
+        for requete in RECALCUL_DERNIER_CHARGEMENT:
+            session.execute(text(requete))
         session.commit()
         print("Écrit : nœuds et tronçons complétés.")
     return 0
