@@ -86,15 +86,29 @@ def _json(row: dict[str, Any]) -> str:
 
 
 def _identifiant(row: dict[str, Any], index: int) -> str:
-    valeur = _colonne(row, "id", "fid", "objectid", exclure=("idtype", "idreg", "iddeleg"))
-    return str(valeur).strip() if valeur not in (None, "") else f"ligne-{index}"
+    """Identifiant de la ligne : colonne IDxxx_SIG de la table, sinon FID / OBJECTID."""
+    valeur = None
+    for nom, v in row.items():
+        bas = str(nom).lower()
+        if bas.startswith("id") and bas.endswith("_sig") and v not in (None, ""):
+            valeur = v
+            break
+    if valeur is None:
+        valeur = _colonne(row, "fid", "objectid")
+    if valeur in (None, ""):
+        return f"ligne-{index}"
+    texte = str(valeur).strip()
+    return texte[:-2] if texte.endswith(".0") and texte[:-2].isdigit() else texte
 
 
 def poste_source_sig(row: dict[str, Any], index: int) -> dict[str, Any]:
     """Ligne de PosteSource_SIG → colonnes de dbo.postes_sources_sig."""
     return {
         "legacy_id": _identifiant(row, index)[:100],
-        "nom": _texte(_colonne(row, "nompostesource", "nom_poste", "nomposte", "libelle", "nom", "sstation", "station"), 255),
+        "nom": _texte(
+            _colonne(row, "nompostesource", "nom_poste", "nomposte", "libelle", "nom", "sstation", "station", "postesource", exclure=("idposte",)),
+            255,
+        ),
         "code": _texte(_colonne(row, "code", "imat", "matricule", "sigle"), 100),
         "delegation": _texte(_colonne(row, "delegation"), 100),
         "region": _texte(_colonne(row, "region"), 100),
@@ -111,7 +125,7 @@ def feeder_sig(row: dict[str, Any], index: int) -> dict[str, Any]:
         "legacy_id": _identifiant(row, index)[:100],
         "nom": _texte(_colonne(row, "nomfeeder", "nom_feeder", "feeder", "libelle", "nom", exclure=("imat",)), 255),
         "code": _texte(_colonne(row, "imatfeeder", "imat", "code", "matricule"), 100),
-        "poste_source": _texte(_colonne(row, "postesource", "poste_source", "sstation", "station", "ss"), 255),
+        "poste_source": _texte(_colonne(row, "postesource", "poste_source", "sstation", "station", exclure=("idposte",)), 255),
         "delegation": _texte(_colonne(row, "delegation"), 100),
         "tension": _texte(_colonne(row, "tension"), 50),
         "attributs": _json(row),
@@ -129,8 +143,8 @@ def _lire(conn, noms: tuple[str, ...]) -> tuple[str, list[dict[str, Any]]]:
 
 def _upsert(session, table: str, lignes: list[dict[str, Any]]) -> tuple[int, int]:
     existants = {r[0] for r in session.execute(text(f"SELECT legacy_id FROM dbo.{table}")).all()}
-    nouveaux = [l for l in lignes if l["legacy_id"] not in existants]
-    maj = [l for l in lignes if l["legacy_id"] in existants]
+    nouveaux = [ligne for ligne in lignes if ligne["legacy_id"] not in existants]
+    maj = [ligne for ligne in lignes if ligne["legacy_id"] in existants]
     if nouveaux:
         colonnes = list(nouveaux[0])
         sql = text(f"INSERT INTO dbo.{table} ({', '.join(colonnes)}) VALUES ({', '.join(':' + c for c in colonnes)})")
@@ -142,6 +156,37 @@ def _upsert(session, table: str, lignes: list[dict[str, Any]]) -> tuple[int, int
         for i in range(0, len(maj), LOT):
             session.execute(sql, maj[i : i + LOT])
     return len(nouveaux), len(maj)
+
+
+def _maj_en_masse(session, table: str, colonnes: dict[str, str], lignes: list[dict[str, Any]]) -> int:
+    """UPDATE de nombreuses lignes par legacy_id : table temporaire chargée en masse, puis une jointure.
+
+    ``colonnes`` : nom → type SQL Server. Les lignes sans aucune valeur sont ignorées.
+    """
+    utiles = [ligne for ligne in lignes if any(ligne.get(c) is not None for c in colonnes)]
+    if not utiles:
+        return 0
+    noms = list(colonnes)
+    brute = session.connection().connection.dbapi_connection
+    curseur = brute.cursor()
+    curseur.execute(
+        "CREATE TABLE #maj (legacy_id INT PRIMARY KEY, "
+        + ", ".join(f"{c} {t} NULL" for c, t in colonnes.items())
+        + ")"
+    )
+    curseur.fast_executemany = True
+    sql = f"INSERT INTO #maj (legacy_id, {', '.join(noms)}) VALUES ({', '.join('?' for _ in range(len(noms) + 1))})"
+    valeurs = [(ligne["legacy_id"], *(ligne.get(c) for c in noms)) for ligne in utiles]
+    for i in range(0, len(valeurs), 20_000):
+        curseur.executemany(sql, valeurs[i : i + 20_000])
+        print(f"  … {table} : {min(i + 20_000, len(valeurs))}/{len(valeurs)} chargées", flush=True)
+    curseur.execute(
+        f"UPDATE t SET {', '.join(f't.{c} = m.{c}' for c in noms)} FROM dbo.{table} t JOIN #maj m ON m.legacy_id = t.legacy_id"
+    )
+    modifiees = curseur.rowcount
+    curseur.execute("DROP TABLE #maj")
+    curseur.close()
+    return int(modifiees)
 
 
 def main() -> int:
@@ -166,20 +211,28 @@ def main() -> int:
         print(f"\n=== {nom or '(table introuvable)'} : {len(rows)} ligne(s)")
         if rows:
             print(f"  colonnes HFSQL : {list(rows[0])}")
-            for l in lignes[:3]:
-                print(f"  → {({k: v for k, v in l.items() if k != 'attributs'})}")
-            sans_nom = sum(1 for l in lignes if not l["nom"])
+            for ligne in lignes[:3]:
+                print(f"  → {({k: v for k, v in ligne.items() if k != 'attributs'})}")
+            sans_nom = sum(1 for ligne in lignes if not ligne["nom"])
             print(f"  sans nom reconnu : {sans_nom}")
 
     with get_session() as session:
+        manquantes = [
+            t for t in ("postes_sources_sig", "feeders_sig")
+            if session.execute(text("SELECT OBJECT_ID(:t)"), {"t": f"dbo.{t}"}).scalar() is None
+        ]
+        if manquantes and args.execute:
+            print(f"\nTables absentes de SIRV2 : {manquantes}. Appliquer d'abord la migration "
+                  "(serveur : dcs exec api alembic upgrade head).")
+            return 1
         feeders_v2: dict[str, int] = {}
         for fid, libelle, code in session.execute(text("SELECT id, libelle, code FROM dbo.feeders")).all():
             for k in {cle_nom(libelle), cle_nom(code)}:
                 if k:
                     feeders_v2.setdefault(k, int(fid))
-        for l in feeders:
-            l["feeder_id"] = feeders_v2.get(cle_nom(l["nom"])) or feeders_v2.get(cle_nom(l["code"]))
-        rattaches = sum(1 for l in feeders if l["feeder_id"])
+        for ligne in feeders:
+            ligne["feeder_id"] = feeders_v2.get(cle_nom(ligne["nom"])) or feeders_v2.get(cle_nom(ligne["code"]))
+        rattaches = sum(1 for ligne in feeders if ligne["feeder_id"])
         print(f"\nDéparts SIG rattachés à un feeder SIRV2 par le nom : {rattaches} / {len(feeders)}")
 
         noeuds = [{"legacy_id": int(row_get(r, "IDNoeud_SIG", "idnoeud_sig")), **attributs_noeud(r)} for r in noeuds_rows if row_get(r, "IDNoeud_SIG", "idnoeud_sig") is not None]
@@ -201,18 +254,22 @@ def main() -> int:
             print("postes_sources_sig (ajoutés, mis à jour) :", _upsert(session, "postes_sources_sig", postes))
         if feeders:
             print("feeders_sig (ajoutés, mis à jour) :", _upsert(session, "feeders_sig", feeders))
-        sql_n = text(
-            "UPDATE dbo.noeuds_sig SET delegation = :delegation, region = :region, puissance = :puissance, "
-            "famille_poste = :famille_poste, cellule = :cellule WHERE legacy_id = :legacy_id"
+        n = _maj_en_masse(
+            session,
+            "noeuds_sig",
+            {"delegation": "NVARCHAR(100)", "region": "NVARCHAR(100)", "puissance": "NVARCHAR(50)",
+             "famille_poste": "NVARCHAR(100)", "cellule": "NVARCHAR(100)"},
+            noeuds,
         )
-        for i in range(0, len(noeuds), LOT):
-            session.execute(sql_n, noeuds[i : i + LOT])
-        sql_t = text(
-            "UPDATE dbo.troncons_sig SET imat_feeder = :imat_feeder, section = :section, poste_source = :poste_source, "
-            "type_conducteur = :type_conducteur, delegation = :delegation, date_maj = :date_maj WHERE legacy_id = :legacy_id"
+        print(f"Nœuds complétés : {n}")
+        t = _maj_en_masse(
+            session,
+            "troncons_sig",
+            {"imat_feeder": "NVARCHAR(100)", "section": "NVARCHAR(100)", "poste_source": "NVARCHAR(255)",
+             "type_conducteur": "NVARCHAR(100)", "delegation": "NVARCHAR(100)", "date_maj": "DATETIME2"},
+            troncons,
         )
-        for i in range(0, len(troncons), LOT):
-            session.execute(sql_t, troncons[i : i + LOT])
+        print(f"Tronçons complétés : {t}")
         session.commit()
         print("Écrit : nœuds et tronçons complétés.")
     return 0

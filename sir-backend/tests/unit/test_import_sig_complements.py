@@ -25,3 +25,14 @@ def test_complements_noeud_troncon_et_cle() -> None:
     assert attributs_noeud({"DELEGATION": " DRS ", "PUISSANCE_": 160})["delegation"] == "DRS"
     assert attributs_troncon({"SS": "HANN", "TYPE_CONDU": "ALMELEC"})["poste_source"] == "HANN"
     assert cle_nom("Yeumbeul 30 kV") == "YEUMBEUL30KV"
+
+
+def test_tables_reelles_du_sig_de_sir_v1() -> None:
+    # Colonnes lues sur srv-hfsql le 19/11/2026
+    ps = poste_source_sig({"fid": 0.0, "postesource": "S/S UNIVERSITE", "idpostesource_sig": 17.0}, 1)
+    assert (ps["legacy_id"], ps["nom"]) == ("17", "S/S UNIVERSITE")
+    fd = feeder_sig({"fid": 0, "nomfeeder": "ABASS NDAO", "imatfeeder": "LM.03.06", "postesource": "S/S UNIVERSITE",
+                     "categories": "AERIEN", "idpropritetaire_ligne": 1, "date_mise_en_service": None, "nombre_km": 12.5}, 1)
+    assert (fd["legacy_id"], fd["nom"], fd["code"], fd["poste_source"]) == ("0", "ABASS NDAO", "LM.03.06", "S/S UNIVERSITE")
+    assert attributs_troncon({"SECTIONS": "0.0", "TYPE_CONDU": "0.0"})["section"] is None
+    assert attributs_noeud({"PUISSANCE_": "630.0"})["puissance"] == "630"

@@ -72,6 +72,9 @@ export interface FeederSig {
   code_sig: string | null;
   poste_source_sig: string | null;
   delegation: string | null;
+  categorie_sig: string | null;
+  km_sig: number | null;
+  mise_en_service: string | null;
   attributs: Record<string, unknown> | null;
 }
 

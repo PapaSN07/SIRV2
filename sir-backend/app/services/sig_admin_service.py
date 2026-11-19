@@ -38,10 +38,20 @@ def _infos_feeder_sig(ligne: object | None) -> dict[str, object]:
         attributs = json.loads(getattr(ligne, "attributs", None) or "{}")
     except ValueError:
         attributs = {}
+    bas = {str(k).lower(): v for k, v in attributs.items()}
+    km = bas.get("nombre_km")
+    try:
+        km = round(float(str(km).replace(",", ".")), 2) if km not in (None, "") else None
+    except ValueError:
+        km = None
+    mise = bas.get("date_mise_en_service")
     return {
         "code_sig": getattr(ligne, "code", None),
         "poste_source_sig": getattr(ligne, "poste_source", None),
         "delegation": getattr(ligne, "delegation", None),
+        "categorie_sig": str(bas["categories"]) if bas.get("categories") not in (None, "") else None,
+        "km_sig": km,
+        "mise_en_service": str(mise)[:10] if mise else None,
         "attributs": attributs or None,
     }
 

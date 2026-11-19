@@ -265,7 +265,7 @@
               @case ('feeders') {
                 <table class="sir-table">
                   <thead>
-                    <tr><th>Feeder SIG</th><th>Feeder SIRV2</th><th>Poste source</th><th>Délégation</th><th>Tension</th><th>Tronçons</th><th>Longueur</th><th>Nœuds localisés</th><th class="col-actions">Actions</th></tr>
+                    <tr><th>Feeder SIG</th><th>Feeder SIRV2</th><th>Poste source</th><th>Catégorie</th><th>Mise en service</th><th>Tension</th><th>Tronçons</th><th>Longueur</th><th>Nœuds localisés</th><th class="col-actions">Actions</th></tr>
                   </thead>
                   <tbody>
                     @for (r of feeders(); track r.nom_feeder) {
@@ -278,10 +278,14 @@
                           @if (r.feeder_libelle) { <span class="sir-pill sir-pill--ok">{{ r.feeder_libelle }}</span> } @else { <span class="sir-pill sir-pill--warn">Non rattaché</span> }
                         </td>
                         <td>{{ r.poste_source_libelle ?? r.poste_source_sig ?? '—' }}</td>
-                        <td>{{ r.delegation ?? '—' }}</td>
+                        <td>{{ r.categorie_sig ?? '—' }}</td>
+                        <td>{{ r.mise_en_service ? (r.mise_en_service | date: 'dd/MM/yyyy') : '—' }}</td>
                         <td>{{ r.tension_kv !== null ? r.tension_kv + ' kV' : '—' }}</td>
                         <td>{{ r.troncons | number: '1.0-0' }}</td>
-                        <td>{{ r.longueur_km | number: '1.0-2' }} km</td>
+                        <td>
+                          {{ r.longueur_km | number: '1.0-2' }} km
+                          @if (r.km_sig !== null) { <span class="code" title="Longueur déclarée dans FEEDERS_SIG">fiche {{ r.km_sig | number: '1.0-2' }} km</span> }
+                        </td>
                         <td>{{ r.noeuds_localises }} / {{ r.noeuds }}</td>
                         <td class="col-actions">
                           <div class="sir-actions">
@@ -292,7 +296,7 @@
                         </td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="9" class="vide">Aucun feeder.</td></tr>
+                      <tr><td colspan="10" class="vide">Aucun feeder.</td></tr>
                     }
                   </tbody>
                 </table>

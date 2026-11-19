@@ -95,6 +95,9 @@ class FeederSigResponse(BaseModel):
     code_sig: str | None = None
     poste_source_sig: str | None = None
     delegation: str | None = None
+    categorie_sig: str | None = None
+    km_sig: float | None = None
+    mise_en_service: str | None = None
     attributs: dict[str, object] | None = None
 
 

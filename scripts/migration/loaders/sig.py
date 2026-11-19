@@ -19,10 +19,15 @@ TRONCON_SIG_BATCH_SIZE = 50_000
 
 
 def _texte(valeur: Any, longueur: int) -> str | None:
+    """Texte nettoyé ; vide, « 0 » ou « 0.0 » (valeurs par défaut du SIG) → None."""
     if valeur is None:
         return None
     texte = str(valeur).strip()
-    return texte[:longueur] if texte else None
+    if texte in ("", "0", "0.0", "0,0"):
+        return None
+    if texte.endswith(".0") and texte[:-2].isdigit():
+        texte = texte[:-2]  # « 630.0 » → « 630 »
+    return texte[:longueur]
 
 
 def attributs_noeud(row: dict[str, Any]) -> dict[str, Any]:
