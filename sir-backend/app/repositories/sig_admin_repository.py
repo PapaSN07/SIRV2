@@ -17,7 +17,7 @@ from app.models.geo import Service
 from app.models.interruptions import Interruption
 from app.models.referentiel import Nature
 from app.models.reseau import Feeder, PosteSource
-from app.models.sig import NoeudSig, TronconSig
+from app.models.sig import FeederSig, NoeudSig, PosteSourceSig, TronconSig
 
 _TRIS_TRONCONS = {"nom_troncon", "nom_feeder", "longueur_m", "tension_kv"}
 _TRIS_NOEUDS = {"nom", "nom_feeder", "station", "categorie"}
@@ -235,6 +235,12 @@ async def lister_troncons(
         TronconSig.tension_kv,
         TronconSig.longueur_m,
         TronconSig.date_chargement,
+        TronconSig.imat_feeder,
+        TronconSig.section,
+        TronconSig.poste_source,
+        TronconSig.type_conducteur,
+        TronconSig.delegation,
+        TronconSig.date_maj,
     ).where(_dernier_chargement())
     if nom_feeder:
         query = query.where(TronconSig.nom_feeder == nom_feeder)
@@ -282,6 +288,11 @@ async def lister_noeuds(
         NoeudSig.categorie,
         NoeudSig.coord_x,
         NoeudSig.coord_y,
+        NoeudSig.delegation,
+        NoeudSig.region,
+        NoeudSig.puissance,
+        NoeudSig.famille_poste,
+        NoeudSig.cellule,
     )
     if nom_feeder:
         query = query.where(NoeudSig.nom_feeder == nom_feeder)
@@ -385,3 +396,33 @@ async def feeders_avec_service(db: AsyncSession, ids: list[int]) -> dict[int, tu
         ).all()
         resultat.update({r.id: (r.libelle, r.poste_source, r.service) for r in rows})
     return resultat
+
+
+async def feeders_par_station(db: AsyncSession, stations: list[str]) -> dict[str, list[str]]:
+    """Noms des départs SIG de chaque station (d'après les nœuds), triés."""
+    if not stations:
+        return {}
+    rows = (
+        await db.execute(
+            select(NoeudSig.station, NoeudSig.nom_feeder)
+            .where(NoeudSig.station.in_(sorted(set(stations))), NoeudSig.nom_feeder.isnot(None))
+            .group_by(NoeudSig.station, NoeudSig.nom_feeder)
+        )
+    ).all()
+    resultat: dict[str, list[str]] = {}
+    for station, feeder in rows:
+        resultat.setdefault(station, []).append(feeder)
+    return {k: sorted(v) for k, v in resultat.items()}
+
+
+async def postes_sources_sig(db: AsyncSession) -> list[PosteSourceSig]:
+    """Postes sources de la table SIG PosteSource_SIG (petite table : lue en entier)."""
+    return list((await db.execute(select(PosteSourceSig).order_by(PosteSourceSig.nom))).scalars().all())
+
+
+async def feeders_sig_par_nom(db: AsyncSession, noms: list[str]) -> dict[str, FeederSig]:
+    """Départs de la table SIG FEEDERS_SIG, par nom exact (départs listés à l'écran)."""
+    if not noms:
+        return {}
+    rows = (await db.execute(select(FeederSig).where(FeederSig.nom.in_(sorted(set(noms)))))).scalars().all()
+    return {r.nom: r for r in rows if r.nom}

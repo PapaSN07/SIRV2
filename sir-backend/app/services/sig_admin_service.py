@@ -1,5 +1,7 @@
 """Service — consultation de la topologie SIG (Administration → SIG). Lecture seule."""
 
+import json
+import re
 from collections import defaultdict
 from datetime import date, datetime
 
@@ -23,6 +25,25 @@ from app.schemas.sig import (
 from app.services.rapport_hebdo_dd_service import _norme
 from app.services.sig_service import _ensure_sig_read
 from app.utils.pagination import clamp_page_size
+
+
+def _cle(valeur: object) -> str:
+    return re.sub(r"[^A-Z0-9]", "", _norme(str(valeur or "")))
+
+
+def _infos_feeder_sig(ligne: object | None) -> dict[str, object]:
+    if ligne is None:
+        return {}
+    try:
+        attributs = json.loads(getattr(ligne, "attributs", None) or "{}")
+    except ValueError:
+        attributs = {}
+    return {
+        "code_sig": getattr(ligne, "code", None),
+        "poste_source_sig": getattr(ligne, "poste_source", None),
+        "delegation": getattr(ligne, "delegation", None),
+        "attributs": attributs or None,
+    }
 
 
 def _pagination(page: int, page_size: int) -> tuple[int, int]:
@@ -56,18 +77,32 @@ async def stations(
     _ensure_sig_read(user)
     page, page_size = _pagination(page, page_size)
     rows, total = await repo.lister_stations(db, recherche=recherche, page=page, page_size=page_size)
-    sirv2 = await repo.postes_sources_sirv2(db, [r.station for r in rows])
+    noms_feeders = await repo.feeders_par_station(db, [r.station for r in rows])
+    # PosteSource_SIG : la station des nœuds peut être un identifiant ou un code → nom du poste source
+    index: dict[str, object] = {}
+    for ps in await repo.postes_sources_sig(db):
+        for k in (ps.legacy_id, ps.code, ps.nom):
+            if k:
+                index.setdefault(_cle(k), ps)
+    noms_ps = [r.station for r in rows] + [getattr(index.get(_cle(r.station)), "nom", None) or "" for r in rows]
+    sirv2 = await repo.postes_sources_sirv2(db, [n for n in noms_ps if n])
     items = []
     for r in rows:
         lon, lat = _lon_lat(r.x, r.y)
+        ps = index.get(_cle(r.station))
+        nom = getattr(ps, "nom", None)
         items.append(
             StationSigResponse(
                 station=r.station,
+                nom=nom if nom and _cle(nom) != _cle(r.station) else None,
+                delegation=getattr(ps, "delegation", None),
+                region=getattr(ps, "region", None),
                 noeuds=int(r.noeuds),
                 feeders=int(r.feeders),
+                feeders_noms=noms_feeders.get(r.station, []),
                 latitude=lat,
                 longitude=lon,
-                poste_source_sirv2=sirv2.get(r.station.upper()),
+                poste_source_sirv2=sirv2.get(r.station.upper()) or (sirv2.get(nom.upper()) if nom else None),
             )
         )
     return _paginee(items, total, page, page_size)
@@ -89,6 +124,7 @@ async def feeders(
     )
     sirv2 = await repo.feeders_sirv2(db, [r.feeder_id for r in rows if r.feeder_id is not None])
     noeuds = await repo.noeuds_par_feeder(db, [r.nom_feeder for r in rows])
+    table_sig = await repo.feeders_sig_par_nom(db, [r.nom_feeder for r in rows])
     items = []
     for r in rows:
         libelle, poste_source = sirv2.get(r.feeder_id, (None, None)) if r.feeder_id else (None, None)
@@ -105,6 +141,7 @@ async def feeders(
                 feeder_libelle=libelle,
                 poste_source_libelle=poste_source,
                 date_chargement=r.date_chargement,
+                **_infos_feeder_sig(table_sig.get(r.nom_feeder)),
             )
         )
     return _paginee(items, total, page, page_size)

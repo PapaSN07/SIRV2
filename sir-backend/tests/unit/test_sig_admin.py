@@ -9,7 +9,7 @@ from sqlalchemy.dialects import mssql
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.models.reseau import Feeder, PosteSource
-from app.models.sig import NoeudSig, TronconSig
+from app.models.sig import FeederSig, NoeudSig, PosteSourceSig, TronconSig
 from app.repositories import sig_admin_repository as repo
 from app.services import sig_admin_service as svc
 
@@ -21,7 +21,7 @@ async def db():
     moteur = create_async_engine("sqlite+aiosqlite://", execution_options={"schema_translate_map": {"dbo": None}})
     event.listen(moteur.sync_engine, "connect", lambda c, _: c.create_function("getdate", 0, lambda: "2026-11-19"))
     async with moteur.begin() as conn:
-        for table in (PosteSource.__table__, Feeder.__table__, NoeudSig.__table__, TronconSig.__table__):
+        for table in (PosteSource.__table__, Feeder.__table__, NoeudSig.__table__, TronconSig.__table__, PosteSourceSig.__table__, FeederSig.__table__):
             await conn.run_sync(table.create)
     async with AsyncSession(moteur) as session:
         session.add_all([
@@ -34,7 +34,10 @@ async def db():
             TronconSig(legacy_id=4, nom_feeder="YOFF", feeder_id=None, nom_troncon="Y1", longueur_m=2000, date_chargement=ANCIEN),
             NoeudSig(legacy_id=1, legacy_fid=1, nom="P OUAKAM 1", nom_feeder="OUAKAM", feeder_id=10, station="HANN", coord_x=237000, coord_y=1627000, categorie="POSTE"),
             NoeudSig(legacy_id=2, legacy_fid=2, nom="PIQUAGE 2", nom_feeder="OUAKAM", feeder_id=10, station="HANN", coord_x=None, coord_y=None, categorie="PIQUAGE"),
-            NoeudSig(legacy_id=3, legacy_fid=3, nom="P YOFF", nom_feeder="YOFF", station="CAP DES BICHES", coord_x=240000, coord_y=1630000, categorie="POSTE"),
+            NoeudSig(legacy_id=3, legacy_fid=3, nom="P YOFF", nom_feeder="YOFF", station="12", coord_x=240000, coord_y=1630000, categorie="POSTE"),
+            # Station « 12 » des nœuds = identifiant de PosteSource_SIG
+            PosteSourceSig(legacy_id="12", nom="CAP DES BICHES", delegation="DRCO"),
+            FeederSig(legacy_id="F1", nom="OUAKAM", code="D101", poste_source="HANN", delegation="DD", attributs='{"NOMFEEDER": "OUAKAM"}'),
         ])
         await session.commit()
         yield session
@@ -62,6 +65,7 @@ async def test_feeders_rattachement_et_noeuds(db: AsyncSession) -> None:
     ouakam = next(f for f in res.items if f.nom_feeder == "OUAKAM")
     assert (ouakam.troncons, ouakam.longueur_km, ouakam.noeuds, ouakam.noeuds_localises) == (2, 2.0, 2, 1)
     assert (ouakam.feeder_libelle, ouakam.poste_source_libelle) == ("OUAKAM", "HANN")
+    assert (ouakam.code_sig, ouakam.delegation, ouakam.attributs) == ("D101", "DD", {"NOMFEEDER": "OUAKAM"})
     non = await svc.feeders(db, _ADMIN, recherche=None, rattachement="non_rattache", page=1, page_size=20)  # type: ignore[arg-type]
     assert [f.nom_feeder for f in non.items] == ["YOFF"]
 
@@ -69,6 +73,10 @@ async def test_feeders_rattachement_et_noeuds(db: AsyncSession) -> None:
 async def test_stations_et_noeuds_localises(db: AsyncSession) -> None:
     st = await svc.stations(db, _ADMIN, recherche="hann", page=1, page_size=20)  # type: ignore[arg-type]
     assert st.total == 1 and st.items[0].poste_source_sirv2 == "HANN"
+    assert st.items[0].feeders_noms == ["OUAKAM"]
+    tous = await svc.stations(db, _ADMIN, recherche=None, page=1, page_size=20)  # type: ignore[arg-type]
+    cap = next(s for s in tous.items if s.station == "12")
+    assert (cap.nom, cap.delegation, cap.feeders_noms) == ("CAP DES BICHES", "DRCO", ["YOFF"])
     assert abs(st.items[0].latitude - 14.7039) < 1e-3
     nd = await svc.noeuds(db, _ADMIN, recherche=None, nom_feeder="OUAKAM", station=None, categorie=None, localisation="non_localise", tri=None, page=1, page_size=20)  # type: ignore[arg-type]
     assert [n.nom for n in nd.items] == ["PIQUAGE 2"]

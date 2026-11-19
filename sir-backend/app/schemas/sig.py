@@ -64,11 +64,15 @@ class SyntheseSigResponse(BaseModel):
 
 
 class StationSigResponse(BaseModel):
-    """Station (poste source) du SIG, déduite des nœuds."""
+    """Station (poste source) du SIG, déduite des nœuds et complétée par PosteSource_SIG."""
 
     station: str
+    nom: str | None = None
+    delegation: str | None = None
+    region: str | None = None
     noeuds: int
     feeders: int
+    feeders_noms: list[str] = Field(default_factory=list)
     latitude: float | None = None
     longitude: float | None = None
     poste_source_sirv2: str | None = None
@@ -87,6 +91,11 @@ class FeederSigResponse(BaseModel):
     feeder_libelle: str | None = None
     poste_source_libelle: str | None = None
     date_chargement: datetime | None = None
+    # Table SIG FEEDERS_SIG (si reprise)
+    code_sig: str | None = None
+    poste_source_sig: str | None = None
+    delegation: str | None = None
+    attributs: dict[str, object] | None = None
 
 
 class TronconSigAdminResponse(BaseModel):
@@ -101,6 +110,12 @@ class TronconSigAdminResponse(BaseModel):
     tension_kv: float | None = None
     longueur_m: float | None = None
     date_chargement: datetime | None = None
+    imat_feeder: str | None = None
+    section: str | None = None
+    poste_source: str | None = None
+    type_conducteur: str | None = None
+    delegation: str | None = None
+    date_maj: datetime | None = None
 
 
 class NoeudSigAdminResponse(BaseModel):
@@ -115,6 +130,11 @@ class NoeudSigAdminResponse(BaseModel):
     coord_y: float | None = None
     latitude: float | None = None
     longitude: float | None = None
+    delegation: str | None = None
+    region: str | None = None
+    puissance: str | None = None
+    famille_poste: str | None = None
+    cellule: str | None = None
 
 
 class Defauts100KmLigne(BaseModel):

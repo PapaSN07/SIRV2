@@ -18,6 +18,36 @@ from scripts.migration.transforms.rows import row_get
 TRONCON_SIG_BATCH_SIZE = 50_000
 
 
+def _texte(valeur: Any, longueur: int) -> str | None:
+    if valeur is None:
+        return None
+    texte = str(valeur).strip()
+    return texte[:longueur] if texte else None
+
+
+def attributs_noeud(row: dict[str, Any]) -> dict[str, Any]:
+    """Colonnes complémentaires de Noeud_SIG (délégation, région, puissance, famille, cellule)."""
+    return {
+        "delegation": _texte(row_get(row, "DELEGATION", "delegation"), 100),
+        "region": _texte(row_get(row, "REGION", "region"), 100),
+        "puissance": _texte(row_get(row, "PUISSANCE_", "puissance_"), 50),
+        "famille_poste": _texte(row_get(row, "FAMILLE_PO", "famille_po"), 100),
+        "cellule": _texte(row_get(row, "CELLULE", "cellule"), 100),
+    }
+
+
+def attributs_troncon(row: dict[str, Any]) -> dict[str, Any]:
+    """Colonnes complémentaires de Troncon_SIG (matricule du départ, section, poste source…)."""
+    return {
+        "imat_feeder": _texte(row_get(row, "IMATFEEDER", "imatfeeder"), 100),
+        "section": _texte(row_get(row, "SECTIONS", "sections"), 100),
+        "poste_source": _texte(row_get(row, "SS", "ss"), 255),
+        "type_conducteur": _texte(row_get(row, "TYPE_CONDU", "type_condu"), 100),
+        "delegation": _texte(row_get(row, "DELEGATION", "delegation"), 100),
+        "date_maj": parse_datetime(row_get(row, "DATE_MAJ", "date_maj")),
+    }
+
+
 class SigLoader(BaseLoader):
     entity_name = "sig"
 
@@ -67,6 +97,7 @@ class SigLoader(BaseLoader):
                 coord_x=_float_or_none(row_get(row, "CORX", "corx")),
                 coord_y=_float_or_none(row_get(row, "CORY", "cory")),
                 categorie=row_get(row, "CATEGORIE", "categorie"),
+                **attributs_noeud(row),
             )
             if self.dry_run:
                 self.stats["noeuds_sig"] = self.stats.get("noeuds_sig", 0) + 1
@@ -137,6 +168,7 @@ class SigLoader(BaseLoader):
                 tension_kv=_float_or_none(row_get(row, "NTENSION", "ntension")),
                 longueur_m=_float_or_none(row_get(row, "Shape_Leng", "shape_leng")),
                 date_chargement=parse_datetime(row_get(row, "Date_Chargement", "date_chargement")),
+                **attributs_troncon(row),
             )
             if self.dry_run:
                 self.stats["troncons_sig"] = self.stats.get("troncons_sig", 0) + 1

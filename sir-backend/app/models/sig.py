@@ -1,4 +1,4 @@
-"""Données topologie SIG importées depuis HFSQL (Troncon_SIG, Noeud_SIG)."""
+"""Données topologie SIG importées depuis HFSQL (PosteSource_SIG, FEEDERS_SIG, Troncon_SIG, Noeud_SIG)."""
 
 from datetime import datetime
 
@@ -27,6 +27,12 @@ class NoeudSig(Base):
     coord_x: Mapped[float | None] = mapped_column(Float, nullable=True)
     coord_y: Mapped[float | None] = mapped_column(Float, nullable=True)
     categorie: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True)
+    # Colonnes complémentaires de Noeud_SIG (DELEGATION, REGION, PUISSANCE_, FAMILLE_PO, CELLULE)
+    delegation: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    region: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    puissance: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
+    famille_poste: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    cellule: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
@@ -54,6 +60,13 @@ class TronconSig(Base):
     tension_kv: Mapped[float | None] = mapped_column(DECIMAL(6, 2), nullable=True)
     longueur_m: Mapped[float | None] = mapped_column(DECIMAL(12, 3), nullable=True)
     date_chargement: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    # Colonnes complémentaires de Troncon_SIG (IMATFEEDER, SECTIONS, SS, TYPE_CONDU, DELEGATION, DATE_MAJ)
+    imat_feeder: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    section: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    poste_source: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True)
+    type_conducteur: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    delegation: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
@@ -65,4 +78,45 @@ class TronconSig(Base):
 
     __table_args__ = (
         UniqueConstraint("legacy_fid", "date_chargement", name="uq_troncons_sig_fid_chargement"),
+    )
+
+
+class PosteSourceSig(Base):
+    """Poste source du SIG (table HFSQL PosteSource_SIG) ; colonnes non reprises gardées dans ``attributs``."""
+
+    __tablename__ = "postes_sources_sig"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    legacy_id: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False, unique=True, index=True)
+    nom: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True, index=True)
+    code: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True, index=True)
+    delegation: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    region: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    tension: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
+    coord_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coord_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    attributs: Mapped[str | None] = mapped_column(NVARCHAR(None), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
+    )
+
+
+class FeederSig(Base):
+    """Départ du SIG (table HFSQL FEEDERS_SIG) ; colonnes non reprises gardées dans ``attributs``."""
+
+    __tablename__ = "feeders_sig"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    legacy_id: Mapped[str] = mapped_column(NVARCHAR(100), nullable=False, unique=True, index=True)
+    nom: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True, index=True)
+    code: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True, index=True)
+    poste_source: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True, index=True)
+    delegation: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    tension: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
+    feeder_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("feeders.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    attributs: Mapped[str | None] = mapped_column(NVARCHAR(None), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )

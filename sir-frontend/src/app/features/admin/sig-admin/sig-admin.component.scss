@@ -384,3 +384,27 @@
     background: $primary;
   }
 }
+
+.feeders-noms {
+  min-width: 320px;
+  max-width: 460px;
+}
+
+.chip {
+  display: inline-block;
+  margin: 1px 3px 1px 0;
+  padding: 1px 8px;
+  border: 1px solid $border-soft;
+  border-radius: 999px;
+  background: $surface-container-low;
+  color: $primary;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    border-color: $primary;
+  }
+}

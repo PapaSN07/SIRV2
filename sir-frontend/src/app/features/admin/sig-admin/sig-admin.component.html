@@ -227,16 +227,26 @@
               @case ('stations') {
                 <table class="sir-table">
                   <thead>
-                    <tr><th>Station (poste source SIG)</th><th>Poste source SIRV2</th><th>Feeders</th><th>Nœuds</th><th>Position moyenne</th><th class="col-actions">Actions</th></tr>
+                    <tr><th>Poste source SIG</th><th>Délégation</th><th>Poste source SIRV2</th><th>Feeders</th><th>Nœuds</th><th>Position moyenne</th><th class="col-actions">Actions</th></tr>
                   </thead>
                   <tbody>
                     @for (r of stations(); track r.station) {
                       <tr>
-                        <td class="fort">{{ r.station }}</td>
+                        <td>
+                          <span class="fort">{{ r.nom ?? r.station }}</span>
+                          @if (r.nom) { <span class="code">{{ r.station }}</span> }
+                        </td>
+                        <td>{{ r.delegation ?? '—' }}@if (r.region) { <span class="code">{{ r.region }}</span> }</td>
                         <td>
                           @if (r.poste_source_sirv2) { <span class="sir-pill sir-pill--ok">{{ r.poste_source_sirv2 }}</span> } @else { <span class="sir-pill sir-pill--warn">Non trouvé</span> }
                         </td>
-                        <td>{{ r.feeders }}</td>
+                        <td class="feeders-noms">
+                          @for (f of r.feeders_noms.slice(0, 8); track f) {
+                            <button type="button" class="chip" (click)="voirTroncons(f)" [title]="'Tronçons du feeder ' + f">{{ f }}</button>
+                          }
+                          @if (r.feeders_noms.length > 8) { <span class="code">+{{ r.feeders_noms.length - 8 }}</span> }
+                          @if (r.feeders_noms.length === 0) { — }
+                        </td>
                         <td>{{ r.noeuds | number: '1.0-0' }}</td>
                         <td class="coord">{{ r.latitude !== null ? (r.latitude | number: '1.4-4' : 'en') + ', ' + (r.longitude | number: '1.4-4' : 'en') : '—' }}</td>
                         <td class="col-actions">
@@ -247,7 +257,7 @@
                         </td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="6" class="vide">Aucune station.</td></tr>
+                      <tr><td colspan="7" class="vide">Aucun poste source.</td></tr>
                     }
                   </tbody>
                 </table>
@@ -255,16 +265,20 @@
               @case ('feeders') {
                 <table class="sir-table">
                   <thead>
-                    <tr><th>Feeder SIG</th><th>Feeder SIRV2</th><th>Poste source</th><th>Tension</th><th>Tronçons</th><th>Longueur</th><th>Nœuds localisés</th><th class="col-actions">Actions</th></tr>
+                    <tr><th>Feeder SIG</th><th>Feeder SIRV2</th><th>Poste source</th><th>Délégation</th><th>Tension</th><th>Tronçons</th><th>Longueur</th><th>Nœuds localisés</th><th class="col-actions">Actions</th></tr>
                   </thead>
                   <tbody>
                     @for (r of feeders(); track r.nom_feeder) {
                       <tr>
-                        <td class="fort">{{ r.nom_feeder }}</td>
+                        <td>
+                          <span class="fort">{{ r.nom_feeder }}</span>
+                          @if (r.code_sig) { <span class="code">{{ r.code_sig }}</span> }
+                        </td>
                         <td>
                           @if (r.feeder_libelle) { <span class="sir-pill sir-pill--ok">{{ r.feeder_libelle }}</span> } @else { <span class="sir-pill sir-pill--warn">Non rattaché</span> }
                         </td>
-                        <td>{{ r.poste_source_libelle ?? '—' }}</td>
+                        <td>{{ r.poste_source_libelle ?? r.poste_source_sig ?? '—' }}</td>
+                        <td>{{ r.delegation ?? '—' }}</td>
                         <td>{{ r.tension_kv !== null ? r.tension_kv + ' kV' : '—' }}</td>
                         <td>{{ r.troncons | number: '1.0-0' }}</td>
                         <td>{{ r.longueur_km | number: '1.0-2' }} km</td>
@@ -278,7 +292,7 @@
                         </td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="8" class="vide">Aucun feeder.</td></tr>
+                      <tr><td colspan="9" class="vide">Aucun feeder.</td></tr>
                     }
                   </tbody>
                 </table>
@@ -289,8 +303,10 @@
                     <tr>
                       <th><button type="button" class="sir-sort" (click)="trier('nom_troncon')">Tronçon <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom_troncon') }}</span></button></th>
                       <th><button type="button" class="sir-sort" (click)="trier('nom_feeder')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom_feeder') }}</span></button></th>
+                      <th>Poste source</th>
                       <th>Nœud amont</th>
                       <th>Nœud aval</th>
+                      <th>Conducteur</th>
                       <th><button type="button" class="sir-sort" (click)="trier('tension_kv')">Tension <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('tension_kv') }}</span></button></th>
                       <th><button type="button" class="sir-sort" (click)="trier('longueur_m')">Longueur <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('longueur_m') }}</span></button></th>
                       <th>Chargement</th>
@@ -300,15 +316,17 @@
                     @for (r of troncons(); track r.id) {
                       <tr>
                         <td class="fort">{{ r.nom_troncon ?? '—' }}</td>
-                        <td>{{ r.nom_feeder ?? '—' }}</td>
+                        <td>{{ r.nom_feeder ?? '—' }}@if (r.imat_feeder) { <span class="code">{{ r.imat_feeder }}</span> }</td>
+                        <td>{{ r.poste_source ?? '—' }}@if (r.delegation) { <span class="code">{{ r.delegation }}</span> }</td>
                         <td>{{ r.nom_noeud_amont ?? '—' }} @if (r.code_noeud_amont) { <span class="code">{{ r.code_noeud_amont }}</span> }</td>
                         <td>{{ r.nom_noeud_aval ?? '—' }} @if (r.code_noeud_aval) { <span class="code">{{ r.code_noeud_aval }}</span> }</td>
+                        <td>{{ r.type_conducteur ?? '—' }}@if (r.section) { <span class="code">{{ r.section }}</span> }</td>
                         <td>{{ r.tension_kv !== null ? r.tension_kv + ' kV' : '—' }}</td>
                         <td>{{ r.longueur_m !== null ? (r.longueur_m | number: '1.0-0') + ' m' : '—' }}</td>
                         <td>{{ r.date_chargement ? (r.date_chargement | date: 'dd/MM/yyyy') : '—' }}</td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="7" class="vide">Aucun tronçon.</td></tr>
+                      <tr><td colspan="9" class="vide">Aucun tronçon.</td></tr>
                     }
                   </tbody>
                 </table>
@@ -320,6 +338,8 @@
                       <th><button type="button" class="sir-sort" (click)="trier('nom')">Nœud <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom') }}</span></button></th>
                       <th><button type="button" class="sir-sort" (click)="trier('categorie')">Catégorie <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('categorie') }}</span></button></th>
                       <th><button type="button" class="sir-sort" (click)="trier('nom_feeder')">Feeder <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('nom_feeder') }}</span></button></th>
+                      <th>Délégation</th>
+                      <th>Puissance · famille</th>
                       <th><button type="button" class="sir-sort" (click)="trier('station')">Station <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('station') }}</span></button></th>
                       <th>X / Y (UTM 28N)</th>
                       <th>Latitude, longitude</th>
@@ -331,6 +351,8 @@
                         <td class="fort">{{ r.nom ?? '—' }}</td>
                         <td>{{ r.categorie ?? '—' }}</td>
                         <td>{{ r.nom_feeder ?? '—' }}</td>
+                        <td>{{ r.delegation ?? '—' }}@if (r.region) { <span class="code">{{ r.region }}</span> }</td>
+                        <td>{{ r.puissance ? r.puissance + ' kVA' : '—' }}@if (r.famille_poste) { <span class="code">{{ r.famille_poste }}</span> }@if (r.cellule) { <span class="code">{{ r.cellule }}</span> }</td>
                         <td>{{ r.station ?? '—' }}</td>
                         <td class="coord">{{ r.coord_x !== null ? (r.coord_x | number: '1.0-0' : 'en') + ' / ' + (r.coord_y | number: '1.0-0' : 'en') : '—' }}</td>
                         <td class="coord">
@@ -342,7 +364,7 @@
                         </td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="6" class="vide">Aucun nœud.</td></tr>
+                      <tr><td colspan="8" class="vide">Aucun nœud.</td></tr>
                     }
                   </tbody>
                 </table>

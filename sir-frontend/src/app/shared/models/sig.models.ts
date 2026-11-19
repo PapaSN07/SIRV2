@@ -47,8 +47,12 @@ export interface SyntheseSig {
 
 export interface StationSig {
   station: string;
+  nom: string | null;
+  delegation: string | null;
+  region: string | null;
   noeuds: number;
   feeders: number;
+  feeders_noms: string[];
   latitude: number | null;
   longitude: number | null;
   poste_source_sirv2: string | null;
@@ -65,6 +69,10 @@ export interface FeederSig {
   feeder_libelle: string | null;
   poste_source_libelle: string | null;
   date_chargement: string | null;
+  code_sig: string | null;
+  poste_source_sig: string | null;
+  delegation: string | null;
+  attributs: Record<string, unknown> | null;
 }
 
 export interface TronconSigAdmin {
@@ -79,6 +87,12 @@ export interface TronconSigAdmin {
   tension_kv: number | null;
   longueur_m: number | null;
   date_chargement: string | null;
+  imat_feeder: string | null;
+  section: string | null;
+  poste_source: string | null;
+  type_conducteur: string | null;
+  delegation: string | null;
+  date_maj: string | null;
 }
 
 export interface NoeudSigAdmin {
@@ -93,6 +107,11 @@ export interface NoeudSigAdmin {
   coord_y: number | null;
   latitude: number | null;
   longitude: number | null;
+  delegation: string | null;
+  region: string | null;
+  puissance: string | null;
+  famille_poste: string | null;
+  cellule: string | null;
 }
 
 export interface SigListeParams {
