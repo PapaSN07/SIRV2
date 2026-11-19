@@ -33,10 +33,17 @@ class InterruptionDistributionCreate(BaseModel):
     has_extension_bt: bool = False
     # Imposée par le compte BCC (Dakar) / BRC (Régions) ; à choisir par les comptes nationaux
     region_id: int | None = Field(default=None, ge=1)
+    # Service proposé par le feeder, modifiable (départ partagé entre deux services, ex. YEN)
+    service_id: int | None = Field(default=None, ge=1)
 
 
 class InterruptionDistributionUpdate(BaseModel):
     date_apparition: datetime | None = None
+    # Réseau modifiable tant que l'interruption est en cours (sous_feeder_id null = aucun)
+    poste_source_id: int | None = Field(default=None, ge=1)
+    feeder_id: int | None = Field(default=None, ge=1)
+    sous_feeder_id: int | None = Field(default=None, ge=1)
+    service_id: int | None = Field(default=None, ge=1)
     cause_id: int | None = Field(default=None, ge=1)
     nature_id: int | None = Field(default=None, ge=1)
     siege_id: int | None = Field(default=None, ge=1)

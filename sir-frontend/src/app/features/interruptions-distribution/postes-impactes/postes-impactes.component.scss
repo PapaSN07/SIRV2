@@ -1,0 +1,250 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.detail-card {
+  background: #fff;
+  border: 1px solid $outline-variant;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  &--full {
+    width: 100%;
+  }
+
+  &--action {
+    border-color: rgba($primary, 0.25);
+    background: rgba($primary, 0.03);
+  }
+
+  &--timeline {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid $outline-variant;
+
+    .material-symbols-outlined {
+      color: $primary;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: $on-surface;
+    }
+  }
+}
+
+.detail-empty {
+  margin: 0;
+  color: $on-surface-variant;
+  font-size: 14px;
+}
+
+.postes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  &__summary {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+}
+
+.postes-filter {
+  margin-bottom: 0.75rem;
+  max-width: 320px;
+}
+
+.postes-check-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 28rem;
+  overflow: auto;
+  border: 1px solid $outline-variant;
+  border-radius: 0.25rem;
+  background: $surface-container-low;
+
+  &__item {
+    border-bottom: 1px solid $outline-variant;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &--checked {
+      background: color-mix(in srgb, $primary 8%, transparent);
+    }
+  }
+}
+
+.postes-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    margin-top: 0.2rem;
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: $primary;
+    flex-shrink: 0;
+  }
+
+  input[type='checkbox']:disabled {
+    cursor: not-allowed;
+  }
+
+  &__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+    min-width: 0;
+  }
+
+  strong {
+    font-size: 14px;
+    color: $on-surface;
+  }
+
+  &__code {
+    font-size: 12px;
+    color: $on-surface-variant;
+    font-family: ui-monospace, monospace;
+  }
+
+  &__clients {
+    font-size: 12px;
+    color: $on-surface-variant;
+    margin-left: auto;
+  }
+}
+
+.poste-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0;
+
+  .sir-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 180px;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__select {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid $outline-variant;
+    border-radius: 0.25rem;
+    background: $surface-container-low;
+    font-family: inherit;
+    font-size: 14px;
+    color: $on-surface;
+    outline: none;
+
+    &:focus {
+      border-color: $primary;
+      box-shadow: 0 0 0 1px $primary;
+    }
+  }
+}
+
+.postes-card {
+  margin-bottom: 1rem;
+}
+
+.postes-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+
+  .field {
+    flex: 1 1 220px;
+    max-width: 360px;
+  }
+}
+
+.postes-check__feeder {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: $surface-container;
+  font-size: 11px;
+  font-weight: 600;
+  color: $on-surface-variant;
+
+  &--autre {
+    background: color-mix(in srgb, $sen-magenta 12%, transparent);
+    color: #9a0054;
+  }
+}
+
+.postes-reseau {
+  margin-top: 0.5rem;
+  border-top: 1px dashed $outline-variant;
+  padding-top: 0.75rem;
+
+  summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: $primary;
+  }
+
+  &__body {
+    margin-top: 0.75rem;
+  }
+
+  &__hint {
+    margin: 0.25rem 0 0.75rem;
+    font-size: 12px;
+    color: $on-surface-variant;
+  }
+}
+
+.postes-erreur {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  background: $danger-bg;
+  color: #b42328;
+  font-size: 13px;
+}

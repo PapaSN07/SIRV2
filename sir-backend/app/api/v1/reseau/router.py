@@ -15,6 +15,7 @@ from app.schemas.reseau_distribution import (
     PosteSourceResponse,
     PosteSourceUpdate,
     PosteUpdate,
+    ServiceExploitationResponse,
     SousFeederCreate,
     SousFeederResponse,
     SousFeederUpdate,
@@ -27,6 +28,23 @@ from app.api.v1.reseau.transport.router import router as transport_reseau_router
 from app.services import reseau_distribution_service as svc
 
 router = APIRouter()
+
+
+# ── Services d'exploitation ────────────────────────────────────────────────
+
+
+@router.get(
+    "/services-exploitation",
+    response_model=ApiResponse[list[ServiceExploitationResponse]],
+    summary="Services qui exploitent au moins un feeder (choix du service d'une interruption)",
+)
+async def list_services_exploitation(
+    region_id: int | None = Query(default=None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(get_current_user),
+) -> ApiResponse[list[ServiceExploitationResponse]]:
+    result = await svc.list_services_exploitation(db, current_user, region_id=region_id)
+    return ApiResponse.success(result)
 
 
 # ── Postes sources ──────────────────────────────────────────────────────────

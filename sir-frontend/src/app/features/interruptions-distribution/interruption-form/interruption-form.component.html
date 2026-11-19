@@ -28,6 +28,15 @@
         </p>
       </div>
     }
+    @if (isEditMode() && detail(); as d) {
+      <!-- Ordre demandé par SENELEC (19/11/2026) : postes impactés, puis réseau, classification et impact -->
+      <sir-postes-impactes
+        [interruption]="d"
+        [workflow]="workflow()"
+        [canWrite]="canWritePostes()"
+        (changed)="onPostesChanged()"
+      />
+    }
     <form class="form-bento" [formGroup]="form" (ngSubmit)="submit()">
       <section class="form-card form-card--full">
         <header class="form-card__head">
@@ -107,15 +116,27 @@
           </div>
           <div class="field">
             <label class="field__label" for="service">Service</label>
-            <input
+            <select
               id="service"
-              class="field__select field__select--readonly"
-              type="text"
-              [value]="serviceLibelle() ?? ''"
-              placeholder="Renseigné automatiquement via le feeder"
-              readonly
-              tabindex="-1"
-            />
+              class="field__select"
+              [value]="serviceId() ?? ''"
+              [disabled]="isReadOnly() || serviceId() === null"
+              (change)="onServiceSelect($event)"
+            >
+              @if (serviceId() === null) {
+                <option value="">Renseigné automatiquement via le feeder</option>
+              }
+              @for (sv of serviceOptions(); track sv.id) {
+                <option [value]="sv.id" [selected]="sv.id === serviceId()">{{ sv.libelle }}</option>
+              }
+            </select>
+            <p class="form-field-hint">
+              @if (serviceModifie()) {
+                Service modifié : celui du feeder n'est pas retenu.
+              } @else {
+                Service du feeder ; modifiable si le départ est partagé avec un autre service.
+              }
+            </p>
           </div>
         </div>
       </section>
@@ -344,6 +365,36 @@
         <span class="material-symbols-outlined" aria-hidden="true">info</span>
         Après la création, complétez le workflow opérationnel (étapes successives) et les postes impactés depuis la fiche détail.
       </p>
+    }
+
+    @if (serviceEnAttente(); as sv) {
+      <div class="confirm-overlay" (click)="annulerService()">
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-service-titre"
+          aria-describedby="confirm-service-texte"
+          (click)="$event.stopPropagation()"
+        >
+          <h2 id="confirm-service-titre">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            Modifier le service
+          </h2>
+          <p id="confirm-service-texte">
+            Vous êtes sur le point de modifier le service de l'interruption :
+            <strong>{{ serviceLibelle() || 'service du feeder' }}</strong> → <strong>{{ sv.libelle }}</strong>.
+            @if (sv.region_libelle) {
+              L'interruption sera rattachée à la région {{ sv.region_libelle }}.
+            }
+            Êtes-vous sûr de vouloir continuer ?
+          </p>
+          <div class="confirm-dialog__actions">
+            <button type="button" class="sir-btn sir-btn--outline-primary" (click)="annulerService()">Annuler</button>
+            <button type="button" class="sir-btn sir-btn--primary" (click)="confirmerService()">Continuer</button>
+          </div>
+        </div>
+      </div>
     }
 
     @if (isEditMode() && editId(); as id) {

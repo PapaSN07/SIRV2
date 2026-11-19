@@ -4,6 +4,7 @@ import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiResponse, PaginatedResponse } from '../../../shared/models/api.models';
 import { PosteOuvertCarte } from '../../../shared/models/indicateurs.models';
+import { Poste } from '../../../shared/models/reseau.models';
 import {
   InterruptionClotureRequest,
   InterruptionDistribution,
@@ -204,6 +205,16 @@ export class InterruptionDistributionService {
   addPoste(id: number, body: PosteInterruptionCreate): Observable<PosteImpacte> {
     return this.http
       .post<ApiResponse<PosteImpacte>>(`${this.apiUrl}/${id}/postes`, body)
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
+  /** Postes à cocher : ceux d'un feeder (celui de l'interruption par défaut) ou une recherche réseau. */
+  postesCandidats(id: number, options: { feederId?: number | null; q?: string | null } = {}): Observable<Poste[]> {
+    let params = new HttpParams();
+    if (options.feederId) params = params.set('feeder_id', options.feederId);
+    if (options.q) params = params.set('q', options.q);
+    return this.http
+      .get<ApiResponse<Poste[]>>(`${this.apiUrl}/${id}/postes-candidats`, { params })
       .pipe(map((res) => this.unwrap(res)));
   }
 

@@ -25,6 +25,7 @@ from app.schemas.reseau_distribution import (
     PosteUpdate,
     SousFeederCreate,
     SousFeederResponse,
+    ServiceExploitationResponse,
     SousFeederUpdate,
     TronconCreate,
     TronconResponse,
@@ -501,3 +502,26 @@ def _conflict(code: str) -> HTTPException:
         status_code=status.HTTP_409_CONFLICT,
         detail={"status": "error", "data": None, "error": f"Code '{code}' déjà utilisé"},
     )
+
+
+async def list_services_exploitation(
+    db: AsyncSession, user: Utilisateur, *, region_id: int | None = None
+) -> list[ServiceExploitationResponse]:
+    """Services qui exploitent un feeder ; un BCC / BRC ne voit que ceux de sa région."""
+    _ensure_can_read(user)
+    scope = _read_scope(user)
+    if scope is not None and scope.region_id is not None:
+        region_id = scope.region_id
+    services = await repo.list_services_exploitation(db, region_id=region_id)
+    if scope is not None and scope.service_id is not None:
+        services = [s for s in services if s.id == scope.service_id]
+    return [
+        ServiceExploitationResponse(
+            id=s.id,
+            code=s.code,
+            libelle=s.libelle,
+            region_id=s.region_id,
+            region_libelle=s.region.libelle if s.region is not None else None,
+        )
+        for s in services
+    ]

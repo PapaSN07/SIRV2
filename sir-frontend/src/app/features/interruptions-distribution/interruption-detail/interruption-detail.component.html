@@ -93,106 +93,13 @@
       </div>
     }
 
-    <article class="detail-card postes-card">
-      <header class="detail-card__head">
-        <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
-        <h2>Postes impactés</h2>
-      </header>
-      <div class="postes-toolbar">
-        <p class="postes-toolbar__summary">
-          {{ postesCheckedCount() }} poste(s) impacté(s)
-          @if (postesCatalog().length > 0) {
-            <span> · {{ postesCatalog().length }} sur le feeder</span>
-          }
-        </p>
-        @if (canWritePostes()) {
-          <div class="poste-actions">
-            <button
-              type="button"
-              class="sir-btn sir-btn--outline-primary"
-              [disabled]="postesBulkLoading()"
-              (click)="addPostesFromFeeder()"
-            >
-              <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
-              Tout cocher (feeder)
-            </button>
-            <button
-              type="button"
-              class="sir-btn sir-btn--outline-primary"
-              [disabled]="postesBulkLoading() || !hasSigTroncon()"
-              [title]="hasSigTroncon() ? '' : 'Sélectionnez un tronçon SIG dans l\'étape Tronçonnement'"
-              (click)="addPostesFromSigTroncon()"
-            >
-              <span class="material-symbols-outlined" aria-hidden="true">share_location</span>
-              Postes du tronçon SIG
-            </button>
-          </div>
-        }
-      </div>
-
-      <div class="field postes-filter">
-        <label class="field__label" for="postes-filter">Rechercher un poste</label>
-        <input
-          id="postes-filter"
-          class="field__select"
-          type="search"
-          placeholder="Code ou libellé…"
-          [value]="postesFilter()"
-          (input)="onPostesFilterInput($event)"
-        />
-      </div>
-
-      @if (postesCatalogLoading()) {
-        <p class="detail-empty">Chargement des postes du feeder…</p>
-      } @else if (postesRows().length === 0) {
-        <p class="detail-empty">
-          Aucun poste n'est rattaché à ce feeder dans le référentiel.
-          @if (hasSigTroncon()) {
-            Utilisez « Postes du tronçon SIG » pour les retrouver par la topologie.
-          } @else {
-            Renseignez le tronçon SIG à l'étape Tronçonnement, ou faites compléter le référentiel des postes.
-          }
-        </p>
-      } @else {
-        <ul class="postes-check-list" role="list">
-          @for (row of postesRows(); track row.posteId) {
-            <li class="postes-check-list__item" [class.postes-check-list__item--checked]="row.checked">
-              <label class="postes-check">
-                <input
-                  type="checkbox"
-                  [checked]="row.checked"
-                  [disabled]="!canWritePostes() || isPosteToggling(row.posteId) || postesBulkLoading()"
-                  (change)="onPosteCheckboxChange(row, $event)"
-                />
-                <span class="postes-check__body">
-                  <strong>{{ row.libelle }}</strong>
-                  @if (row.code) {
-                    <span class="postes-check__code">{{ row.code }}</span>
-                  }
-                  <span class="postes-check__clients">
-                    {{ row.nombreClientsTouches ?? '—' }} clients
-                  </span>
-                  @if (row.dateInterruption) {
-                    <span class="postes-check__clients">
-                      {{ row.dateInterruption | date: 'dd/MM/yyyy HH:mm' }}
-                    </span>
-                  }
-                </span>
-              </label>
-            </li>
-          }
-        </ul>
-      }
-    </article>
-
-    <sir-interruption-workflow-panel
+    <!-- Ordre demandé par SENELEC (19/11/2026) : postes impactés, réseau, classification,
+         clôture, puis le workflow opérationnel en bas de fiche -->
+    <sir-postes-impactes
+      [interruption]="it"
       [workflow]="workflow()"
-      [loading]="workflowLoading()"
-      [canEdit]="canEditWorkflow(it)"
-      [interruptionId]="it.id"
-      [feederId]="it.feeder_id"
-      [dateApparition]="it.date_apparition"
-      (saved)="onWorkflowSaved()"
+      [canWrite]="canWritePostes()"
+      (changed)="reloadDetailQuiet(it.id)"
     />
 
     <div class="detail-bento">
@@ -509,6 +416,18 @@
           </footer>
         </article>
       </aside>
+    </div>
+
+    <div class="detail-workflow">
+      <sir-interruption-workflow-panel
+        [workflow]="workflow()"
+        [loading]="workflowLoading()"
+        [canEdit]="canEditWorkflow(it)"
+        [interruptionId]="it.id"
+        [feederId]="it.feeder_id"
+        [dateApparition]="it.date_apparition"
+        (saved)="onWorkflowSaved()"
+      />
     </div>
 
     @if (actionError()) {

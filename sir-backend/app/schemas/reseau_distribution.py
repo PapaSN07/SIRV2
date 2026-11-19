@@ -189,3 +189,13 @@ class SousFeederResponse(BaseModel):
     poste_source_libelle: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ServiceExploitationResponse(BaseModel):
+    """Service proposé pour une interruption (services qui exploitent au moins un feeder)."""
+
+    id: int
+    code: str
+    libelle: str
+    region_id: int | None
+    region_libelle: str | None = None

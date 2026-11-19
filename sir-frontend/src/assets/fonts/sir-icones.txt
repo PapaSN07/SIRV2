@@ -139,6 +139,7 @@ person_check
 person_off
 person_search
 phone
+photo
 picture_as_pdf
 pill
 place

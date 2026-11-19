@@ -112,6 +112,8 @@ export interface InterruptionDistributionCreate {
   poste_source_id: number;
   feeder_id: number;
   sous_feeder_id?: number | null;
+  /** Service proposé par le feeder, modifiable (départ partagé entre deux services). */
+  service_id?: number | null;
   cause_id: number;
   nature_id: number;
   siege_id: number;
@@ -134,6 +136,11 @@ export interface InterruptionDistributionCreate {
 
 export interface InterruptionDistributionUpdate {
   date_apparition?: string;
+  /** Réseau modifiable tant que l'interruption est en cours. */
+  poste_source_id?: number;
+  feeder_id?: number;
+  sous_feeder_id?: number | null;
+  service_id?: number;
   cause_id?: number;
   nature_id?: number;
   siege_id?: number;

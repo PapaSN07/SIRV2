@@ -1,5 +1,6 @@
 """Service métier — interruptions réseau distribution (Sprint 3)."""
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
@@ -12,7 +13,7 @@ from app.models.interruption_statut_historique import (
     ACTION_VALIDATION,
 )
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
-from app.models.reseau import Poste
+from app.models.reseau import Feeder, Poste
 from app.models.sig import TronconSig as TronconSigOrm
 from app.models.utilisateurs import Utilisateur
 from app.repositories import interruption_distribution_repository as repo
@@ -23,6 +24,7 @@ from app.repositories import reseau_distribution_repository as reseau_repo
 from app.repositories import sig_repository as sig_repo
 from app.repositories.reseau_distribution_repository import ScopeFilter
 from app.schemas.common import PaginatedResponse
+from app.schemas.reseau_distribution import PosteResponse
 from app.schemas.interruption_statut import (
     ArchivageRequest,
     ArchivageResponse,
@@ -505,6 +507,75 @@ async def _response_after_commit(
     return _to_response(interruption, interruption.interruption_distribution)
 
 
+@dataclass
+class _ReseauSaisi:
+    feeder: Feeder
+    sous_feeder_id: int | None
+    service_id: int
+    region_id: int
+
+
+def _erreur_422(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={"status": "error", "data": None, "error": message},
+    )
+
+
+async def _resoudre_reseau(
+    db: AsyncSession,
+    current_user: Utilisateur,
+    *,
+    poste_source_id: int,
+    feeder_id: int,
+    sous_feeder_id: int | None,
+    service_id: int | None,
+    region_demandee: int | None,
+) -> _ReseauSaisi:
+    """Contrôle poste source / feeder / sous-feeder / service saisis et en déduit la région.
+
+    Le service vient du feeder ; l'opérateur peut en choisir un autre (un départ partagé entre
+    un service de Dakar et un service régional, ex. YEN). La région suit alors le service choisi.
+    """
+    feeder = await reseau_repo.get_feeder(db, feeder_id)
+    if feeder is None or not feeder.is_active:
+        raise _erreur_422(f"Feeder {feeder_id} introuvable ou inactif")
+    if feeder.poste_source_id != poste_source_id:
+        raise _erreur_422("Le feeder ne correspond pas au poste source sélectionné")
+
+    retenu_sous_feeder: int | None = None
+    if sous_feeder_id is not None:
+        sous_feeder = await reseau_repo.get_sous_feeder(db, sous_feeder_id)
+        if sous_feeder is None or not sous_feeder.is_active:
+            raise _erreur_422(f"Sous-feeder {sous_feeder_id} introuvable ou inactif")
+        if sous_feeder.feeder_id != feeder.id:
+            raise _erreur_422("Le sous-feeder ne correspond pas au feeder sélectionné")
+        retenu_sous_feeder = sous_feeder.id
+
+    service_choisi = service_id if service_id is not None else feeder.service_id
+    if service_choisi is None:
+        raise _erreur_422("Le feeder doit être rattaché à un service, ou choisissez le service")
+    if service_choisi != feeder.service_id:
+        service = await reseau_repo.get_service(db, service_choisi)
+        if service is None or not service.is_active:
+            raise _erreur_422(f"Service {service_choisi} introuvable ou inactif")
+
+    await _ensure_service_in_write_scope(db, current_user, service_choisi)
+    service_force = service_choisi != feeder.service_id
+    region_id = await _region_de_saisie(
+        db,
+        current_user,
+        region_demandee,
+        poste_source_id=feeder.poste_source_id,
+        service_id=service_choisi,
+        # service changé : la région suit le service choisi, pas celle propre au départ
+        feeder_id=None if service_force else feeder.id,
+    )
+    return _ReseauSaisi(
+        feeder=feeder, sous_feeder_id=retenu_sous_feeder, service_id=service_choisi, region_id=region_id
+    )
+
+
 async def create(
     db: AsyncSession,
     body: InterruptionDistributionCreate,
@@ -513,69 +584,19 @@ async def create(
     """Crée une interruption distribution (statut initial en_cours)."""
     _ensure_not_transport_role(current_user)
 
-    feeder = await reseau_repo.get_feeder(db, body.feeder_id)
-    if feeder is None or not feeder.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "status": "error",
-                "data": None,
-                "error": f"Feeder {body.feeder_id} introuvable ou inactif",
-            },
-        )
-
-    if feeder.service_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "status": "error",
-                "data": None,
-                "error": "Le feeder doit être rattaché à un service",
-            },
-        )
-
-    if feeder.poste_source_id != body.poste_source_id:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "status": "error",
-                "data": None,
-                "error": "Le feeder ne correspond pas au poste source sélectionné",
-            },
-        )
-
-    sous_feeder_id: int | None = None
-    if body.sous_feeder_id is not None:
-        sous_feeder = await reseau_repo.get_sous_feeder(db, body.sous_feeder_id)
-        if sous_feeder is None or not sous_feeder.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "status": "error",
-                    "data": None,
-                    "error": f"Sous-feeder {body.sous_feeder_id} introuvable ou inactif",
-                },
-            )
-        if sous_feeder.feeder_id != feeder.id:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "status": "error",
-                    "data": None,
-                    "error": "Le sous-feeder ne correspond pas au feeder sélectionné",
-                },
-            )
-        sous_feeder_id = sous_feeder.id
-
-    await _ensure_service_in_write_scope(db, current_user, feeder.service_id)
-    region_id = await _region_de_saisie(
+    reseau = await _resoudre_reseau(
         db,
         current_user,
-        body.region_id,
-        poste_source_id=feeder.poste_source_id,
-        service_id=feeder.service_id,
-        feeder_id=feeder.id,
+        poste_source_id=body.poste_source_id,
+        feeder_id=body.feeder_id,
+        sous_feeder_id=body.sous_feeder_id,
+        service_id=body.service_id,
+        region_demandee=body.region_id,
     )
+    feeder = reseau.feeder
+    sous_feeder_id = reseau.sous_feeder_id
+    region_id = reseau.region_id
+    service_id = reseau.service_id
 
     await _validate_referentiel_distribution(
         db,
@@ -594,7 +615,7 @@ async def create(
         "numero_interruption": numero,
         "type_direction": "distribution",
         "statut": "en_cours",
-        "service_id": feeder.service_id,
+        "service_id": service_id,
         "region_id": region_id,
         "feeder_id": feeder.id,
         "sous_feeder_id": sous_feeder_id,
@@ -641,7 +662,7 @@ async def create(
             "type_direction": "distribution",
             "statut": "en_cours",
             "feeder_id": feeder.id,
-            "service_id": feeder.service_id,
+            "service_id": service_id,
         },
     )
     await interruption_cycle_service.enregistrer(
@@ -657,7 +678,7 @@ async def create(
         event_type=NotificationEventType.INTERRUPTION_CREEE,
         entity_type="interruption",
         entity_id=interruption.id,
-        service_id=feeder.service_id,
+        service_id=service_id,
     )
 
     return await _response_after_commit(db, interruption.id)
@@ -875,11 +896,19 @@ def _poste_to_response(pi: PosteInterruption) -> PosteImpacteResponse:
     )
 
 
-def _context_ids_for_poste_link(
+async def _context_ids_for_poste_link(
+    db: AsyncSession,
     interruption: Interruption,
     poste: Poste,
 ) -> tuple[int | None, int | None, int | None]:
-    """Dénormalise feeder / service / poste_source pour poste_interruptions."""
+    """Dénormalise feeder / service / poste_source pour poste_interruptions.
+
+    Un poste d'un autre feeder (secours, bouclage) garde son propre feeder et poste source.
+    """
+    if poste.feeder_id is not None and poste.feeder_id != interruption.feeder_id:
+        feeder = await reseau_repo.get_feeder(db, poste.feeder_id)
+        if feeder is not None:
+            return feeder.id, poste.service_id or feeder.service_id or interruption.service_id, feeder.poste_source_id
     feeder_id = interruption.feeder_id or poste.feeder_id
     service_id = interruption.service_id or poste.service_id
     poste_source_id = interruption.poste_source_id
@@ -976,6 +1005,38 @@ async def list_postes(
     return [_poste_to_response(pi) for pi in links]
 
 
+async def postes_candidats(
+    db: AsyncSession,
+    interruption_id: int,
+    current_user: Utilisateur,
+    *,
+    feeder_id: int | None = None,
+    recherche: str | None = None,
+) -> list[PosteResponse]:
+    """Postes à cocher pour une interruption : ceux d'un feeder (le sien par défaut) ou une recherche.
+
+    Le périmètre est celui de l'interruption, déjà contrôlé : un BCC voit tous les postes du
+    départ, même rattachés à un service d'une autre région (départ partagé, ex. YEN).
+    """
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    texte = (recherche or "").strip()
+    if texte and feeder_id is None:
+        if len(texte) < 2:
+            return []
+        postes = await reseau_repo.rechercher_postes(db, texte)
+    else:
+        cible = feeder_id or interruption.feeder_id
+        if cible is None:
+            return []
+        postes = await reseau_repo.list_postes(db, feeder_id=cible, scope=None)
+        if texte:
+            t = texte.lower()
+            postes = [p for p in postes if t in (p.libelle or "").lower() or t in (p.code or "").lower()]
+    from app.services.reseau_distribution_service import _poste_response
+
+    return [_poste_response(p) for p in postes]
+
+
 async def add_poste(
     db: AsyncSession,
     interruption_id: int,
@@ -996,15 +1057,8 @@ async def add_poste(
             },
         )
 
-    if not await _poste_dans_perimetre(db, poste, interruption):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "status": "error",
-                "data": None,
-                "error": "Le poste n'appartient pas au périmètre feeder/service de l'interruption",
-            },
-        )
+    # Postes d'autres feeders acceptés (demande SENELEC du 19/11/2026) : une coupure peut toucher
+    # des postes réalimentés par un autre départ ; le cochage individuel est un choix de l'opérateur.
 
     existing = await repo.get_poste_interruption_link(db, interruption.id, body.poste_id)
     if existing is not None:
@@ -1017,7 +1071,7 @@ async def add_poste(
             },
         )
 
-    feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(interruption, poste)
+    feeder_id, service_id, poste_source_id = await _context_ids_for_poste_link(db, interruption, poste)
     link = await repo.add_poste_interruption(
         db,
         interruption_id=interruption.id,
@@ -1099,7 +1153,7 @@ async def _bulk_link_postes(
         if not await _poste_dans_perimetre(db, poste, interruption):
             skipped += 1
             continue
-        feeder_id, service_id, poste_source_id = _context_ids_for_poste_link(interruption, poste)
+        feeder_id, service_id, poste_source_id = await _context_ids_for_poste_link(db, interruption, poste)
         link = await repo.add_poste_interruption(
             db,
             interruption_id=interruption.id,
@@ -1314,6 +1368,11 @@ def _snapshot_interruption(interruption: Interruption) -> dict[str, object]:
         "is_fugitive": interruption.is_fugitive,
         "entreprise_id": interruption.entreprise_id,
         "prestataire_id": interruption.prestataire_id,
+        "poste_source_id": interruption.poste_source_id,
+        "feeder_id": interruption.feeder_id,
+        "sous_feeder_id": interruption.sous_feeder_id,
+        "service_id": interruption.service_id,
+        "region_id": interruption.region_id,
     }
     if distribution is not None:
         snapshot.update(
@@ -1351,6 +1410,42 @@ async def update(
         )
 
     old_values = _snapshot_interruption(interruption)
+
+    reseau_updates: dict[str, object] = {}
+    champs_reseau = ("poste_source_id", "feeder_id", "sous_feeder_id", "service_id")
+    if any(k in updates for k in champs_reseau):
+        feeder_id = updates.get("feeder_id") or interruption.feeder_id
+        poste_source_id = updates.get("poste_source_id") or interruption.poste_source_id
+        if feeder_id is None or poste_source_id is None:
+            raise _erreur_422("Poste source et feeder obligatoires")
+        if "sous_feeder_id" in updates:
+            sous_feeder_id = updates.get("sous_feeder_id")
+        elif "feeder_id" in updates and updates["feeder_id"] != interruption.feeder_id:
+            sous_feeder_id = None
+        else:
+            sous_feeder_id = interruption.sous_feeder_id
+        if "service_id" in updates:
+            service_id = updates.get("service_id")
+        elif "feeder_id" in updates and updates["feeder_id"] != interruption.feeder_id:
+            service_id = None  # nouveau feeder : son service, sauf choix explicite
+        else:
+            service_id = interruption.service_id
+        reseau = await _resoudre_reseau(
+            db,
+            current_user,
+            poste_source_id=poste_source_id,
+            feeder_id=feeder_id,
+            sous_feeder_id=sous_feeder_id,
+            service_id=service_id,
+            region_demandee=interruption.region_id,
+        )
+        reseau_updates = {
+            "poste_source_id": reseau.feeder.poste_source_id,
+            "feeder_id": reseau.feeder.id,
+            "sous_feeder_id": reseau.sous_feeder_id,
+            "service_id": reseau.service_id,
+            "region_id": reseau.region_id,
+        }
 
     cause_id = updates.get("cause_id", interruption.cause_id)
     nature_id = updates.get("nature_id", interruption.nature_id)
@@ -1403,6 +1498,7 @@ async def update(
     }
 
     interruption_updates = {k: v for k, v in updates.items() if k in interruption_fields}
+    interruption_updates.update(reseau_updates)
     interruption_updates["updated_by_id"] = current_user.id
     distribution_updates = {k: v for k, v in updates.items() if k in distribution_fields}
 

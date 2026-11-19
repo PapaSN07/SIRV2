@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.repositories.geo_scope_repository import service_ids_in_region_subquery
+from app.models.geo import Service
 from app.models.interruptions import PosteInterruption
 from app.models.reseau import Feeder, Poste, PosteSource, SousFeeder, Troncon
 
@@ -358,6 +359,44 @@ async def list_sous_feeders(
         query = _apply_feeder_join_scope(query, SousFeeder, scope)
     result = await db.execute(query)
     return list(result.scalars().unique().all())
+
+
+async def get_service(db: AsyncSession, service_id: int) -> Service | None:
+    return await db.get(Service, service_id)
+
+
+async def list_services_exploitation(db: AsyncSession, *, region_id: int | None = None) -> list[Service]:
+    """Services qui exploitent au moins un feeder actif (choix du service d'une interruption)."""
+    query = (
+        select(Service)
+        .options(joinedload(Service.region))
+        .where(
+            Service.is_active == True,  # noqa: E712
+            Service.id.in_(select(Feeder.service_id).where(Feeder.is_active == True)),  # noqa: E712
+        )
+        .order_by(Service.libelle)
+    )
+    if region_id is not None:
+        query = query.where(Service.region_id == region_id)
+    result = await db.execute(query)
+    return list(result.unique().scalars().all())
+
+
+async def rechercher_postes(db: AsyncSession, recherche: str, *, limite: int = 50) -> list[Poste]:
+    """Postes actifs de tout le réseau dont le code ou le libellé contient le texte."""
+    motif = f"%{recherche.strip()}%"
+    query = (
+        select(Poste)
+        .options(joinedload(Poste.feeder).joinedload(Feeder.poste_source), joinedload(Poste.service))
+        .where(
+            Poste.is_active == True,  # noqa: E712
+            or_(Poste.code.ilike(motif), Poste.libelle.ilike(motif)),
+        )
+        .order_by(Poste.libelle, Poste.id)
+        .limit(limite)
+    )
+    result = await db.execute(query)
+    return list(result.unique().scalars().all())
 
 
 async def get_sous_feeder(db: AsyncSession, item_id: int) -> SousFeeder | None:

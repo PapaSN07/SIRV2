@@ -997,3 +997,103 @@ async def test_create_bcc_depart_autre_region_raises_403() -> None:
         with pytest.raises(HTTPException) as exc:
             await svc.create(db, _create_body(), user)
     assert exc.value.status_code == 403
+
+
+async def test_resoudre_reseau_service_change_region_suit_le_service() -> None:
+    """Départ partagé (ex. YEN) : un autre service choisi → la région vient de ce service."""
+    db = AsyncMock()
+    user = _make_bcc(scope_service_id=1)
+    service = type("S", (), {"id": 7, "is_active": True})()
+    region = AsyncMock(return_value=1)
+    with patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_feeder",
+        new_callable=AsyncMock,
+        return_value=_feeder(service_id=2),
+    ), patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_service",
+        new_callable=AsyncMock,
+        return_value=service,
+    ), patch("app.services.interruption_distribution_service.repo.region_du_depart", region):
+        res = await svc._resoudre_reseau(
+            db,
+            user,
+            poste_source_id=10,
+            feeder_id=1,
+            sous_feeder_id=None,
+            service_id=7,
+            region_demandee=None,
+        )
+    assert res.service_id == 7
+    assert res.region_id == 1
+    region.assert_awaited_once()
+    assert region.await_args.kwargs["feeder_id"] is None
+    assert region.await_args.args[2] == 7
+
+
+async def test_resoudre_reseau_sans_choix_garde_le_service_du_feeder() -> None:
+    db = AsyncMock()
+    user = _make_bcc(scope_service_id=1)
+    region = AsyncMock(return_value=1)
+    feeder = _feeder(service_id=1)
+    with patch(
+        "app.services.interruption_distribution_service.reseau_repo.get_feeder",
+        new_callable=AsyncMock,
+        return_value=feeder,
+    ), patch("app.services.interruption_distribution_service.repo.region_du_depart", region):
+        res = await svc._resoudre_reseau(
+            db,
+            user,
+            poste_source_id=feeder.poste_source_id,
+            feeder_id=feeder.id,
+            sous_feeder_id=None,
+            service_id=None,
+            region_demandee=None,
+        )
+    assert res.service_id == 1
+    assert region.await_args.kwargs["feeder_id"] == feeder.id
+
+
+async def test_update_reseau_feeder_change() -> None:
+    """Réseau modifiable en cours : nouveau feeder → son service, sous-feeder remis à zéro."""
+    db = AsyncMock()
+    user = _make_bcc(scope_service_id=1)
+    interruption = Interruption()
+    interruption.id = 5
+    interruption.statut = "en_cours"
+    interruption.feeder_id = 10
+    interruption.poste_source_id = 1
+    interruption.sous_feeder_id = 3
+    interruption.service_id = 1
+    interruption.region_id = 1
+    interruption.created_by_id = 1
+    interruption.date_apparition = datetime(2026, 11, 19, 10, 0)
+    interruption.interruption_distribution = InterruptionDistribution()
+    resolu = svc._ReseauSaisi(feeder=_feeder(service_id=1), sous_feeder_id=None, service_id=1, region_id=1)
+    with patch(
+        "app.services.interruption_distribution_service._get_interruption_accessible",
+        new_callable=AsyncMock,
+        return_value=interruption,
+    ), patch(
+        "app.services.interruption_distribution_service._ensure_can_modify",
+    ), patch(
+        "app.services.interruption_distribution_service._resoudre_reseau",
+        new_callable=AsyncMock,
+        return_value=resolu,
+    ) as resoudre, patch(
+        "app.services.interruption_distribution_service.repo.update_interruption_distribution",
+        new_callable=AsyncMock,
+        return_value=(interruption, interruption.interruption_distribution),
+    ) as maj, patch(
+        "app.services.interruption_distribution_service.log_audit", new_callable=AsyncMock
+    ), patch(
+        "app.services.interruption_distribution_service._response_after_commit",
+        new_callable=AsyncMock,
+        return_value="ok",
+    ):
+        await svc.update(db, 5, InterruptionDistributionUpdate(feeder_id=1), user)
+    kwargs = resoudre.await_args.kwargs
+    assert kwargs["sous_feeder_id"] is None
+    assert kwargs["service_id"] is None
+    envoyees = maj.await_args.kwargs["interruption_updates"]
+    assert envoyees["feeder_id"] == 1
+    assert envoyees["region_id"] == 1

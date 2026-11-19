@@ -1,0 +1,142 @@
+<article class="detail-card postes-card">
+  <header class="detail-card__head">
+    <span class="material-symbols-outlined" aria-hidden="true">electrical_services</span>
+    <h2>Postes impactés</h2>
+  </header>
+
+  <div class="postes-toolbar">
+    <p class="postes-toolbar__summary">
+      {{ checkedCount() }} poste(s) impacté(s)
+      @if (catalogue().length > 0) {
+        <span> · {{ catalogue().length }} sur le feeder affiché</span>
+      }
+    </p>
+    @if (canWrite()) {
+      <div class="poste-actions">
+        <button type="button" class="sir-btn sir-btn--outline-primary" [disabled]="bulkLoading()" (click)="toutCocher()">
+          <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
+          Tout cocher (feeder de l'interruption)
+        </button>
+        <button
+          type="button"
+          class="sir-btn sir-btn--outline-primary"
+          [disabled]="bulkLoading() || !hasSigTroncon()"
+          [title]="hasSigTroncon() ? '' : 'Sélectionnez un tronçon SIG dans l\'étape Tronçonnement'"
+          (click)="postesDuTronconSig()"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">share_location</span>
+          Postes du tronçon SIG
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (erreur()) {
+    <p class="postes-erreur" role="alert">{{ erreur() }}</p>
+  }
+
+  <div class="postes-filters">
+    <div class="field">
+      <label class="field__label" for="postes-feeder">Feeder affiché</label>
+      <select id="postes-feeder" class="field__select" [value]="feederAffiche() ?? ''" (change)="onFeederAfficheChange($event)">
+        @if (interruption().feeder_id; as fid) {
+          <option [value]="fid" [selected]="feederAffiche() === fid">
+            {{ interruption().feeder_libelle || 'Feeder de l\'interruption' }} (feeder de l'interruption)
+          </option>
+        }
+        @for (f of feedersVoisins(); track f.id) {
+          @if (f.id !== interruption().feeder_id) {
+            <option [value]="f.id" [selected]="feederAffiche() === f.id">{{ f.libelle }}</option>
+          }
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label class="field__label" for="postes-filter">Filtrer la liste</label>
+      <input
+        id="postes-filter"
+        class="field__select"
+        type="search"
+        placeholder="Code ou libellé…"
+        [value]="filtre()"
+        (input)="onFiltreInput($event)"
+      />
+    </div>
+  </div>
+
+  @if (catalogueLoading()) {
+    <p class="detail-empty">Chargement des postes du feeder…</p>
+  } @else if (rows().length === 0) {
+    <p class="detail-empty">
+      Aucun poste n'est rattaché à ce feeder dans le référentiel.
+      @if (hasSigTroncon()) {
+        Utilisez « Postes du tronçon SIG » ou la recherche sur tout le réseau ci-dessous.
+      } @else {
+        Utilisez la recherche sur tout le réseau ci-dessous, ou renseignez le tronçon SIG à l'étape Tronçonnement.
+      }
+    </p>
+  } @else {
+    <ul class="postes-check-list" role="list">
+      @for (row of rows(); track row.posteId) {
+        <ng-container [ngTemplateOutlet]="ligne" [ngTemplateOutletContext]="{ $implicit: row }" />
+      }
+    </ul>
+  }
+
+  @if (canWrite()) {
+    <details class="postes-reseau">
+      <summary>Ajouter des postes d'un autre feeder (recherche sur tout le réseau)</summary>
+      <div class="postes-reseau__body">
+        <div class="field">
+          <label class="field__label" for="postes-reseau">Rechercher un poste</label>
+          <input
+            id="postes-reseau"
+            class="field__select"
+            type="search"
+            placeholder="Au moins 2 caractères : code ou libellé"
+            [value]="rechercheReseau()"
+            (input)="onRechercheReseauInput($event)"
+          />
+        </div>
+        <p class="postes-reseau__hint">Pour un poste réalimenté par un autre départ : il est compté dans cette interruption.</p>
+        @if (rechercheLoading()) {
+          <p class="detail-empty">Recherche…</p>
+        } @else if (rechercheReseau().trim().length >= 2 && rowsReseau().length === 0) {
+          <p class="detail-empty">Aucun poste trouvé.</p>
+        } @else if (rowsReseau().length > 0) {
+          <ul class="postes-check-list" role="list">
+            @for (row of rowsReseau(); track row.posteId) {
+              <ng-container [ngTemplateOutlet]="ligne" [ngTemplateOutletContext]="{ $implicit: row }" />
+            }
+          </ul>
+        }
+      </div>
+    </details>
+  }
+</article>
+
+<ng-template #ligne let-row>
+  <li class="postes-check-list__item" [class.postes-check-list__item--checked]="row.checked">
+    <label class="postes-check">
+      <input
+        type="checkbox"
+        [checked]="row.checked"
+        [disabled]="!canWrite() || isToggling(row.posteId) || bulkLoading()"
+        (change)="onCheckboxChange(row, $event)"
+      />
+      <span class="postes-check__body">
+        <strong>{{ row.libelle }}</strong>
+        @if (row.code) {
+          <span class="postes-check__code">{{ row.code }}</span>
+        }
+        @if (row.feederLibelle && row.autreFeeder) {
+          <span class="postes-check__feeder postes-check__feeder--autre">Autre feeder : {{ row.feederLibelle }}</span>
+        }
+        <span class="postes-check__clients">{{ row.nombreClientsTouches ?? '—' }} clients</span>
+        @if (row.dateInterruption) {
+          <span class="postes-check__clients">{{ row.dateInterruption | date: 'dd/MM/yyyy HH:mm' }}</span>
+        }
+      </span>
+    </label>
+  </li>
+</ng-template>

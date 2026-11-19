@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.deps import require_permission
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse, PaginatedResponse
+from app.schemas.reseau_distribution import PosteResponse
 from app.schemas.fis_import import FisImportResponse, FisImportStatsResponse
 from app.schemas.interruption_statut import (
     ArchivageRequest,
@@ -306,6 +307,27 @@ async def list_postes_interruption(
 ) -> ApiResponse[list[PosteImpacteResponse]]:
     result = await interruption_distribution_service.list_postes(
         db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.get(
+    "/{interruption_id}/postes-candidats",
+    response_model=ApiResponse[list[PosteResponse]],
+    status_code=status.HTTP_200_OK,
+    summary="Postes à cocher : ceux d'un feeder (le sien par défaut) ou une recherche sur tout le réseau",
+)
+async def postes_candidats_interruption(
+    interruption_id: int,
+    feeder_id: int | None = Query(default=None, ge=1),
+    q: str | None = Query(default=None, max_length=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "read")
+    ),
+) -> ApiResponse[list[PosteResponse]]:
+    result = await interruption_distribution_service.postes_candidats(
+        db, interruption_id, current_user, feeder_id=feeder_id, recherche=q
     )
     return ApiResponse.success(result)
 

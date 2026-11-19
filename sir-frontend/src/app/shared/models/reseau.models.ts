@@ -132,3 +132,12 @@ export interface ReseauListParams {
   /** Colonne de tri, « - » devant = décroissant */
   tri?: string;
 }
+
+/** Service qui exploite au moins un feeder (choix du service d'une interruption). */
+export interface ServiceExploitation {
+  id: number;
+  code: string;
+  libelle: string;
+  region_id: number | null;
+  region_libelle: string | null;
+}
