@@ -4,6 +4,8 @@ export type OuvertureInterruption = 'ouvert' | 'ferme';
 
 export interface InterruptionDistribution {
   id: number;
+  /** Région d'exploitation (Dakar / Régions) portée par l'interruption. */
+  region_id?: number | null;
   /** Listes : date de clôture des interruptions en attente de validation. */
   date_cloture?: string | null;
   /** Listes : colonnes de l'export SIR v1. */

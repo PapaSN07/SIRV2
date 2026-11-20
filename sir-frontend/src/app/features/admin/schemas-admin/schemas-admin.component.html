@@ -1,0 +1,109 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Schémas unifilaires"
+    [breadcrumbs]="[{ label: 'Tableau de bord', route: '/' }, { label: 'Administration' }, { label: 'Schémas unifilaires' }]"
+  />
+
+  <sir-admin-nav />
+
+  @if (erreur()) {
+    <p class="alerte" role="alert">{{ erreur() }}</p>
+  }
+
+  <div class="disposition">
+    <aside class="sir-card colonne">
+      <p class="colonne__titre">Schémas importés</p>
+      @for (s of schemas(); track s.id) {
+        <button type="button" class="schema-item" [class.schema-item--actif]="s.id === schema()?.id" (click)="ouvrir(s)">
+          <strong>{{ s.nom }}</strong>
+          <span>{{ s.nb_postes | number }} postes · {{ s.region_libelle || 'toutes régions' }}</span>
+          <span>Importé le {{ s.importe_le | date: 'dd/MM/yyyy' }} · {{ s.fichier }}</span>
+        </button>
+      } @empty {
+        @if (!chargement()) {
+          <p class="vide">Aucun schéma importé.</p>
+        }
+      }
+
+      <details class="import">
+        <summary>Importer ou mettre à jour un schéma</summary>
+        <p>Sur le poste ETL SENELEC (dossier SIRV2), à partir du PDF AutoCAD du schéma :</p>
+        <code>pip install pymupdf pillow</code>
+        <code>python scripts\migration\import_schema_unifilaire.py "chemin\du\schema.pdf" --nom "Dakar (BCC)" --region Dakar</code>
+        <p>Cette première commande est une simulation : elle affiche les postes reconnus et le rapprochement avec SIRV2. Ajoutez <b>--execute</b> pour écrire, après une sauvegarde de la base. Une nouvelle version d'un schéma de même nom remplace l'ancienne ; les associations faites ici sont reprises.</p>
+      </details>
+    </aside>
+
+    <div class="contenu">
+      @if (schema(); as s) {
+        <div class="compteurs">
+          <span class="compteur"><strong>{{ compteurs().total | number }}</strong> postes</span>
+          <span class="compteur compteur--ok"><strong>{{ compteurs().relies | number }}</strong> reliés à SIRV2</span>
+          <button type="button" class="compteur compteur--bouton" [class.compteur--actif]="filtre() === 'non-relies'" (click)="choisirFiltre('non-relies')">
+            <strong>{{ compteurs().total - compteurs().relies | number }}</strong> non reliés
+          </button>
+          <button type="button" class="compteur compteur--bouton" [class.compteur--actif]="filtre() === 'ambigus'" (click)="choisirFiltre('ambigus')">
+            <strong>{{ compteurs().ambigus | number }}</strong> noms ambigus
+          </button>
+          <div class="recherche">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input type="search" placeholder="Trouver un poste…" aria-label="Trouver un poste sur le schéma" [value]="recherche()" (input)="onRechercheSchema($event)" />
+            @if (resultatsSchema().length > 0) {
+              <ul class="recherche__liste">
+                @for (p of resultatsSchema(); track p.id) {
+                  <li tabindex="0" (click)="allerA(p)" (keydown.enter)="allerA(p)">{{ p.libelle }}</li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
+
+        <div class="sir-card visionneuse">
+          <sir-schema-viewer [schema]="s" [postes]="postes()" [etats]="etats()" (posteClique)="onPosteClique($event)" />
+          @if (choisi(); as p) {
+            <div class="fiche" role="region" aria-label="Poste choisi">
+              <button type="button" class="fiche__fermer sir-icon-btn" aria-label="Fermer" (click)="choisi.set(null)">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+              <h2>{{ p.libelle || 'Poste sans libellé' }}</h2>
+              <p class="fiche__ligne">{{ p.forme === 'rond' ? 'Poste (rond)' : 'Poste (carré)' }}@if (p.puissance_kva) { · {{ p.puissance_kva }} kVA }</p>
+              <p class="fiche__ligne">
+                @if (p.poste_id) {
+                  Relié à <strong>{{ p.poste_libelle }}</strong>@if (p.poste_code) { ({{ p.poste_code }}) }
+                  <span class="pastille">{{ p.rapprochement === 'manuel' ? 'choisi à la main' : 'même nom' }}</span>
+                } @else if (p.rapprochement === 'ambigu') {
+                  Plusieurs postes SIRV2 portent ce nom : choisissez le bon.
+                } @else {
+                  Non relié à un poste SIRV2.
+                }
+              </p>
+              @if (canAssocier()) {
+                <label class="fiche__label" for="poste-sirv2">Associer à un poste SIRV2</label>
+                <input id="poste-sirv2" class="sir-search" type="search" placeholder="Code ou libellé du poste SIRV2" (input)="onRechercheSirv2($event)" />
+                <ul class="candidats">
+                  @for (c of candidats(); track c.id) {
+                    <li>
+                      <span>
+                        <strong>{{ c.libelle }}</strong>
+                        <small>{{ c.code }}@if (c.feeder_libelle) { · {{ c.feeder_libelle }} }</small>
+                      </span>
+                      <button type="button" class="sir-btn sir-btn--sm sir-btn--outline-primary" [disabled]="envoi() || c.id === p.poste_id" (click)="associer(c.id)">Associer</button>
+                    </li>
+                  }
+                </ul>
+                @if (p.poste_id) {
+                  <button type="button" class="sir-btn sir-btn--sm sir-btn--ghost" [disabled]="envoi()" (click)="associer(null)">Dissocier</button>
+                }
+              }
+            </div>
+          }
+        </div>
+      } @else if (!chargement()) {
+        <div class="sir-card vide-grand">
+          <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+          <p>Importez un premier schéma unifilaire (voir la marche à suivre à gauche).</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>

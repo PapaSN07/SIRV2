@@ -181,6 +181,12 @@ class PosteImpacteFromSigRequest(BaseModel):
     chain_limit: int = Field(default=3, ge=1, le=10)
 
 
+class PosteImpacteLotRequest(BaseModel):
+    """Postes à associer en une fois (sélection sur le schéma unifilaire)."""
+
+    poste_ids: list[int] = Field(min_length=1, max_length=500)
+
+
 class PosteImpacteBulkResponse(BaseModel):
     added_count: int
     skipped_count: int

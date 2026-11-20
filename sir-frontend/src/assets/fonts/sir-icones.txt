@@ -1,5 +1,6 @@
 account_tree
 add
+add_task
 admin_panel_settings
 analytics
 api
@@ -142,6 +143,7 @@ phone
 photo
 picture_as_pdf
 pill
+pip
 place
 polyline
 post
@@ -155,6 +157,7 @@ query_stats
 queue
 radio
 radio_button_unchecked
+rectangle
 refresh
 remove
 repartition
@@ -169,7 +172,9 @@ save
 scale
 schedule
 schedule_send
+schema
 score
+script
 search
 segment
 select

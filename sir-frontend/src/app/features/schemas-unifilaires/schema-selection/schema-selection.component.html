@@ -1,0 +1,183 @@
+<div class="ecran" role="dialog" aria-modal="true" aria-labelledby="schema-titre">
+  <header class="ecran__tete">
+    <div class="ecran__titre">
+      <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+      <h2 id="schema-titre">Schéma unifilaire · interruption n° {{ interruption().numero_interruption }}</h2>
+    </div>
+    @if (liste().length > 1) {
+      <label class="ecran__schema">
+        Schéma
+        <select class="sir-select" [value]="schema()?.id ?? ''" (change)="onSchemaChange($event)">
+          @for (s of liste(); track s.id) {
+            <option [value]="s.id" [selected]="s.id === schema()?.id">{{ s.nom }}</option>
+          }
+        </select>
+      </label>
+    }
+    <button type="button" class="sir-icon-btn" data-tip="Fermer" aria-label="Fermer" (click)="fermer.emit()">
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+  </header>
+
+  <div class="ecran__corps">
+    <section class="ecran__carte">
+      @if (schema(); as s) {
+        <sir-schema-viewer
+          [schema]="s"
+          [postes]="postes()"
+          [etats]="etats()"
+          [trace]="trace()"
+          (posteClique)="onPosteClique($event)"
+        />
+        <div class="recherche">
+          <span class="material-symbols-outlined" aria-hidden="true">search</span>
+          <input
+            type="search"
+            placeholder="Trouver un poste sur le schéma…"
+            aria-label="Trouver un poste sur le schéma"
+            [value]="recherche()"
+            (input)="onRecherche($event)"
+          />
+          @if (resultatsRecherche().length > 0) {
+            <ul class="recherche__liste" role="listbox">
+              @for (p of resultatsRecherche(); track p.id) {
+                <li role="option" (click)="allerA(p)" (keydown.enter)="allerA(p)" tabindex="0">{{ p.libelle }}</li>
+              }
+            </ul>
+          }
+        </div>
+        <p class="legende">
+          <span class="pastille pastille--debut"></span>Début
+          <span class="pastille pastille--fin"></span>Fin
+          <span class="pastille pastille--chemin"></span>Retenu
+          <span class="pastille pastille--impacte"></span>Déjà impacté
+        </p>
+      } @else if (!chargement()) {
+        <div class="vide">
+          <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+          <p>Aucun schéma unifilaire n'est encore importé.</p>
+          <p class="vide__aide">L'Admin SCR les importe depuis le PDF AutoCAD (Administration → Schémas unifilaires).</p>
+        </div>
+      }
+      @if (chargement()) {
+        <p class="chargement">Chargement du schéma…</p>
+      }
+    </section>
+
+    <aside class="ecran__panneau">
+      <div class="segment" role="tablist" aria-label="Mode de sélection">
+        <button type="button" role="tab" class="segment__btn" [class.segment__btn--active]="mode() === 'entre'" [attr.aria-selected]="mode() === 'entre'" (click)="choisirMode('entre')">
+          Entre deux postes
+        </button>
+        <button type="button" role="tab" class="segment__btn" [class.segment__btn--active]="mode() === 'unitaire'" [attr.aria-selected]="mode() === 'unitaire'" (click)="choisirMode('unitaire')">
+          Poste par poste
+        </button>
+      </div>
+
+      @if (mode() === 'entre') {
+        <ol class="bornes">
+          <li [class.bornes__item--ok]="debut()">
+            <span class="bornes__puce bornes__puce--debut">1</span>
+            <span>
+              <strong>Premier poste</strong>
+              <span class="bornes__nom">{{ debut()?.libelle ?? (debut() ? 'Poste sans libellé' : 'Cliquez un poste sur le schéma') }}</span>
+            </span>
+          </li>
+          <li [class.bornes__item--ok]="fin()">
+            <span class="bornes__puce bornes__puce--fin">2</span>
+            <span>
+              <strong>Second poste</strong>
+              <span class="bornes__nom">{{ fin()?.libelle ?? (fin() ? 'Poste sans libellé' : debut() ? 'Cliquez le second poste' : '—') }}</span>
+            </span>
+          </li>
+        </ol>
+        @if (debut()) {
+          <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="reinitialiser()">Recommencer</button>
+        }
+      } @else {
+        <p class="aide">Cliquez les postes un à un sur le schéma ; un second clic retire le poste.</p>
+      }
+
+      @if (erreur()) {
+        <p class="alerte" role="alert">{{ erreur() }}</p>
+      }
+      @if (calcul()) {
+        <p class="aide">Recherche des postes entre les deux…</p>
+      }
+
+      @if (propositions().length > 0) {
+        <div class="resultats">
+          @if (mode() === 'entre' && resultat(); as r) {
+            <h3>Le long de la ligne <span>{{ r.chemin.length }}</span></h3>
+            <ul class="postes">
+              @for (p of r.chemin; track p.id) {
+                <ng-container *ngTemplateOutlet="ligne; context: { $implicit: { poste: p, groupe: 'chemin' } }" />
+              }
+            </ul>
+            @if (r.antennes.length > 0) {
+              <h3>En antenne sur la ligne <span>{{ r.antennes.length }}</span></h3>
+              <ul class="postes">
+                @for (p of r.antennes; track p.id) {
+                  <ng-container *ngTemplateOutlet="ligne; context: { $implicit: { poste: p, groupe: 'antenne' } }" />
+                }
+              </ul>
+            }
+            @for (d of r.derivations; track d; let i = $index) {
+              <h3>
+                Dérivation de {{ d.postes.length }} postes
+                <button type="button" class="lien" (click)="cocherDerivation(i, true)">Tout cocher</button>
+                <button type="button" class="lien" (click)="cocherDerivation(i, false)">Décocher</button>
+              </h3>
+              <ul class="postes">
+                @for (p of d.postes; track p.id) {
+                  <ng-container *ngTemplateOutlet="ligne; context: { $implicit: { poste: p, groupe: 'derivation', derivation: i } }" />
+                }
+              </ul>
+            }
+            @if (r.postes_hors_limite > 0) {
+              <p class="aide">{{ r.postes_hors_limite | number }} postes d'une grande dérivation ne sont pas proposés : cochez-les poste par poste si besoin.</p>
+            }
+          } @else {
+            <h3>Postes choisis <span>{{ unitaires().length }}</span></h3>
+            <ul class="postes">
+              @for (p of propositions(); track p.poste.id) {
+                <ng-container *ngTemplateOutlet="ligne; context: { $implicit: p }" />
+              }
+            </ul>
+          }
+        </div>
+        @if (nonRelies() > 0) {
+          <p class="aide">{{ nonRelies() }} poste(s) du schéma ne sont pas reliés à un poste SIRV2 : ils ne peuvent pas être ajoutés (l'Admin SCR les relie dans Administration → Schémas unifilaires).</p>
+        }
+      }
+
+      <footer class="panneau__pied">
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="aAjouter().length === 0 || envoi()" (click)="ajouter()">
+          <span class="material-symbols-outlined" aria-hidden="true">add_task</span>
+          Ajouter {{ aAjouter().length }} poste{{ aAjouter().length > 1 ? 's' : '' }} aux postes impactés
+        </button>
+      </footer>
+    </aside>
+  </div>
+</div>
+
+<ng-template #ligne let-p>
+  <li class="postes__item" [class.postes__item--off]="p.poste.poste_id === null">
+    <label>
+      <input
+        type="checkbox"
+        [checked]="estDejaImpacte(p.poste) || coches().has(p.poste.id)"
+        [disabled]="p.poste.poste_id === null || estDejaImpacte(p.poste)"
+        (change)="basculer(p, $event)"
+      />
+      <span class="postes__nom">{{ p.poste.libelle ?? 'Poste sans libellé' }}</span>
+      @if (estDejaImpacte(p.poste)) {
+        <span class="etiquette etiquette--deja">Déjà impacté</span>
+      } @else if (p.poste.poste_id === null) {
+        <span class="etiquette">{{ p.poste.rapprochement === 'ambigu' ? 'Nom ambigu' : 'Non relié' }}</span>
+      } @else if (p.poste.poste_libelle && p.poste.poste_libelle !== p.poste.libelle) {
+        <span class="etiquette etiquette--sirv2">SIRV2 : {{ p.poste.poste_libelle }}</span>
+      }
+    </label>
+  </li>
+</ng-template>

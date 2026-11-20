@@ -27,6 +27,7 @@ from app.schemas.interruption_distribution import (
     OuvertureInterruption,
     PosteImpacteBulkResponse,
     PosteImpacteFromSigRequest,
+    PosteImpacteLotRequest,
     PosteImpacteResponse,
     PosteInterruptionCreate,
     StatutInterruption,
@@ -367,6 +368,26 @@ async def add_postes_from_feeder(
 ) -> ApiResponse[PosteImpacteBulkResponse]:
     result = await interruption_distribution_service.add_postes_from_feeder(
         db, interruption_id, current_user
+    )
+    return ApiResponse.success(result)
+
+
+@router.post(
+    "/{interruption_id}/postes/lot",
+    response_model=ApiResponse[PosteImpacteBulkResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Associer une liste de postes (sélection sur le schéma unifilaire, tous feeders)",
+)
+async def add_postes_lot(
+    interruption_id: int,
+    body: PosteImpacteLotRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Utilisateur = Depends(
+        require_permission("interruptions_distribution", "update")
+    ),
+) -> ApiResponse[PosteImpacteBulkResponse]:
+    result = await interruption_distribution_service.add_postes_lot(
+        db, interruption_id, body.poste_ids, current_user
     )
     return ApiResponse.success(result)
 

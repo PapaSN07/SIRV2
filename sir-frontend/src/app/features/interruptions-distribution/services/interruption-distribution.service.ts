@@ -218,6 +218,13 @@ export class InterruptionDistributionService {
       .pipe(map((res) => this.unwrap(res)));
   }
 
+  /** Postes choisis (schéma unifilaire), tous feeders. */
+  addPostesLot(id: number, posteIds: number[]): Observable<PosteImpacteBulk> {
+    return this.http
+      .post<ApiResponse<PosteImpacteBulk>>(`${this.apiUrl}/${id}/postes/lot`, { poste_ids: posteIds })
+      .pipe(map((res) => this.unwrap(res)));
+  }
+
   addPostesFromFeeder(id: number): Observable<PosteImpacteBulk> {
     return this.http
       .post<ApiResponse<PosteImpacteBulk>>(`${this.apiUrl}/${id}/postes/from-feeder`, {})

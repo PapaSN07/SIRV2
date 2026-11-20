@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { SchemaSelectionComponent } from '../../schemas-unifilaires/schema-selection/schema-selection.component';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, of, catchError } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
@@ -32,7 +33,7 @@ export interface PosteCheckboxRow {
 @Component({
   selector: 'sir-postes-impactes',
   standalone: true,
-  imports: [DatePipe, NgTemplateOutlet],
+  imports: [DatePipe, NgTemplateOutlet, SchemaSelectionComponent],
   templateUrl: './postes-impactes.component.html',
   styleUrl: './postes-impactes.component.scss',
 })
@@ -58,6 +59,9 @@ export class PostesImpactesComponent {
   readonly toggling = signal<ReadonlySet<number>>(new Set());
   readonly bulkLoading = signal(false);
   readonly erreur = signal<string | null>(null);
+  /** Sélection sur le schéma unifilaire (plein écran). */
+  readonly schemaOuvert = signal(false);
+  readonly message = signal<string | null>(null);
 
   private readonly recherche$ = new Subject<string>();
   private dernierFeederCharge: number | null = null;
@@ -240,6 +244,12 @@ export class PostesImpactesComponent {
     } else {
       this.service.removePoste(it.id, row.posteId).subscribe({ next: ok, error: ko });
     }
+  }
+
+  onAjoutesDepuisSchema(nombre: number): void {
+    this.schemaOuvert.set(false);
+    this.message.set(nombre > 0 ? `${nombre} poste(s) ajouté(s) depuis le schéma unifilaire.` : 'Aucun nouveau poste ajouté.');
+    this.changed.emit();
   }
 
   toutCocher(): void {

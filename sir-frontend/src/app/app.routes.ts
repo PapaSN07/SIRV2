@@ -246,6 +246,13 @@ export const routes: Routes = [
           import('./features/admin/sig-admin/sig-admin.component').then((m) => m.SigAdminComponent),
       },
       {
+        path: 'admin/schemas-unifilaires',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN_SCR', 'ADMIN_SAQS', 'BCC', 'BRC', 'SUPERVISEUR'], permission: 'interruptions_distribution:read' },
+        loadComponent: () =>
+          import('./features/admin/schemas-admin/schemas-admin.component').then((m) => m.SchemasAdminComponent),
+      },
+      {
         path: 'admin/objectifs',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN_SCR', 'ADMIN_SAQS'] },

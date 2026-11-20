@@ -13,6 +13,10 @@
     </p>
     @if (canWrite()) {
       <div class="poste-actions">
+        <button type="button" class="sir-btn sir-btn--primary" (click)="schemaOuvert.set(true)">
+          <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+          Schéma unifilaire
+        </button>
         <button type="button" class="sir-btn sir-btn--outline-primary" [disabled]="bulkLoading()" (click)="toutCocher()">
           <span class="material-symbols-outlined" aria-hidden="true">done_all</span>
           Tout cocher (feeder de l'interruption)
@@ -33,6 +37,9 @@
 
   @if (erreur()) {
     <p class="postes-erreur" role="alert">{{ erreur() }}</p>
+  }
+  @if (message()) {
+    <p class="postes-message" role="status">{{ message() }}</p>
   }
 
   <div class="postes-filters">
@@ -140,3 +147,11 @@
     </label>
   </li>
 </ng-template>
+
+@if (schemaOuvert()) {
+  <sir-schema-selection
+    [interruption]="interruption()"
+    (fermer)="schemaOuvert.set(false)"
+    (ajoutes)="onAjoutesDepuisSchema($event)"
+  />
+}

@@ -56,6 +56,9 @@ export class AdminNavComponent {
     if (this.auth.hasRole('ADMIN_SCR', 'BCC', 'BRC', 'ADMIN_SAQS', 'SUPERVISEUR') || this.auth.hasPermission('reseau:read')) {
       tabs.push({ route: '/admin/sig', label: 'SIG', icon: 'hub' });
     }
+    if (this.auth.hasRole('ADMIN_SCR', 'BCC', 'BRC', 'ADMIN_SAQS', 'SUPERVISEUR')) {
+      tabs.push({ route: '/admin/schemas-unifilaires', label: 'Schémas unifilaires', icon: 'account_tree' });
+    }
     if (FONCTIONNALITES.transport && this.auth.hasRole('ADMIN_DISPATCHING', 'DISPATCHER', 'ADMIN_SAQS')) {
       tabs.push({ route: '/admin/reseau/transport', label: 'Réseau transport', icon: 'electric_bolt' });
     }

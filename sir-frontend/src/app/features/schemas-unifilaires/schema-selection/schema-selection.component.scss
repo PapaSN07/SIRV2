@@ -1,0 +1,397 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.ecran {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: $surface;
+
+  &__tete {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid $border-soft;
+    background: #fff;
+  }
+
+  &__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: 1;
+    min-width: 0;
+
+    h2 {
+      margin: 0;
+      font-size: 17px;
+      color: $sen-navy;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .material-symbols-outlined {
+      color: $primary;
+    }
+  }
+
+  &__schema {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 13px;
+    font-weight: 600;
+    color: $on-surface-variant;
+  }
+
+  &__corps {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+      grid-template-rows: 55vh auto;
+      overflow-y: auto;
+    }
+  }
+
+  &__carte {
+    position: relative;
+    min-height: 0;
+    border-right: 1px solid $border-soft;
+  }
+
+  &__panneau {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-height: 0;
+    padding: 1rem 1.1rem;
+    overflow-y: auto;
+    background: #fff;
+  }
+}
+
+.recherche {
+  position: absolute;
+  top: 12px;
+  left: 56px;
+  z-index: 800;
+  width: min(340px, calc(100% - 72px));
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid $border-soft;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: $shadow-1;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    font: inherit;
+    font-size: 13px;
+  }
+
+  .material-symbols-outlined {
+    font-size: 18px;
+    color: $on-surface-variant;
+  }
+
+  &__liste {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0.25rem 0;
+    list-style: none;
+    border: 1px solid $border-soft;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: $shadow-1;
+
+    li {
+      padding: 0.4rem 0.8rem;
+      font-size: 13px;
+      cursor: pointer;
+
+      &:hover,
+      &:focus {
+        background: $surface-container-low;
+        outline: none;
+      }
+    }
+  }
+}
+
+.legende {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: $shadow-1;
+  font-size: 12px;
+  color: $on-surface-variant;
+}
+
+.pastille {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 0.5rem;
+  border-radius: 3px;
+
+  &:first-child {
+    margin-left: 0;
+  }
+
+  &--debut { background: #1f7a4d; }
+  &--fin { background: #c2006a; }
+  &--chemin { background: #5b2a9e; }
+  &--impacte { background: #c77700; }
+}
+
+.chargement,
+.vide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: $on-surface-variant;
+  text-align: center;
+}
+
+.vide {
+  gap: 0.25rem;
+
+  .material-symbols-outlined {
+    font-size: 40px;
+    color: $outline;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  &__aide {
+    font-size: 13px;
+    color: $outline;
+  }
+}
+
+.segment {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: $radius-md;
+  background: $surface-container;
+
+  &__btn {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $on-surface-variant;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &--active {
+      background: #fff;
+      color: $primary;
+      box-shadow: $shadow-1, 0 0 0 1px $border-soft;
+    }
+  }
+}
+
+.bornes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px dashed $outline-variant;
+    border-radius: $radius-sm;
+    font-size: 13px;
+
+    > span:last-child {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+  }
+
+  &__item--ok {
+    border-style: solid !important;
+    border-color: $border-soft !important;
+    background: $surface-container-low;
+  }
+
+  &__nom {
+    color: $on-surface-variant;
+    overflow-wrap: anywhere;
+  }
+
+  &__puce {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+
+    &--debut { background: #1f7a4d; }
+    &--fin { background: #c2006a; }
+  }
+}
+
+.aide {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: $on-surface-variant;
+}
+
+.alerte {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: $radius-sm;
+  background: $danger-bg;
+  color: #b42328;
+  font-size: 13px;
+}
+
+.resultats {
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0.35rem;
+    font-size: 13px;
+    color: $sen-navy;
+
+    > span {
+      padding: 0 8px;
+      border-radius: 999px;
+      background: $surface-container;
+      font-size: 12px;
+      color: $on-surface-variant;
+    }
+  }
+}
+
+.lien {
+  padding: 0;
+  border: none;
+  background: none;
+  color: $primary;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.postes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid $border-soft;
+  border-radius: $radius-sm;
+
+  &__item {
+    border-top: 1px solid $border-soft;
+
+    &:first-child {
+      border-top: none;
+    }
+
+    label {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.6rem;
+      padding: 0.45rem 0.65rem;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    &--off label {
+      color: $outline;
+      cursor: default;
+    }
+  }
+
+  &__nom {
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+  }
+}
+
+.etiquette {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: $surface-container;
+  font-size: 11px;
+  font-weight: 600;
+  color: $on-surface-variant;
+
+  &--deja {
+    background: #fdf1e0;
+    color: #8a5300;
+  }
+
+  &--sirv2 {
+    background: $surface-container-low;
+    color: $primary;
+  }
+}
+
+.panneau__pied {
+  position: sticky;
+  bottom: -1rem;
+  display: flex;
+  gap: 0.5rem;
+
+  .sir-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  margin: auto -1.1rem -1rem;
+  padding: 0.75rem 1.1rem;
+  border-top: 1px solid $border-soft;
+  background: #fff;
+}

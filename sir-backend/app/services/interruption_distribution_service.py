@@ -1170,6 +1170,8 @@ async def _bulk_link_postes(
     interruption: Interruption,
     postes: list[Poste],
     current_user: Utilisateur,
+    *,
+    verifier_perimetre: bool = True,
 ) -> PosteImpacteBulkResponse:
     linked_ids = await repo.list_linked_poste_ids(db, interruption.id)
     added: list[PosteImpacteResponse] = []
@@ -1179,7 +1181,7 @@ async def _bulk_link_postes(
         if poste.id in linked_ids:
             skipped += 1
             continue
-        if not await _poste_dans_perimetre(db, poste, interruption):
+        if verifier_perimetre and not await _poste_dans_perimetre(db, poste, interruption):
             skipped += 1
             continue
         feeder_id, service_id, poste_source_id = await _context_ids_for_poste_link(db, interruption, poste)
@@ -1241,6 +1243,25 @@ async def add_postes_from_feeder(
 
     postes = await reseau_repo.list_postes(db, feeder_id=interruption.feeder_id)
     return await _bulk_link_postes(db, interruption, postes, current_user)
+
+
+async def add_postes_lot(
+    db: AsyncSession,
+    interruption_id: int,
+    poste_ids: list[int],
+    current_user: Utilisateur,
+) -> PosteImpacteBulkResponse:
+    """Associe une liste de postes choisis (ex. entre deux postes du schéma unifilaire), tous feeders."""
+    interruption = await _get_interruption_accessible(db, interruption_id, current_user)
+    _ensure_statut_en_cours(interruption)
+    postes: list[Poste] = []
+    for poste_id in dict.fromkeys(poste_ids):
+        poste = await reseau_repo.get_poste(db, poste_id)
+        if poste is not None and poste.is_active:
+            postes.append(poste)
+    resultat = await _bulk_link_postes(db, interruption, postes, current_user, verifier_perimetre=False)
+    resultat.skipped_count += len(set(poste_ids)) - len(postes)
+    return resultat
 
 
 async def add_postes_from_sig_troncon(

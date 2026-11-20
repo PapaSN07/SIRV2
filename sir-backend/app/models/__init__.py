@@ -115,3 +115,8 @@ __all__ = [
     "MlPrediction",
     "AssistantConversation",
 ]
+from app.models.schema_unifilaire import (  # noqa: F401,E402
+    SchemaUnifilaire,
+    SchemaUnifilairePoste,
+    SchemaUnifilaireTuile,
+)
