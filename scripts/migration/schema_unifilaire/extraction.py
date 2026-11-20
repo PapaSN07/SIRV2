@@ -11,7 +11,7 @@ On en tire :
 - les tuiles PNG 256 × 256 de l'affichage (Leaflet, CRS.Simple), de 1 point = 2 px (zoom max)
   jusqu'au schéma entier sur une tuile.
 
-Dépendance : PyMuPDF (pip install pymupdf), sur le poste qui lance l'import uniquement : l'API SIRV2 ne
+Dépendance : PyMuPDF (pip install "pymupdf==1.26.5" : la 2.x tire networkx et onnxruntime), sur le poste qui lance l'import uniquement : l'API SIRV2 ne
 lit que les données produites.
 """
 

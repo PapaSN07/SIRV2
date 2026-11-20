@@ -28,7 +28,7 @@
       <details class="import">
         <summary>Importer ou mettre à jour un schéma</summary>
         <p>Sur le poste ETL SENELEC (dossier SIRV2), à partir du PDF AutoCAD du schéma :</p>
-        <code>pip install pymupdf pillow</code>
+        <code>pip install "pymupdf==1.26.5" --timeout 120</code>
         <code>python scripts\migration\import_schema_unifilaire.py "chemin\du\schema.pdf" --nom "Dakar (BCC)" --region Dakar</code>
         <p>Cette première commande est une simulation : elle affiche les postes reconnus et le rapprochement avec SIRV2. Ajoutez <b>--execute</b> pour écrire, après une sauvegarde de la base. Une nouvelle version d'un schéma de même nom remplace l'ancienne ; les associations faites ici sont reprises.</p>
       </details>

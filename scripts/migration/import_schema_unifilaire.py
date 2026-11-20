@@ -9,7 +9,7 @@ Le PDF est lu sur ce poste (PyMuPDF), puis écrit dans la base SIRV2 :
 Une nouvelle version d'un schéma (même --nom) remplace l'ancienne ; les associations faites à la main
 dans la visionneuse (poste du schéma → poste SIRV2) sont reprises sur les postes de même libellé.
 
-Prérequis : pip install pymupdf pillow
+Prérequis : pip install "pymupdf==1.26.5" --timeout 120
 
 Usage (poste SENELEC, accès à la base SIRV2) :
     python scripts/migration/import_schema_unifilaire.py "D:\\Schemas\\SCHEMA_RI_DAKAR.pdf" --nom "Dakar (BCC)" --region Dakar

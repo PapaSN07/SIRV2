@@ -9,7 +9,7 @@ unifilaire**), l'opérateur choisit deux postes : SIRV2 coche tous les postes si
 Sur le poste ETL SENELEC (dossier SIRV2, accès à la base) :
 
 ```
-pip install pymupdf pillow
+pip install "pymupdf==1.26.5" --timeout 120
 python scripts\migration\import_schema_unifilaire.py "D:\Schemas\SCHEMA_RI_DAKAR_OCTOBRE_2026_BCC.pdf" --nom "Dakar (BCC)" --region Dakar
 python scripts\migration\import_schema_unifilaire.py "D:\Schemas\SCHEMA_RI_DAKAR_OCTOBRE_2026_BCC.pdf" --nom "Dakar (BCC)" --region Dakar --execute
 ```
