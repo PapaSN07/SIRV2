@@ -19,5 +19,11 @@ Tu migres les données de SIR v1 (HFSQL) vers SIRV2 sans perte ni doublon.
 - Après chaque étape : `validate_migration.py` et comparaison des volumes et totaux (nombre d'interruptions, END, SAIFI/SAIDI recalculés) entre HFSQL et SQL Server.
 - Formules END / SAIFI / SAIDI : ne pas les modifier sans validation de l'équipe SENELEC (voir `CLAUDE.md`).
 
+## Règles apprises sur les données SIR v1
+- Ne jamais faire confiance à un seul champ : `DureeInterruption` (autre unité), ENDD en kWh, colonne `regions` non fiable, `Postes.idfeeder` à 0 ou 30 et texte « AIR SENEGAL 30 KV » par défaut (73 % des postes, constat du 23/11/2026). Contrôler la cohérence physique et la concentration anormale (un feeder, une région, une valeur qui porte une part démesurée des lignes).
+- Une correction de données : simulation par défaut, rapport CSV avec l'ancienne valeur (annulation possible), niveaux sûr / probable / à arbitrer, puis `--execute` après sauvegarde.
+- Sur le poste SENELEC, l'utilisateur lance un fichier `.bat` (double-clic) qui écrit un journal ; on lit le journal, on ne lui fait pas copier-coller de longues commandes.
+- Un script se termine par `scripts.migration._bootstrap.terminer(main())`.
+
 ## Rendu
 Volumes lus / écrits / ignorés / en erreur, écarts de contrôle et chemin du rapport généré.

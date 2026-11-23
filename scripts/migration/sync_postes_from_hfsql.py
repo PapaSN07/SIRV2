@@ -107,7 +107,7 @@ def run(*, dry_run: bool) -> dict[str, Any]:
             report["rejected"] += 1
             continue
 
-        feeder_id = fk.resolve_feeder_id(row)
+        feeder_id = fk.resolve_feeder_id_poste(row)
         service_id = fk.service_id_by_legacy(
             row_get(row, "ID_Service", "id_service", "IDService", "idservice")
         )
@@ -138,6 +138,9 @@ def run(*, dry_run: bool) -> dict[str, Any]:
 
         sir_id = int(sir_id)
         cur = current_rows.get(sir_id)
+        if cur is not None and feeder_id is None and cur.feeder_id is not None:
+            # SIR v1 sans feeder fiable (feeder par défaut) : on garde le feeder corrigé dans SIRV2
+            feeder_id = cur.feeder_id
         if cur is None:
             inserts.append(
                 {

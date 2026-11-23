@@ -230,7 +230,7 @@ class ReseauLoader(BaseLoader):
             if self.id_maps.get("postes", legacy_id):
                 self.stats["skipped"] += 1
                 continue
-            feeder_id = self.fk.resolve_feeder_id(row)
+            feeder_id = self.fk.resolve_feeder_id_poste(row)
             service_id = self.fk.service_id_by_legacy(
                 row_get(row, "ID_Service", "id_service", "IDService", "idservice")
             )

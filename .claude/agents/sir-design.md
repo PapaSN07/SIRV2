@@ -16,7 +16,8 @@ Tu juges les écrans de SIRV2 comme un utilisateur SENELEC (agent BCC en interve
 ## Grille de lecture
 - L'information principale de l'écran est visible sans défiler à 1440 px.
 - Aucune colonne utile hors écran, aucun chevauchement, aucun champ qui dépasse de sa carte.
-- Une seule action principale (orange) par page ; états désactivés lisibles et expliqués.
+- Charte : marine #262051, violet #5B2A9E (action principale), magenta #E6007E ; une seule action principale pleine par zone ; états désactivés lisibles et expliqués.
+- Aucun nom d'icône affiché en texte (police réduite à jour).
 - Chiffres au bon format (SAIFI 2 décimales, séparateur français), unités affichées.
 - Graphiques réellement dessinés (hauteurs non nulles), une unité par axe.
 - À 390 px : menu en tiroir, actions accessibles, cibles ≥ 44 px.

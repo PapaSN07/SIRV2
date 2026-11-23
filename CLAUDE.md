@@ -1,7 +1,7 @@
 # CLAUDE.md — SIRV2 · SIR (Système d'Information Réseau) · SENELEC
 
 > Fichier lu automatiquement par Claude Code à chaque session.
-> Référence complète : [docs/CLAUDE_COWORK.md](docs/CLAUDE_COWORK.md) | Backlog : [docs/BACKLOG.md](docs/BACKLOG.md) | Sprint en cours : [docs/TODO.md](docs/TODO.md)
+> Référence complète : [docs/CLAUDE_COWORK.md](docs/CLAUDE_COWORK.md) | Backlog : [docs/BACKLOG.md](docs/BACKLOG.md) | Sprint en cours : [docs/TODO.md](docs/TODO.md) | Agents et portes de contrôle : [docs/WORKFLOW_AGENTS.md](docs/WORKFLOW_AGENTS.md)
 
 ---
 
@@ -270,6 +270,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Contexte** : Administration → SIG ; tests verts sous SQLite.
 **Erreur** : `select(func.coalesce(col, "x")).group_by(func.coalesce(col, "x"))` : chaque littéral devient un paramètre distinct, SQL Server ne reconnaît pas l'expression du SELECT dans le GROUP BY (« n'est pas valide dans la liste de sélection », 8120).
 **Règle** : regrouper sur la colonne elle-même (`group_by(col)`) et garder le COALESCE dans le SELECT ; contrôle `tests/unit/test_group_by_sql_server.py`.
+
+### 23/11/2026 — 73 % des postes SIR rangés sur deux feeders « par défaut »
+**Contexte** : comparaison SIR / schéma unifilaire / SIG (`scripts/migration/export_comparaison_postes.py`) : 6 598 postes sur AIR SENEGAL 30 KV, 1 630 sur SAUVEGARDE, sur 11 300.
+**Erreurs** : dans la table `Postes` de SIR v1, 6 626 postes portent le texte « AIR SENEGAL 30 KV » avec `idfeeder = 0` (valeur par défaut jamais corrigée) ; 1 630 ont `idfeeder = 30` (SAUVEGARDE) alors que leur texte nomme le vrai départ. La reprise privilégiait `idfeeder` et recopiait les valeurs par défaut. Conséquence : liste « postes du feeder » fausse à la saisie.
+**Règles** : feeder d'un poste repris = texte d'abord, `idfeeder` ensuite, jamais un feeder par défaut (`FkResolver.resolve_feeder_id_poste`) ; une synchronisation SIR v1 ne remplace pas un feeder corrigé par « aucun » ; correction des données : `scripts/migration/corriger_feeders_postes.py` (texte SIR v1, interruptions, SIG ; sûr / probable / à arbitrer ; rapport avec ancien feeder, `--restaurer`) ; toute reprise est contrôlée sur la concentration anormale des valeurs, pas seulement sur les totaux.
 
 ---
 

@@ -1,0 +1,45 @@
+"""Feeders des postes : feeders par défaut de SIR v1 (AIR SENEGAL 30 KV, SAUVEGARDE) jamais repris."""
+
+import sys
+from collections import Counter
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from scripts.migration.corriger_feeders_postes import decider, feeder_majoritaire  # noqa: E402
+from scripts.migration.transforms.fk_resolver import FkResolver  # noqa: E402
+
+
+class _Maps:
+    def __init__(self) -> None:
+        self.texte = {"AIR SENEGAL 30 KV": 52, "SAUVEGARDE": 41, "SAII": 7}
+        self.legacy = {30: 41, 159: 52, 12: 7}
+
+    def lookup_text(self, entite: str, cle: str) -> int | None:
+        return self.texte.get(cle.strip().upper()) if cle else None
+
+    def get(self, entite: str, cle: object) -> int | None:
+        return self.legacy.get(cle)  # type: ignore[arg-type]
+
+
+def test_feeder_du_poste_texte_d_abord_jamais_par_defaut() -> None:
+    fk = FkResolver(_Maps())  # type: ignore[arg-type]
+    # idfeeder 30 (SAUVEGARDE) mais texte SAII : le texte gagne
+    assert fk.resolve_feeder_id_poste({"idfeeder": 30.0, "feeder": "SAII"}) == 7
+    # texte par défaut, idfeeder 0 : aucun feeder (à corriger)
+    assert fk.resolve_feeder_id_poste({"idfeeder": 0, "feeder": "AIR SENEGAL 30 KV"}) is None
+    assert fk.resolve_feeder_id_poste({"idfeeder": 30, "feeder": ""}) is None
+    assert fk.resolve_feeder_id_poste({"idfeeder": 12, "feeder": ""}) == 7
+
+
+def test_decision_par_concordance_des_sources() -> None:
+    assert decider({"texte": 7, "interruptions": 7, "sig": None}) == (7, "sure")
+    assert decider({"texte": None, "interruptions": None, "sig": 9}) == (9, "probable")
+    assert decider({"texte": 7, "interruptions": 9, "sig": None}) == (None, "a_arbitrer")
+    assert decider({"texte": None, "interruptions": None, "sig": None}) == (None, "sans_source")
+
+
+def test_feeder_majoritaire_des_coupures() -> None:
+    assert feeder_majoritaire(Counter({7: 3, 52: 10, 9: 1}), exclus={52}) == 7  # 3/4 hors défaut
+    assert feeder_majoritaire(Counter({7: 1, 9: 1}), exclus=set()) is None  # pas de majorité
+    assert feeder_majoritaire(Counter({52: 4}), exclus={52}) is None

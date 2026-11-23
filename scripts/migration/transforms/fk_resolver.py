@@ -9,6 +9,10 @@ from scripts.migration.transforms.codes import text_key
 from scripts.migration.transforms.rows import row_get
 
 
+# Feeders saisis par défaut dans la table Postes de SIR v1 (constat du 23/11/2026) : jamais repris tels quels
+FEEDERS_POSTES_PAR_DEFAUT = ("AIR SENEGAL 30 KV", "SAUVEGARDE")
+
+
 def _positive_legacy(legacy_id: Any) -> int | None:
     if legacy_id is None or legacy_id == "":
         return None
@@ -138,6 +142,18 @@ class FkResolver:
                 if found is not None:
                     return found
         return None
+
+    def resolve_feeder_id_poste(self, row: dict[str, Any]) -> int | None:
+        """Feeder d'un poste de SIR v1 : le texte « feeder » d'abord (idfeeder vaut 0 ou 30 = SAUVEGARDE pour
+        des milliers de postes dont le texte nomme le vrai départ), idfeeder ensuite ; un feeder par défaut
+        (AIR SENEGAL 30 KV, SAUVEGARDE) n'est jamais retenu : None, à corriger par corriger_feeders_postes.py."""
+        defaut = {self.feeder_id(n) for n in FEEDERS_POSTES_PAR_DEFAUT} - {None}
+        for field in ("Feeder", "feeder", "Feeder1", "feeder1"):
+            found = self.feeder_id(str(row_get(row, field) or "").strip())
+            if found is not None:
+                return None if found in defaut else found
+        found = self.feeder_id_by_legacy(row_get(row, "idfeeder", "IDFeeder", "id_feeder"))
+        return None if found in defaut else found
 
     def resolve_cause_id(
         self, row: dict[str, Any], type_reseau: str = "distribution"
