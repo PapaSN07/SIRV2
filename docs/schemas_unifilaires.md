@@ -60,3 +60,43 @@ relie dans **Administration → Schémas unifilaires** (clic sur le poste, reche
 | POST | `/api/v1/schemas-unifilaires/{id}/entre` | postes entre deux postes |
 | PUT | `/api/v1/schemas-unifilaires/{id}/postes/{poste_schema_id}` | association manuelle (Admin SCR) |
 | POST | `/api/v1/interruptions/distribution/{id}/postes/lot` | ajout des postes choisis (tous feeders) |
+
+## Rapprochement Schéma / SIG / SIR et postes à créer (23/11/2026)
+
+Suggestion du chef de service : **Administration → Schémas unifilaires → Rapprochement Schéma / SIG / SIR**.
+Une ligne par poste du schéma, trois colonnes :
+
+| Colonne | Contenu | Actions |
+|---|---|---|
+| Schéma unifilaire | libellé lu sur le PDF | — |
+| SIG | nœud SIG rapproché (nom, feeder, station) | « Rapprocher avec le SIG » (même nom, choix manuels gardés), Rechercher, Changer, Délier |
+| SIR | poste SIRV2 relié, ou décision | Relier…, **Inactif** (hors service, ni relié ni créé), **À créer** |
+
+« À créer » ouvre la **recherche assistée** (poste source, feeder, poste) : feeder proposé d'après le nœud
+SIG rapproché, sinon le plus fréquent chez les postes voisins sur le schéma (`postes_voisins`). La proposition
+va dans l'onglet **Postes à créer** (poste source, feeder, poste) ; l'Admin SCR **valide** (poste créé dans
+`postes`, code saisi ou `SU000123`, service du feeder, relié aux postes des schémas de même nom marqués
+« à créer ») ou **rejette** (motif obligatoire). Tout est tracé dans le journal d'audit.
+
+- Droits : rapprochement et propositions = Admin SCR, BCC, BRC ; validation / rejet = Admin SCR.
+- Tables (migration `4e5f6a7b8c9d`) : `schema_unifilaire_postes.noeud_sig_id / rapprochement_sig / statut_sir`,
+  `postes_a_creer`. Une réimportation du schéma reprend les nœuds SIG choisis à la main et les décisions SIR
+  (même libellé) ; relancer « Rapprocher avec le SIG » pour les rapprochements automatiques.
+- Les clients d'un poste créé se renseignent ensuite dans Indicateurs → Base clients → Atelier clients.
+
+| Méthode | URL |
+|---|---|
+| GET | `/api/v1/schemas-unifilaires/{id}/rapprochement?filtre=&q=&page=&size=` |
+| GET | `/api/v1/schemas-unifilaires/{id}/rapprochement/compteurs` |
+| POST | `/api/v1/schemas-unifilaires/{id}/rapprochement/sig` |
+| PUT | `/api/v1/schemas-unifilaires/{id}/rapprochement/{poste_schema_id}/sig` · `/sir` · `/statut-sir` |
+| GET | `/api/v1/schemas-unifilaires/{id}/rapprochement/{poste_schema_id}/suggestion` |
+| POST | `/api/v1/schemas-unifilaires/{id}/rapprochement/{poste_schema_id}/a-creer` |
+| GET | `/api/v1/schemas-unifilaires/postes-a-creer?statut=propose` |
+| POST | `/api/v1/schemas-unifilaires/postes-a-creer/{id}/valider` · `/rejeter` |
+| GET | `/api/v1/schemas-unifilaires/sig/noeuds?q=` |
+
+Comparaison chiffrée et carte : `scripts/migration/export_comparaison_postes.py` (lecture seule) exporte
+postes SIRV2, nœuds SIG et postes des schémas ; constat du 23/11/2026 : 54 % des postes SIR retrouvés dans le
+SIG, 73 % des postes SIR rangés sur deux feeders par défaut (AIR SENEGAL 30 KV, SAUVEGARDE), 1 533 nœuds SIG
+sans coordonnées.

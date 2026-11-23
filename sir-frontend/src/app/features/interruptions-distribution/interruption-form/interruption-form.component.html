@@ -44,32 +44,6 @@
           <h2>Identification réseau</h2>
         </header>
         <div class="form-card__body">
-          <div class="field">
-            <label class="field__label" for="region">Région</label>
-            <select
-              id="region"
-              class="field__select"
-              [value]="regionId() ?? ''"
-              (change)="onRegionChange($any($event.target).value)"
-              [disabled]="regionSelectDisabled()"
-            >
-              <option value="">Sélectionner une région</option>
-              @for (r of regions(); track r.id) {
-                <option [value]="r.id" [selected]="r.id === regionId()">{{ r.libelle }}</option>
-              }
-            </select>
-            @if (!isEditMode()) {
-              <p class="form-field-hint">
-                @if (isBcc()) {
-                  Périmètre BCC verrouillé sur votre région.
-                } @else if (isBrc()) {
-                  Périmètre BRC verrouillé sur votre région.
-                } @else {
-                  Choisissez la région de l'interruption.
-                }
-              </p>
-            }
-          </div>
           <div class="form-row form-row--network">
             <div class="field">
               <label class="field__label" for="poste-source">Poste source</label>
@@ -155,19 +129,6 @@
               type="datetime-local"
               formControlName="date_apparition"
             />
-          </div>
-          <div class="field">
-            <span class="field__label">Type d'interruption</span>
-            <div class="radio-group">
-              <label class="radio-group__item">
-                <input type="radio" formControlName="is_programme" [value]="false" />
-                Accidentelle
-              </label>
-              <label class="radio-group__item">
-                <input type="radio" formControlName="is_programme" [value]="true" />
-                Programmée
-              </label>
-            </div>
           </div>
           <div class="field">
             <label class="field__label" for="cause">Cause</label>

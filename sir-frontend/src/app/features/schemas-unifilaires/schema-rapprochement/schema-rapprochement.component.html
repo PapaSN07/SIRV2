@@ -1,0 +1,205 @@
+<div class="entete">
+  <div class="filtres" role="tablist" aria-label="Filtrer les postes">
+    @for (f of filtres(); track f.id) {
+      <button type="button" role="tab" class="filtre" [class.filtre--actif]="filtre() === f.id" [attr.aria-selected]="filtre() === f.id" (click)="choisirFiltre(f.id)">
+        {{ f.libelle }}
+        @if (f.nombre !== null) { <span class="filtre__nb">{{ f.nombre | number }}</span> }
+      </button>
+    }
+  </div>
+  <div class="outils">
+    <div class="recherche">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input type="search" placeholder="Poste du schéma, du SIG ou de SIR…" aria-label="Rechercher" [ngModel]="recherche()" (ngModelChange)="onRecherche($event)" />
+    </div>
+    @if (canRapprocher()) {
+      <button type="button" class="sir-btn sir-btn--outline-primary sir-btn--sm" [disabled]="envoi()" (click)="rapprocherSig()">
+        <span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>
+        Rapprocher avec le SIG
+      </button>
+    }
+  </div>
+</div>
+
+@if (erreur()) {
+  <p class="alerte" role="alert">{{ erreur() }}</p>
+}
+@if (message()) {
+  <p class="info" role="status">{{ message() }}</p>
+}
+
+<div class="sir-card tableau tableau--rapprochement">
+  <table class="sir-table">
+    <thead>
+      <tr>
+        <th class="col-schema">Schéma unifilaire</th>
+        <th>SIG</th>
+        <th>SIR</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (l of lignes(); track l.id) {
+        <tr>
+          <td class="col-schema">
+            <strong>{{ l.libelle || 'Poste sans libellé' }}</strong>
+          </td>
+
+          <!-- SIG -->
+          <td>
+            @if (enEdition(l, 'sig')) {
+              <div class="choix">
+                <input type="search" class="saisie" placeholder="Nom du nœud SIG ou du feeder" aria-label="Rechercher un nœud SIG" [ngModel]="rechercheCellule()" (ngModelChange)="onRechercheCellule($event)" />
+                <ul class="choix__liste">
+                  @for (n of resultatsSig(); track n.id) {
+                    <li>
+                      <button type="button" class="choix__item" [disabled]="envoi()" (click)="lierSig(l, n.id)">
+                        <strong>{{ n.nom }}</strong>
+                        <small>{{ n.nom_feeder || '—' }} · {{ n.station || '—' }}</small>
+                      </button>
+                    </li>
+                  } @empty {
+                    <li class="choix__vide">{{ rechercheCellule().trim().length < 2 ? 'Au moins 2 lettres' : 'Aucun nœud trouvé' }}</li>
+                  }
+                </ul>
+                <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="edition.set(null)">Annuler</button>
+              </div>
+            } @else if (l.sig) {
+              <div class="valeur">
+                <span>
+                  <strong>{{ l.sig.nom }}</strong>
+                  <small>{{ l.sig.nom_feeder || '—' }} · {{ l.sig.station || '—' }}@if (l.sig.categorie) { · {{ l.sig.categorie }} }</small>
+                </span>
+                <span class="etiquette" [class.etiquette--manuel]="l.rapprochement_sig === 'manuel'">{{ l.rapprochement_sig === 'manuel' ? 'choisi' : 'même nom' }}</span>
+                @if (canRapprocher()) {
+                  <button type="button" class="sir-icon-btn" data-tip="Changer" aria-label="Changer le nœud SIG" (click)="editer(l, 'sig')"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+                  <button type="button" class="sir-icon-btn" data-tip="Délier" aria-label="Délier le nœud SIG" [disabled]="envoi()" (click)="lierSig(l, null)"><span class="material-symbols-outlined" aria-hidden="true">link_off</span></button>
+                }
+              </div>
+            } @else {
+              <div class="valeur valeur--vide">
+                <span>{{ l.rapprochement_sig === 'ambigu' ? 'Plusieurs nœuds de ce nom' : 'Non trouvé' }}</span>
+                @if (canRapprocher() && l.libelle) {
+                  <button type="button" class="sir-btn sir-btn--outline-primary sir-btn--sm" (click)="editer(l, 'sig')">
+                    <span class="material-symbols-outlined" aria-hidden="true">search</span> Rechercher
+                  </button>
+                }
+              </div>
+            }
+          </td>
+
+          <!-- SIR -->
+          <td>
+            @if (enEdition(l, 'sir')) {
+              <div class="choix">
+                <input type="search" class="saisie" placeholder="Code ou libellé du poste SIR" aria-label="Rechercher un poste SIR" [ngModel]="rechercheCellule()" (ngModelChange)="onRechercheCellule($event)" />
+                <ul class="choix__liste">
+                  @for (p of resultatsSir(); track p.id) {
+                    <li>
+                      <button type="button" class="choix__item" [disabled]="envoi()" (click)="lierSir(l, p.id)">
+                        <strong>{{ p.libelle }}</strong>
+                        <small>{{ p.code }}@if (p.feeder_libelle) { · {{ p.feeder_libelle }} }</small>
+                      </button>
+                    </li>
+                  } @empty {
+                    <li class="choix__vide">{{ rechercheCellule().trim().length < 2 ? 'Au moins 2 lettres' : 'Aucun poste trouvé' }}</li>
+                  }
+                </ul>
+                <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="edition.set(null)">Annuler</button>
+              </div>
+            } @else if (l.sir) {
+              <div class="valeur">
+                <span>
+                  <strong>{{ l.sir.libelle }}</strong>
+                  <small>{{ l.sir.code }} · {{ l.sir.feeder_libelle || 'sans feeder' }}@if (l.sir.poste_source_libelle) { · {{ l.sir.poste_source_libelle }} }</small>
+                </span>
+                <span class="etiquette" [class.etiquette--manuel]="l.rapprochement === 'manuel'">{{ l.rapprochement === 'manuel' ? 'choisi' : 'même nom' }}</span>
+                @if (canRapprocher()) {
+                  <button type="button" class="sir-icon-btn" data-tip="Changer" aria-label="Changer le poste SIR" (click)="editer(l, 'sir')"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+                  <button type="button" class="sir-icon-btn" data-tip="Délier" aria-label="Délier le poste SIR" [disabled]="envoi()" (click)="lierSir(l, null)"><span class="material-symbols-outlined" aria-hidden="true">link_off</span></button>
+                }
+              </div>
+            } @else if (l.statut_sir === 'inactif') {
+              <div class="valeur">
+                <span class="etiquette etiquette--inactif">Inactif</span>
+                @if (canRapprocher()) {
+                  <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" [disabled]="envoi()" (click)="marquerInactif(l, false)">Annuler</button>
+                }
+              </div>
+            } @else if (l.statut_sir === 'a_creer') {
+              <div class="valeur">
+                <span class="etiquette etiquette--creer">Création proposée</span>
+                <small>en attente de l'Admin SCR</small>
+              </div>
+            } @else if (l.libelle) {
+              <div class="valeur valeur--vide">
+                <span>{{ l.rapprochement === 'ambigu' ? 'Plusieurs postes de ce nom' : 'Absent' }}</span>
+                @if (canRapprocher()) {
+                  <div class="actions-sir">
+                    <button type="button" class="sir-btn sir-btn--outline-primary sir-btn--sm" (click)="editer(l, 'sir')">Relier…</button>
+                    <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" [disabled]="envoi()" (click)="marquerInactif(l, true)">Inactif</button>
+                    <button type="button" class="sir-btn sir-btn--primary sir-btn--sm" (click)="ouvrirCreation(l)">À créer</button>
+                  </div>
+                }
+              </div>
+            } @else {
+              <span class="muet">—</span>
+            }
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="3" class="vide">{{ chargement() ? 'Chargement…' : 'Aucun poste pour ce filtre.' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+@if (pages() > 1) {
+  <nav class="pagination" aria-label="Pages">
+    <button type="button" class="sir-icon-btn" aria-label="Page précédente" [disabled]="page() === 1" (click)="allerPage(page() - 1)"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>
+    <span>Page {{ page() }} / {{ pages() }} · {{ total() | number }} postes</span>
+    <button type="button" class="sir-icon-btn" aria-label="Page suivante" [disabled]="page() === pages()" (click)="allerPage(page() + 1)"><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
+  </nav>
+}
+
+@if (creation(); as c) {
+  <div class="voile" (click)="creation.set(null)">
+    <div class="dialogue" role="dialog" aria-modal="true" aria-labelledby="creation-titre" (click)="$event.stopPropagation()">
+      <h2 id="creation-titre">
+        <span class="material-symbols-outlined" aria-hidden="true">add_location_alt</span>
+        Recherche assistée : poste à créer dans SIR
+      </h2>
+      <p class="dialogue__aide">Poste du schéma : <strong>{{ c.ligne.libelle }}</strong>@if (c.ligne.sig) { · SIG : {{ c.ligne.sig.nom }} ({{ c.ligne.sig.nom_feeder || '—' }}) }</p>
+      <label class="champ">
+        <span>Poste source</span>
+        <select class="sir-select" [value]="c.posteSourceId ?? ''" (change)="onPosteSource($any($event.target).value)">
+          <option value="">Sélectionner</option>
+          @for (ps of postesSources(); track ps.id) {
+            <option [value]="ps.id" [selected]="ps.id === c.posteSourceId">{{ ps.libelle }}</option>
+          }
+        </select>
+      </label>
+      <label class="champ">
+        <span>Feeder</span>
+        <select class="sir-select" [value]="c.feederId ?? ''" [disabled]="!c.posteSourceId" (change)="onFeeder($any($event.target).value)">
+          <option value="">{{ c.posteSourceId ? 'Sélectionner' : 'Choisissez d\'abord le poste source' }}</option>
+          @for (f of feeders(); track f.id) {
+            <option [value]="f.id" [selected]="f.id === c.feederId">{{ f.libelle }} ({{ f.code }})</option>
+          }
+        </select>
+        @if (c.origine) {
+          <small>Proposé d'après {{ c.origine === 'sig' ? 'le feeder du nœud SIG' : 'les postes voisins sur le schéma' }} : à vérifier.</small>
+        }
+      </label>
+      <label class="champ">
+        <span>Poste</span>
+        <input class="saisie" type="text" maxlength="200" [ngModel]="c.libelle" (ngModelChange)="onLibelle($event)" />
+      </label>
+      <div class="dialogue__actions">
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="creation.set(null)">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="!c.feederId || c.libelle.trim().length < 2 || envoi()" (click)="validerCreation()">Valider</button>
+      </div>
+    </div>
+  </div>
+}

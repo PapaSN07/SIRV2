@@ -35,7 +35,24 @@
     </aside>
 
     <div class="contenu">
+      <div class="sir-tabs vues" role="tablist" aria-label="Vue">
+        <button type="button" role="tab" class="sir-tab" [class.sir-tab--active]="vue() === 'visionneuse'" [attr.aria-selected]="vue() === 'visionneuse'" (click)="vue.set('visionneuse')">
+          <span class="material-symbols-outlined" aria-hidden="true">account_tree</span> Schéma
+        </button>
+        <button type="button" role="tab" class="sir-tab" [class.sir-tab--active]="vue() === 'rapprochement'" [attr.aria-selected]="vue() === 'rapprochement'" (click)="vue.set('rapprochement')">
+          <span class="material-symbols-outlined" aria-hidden="true">compare_arrows</span> Rapprochement Schéma / SIG / SIR
+        </button>
+        <button type="button" role="tab" class="sir-tab" [class.sir-tab--active]="vue() === 'postes'" [attr.aria-selected]="vue() === 'postes'" (click)="vue.set('postes')">
+          <span class="material-symbols-outlined" aria-hidden="true">add_location_alt</span> Postes à créer
+        </button>
+      </div>
+      @if (vue() === 'postes') {
+        <sir-postes-a-creer />
+      } @else {
       @if (schema(); as s) {
+        @if (vue() === 'rapprochement') {
+          <sir-schema-rapprochement [schema]="s" />
+        } @else {
         <div class="compteurs">
           <span class="compteur"><strong>{{ compteurs().total | number }}</strong> postes</span>
           <span class="compteur compteur--ok"><strong>{{ compteurs().relies | number }}</strong> reliés à SIRV2</span>
@@ -98,11 +115,13 @@
             </div>
           }
         </div>
+        }
       } @else if (!chargement()) {
         <div class="sir-card vide-grand">
           <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
           <p>Importez un premier schéma unifilaire (voir la marche à suivre à gauche).</p>
         </div>
+      }
       }
     </div>
   </div>

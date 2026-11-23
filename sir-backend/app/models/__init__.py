@@ -116,6 +116,7 @@ __all__ = [
     "AssistantConversation",
 ]
 from app.models.schema_unifilaire import (  # noqa: F401,E402
+    PosteACreer,
     SchemaUnifilaire,
     SchemaUnifilairePoste,
     SchemaUnifilaireTuile,

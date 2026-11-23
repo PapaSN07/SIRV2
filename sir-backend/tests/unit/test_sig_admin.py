@@ -139,7 +139,7 @@ async def test_synthese_mise_en_cache(db: AsyncSession) -> None:
 
     redis = _Redis()
     premiere = await svc.synthese(db, _ADMIN, redis)  # type: ignore[arg-type]
-    assert "sig:synthese" in redis.data
-    redis.data["sig:synthese"] = redis.data["sig:synthese"].replace('"troncons":3', '"troncons":99')
+    assert "sig:v2:synthese" in redis.data
+    redis.data["sig:v2:synthese"] = redis.data["sig:v2:synthese"].replace('"troncons":3', '"troncons":99')
     assert (await svc.synthese(db, _ADMIN, redis)).troncons == 99  # type: ignore[arg-type]
     assert premiere.troncons == 3

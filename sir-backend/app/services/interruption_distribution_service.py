@@ -1,5 +1,6 @@
 """Service métier — interruptions réseau distribution (Sprint 3)."""
 
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -293,6 +294,14 @@ def _to_detail_response(
     )
 
 
+def _nature_programmee(nature: object | None) -> bool:
+    """Interruption programmée déduite de la nature (coupure pour travaux) : le champ n'est plus saisi."""
+    if nature is None:
+        return False
+    texte = unicodedata.normalize("NFD", f"{getattr(nature, 'code', '') or ''} {getattr(nature, 'libelle', '') or ''}")
+    return any(mot in texte.upper() for mot in ("COUPURE", "TRAVAUX", "PROGRAMM"))
+
+
 async def _validate_referentiel_distribution(
     db: AsyncSession,
     *,
@@ -300,7 +309,8 @@ async def _validate_referentiel_distribution(
     nature_id: int,
     siege_id: int,
     signalisation_id: int,
-) -> None:
+) -> bool:
+    """Valide les référentiels ; renvoie True si la nature est une coupure programmée."""
     cause = await ref_repo.get_by_id(db, "causes", cause_id)
     if cause is None or not cause.is_active:
         raise HTTPException(
@@ -371,6 +381,7 @@ async def _validate_referentiel_distribution(
                 "error": "La signalisation doit être de type distribution ou commun",
             },
         )
+    return _nature_programmee(nature)
 
 
 async def _validate_type_saisie(
@@ -616,7 +627,7 @@ async def create(
     region_id = reseau.region_id
     service_id = reseau.service_id
 
-    await _validate_referentiel_distribution(
+    programmee = await _validate_referentiel_distribution(
         db,
         cause_id=body.cause_id,
         nature_id=body.nature_id,
@@ -659,7 +670,7 @@ async def create(
         "tension_kv": body.tension_kv,
         "nombre_clients_mt": body.nombre_clients_mt,
         "nombre_clients_bt": body.nombre_clients_bt,
-        "is_programme": body.is_programme,
+        "is_programme": body.is_programme or programmee,
         "has_extension_bt": body.has_extension_bt,
     }
 
@@ -1502,8 +1513,9 @@ async def update(
     siege_id = updates.get("siege_id", interruption.siege_id)
     signalisation_id = updates.get("signalisation_id", interruption.signalisation_id)
 
+    programmee: bool | None = None
     if any(k in updates for k in ("cause_id", "nature_id", "siege_id", "signalisation_id")):
-        await _validate_referentiel_distribution(
+        programmee = await _validate_referentiel_distribution(
             db,
             cause_id=cause_id,
             nature_id=nature_id,
@@ -1551,6 +1563,8 @@ async def update(
     interruption_updates.update(reseau_updates)
     interruption_updates["updated_by_id"] = current_user.id
     distribution_updates = {k: v for k, v in updates.items() if k in distribution_fields}
+    if "nature_id" in updates and "is_programme" not in updates and programmee is not None:
+        distribution_updates["is_programme"] = programmee
 
     result = await repo.update_interruption_distribution(
         db,

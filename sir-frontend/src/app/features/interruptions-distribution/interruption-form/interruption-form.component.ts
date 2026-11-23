@@ -145,7 +145,6 @@ export class InterruptionFormComponent implements OnInit {
     observations: [''],
     is_force_majeure: [false],
     is_fugitive: [false],
-    is_programme: [false],
     tension_kv: [null as number | null],
     nombre_clients_mt: [null as number | null],
     nombre_clients_bt: [null as number | null],
@@ -239,9 +238,8 @@ export class InterruptionFormComponent implements OnInit {
   /** BCC/BRC : attend le profil JWT puis charge postes sources du périmètre régional. */
   private ensureUserThenInitCreateScope(): void {
     const run = (): void => {
-      if (this.isRegionalScope()) {
-        this.initCreateScope();
-      }
+      if (this.isRegionalScope()) this.initCreateScope();
+      else this.initNationalScope();
     };
     if (this.auth.currentUser()) {
       run();
@@ -264,6 +262,15 @@ export class InterruptionFormComponent implements OnInit {
     this.regionId.set(regionId);
     this.loadServices(regionId);
     this.reseau.listPostesSources({ page: 1, page_size: 500, region_id: regionId }).subscribe({
+      next: (res) => this.applyPostesSources(res.items),
+      error: (err: Error) => this.error.set(err.message),
+    });
+  }
+
+  /** Compte national : plus de choix de région (retiré le 23/11/2026), tous les postes sources ; la région suit le service. */
+  private initNationalScope(): void {
+    this.loadServices(null);
+    this.reseau.listPostesSources({ page: 1, page_size: 500 }).subscribe({
       next: (res) => this.applyPostesSources(res.items),
       error: (err: Error) => this.error.set(err.message),
     });
@@ -415,9 +422,7 @@ export class InterruptionFormComponent implements OnInit {
     this.form.patchValue(autres, { emitEvent: false });
     // Réseau : chaque liste dépend de la précédente, on rejoue la cascade au fil des chargements
     this.brouillonARestaurer = brouillon;
-    if (brouillon.regionId && !this.regionSelectDisabled()) {
-      this.onRegionChange(String(brouillon.regionId));
-    } else if (this.postesSources().length) {
+    if (this.postesSources().length) {
       this.restaurerCascade('poste_source_id', this.postesSources());
     }
   }
@@ -503,38 +508,6 @@ export class InterruptionFormComponent implements OnInit {
     if (!id) return;
     this.interruptionService.get(id).subscribe({
       next: (d) => this.detail.set(d),
-      error: (err: Error) => this.error.set(err.message),
-    });
-  }
-
-  regionSelectDisabled(): boolean {
-    return this.isEditMode() || this.isRegionalScope();
-  }
-
-  onRegionChange(value: string): void {
-    const region = value ? Number(value) : null;
-    this.regionId.set(region);
-    this.posteSourceId.set(null);
-    this.postesSources.set([]);
-    this.feeders.set([]);
-    this.sousFeeders.set([]);
-    this.serviceLibelle.set(null);
-    this.serviceId.set(null);
-    this.serviceFeederId.set(null);
-    this.loadServices(region);
-
-    if (!this.isEditMode()) {
-      this.form.patchValue({ poste_source_id: 0, feeder_id: 0, sous_feeder_id: 0 });
-    }
-
-    this.syncNetworkControls();
-
-    if (region === null) {
-      return;
-    }
-
-    this.reseau.listPostesSources({ page: 1, page_size: 500, region_id: region }).subscribe({
-      next: (res) => this.applyPostesSources(res.items),
       error: (err: Error) => this.error.set(err.message),
     });
   }
@@ -644,7 +617,6 @@ export class InterruptionFormComponent implements OnInit {
           observations: raw.observations || null,
           is_force_majeure: raw.is_force_majeure,
           is_fugitive: raw.is_fugitive,
-          is_programme: raw.is_programme,
           tension_kv: raw.tension_kv,
           nombre_clients_mt: raw.nombre_clients_mt,
           nombre_clients_bt: raw.nombre_clients_bt,
@@ -690,7 +662,6 @@ export class InterruptionFormComponent implements OnInit {
         observations: raw.observations || null,
         is_force_majeure: raw.is_force_majeure,
         is_fugitive: raw.is_fugitive,
-        is_programme: raw.is_programme,
         tension_kv: raw.tension_kv,
         nombre_clients_mt: raw.nombre_clients_mt,
         nombre_clients_bt: raw.nombre_clients_bt,
@@ -788,7 +759,6 @@ export class InterruptionFormComponent implements OnInit {
       observations: detail.observations ?? '',
       is_force_majeure: detail.is_force_majeure,
       is_fugitive: detail.is_fugitive,
-      is_programme: detail.is_programme,
       tension_kv: detail.tension_kv,
       nombre_clients_mt: detail.nombre_clients_mt,
       nombre_clients_bt: detail.nombre_clients_bt,

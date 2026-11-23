@@ -13,7 +13,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 
 # Mots sans valeur pour reconnaître un poste : type de poste, marque de cellule
-_MOTS_IGNORES = {"H61", "H59", "POSTE", "CABINE", "PS", "PT", "CM", "C"}
+_MOTS_IGNORES = {"H61", "H59", "POSTE", "HTA", "CABINE", "PS", "PT", "CM", "C"}
 
 
 def cle_poste(nom: str | None) -> str:

@@ -114,6 +114,27 @@ def main() -> int:
             if cle in manuels:
                 rapproches[i] = (manuels[cle], "manuel")
 
+        # Rapprochement Schéma / SIG / SIR (migration 4e5f6a7b8c9d) : nœud SIG choisi à la main et
+        # décision SIR (inactif, à créer) repris sur le même libellé
+        avec_sig = session.execute(
+            text("SELECT COL_LENGTH('dbo.schema_unifilaire_postes', 'statut_sir')")
+        ).scalar() is not None
+        decisions: dict[str, tuple[int | None, str | None, str | None]] = {}
+        if ancien and avec_sig:
+            for libelle, noeud, rapp_sig, statut in session.execute(
+                text(
+                    "SELECT libelle, noeud_sig_id, rapprochement_sig, statut_sir FROM dbo.schema_unifilaire_postes"
+                    " WHERE (rapprochement_sig = 'manuel' OR statut_sir IS NOT NULL) AND schema_id IN :ids"
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": list(ancien)},
+            ).all():
+                if libelle:
+                    decisions[cle_poste(libelle)] = (
+                        noeud if rapp_sig == "manuel" else None,
+                        "manuel" if rapp_sig == "manuel" else None,
+                        statut,
+                    )
+
         relies = sum(1 for pid, _ in rapproches if pid)
         ambigus = sum(1 for _, st in rapproches if st == "ambigu")
         nommes = sum(1 for lib in libelles if lib)
@@ -164,18 +185,24 @@ def main() -> int:
         lignes = []
         for i, (p, (pid, statut)) in enumerate(zip(schema.postes, rapproches)):
             lb = p.libelle_bbox or (None, None, None, None)
+            noeud, rapp_sig, statut_sir = decisions.get(cle_poste(p.libelle), (None, None, None)) if p.libelle else (None, None, None)
+            if pid:
+                statut_sir = None  # relié à SIR : plus de décision « inactif » ni « à créer »
             lignes.append(
                 {
                     "s": schema_id, "r": i, "lib": (p.libelle or None) and p.libelle[:200], "f": p.forme,
                     "kva": p.puissance_kva, "x0": p.x0, "y0": p.y0, "x1": p.x1, "y1": p.y1,
                     "lx0": lb[0], "ly0": lb[1], "lx1": lb[2], "ly1": lb[3], "pid": pid, "st": statut,
+                    "ns": noeud, "rs": rapp_sig, "ss": statut_sir,
                 }
             )
+        colonnes_sig = ", noeud_sig_id, rapprochement_sig, statut_sir" if avec_sig else ""
+        valeurs_sig = ", :ns, :rs, :ss" if avec_sig else ""
         session.execute(
             text(
                 "INSERT INTO dbo.schema_unifilaire_postes (schema_id, rang, libelle, forme, puissance_kva,"
-                " x0, y0, x1, y1, lx0, ly0, lx1, ly1, poste_id, rapprochement) VALUES (:s, :r, :lib, :f, :kva,"
-                " :x0, :y0, :x1, :y1, :lx0, :ly0, :lx1, :ly1, :pid, :st)"
+                f" x0, y0, x1, y1, lx0, ly0, lx1, ly1, poste_id, rapprochement{colonnes_sig}) VALUES (:s, :r, :lib,"
+                f" :f, :kva, :x0, :y0, :x1, :y1, :lx0, :ly0, :lx1, :ly1, :pid, :st{valeurs_sig})"
             ),
             lignes,
         )

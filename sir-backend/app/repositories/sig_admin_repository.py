@@ -20,6 +20,8 @@ from app.models.sig import FeederSig, NoeudSig, PosteSourceSig, TronconSig
 
 _TRIS_TRONCONS = {"nom_troncon", "nom_feeder", "longueur_m", "tension_kv"}
 _TRIS_NOEUDS = {"nom", "nom_feeder", "station", "categorie"}
+# Catégorie SIG sans distinction de casse ni d'espaces (« MIXTE » et « mixte » ne font qu'une)
+_CATEGORIE = func.upper(func.trim(NoeudSig.categorie))
 
 
 def _motif(mot: str) -> str:
@@ -103,8 +105,8 @@ async def synthese(db: AsyncSession) -> SyntheseSig:
     )
     categories = (
         await db.execute(
-            select(func.coalesce(NoeudSig.categorie, "(sans catégorie)"), func.count(NoeudSig.id))
-            .group_by(NoeudSig.categorie)
+            select(func.coalesce(_CATEGORIE, "(sans catégorie)"), func.count(NoeudSig.id))
+            .group_by(_CATEGORIE)
             .order_by(func.count(NoeudSig.id).desc())
         )
     ).all()
@@ -298,7 +300,7 @@ async def lister_noeuds(
         NoeudSig.nom_feeder,
         NoeudSig.feeder_id,
         NoeudSig.station,
-        NoeudSig.categorie,
+        _CATEGORIE.label("categorie"),
         NoeudSig.coord_x,
         NoeudSig.coord_y,
         NoeudSig.delegation,
@@ -312,7 +314,7 @@ async def lister_noeuds(
     if station:
         query = query.where(NoeudSig.station == station)
     if categorie:
-        query = query.where(NoeudSig.categorie == categorie)
+        query = query.where(_CATEGORIE == categorie.strip().upper())
     if localisation == "localise":
         query = query.where(NoeudSig.coord_x.isnot(None), NoeudSig.coord_y.isnot(None))
     elif localisation == "non_localise":
@@ -338,7 +340,7 @@ async def noeuds_carte(
 ) -> list[Any]:
     """Nœuds localisés d'un départ ou d'une station, pour la carte."""
     query = select(
-        NoeudSig.id, NoeudSig.nom, NoeudSig.nom_feeder, NoeudSig.station, NoeudSig.categorie,
+        NoeudSig.id, NoeudSig.nom, NoeudSig.nom_feeder, NoeudSig.station, _CATEGORIE.label("categorie"),
         NoeudSig.coord_x, NoeudSig.coord_y,
     ).where(NoeudSig.coord_x.isnot(None), NoeudSig.coord_y.isnot(None))
     if nom_feeder:

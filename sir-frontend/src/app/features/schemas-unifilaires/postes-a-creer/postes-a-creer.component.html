@@ -1,0 +1,115 @@
+<div class="entete">
+  <div class="filtres" role="tablist" aria-label="Statut des propositions">
+    @for (o of onglets; track o.id) {
+      <button type="button" role="tab" class="filtre" [class.filtre--actif]="statut() === o.id" [attr.aria-selected]="statut() === o.id" (click)="choisirStatut(o.id)">
+        {{ o.libelle }}
+        @if (statut() === o.id) { <span class="filtre__nb">{{ total() | number }}</span> }
+      </button>
+    }
+  </div>
+</div>
+
+@if (erreur()) {
+  <p class="alerte" role="alert">{{ erreur() }}</p>
+}
+@if (message()) {
+  <p class="info" role="status">{{ message() }}</p>
+}
+
+<div class="sir-card tableau">
+  <table class="sir-table">
+    <thead>
+      <tr>
+        <th>Poste source</th>
+        <th>Feeder</th>
+        <th>Poste</th>
+        <th>Schéma / SIG</th>
+        <th>Proposé</th>
+        @if (statut() !== 'propose') { <th>Décision</th> }
+        @if (statut() === 'propose' && canValider()) { <th class="col-actions">Création du poste</th> }
+      </tr>
+    </thead>
+    <tbody>
+      @for (d of demandes(); track d.id) {
+        <tr>
+          <td>{{ d.poste_source_libelle || '—' }}</td>
+          <td>{{ d.feeder_libelle || '—' }}</td>
+          <td><strong>{{ d.libelle }}</strong></td>
+          <td>
+            <div class="valeur">
+              <span>
+                {{ d.libelle_schema || '—' }}
+                <small>{{ d.schema_nom || '' }}@if (d.noeud_sig_nom) { · SIG : {{ d.noeud_sig_nom }} }</small>
+              </span>
+            </div>
+          </td>
+          <td>
+            <div class="valeur"><span>{{ d.propose_par || '—' }}<small>{{ d.propose_le | date: 'dd/MM/yyyy HH:mm' }}</small></span></div>
+          </td>
+          @if (statut() !== 'propose') {
+            <td>
+              <div class="valeur">
+                <span>
+                  @if (d.statut === 'valide') { Créé @if (d.poste_id) { (poste n° {{ d.poste_id }}) } } @else { Rejeté : {{ d.motif_rejet }} }
+                  <small>{{ d.traite_par || '' }} · {{ d.traite_le | date: 'dd/MM/yyyy HH:mm' }}</small>
+                </span>
+              </div>
+            </td>
+          }
+          @if (statut() === 'propose' && canValider()) {
+            <td class="col-actions">
+              <div class="actions-sir">
+                <button type="button" class="sir-btn sir-btn--primary sir-btn--sm" (click)="ouvrir(d, 'valider')">Valider</button>
+                <button type="button" class="sir-btn sir-btn--outline-primary sir-btn--sm" (click)="ouvrir(d, 'rejeter')">Rejeter</button>
+              </div>
+            </td>
+          }
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="7" class="vide">{{ chargement() ? 'Chargement…' : 'Aucune proposition.' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+@if (pages() > 1) {
+  <nav class="pagination" aria-label="Pages">
+    <button type="button" class="sir-icon-btn" aria-label="Page précédente" [disabled]="page() === 1" (click)="allerPage(page() - 1)"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>
+    <span>Page {{ page() }} / {{ pages() }}</span>
+    <button type="button" class="sir-icon-btn" aria-label="Page suivante" [disabled]="page() === pages()" (click)="allerPage(page() + 1)"><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
+  </nav>
+}
+
+@if (decision(); as d) {
+  <div class="voile" (click)="decision.set(null)">
+    <div class="dialogue" role="dialog" aria-modal="true" aria-labelledby="decision-titre" (click)="$event.stopPropagation()">
+      <h2 id="decision-titre">
+        <span class="material-symbols-outlined" aria-hidden="true">{{ d.action === 'valider' ? 'task_alt' : 'block' }}</span>
+        {{ d.action === 'valider' ? 'Valider la création du poste' : 'Rejeter la proposition' }}
+      </h2>
+      <p class="dialogue__aide">
+        <strong>{{ d.demande.libelle }}</strong> · {{ d.demande.feeder_libelle }} ({{ d.demande.poste_source_libelle }})
+      </p>
+      @if (d.action === 'valider') {
+        <label class="champ">
+          <span>Code du poste dans SIR (facultatif)</span>
+          <input class="saisie" type="text" maxlength="20" placeholder="Généré si vide (SU000123)" [ngModel]="d.texte" (ngModelChange)="onTexte($event)" />
+        </label>
+        <p class="dialogue__aide">Le poste est créé sur ce feeder (service du feeder) et relié au schéma. Ses clients se renseignent ensuite dans Indicateurs → Base clients → Atelier clients.</p>
+      } @else {
+        <label class="champ">
+          <span>Motif du rejet</span>
+          <input class="saisie" type="text" maxlength="500" placeholder="Ex. : poste déjà existant sous un autre nom" [ngModel]="d.texte" (ngModelChange)="onTexte($event)" />
+        </label>
+      }
+      <div class="dialogue__actions">
+        <button type="button" class="sir-btn sir-btn--outline-primary" (click)="decision.set(null)">Annuler</button>
+        <button type="button" class="sir-btn sir-btn--primary" [disabled]="envoi() || (d.action === 'rejeter' && d.texte.trim().length < 3)" (click)="confirmer()">
+          {{ d.action === 'valider' ? 'Créer le poste' : 'Rejeter' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

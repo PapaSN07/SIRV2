@@ -72,8 +72,16 @@ class SchemaUnifilairePoste(Base):
     )
     # auto (même nom), manuel (choisi par un administrateur), ambigu (plusieurs postes du même nom)
     rapprochement: Mapped[str | None] = mapped_column(NVARCHAR(10), nullable=True)
+    # Nœud SIG rapproché : auto (même nom), manuel, ambigu (plusieurs nœuds SIG du même nom)
+    noeud_sig_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("noeuds_sig.id", name="fk_schema_unifilaire_postes_noeud_sig"), nullable=True, index=True
+    )
+    rapprochement_sig: Mapped[str | None] = mapped_column(NVARCHAR(10), nullable=True)
+    # Décision SIR quand le poste n'est pas relié : inactif (hors service, non repris) ou a_creer
+    statut_sir: Mapped[str | None] = mapped_column(NVARCHAR(10), nullable=True)
 
     poste: Mapped["Poste | None"] = relationship("Poste", lazy="select")  # noqa: F821
+    noeud_sig: Mapped["NoeudSig | None"] = relationship("NoeudSig", lazy="select")  # noqa: F821
 
 
 class SchemaUnifilaireTuile(Base):
@@ -87,3 +95,41 @@ class SchemaUnifilaireTuile(Base):
     x: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     y: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     contenu: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+STATUTS_DEMANDE = ("propose", "valide", "rejete")
+
+
+class PosteACreer(Base):
+    """Proposition de création d'un poste dans SIR, depuis le rapprochement Schéma / SIG / SIR."""
+
+    __tablename__ = "postes_a_creer"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    schema_poste_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("schema_unifilaire_postes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Repères gardés si le schéma est réimporté (le poste du schéma est alors recréé)
+    schema_nom: Mapped[str | None] = mapped_column(NVARCHAR(150), nullable=True)
+    libelle_schema: Mapped[str | None] = mapped_column(NVARCHAR(200), nullable=True)
+    libelle: Mapped[str] = mapped_column(NVARCHAR(200), nullable=False)
+    poste_source_id: Mapped[int] = mapped_column(Integer, ForeignKey("postes_sources.id"), nullable=False)
+    feeder_id: Mapped[int] = mapped_column(Integer, ForeignKey("feeders.id"), nullable=False, index=True)
+    noeud_sig_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("noeuds_sig.id"), nullable=True)
+    statut: Mapped[str] = mapped_column(NVARCHAR(10), nullable=False, server_default="propose", index=True)
+    motif_rejet: Mapped[str | None] = mapped_column(NVARCHAR(500), nullable=True)
+    poste_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("postes.id"), nullable=True)
+    propose_par_id: Mapped[int] = mapped_column(Integer, ForeignKey("utilisateurs.id"), nullable=False)
+    propose_le: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW)
+    traite_par_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("utilisateurs.id"), nullable=True)
+    traite_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+
+    poste_source: Mapped["PosteSource"] = relationship("PosteSource", lazy="select")  # noqa: F821
+    feeder: Mapped["Feeder"] = relationship("Feeder", lazy="select")  # noqa: F821
+    noeud_sig: Mapped["NoeudSig | None"] = relationship("NoeudSig", lazy="select")  # noqa: F821
+    propose_par: Mapped["Utilisateur"] = relationship(  # noqa: F821
+        "Utilisateur", foreign_keys=[propose_par_id], lazy="select"
+    )
+    traite_par: Mapped["Utilisateur | None"] = relationship(  # noqa: F821
+        "Utilisateur", foreign_keys=[traite_par_id], lazy="select"
+    )

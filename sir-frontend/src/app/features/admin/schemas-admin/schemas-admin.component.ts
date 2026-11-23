@@ -10,8 +10,11 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.
 import { ReseauDistributionService } from '../../interruptions-distribution/services/reseau-distribution.service';
 import { SchemaUnifilaireService } from '../../schemas-unifilaires/schema-unifilaire.service';
 import { EtatPoste, SchemaViewerComponent } from '../../schemas-unifilaires/schema-viewer/schema-viewer.component';
+import { PostesACreerComponent } from '../../schemas-unifilaires/postes-a-creer/postes-a-creer.component';
+import { SchemaRapprochementComponent } from '../../schemas-unifilaires/schema-rapprochement/schema-rapprochement.component';
 
 type Filtre = 'aucun' | 'non-relies' | 'ambigus';
+type Vue = 'visionneuse' | 'rapprochement' | 'postes';
 
 /**
  * Administration → Schémas unifilaires : consultation des schémas importés et rapprochement de leurs
@@ -20,7 +23,15 @@ type Filtre = 'aucun' | 'non-relies' | 'ambigus';
 @Component({
   selector: 'sir-schemas-admin',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, PageHeaderComponent, AdminNavComponent, SchemaViewerComponent],
+  imports: [
+    DatePipe,
+    DecimalPipe,
+    PageHeaderComponent,
+    AdminNavComponent,
+    SchemaViewerComponent,
+    SchemaRapprochementComponent,
+    PostesACreerComponent,
+  ],
   templateUrl: './schemas-admin.component.html',
   styleUrl: './schemas-admin.component.scss',
 })
@@ -31,6 +42,8 @@ export class SchemasAdminComponent {
 
   @ViewChild(SchemaViewerComponent) private viewer?: SchemaViewerComponent;
 
+  /** Visionneuse, rapprochement Schéma / SIG / SIR, postes à créer (suggestion du 23/11/2026). */
+  readonly vue = signal<Vue>('visionneuse');
   readonly schemas = signal<SchemaUnifilaire[]>([]);
   readonly schema = signal<SchemaUnifilaire | null>(null);
   readonly postes = signal<PosteSchema[]>([]);

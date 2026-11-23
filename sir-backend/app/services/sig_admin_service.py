@@ -56,7 +56,7 @@ async def _avec_cache(redis: Redis | None, cle: str, modele: type[T], calcul: Ca
 
 
 def _cle_cache(*parties: object) -> str:
-    return "sig:" + ":".join(str(p if p is not None else "") for p in parties)
+    return "sig:v2:" + ":".join(str(p if p is not None else "") for p in parties)
 
 
 def _cle(valeur: object) -> str:
@@ -81,7 +81,7 @@ def _infos_feeder_sig(ligne: object | None) -> dict[str, object]:
         "code_sig": getattr(ligne, "code", None),
         "poste_source_sig": getattr(ligne, "poste_source", None),
         "delegation": getattr(ligne, "delegation", None),
-        "categorie_sig": str(bas["categories"]) if bas.get("categories") not in (None, "") else None,
+        "categorie_sig": str(bas["categories"]).strip().upper() if bas.get("categories") not in (None, "") else None,
         "km_sig": km,
         "mise_en_service": str(mise)[:10] if mise else None,
         "attributs": attributs or None,

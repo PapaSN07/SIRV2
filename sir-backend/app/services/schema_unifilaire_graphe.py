@@ -141,3 +141,29 @@ def postes_entre(graphe: Graphe, rang_a: int, rang_b: int) -> ResultatEntre | No
         postes_hors_limite=hors_limite,
         trace=[graphe.coords[n] for n in trajet],
     )
+
+
+def postes_voisins(graphe: Graphe, rang: int, nombre: int = 6, distance_max: float = 4000.0) -> list[int]:
+    """Postes les plus proches d'un poste le long des lignes (rangs, du plus proche au plus loin).
+
+    Sert à proposer le feeder d'un poste à créer : celui de ses voisins déjà reliés à SIR.
+    """
+    if not 0 <= rang < len(graphe.noeud_des_postes) or graphe.noeud_des_postes[rang] < 0:
+        return []
+    depart = graphe.noeud_des_postes[rang]
+    dist = {depart: 0.0}
+    tas = [(0.0, depart)]
+    trouves: list[int] = []
+    while tas and len(trouves) < nombre:
+        d, u = heapq.heappop(tas)
+        if d > dist[u] or d > distance_max:
+            continue
+        for r in graphe.postes_du_noeud.get(u, []):
+            if r != rang and r not in trouves:
+                trouves.append(r)
+        for v, longueur in graphe.voisins[u].items():
+            nd = d + longueur
+            if nd < dist.get(v, float("inf")):
+                dist[v] = nd
+                heapq.heappush(tas, (nd, v))
+    return trouves[:nombre]

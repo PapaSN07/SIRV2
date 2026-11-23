@@ -47,3 +47,87 @@ export interface PostesEntre {
   postes_hors_limite: number;
   trace: [number, number][];
 }
+
+// ── Rapprochement Schéma / SIG / SIR ────────────────────────────────────────────
+
+export interface NoeudSigCourt {
+  id: number;
+  nom: string | null;
+  nom_feeder: string | null;
+  station: string | null;
+  categorie: string | null;
+}
+
+export interface PosteSirCourt {
+  id: number;
+  code: string;
+  libelle: string;
+  feeder_libelle: string | null;
+  poste_source_libelle: string | null;
+}
+
+/** Un poste du schéma, son nœud SIG et son poste SIR (ou la décision SIR). */
+export interface LigneRapprochement {
+  id: number;
+  rang: number;
+  libelle: string | null;
+  sig: NoeudSigCourt | null;
+  rapprochement_sig: 'auto' | 'manuel' | 'ambigu' | null;
+  sir: PosteSirCourt | null;
+  rapprochement: 'auto' | 'manuel' | 'ambigu' | null;
+  /** inactif (hors service, non repris dans SIR) ou a_creer (création proposée) */
+  statut_sir: 'inactif' | 'a_creer' | null;
+  demande_id: number | null;
+}
+
+export type FiltreRapprochement = 'tous' | 'a_traiter' | 'sig_manquant' | 'sir_relies' | 'ambigus' | 'a_creer' | 'inactifs';
+
+export interface CompteursRapprochement {
+  total: number;
+  sans_nom: number;
+  sig_relies: number;
+  sig_ambigus: number;
+  sir_relies: number;
+  sir_ambigus: number;
+  a_creer: number;
+  inactifs: number;
+  a_traiter: number;
+}
+
+export interface RapprochementSig {
+  relies: number;
+  ambigus: number;
+  non_trouves: number;
+}
+
+/** Pré-remplissage de la recherche assistée (poste source, feeder, poste). */
+export interface SuggestionCreation {
+  libelle: string;
+  poste_source_id: number | null;
+  poste_source_libelle: string | null;
+  feeder_id: number | null;
+  feeder_libelle: string | null;
+  origine: 'sig' | 'voisins' | null;
+}
+
+export type StatutPosteACreer = 'propose' | 'valide' | 'rejete';
+
+export interface PosteACreer {
+  id: number;
+  schema_nom: string | null;
+  libelle_schema: string | null;
+  libelle: string;
+  poste_source_id: number;
+  poste_source_libelle: string | null;
+  feeder_id: number;
+  feeder_libelle: string | null;
+  noeud_sig_nom: string | null;
+  statut: StatutPosteACreer;
+  motif_rejet: string | null;
+  poste_id: number | null;
+  poste_code: string | null;
+  propose_par: string | null;
+  propose_le: string;
+  traite_par: string | null;
+  traite_le: string | null;
+}
