@@ -361,3 +361,106 @@ def test_requetes_etape4_reprennent_appliquer_filtres(fabrique: Callable[..., ob
         assert "interruptions.region_id = 2" in sql
         assert "causes.est_exogene = 1" in sql
         assert "IS 1" not in sql
+
+
+# --------------------------------------------------------------------------------------------
+# Étape 5 — SAIFI / SAIDI (spécification §10)
+#
+# ``requete_saifi(filtres, service_ids, regroupement)`` renvoie **un** ``Select`` :
+# - regroupement ``None`` (une ligne), ``"nature"`` (natures.libelle, causes.libelle), ``"jour"``
+#   (``jour_de(date_apparition)`` = CAST(… AS DATE)), ``"service"`` (services.id, code, libelle) ;
+# - conditions : ``appliquer_filtres`` + ``interruptions_du_perimetre(service_ids)`` (région posée
+#   par ``perimetre``) + ``_distribution_saifi_saidi()`` (statut clôturé, date_remise renseignée,
+#   durée > 5 min) ;
+# - NombreClient = Σ clients estimés des postes (``_clients_poste``, CAST BIGINT) et
+#   Σ NombreClient × durée (CAST FLOAT) : dépassement INT 8115 ;
+# - regroupement inconnu → ValueError (KeyError toléré), jamais traduit en SQL.
+# --------------------------------------------------------------------------------------------
+
+REGROUPEMENTS_SAIFI = (None, "nature", "jour", "service")
+SERVICES_PERIMETRE = [1, 2]
+
+
+def _requete_saifi(filtres: object, regroupement: str | None) -> Select:
+    from app.repositories import suivi_incidents_repository as repo
+
+    requete = repo.requete_saifi(filtres, SERVICES_PERIMETRE, regroupement)
+    assert isinstance(requete, Select), f"un seul Select attendu, reçu {type(requete)}"
+    return requete
+
+
+@pytest.mark.parametrize("regroupement", REGROUPEMENTS_SAIFI, ids=lambda r: r or "aucun")
+@pytest.mark.parametrize("variante", VARIANTES, ids=lambda v: ",".join(v) or "aucun")
+def test_requete_saifi_sql_server(regroupement: str | None, variante: dict[str, object]) -> None:
+    from app.repositories.perimetre import perimetre_region
+
+    with perimetre_region(None):
+        sql = _sql(_requete_saifi(_filtres(**variante), regroupement))
+    _controles_communs(sql)
+    sommes = _arguments(sql, "SUM")
+    # Σ clients estimés des postes en BIGINT, Σ clients × durée en FLOAT
+    assert any(
+        "nombre_clients_estime" in a and re.search(r"AS BIGINT", a, re.IGNORECASE) for a in sommes
+    ), f"Σ nombre_clients_estime sans CAST BIGINT : {sql}"
+    assert any(
+        "duree_minutes" in a and re.search(r"AS FLOAT", a, re.IGNORECASE) for a in sommes
+    ), f"Σ clients × durée sans CAST FLOAT : {sql}"
+    assert "poste_interruptions" in sql
+
+    liste_select, group_by = _clauses_externes(sql)
+    if regroupement is None:
+        assert group_by is None, f"une seule ligne attendue (pas de GROUP BY) : {sql}"
+        return
+    assert group_by is not None, f"agrégation faite par la base : {sql}"
+    colonnes_gb = _colonnes(group_by)
+    if regroupement == "nature":
+        assert ("natures", "libelle") in colonnes_gb, sql
+        assert ("causes", "libelle") in colonnes_gb, sql
+    elif regroupement == "jour":
+        assert _CAST_JOUR.search(liste_select), f"jour absent du SELECT : {sql}"
+        assert _CAST_JOUR.search(group_by), f"jour absent du GROUP BY : {sql}"
+    else:
+        assert ("services", "id") in colonnes_gb, sql
+        assert re.search(r"\bservices\b", sql.lower()), "libellé du service non lu dans services"
+
+
+@pytest.mark.parametrize("regroupement", REGROUPEMENTS_SAIFI, ids=lambda r: r or "aucun")
+def test_requete_saifi_regles_de_la_formule(regroupement: str | None) -> None:
+    """Filtres (appliquer_filtres), périmètre, clôturées, remise renseignée, durée > 5 min."""
+    from app.repositories.perimetre import perimetre_region
+
+    with perimetre_region(None):
+        sql = _sql_lie(_requete_saifi(_filtres(region_id=2, exogene=True), regroupement))
+    # appliquer_filtres : distribution, période fin incluse, région, exogène
+    assert "'distribution'" in sql
+    assert "2026-11-14" in sql and "2026-11-21" in sql
+    assert "interruptions.region_id = 2" in sql
+    assert "causes.est_exogene = 1" in sql
+    assert "IS 1" not in sql
+    # périmètre : services du dénominateur
+    assert re.search(r"interruptions\.service_id IN \(1, 2\)", sql), sql
+    # _distribution_saifi_saidi : statut clôturé, date de remise, durée > 5 minutes
+    assert re.search(r"interruptions\.statut IN \(N?'cloture', N?'valide', N?'archive'\)", sql), sql
+    assert re.search(r"interruptions\.date_remise IS NOT NULL", sql), sql
+    assert re.search(r"coalesce\(interruptions\.duree_minutes, 0\) > 5\b", sql, re.IGNORECASE), sql
+
+
+@pytest.mark.parametrize("regroupement", REGROUPEMENTS_SAIFI, ids=lambda r: r or "aucun")
+def test_requete_saifi_region_du_perimetre(regroupement: str | None) -> None:
+    """En régional, la région posée par ``perimetre`` filtre l'interruption même sans filtre region_id."""
+    from app.repositories.perimetre import perimetre_region
+
+    with perimetre_region(1):
+        sql = _sql_lie(_requete_saifi(_filtres(), regroupement))
+    assert "interruptions.region_id = 1" in sql, sql
+    with perimetre_region(None):
+        sql = _sql_lie(_requete_saifi(_filtres(), regroupement))
+    assert "interruptions.region_id" not in sql.split("WHERE", 1)[1], sql
+
+
+@pytest.mark.parametrize("regroupement", ["region", "mois", "", "poste_source"])
+def test_requete_saifi_regroupement_inconnu(regroupement: str) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    with pytest.raises((ValueError, KeyError)):
+        repo.requete_saifi(_filtres(), SERVICES_PERIMETRE, regroupement)
