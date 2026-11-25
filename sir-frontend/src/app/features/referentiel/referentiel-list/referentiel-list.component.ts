@@ -39,6 +39,9 @@ interface ReferentielFormState {
   type_reseau: TypeReseau | '';
   description: string;
   is_active: boolean;
+  est_exogene: boolean;
+  /** Valeur reçue de l'API (booléen) ou cochée par l'utilisateur : sinon le champ n'est pas envoyé. */
+  est_exogene_connu: boolean;
 }
 
 @Component({
@@ -162,6 +165,8 @@ export class ReferentielListComponent implements OnInit {
       type_reseau: item.type_reseau ?? '',
       description: item.description ?? '',
       is_active: item.is_active,
+      est_exogene: item.est_exogene ?? false,
+      est_exogene_connu: typeof item.est_exogene === 'boolean',
     });
     this.formOpen.set(true);
     this.error.set(null);
@@ -174,7 +179,11 @@ export class ReferentielListComponent implements OnInit {
   }
 
   patchForm(field: keyof ReferentielFormState, value: string | boolean): void {
-    this.form.update((current) => ({ ...current, [field]: value }));
+    this.form.update((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === 'est_exogene' ? { est_exogene_connu: true } : {}),
+    }));
   }
 
   saveForm(): void {
@@ -196,6 +205,7 @@ export class ReferentielListComponent implements OnInit {
         libelle: state.libelle.trim(),
         type_reseau: typeReseau,
         description: state.description.trim() || null,
+        ...(tab.key === 'causes' ? { est_exogene: state.est_exogene } : {}),
       };
       this.referentiel.create(tab.key, body).subscribe({
         next: () => {
@@ -217,6 +227,7 @@ export class ReferentielListComponent implements OnInit {
       type_reseau: typeReseau,
       description: state.description.trim() || null,
       is_active: state.is_active,
+      ...(tab.key === 'causes' && state.est_exogene_connu ? { est_exogene: state.est_exogene } : {}),
     };
     this.referentiel.update(tab.key, editId, body).subscribe({
       next: () => {
@@ -267,6 +278,6 @@ export class ReferentielListComponent implements OnInit {
   }
 
   private emptyForm(): ReferentielFormState {
-    return { code: '', libelle: '', type_reseau: '', description: '', is_active: true };
+    return { code: '', libelle: '', type_reseau: '', description: '', is_active: true, est_exogene: false, est_exogene_connu: true };
   }
 }

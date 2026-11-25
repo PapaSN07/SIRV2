@@ -137,6 +137,7 @@ async def create(
     libelle: str,
     type_reseau: str | None = None,
     description: str | None = None,
+    est_exogene: bool | None = None,
 ) -> Any:
     model = get_model(resource)
     values: dict[str, Any] = {
@@ -148,6 +149,9 @@ async def create(
         values["type_reseau"] = type_reseau
     if resource == "types_end" and description is not None:
         values["description"] = description
+    if resource == "causes":
+        # Posé explicitement : le défaut SQLAlchemy ne vaut qu'à l'INSERT, pas sur l'objet renvoyé
+        values["est_exogene"] = bool(est_exogene)
 
     record = model(**values)
     db.add(record)
@@ -166,6 +170,7 @@ async def update(
     type_reseau: str | None = None,
     description: str | None = None,
     is_active: bool | None = None,
+    est_exogene: bool | None = None,
 ) -> Any | None:
     record = await get_by_id(db, resource, item_id)
     if record is None:
@@ -182,6 +187,8 @@ async def update(
         values["description"] = description
     if is_active is not None:
         values["is_active"] = is_active
+    if est_exogene is not None and resource == "causes":
+        values["est_exogene"] = est_exogene
 
     if values:
         model = get_model(resource)

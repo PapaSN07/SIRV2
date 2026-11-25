@@ -121,6 +121,19 @@ def _ensure_can_write(
     )
 
 
+def _refuser_exogene_hors_causes(resource: str, est_exogene: bool | None) -> None:
+    """Le facteur exogène n'existe que pour les causes : une valeur ailleurs est une erreur (pas ignorée)."""
+    if est_exogene is not None and resource != "causes":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "data": None,
+                "error": "Le facteur exogène ne concerne que les causes",
+            },
+        )
+
+
 def _build_response(record: Any) -> ReferentielResponse:
     return ReferentielResponse(
         id=record.id,
@@ -129,6 +142,7 @@ def _build_response(record: Any) -> ReferentielResponse:
         type_reseau=getattr(record, "type_reseau", None),
         description=getattr(record, "description", None),
         is_active=getattr(record, "is_active", True),
+        est_exogene=bool(record.est_exogene) if hasattr(record, "est_exogene") else None,
     )
 
 
@@ -144,7 +158,8 @@ def _cache_key(
 ) -> str:
     tr = type_reseau or "all"
     filtres = f"{statut or ''}:{(recherche or '').strip().lower()}:{tri or ''}"
-    return f"referentiel:{resource}:v{version}:{tr}:{page}:{page_size}:{filtres}"
+    # « s2 » : forme de réponse avec est_exogene (25/11/2026) ; les pages en cache d'avant ne sont plus lues
+    return f"referentiel:{resource}:s2:v{version}:{tr}:{page}:{page_size}:{filtres}"
 
 
 async def _get_cache_version(redis: Redis, resource: str) -> int:
@@ -242,6 +257,7 @@ async def create_item(
 ) -> ReferentielResponse:
     _validate_resource(resource)
     _ensure_can_write(current_user, resource, body.type_reseau)
+    _refuser_exogene_hors_causes(resource, body.est_exogene)
 
     existing = await ref_repo.get_by_code(db, resource, body.code)
     if existing is not None:
@@ -261,6 +277,7 @@ async def create_item(
         libelle=body.libelle,
         type_reseau=body.type_reseau,
         description=body.description,
+        est_exogene=body.est_exogene,
     )
 
     await log_audit(
@@ -269,7 +286,8 @@ async def create_item(
         record_id=record.id,
         action=ACTION_CREATE,
         user_id=current_user.id,
-        new_values={"code": record.code, "libelle": record.libelle},
+        new_values={"code": record.code, "libelle": record.libelle}
+        | ({"est_exogene": bool(record.est_exogene)} if resource == "causes" else {}),
     )
 
     await _invalidate_cache(redis, resource)
@@ -299,6 +317,7 @@ async def update_item(
 
     effective_type = body.type_reseau or getattr(record, "type_reseau", None)
     _ensure_can_write(current_user, resource, effective_type)
+    _refuser_exogene_hors_causes(resource, body.est_exogene)
 
     if body.code and body.code != record.code:
         duplicate = await ref_repo.get_by_code(db, resource, body.code)
@@ -312,7 +331,9 @@ async def update_item(
                 },
             )
 
-    old_values = {"code": record.code, "libelle": record.libelle}
+    old_values: dict[str, Any] = {"code": record.code, "libelle": record.libelle}
+    if resource == "causes":
+        old_values["est_exogene"] = bool(record.est_exogene)
     updated = await ref_repo.update(
         db,
         resource,
@@ -322,8 +343,12 @@ async def update_item(
         type_reseau=body.type_reseau,
         description=body.description,
         is_active=body.is_active,
+        est_exogene=body.est_exogene,
     )
     assert updated is not None
+    new_values: dict[str, Any] = {"code": updated.code, "libelle": updated.libelle}
+    if resource == "causes":
+        new_values["est_exogene"] = bool(updated.est_exogene)
 
     await log_audit(
         db,
@@ -332,7 +357,7 @@ async def update_item(
         action=ACTION_UPDATE,
         user_id=current_user.id,
         old_values=old_values,
-        new_values={"code": updated.code, "libelle": updated.libelle},
+        new_values=new_values,
     )
 
     await _invalidate_cache(redis, resource)

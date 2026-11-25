@@ -95,6 +95,22 @@
                   (ngModelChange)="patchForm('description', $event)"
                 />
               </div>
+              @if (activeTab().key === 'causes') {
+                <div class="field field--full">
+                  <label class="field field--check">
+                    <input
+                      type="checkbox"
+                      [ngModel]="form().est_exogene"
+                      (ngModelChange)="patchForm('est_exogene', $event)"
+                      aria-describedby="ref-exogene-aide"
+                    />
+                    Facteur exogène
+                  </label>
+                  <span id="ref-exogene-aide" class="field__aide">
+                    Choc accidentel, agression, malveillance… : sert au filtre « Facteur exogène » du suivi des incidents.
+                  </span>
+                </div>
+              }
               @if (editingId() !== null) {
                 <label class="field field--check">
                   <input type="checkbox" [ngModel]="form().is_active" (ngModelChange)="patchForm('is_active', $event)" />
@@ -179,6 +195,9 @@
                       </button>
                     </th>
                   }
+                  @if (activeTab().key === 'causes') {
+                    <th>Facteur exogène</th>
+                  }
                   <th>
                     <button
                       type="button"
@@ -206,6 +225,15 @@
                     </td>
                     @if (activeTab().filterType) {
                       <td>{{ libelleType(row.type_reseau) }}</td>
+                    }
+                    @if (activeTab().key === 'causes') {
+                      <td>
+                        @if (row.est_exogene) {
+                          <span class="sir-pill">Oui</span>
+                        } @else {
+                          <span aria-hidden="true">—</span><span class="sr-only">Non</span>
+                        }
+                      </td>
                     }
                     <td>
                       <span class="sir-pill" [class.sir-pill--ok]="row.is_active" [class.sir-pill--off]="!row.is_active">

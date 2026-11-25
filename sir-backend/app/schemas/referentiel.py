@@ -28,6 +28,7 @@ class ReferentielCreate(BaseModel):
     libelle: str = Field(..., min_length=1, max_length=200)
     type_reseau: TypeReseau | None = None
     description: str | None = Field(default=None, max_length=500)
+    est_exogene: bool | None = Field(default=None, description="Causes seulement : facteur exogène")
 
 
 class ReferentielUpdate(BaseModel):
@@ -36,6 +37,7 @@ class ReferentielUpdate(BaseModel):
     type_reseau: TypeReseau | None = None
     description: str | None = Field(default=None, max_length=500)
     is_active: bool | None = None
+    est_exogene: bool | None = Field(default=None, description="Causes seulement : facteur exogène")
 
 
 class ReferentielResponse(BaseModel):
@@ -45,5 +47,6 @@ class ReferentielResponse(BaseModel):
     type_reseau: str | None = None
     description: str | None = None
     is_active: bool
+    est_exogene: bool | None = Field(default=None, description="Causes : facteur exogène ; null ailleurs")
 
     model_config = {"from_attributes": True}

@@ -68,7 +68,7 @@ Classement territorial : Région d'exploitation → Service → Poste source →
 | Besoin | État SIRV2 | Proposition |
 |---|---|---|
 | Cause « réseau HTB » (`Causes.CauseReseauHTB`) | absent de `causes` (`app/models/referentiel.py`) ; le rapport hebdo DD le déduit du libellé | pas de colonne : règle du rapport hebdo DD sur le libellé de la cause (décision du 25/11, §5), extraite dans une fonction partagée |
-| Cause « facteur exogène » (`Causes.FacteursExogenes`) | ✅ `causes.est_exogene` (migration `6a7b8c9d0e1f`, posé d'après le libellé pour les causes existantes ; reprise SIR v1 par le loader référentiel) | à faire : exposer le drapeau dans Administration → Référentiel et reprendre `FacteursExogenes` de SIR v1 pour les causes déjà en base (le loader ne le pose qu'à l'insertion) |
+| Cause « facteur exogène » (`Causes.FacteursExogenes`) | ✅ `causes.est_exogene` (migration `6a7b8c9d0e1f`, posé d'après le libellé pour les causes existantes ; reprise SIR v1 par le loader référentiel) | drapeau modifiable dans Administration → Référentiel (§12, fait le 25/11/2026) ; reste à reprendre `FacteursExogenes` de SIR v1 pour les causes déjà en base (le loader ne le pose qu'à l'insertion) |
 | Coordonnées des postes | calculées à la volée par nom de nœud SIG (`pilotage_repository`, ~l.560-615) | lien `postes.noeud_sig_id` (FK) + statut de localisation, calculés par une tâche Celery et non à chaque requête |
 | Géographie administrative (département, commune, localité) | absente | table `localites` (région, département, commune, localité) reprise du fichier « Postes_Affectes_Localites », FK depuis `noeuds_sig` ou `postes` |
 | Corrections manuelles (`MatchingManuel`) et recensement (`Recensement_Postes`) | partiellement couvert par le rapprochement Schéma / SIG / SIR | reprise des lignes existantes dans les tables SIRV2 du rapprochement |
@@ -357,4 +357,19 @@ identifiants au plus (limite de 2 100 paramètres de SQL Server).
   regroupement des bulles proches (`leaflet.markercluster`) ou boutons « Dakar / National ».
 - **Couleurs Incidents / Délestages** (orange / rouge) peu distinctes pour un daltonien : la nature est
   aussi écrite dans la bulle et dans la liste des postes ; une couleur plus éloignée reste à choisir dans la charte.
+
+## 12. Facteur exogène des causes dans le Référentiel (25/11/2026)
+
+`causes.est_exogene` (migration `6a7b8c9d0e1f`) devient lisible et modifiable dans Administration →
+Référentiel, comme le reste d'une cause (mêmes droits : Admin SCR pour les causes distribution et
+communes, Admin Dispatching pour transport et communes, superadmin ; lecture seule ailleurs).
+
+- `ReferentielResponse.est_exogene` : `true` / `false` pour les causes, `null` pour les autres référentiels.
+- `ReferentielCreate.est_exogene` / `ReferentielUpdate.est_exogene` (`bool | null`) : pris en compte pour
+  `causes` seulement ; création sans valeur → `false` ; mise à jour sans valeur → inchangé ; une valeur
+  envoyée pour un autre référentiel → **422 enveloppé** (« Le facteur exogène ne concerne que les causes »).
+- Audit : `old_values` / `new_values` de la mise à jour contiennent `est_exogene` quand c'est une cause.
+- Le cache du référentiel est invalidé comme pour toute modification ; les vues du suivi des incidents
+  (cache 1 h) prennent le nouveau drapeau au plus tard une heure après.
+- Écran : colonne « Facteur exogène » (Oui / —) et case à cocher dans le formulaire, pour les causes seulement.
 

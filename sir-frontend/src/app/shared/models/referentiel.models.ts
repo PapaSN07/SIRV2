@@ -19,6 +19,8 @@ export interface ReferentielItem {
   type_reseau: TypeReseau | null;
   description: string | null;
   is_active: boolean;
+  /** Causes seulement : facteur exogène (choc accidentel, agression, malveillance…) ; null ailleurs. */
+  est_exogene?: boolean | null;
 }
 
 export type StatutReferentiel = 'actifs' | 'inactifs' | 'tous';
@@ -39,6 +41,8 @@ export interface ReferentielCreate {
   libelle: string;
   type_reseau?: TypeReseau | null;
   description?: string | null;
+  /** Causes seulement (l'API refuse le champ pour les autres référentiels). */
+  est_exogene?: boolean;
 }
 
 export interface ReferentielUpdate {
@@ -47,4 +51,6 @@ export interface ReferentielUpdate {
   type_reseau?: TypeReseau | null;
   description?: string | null;
   is_active?: boolean;
+  /** Causes seulement (l'API refuse le champ pour les autres référentiels). */
+  est_exogene?: boolean;
 }
