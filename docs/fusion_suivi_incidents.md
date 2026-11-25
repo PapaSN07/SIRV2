@@ -39,28 +39,36 @@ Légende : ✅ existe dans SIRV2 · 🟡 existe en partie · ❌ à créer.
 
 ### Organisation retenue (25/11/2026)
 
-Un nouveau menu **« Suivi incidents »** dans SIRV2 (route `/suivi-incidents`, `loadComponent` + `roleGuard`, permission `indicateurs:read`), avec les mêmes onglets que l'ancienne app pour que ses utilisateurs retrouvent leurs repères. Les écrans d'administration rejoignent ceux qui existent déjà.
+Un nouveau menu **« Suivi incidents »** dans SIRV2 (section Analyse ; route `/suivi-incidents`, `roleGuard` + `indicateurs:read`), masqué par l'interrupteur `FONCTIONNALITES.suiviIncidents` jusqu'à la recette (aperçu sur un poste : `localStorage['sir_apercu'] = 'suivi-incidents'`). Choix validés : **6 onglets** (les doublons de l'ancienne app sont regroupés), graphiques **ngx-echarts** (chargés à la demande), période par défaut **semaine Senelec passée**.
 
-| Onglet de l'ancienne app | Dans SIRV2 | À construire |
+| Onglet (route enfant) | Contenu | Remplace (ancienne app) |
 |---|---|---|
-| Barre de filtres | barre commune aux onglets | filtres poste source, nature, cause, réseau HTB (règle du 25/11), exogène |
-| Vue d'ensemble + cartes KPI | onglet « Vue d'ensemble » | drill-down Région → Département → Commune → Localité ; localités |
-| Carte & évolution | onglet « Carte & évolution » | carte Leaflet (existante), série journalière |
-| Carte SAIFI/SAIDI | même onglet | contributions par service et par poste |
-| Focus opérationnel | onglet « Focus opérationnel » | classement par poste source (feeders existants) |
-| Qualité de service | onglet « Qualité de service » | barres par région |
-| SAIFI / SAIDI | onglet « SAIFI / SAIDI » | synthèse (faite), tableau mois × nature, rapport par nature |
-| Nature | onglet « Nature » | catégories du rapport hebdo DD |
-| Localisation | onglet « Localisation » | taux de postes localisés SIG, liste des non-localisés |
-| Correspondances (admin) | Administration → SIG / rapprochement Schéma-SIG-SIR | reprise des corrections manuelles et du recensement |
-| Administration (admin) | Administration → Utilisateurs / Rôles et droits | rien |
+| Vue d'ensemble | 6 KPI avec écart vs période précédente ; Travaux / Incident / Délestage (nombre, durée) ; END HTA / HTB / total ; classement territorial cliquable | Vue d'ensemble, KPI, Nature, Qualité de service |
+| Carte | postes touchés (taille = nombre, couleur = nature) ; mode SAIFI / SAIDI par service ; clic → filtre | Carte (1re moitié) |
+| Évolution | nombre + durée, granularité automatique (jour ≤ 31 j, semaine Senelec ≤ 6 mois, mois au-delà), par nature | Carte & évolution (2e moitié) |
+| Réseau | postes sources puis feeders : tableaux triables avec recherche, contribution SAIFI, export Excel ; clic → filtre | Focus opérationnel |
+| SAIFI / SAIDI | synthèse HTA / HTB / total + courbe mois / cumul ; sections dépliables : rapport par nature, mois × nature, contribution par service | SAIFI / SAIDI |
+| Localisation | taux de postes localisés, non-localisés par poste source, lien « Corriger » | Localisation |
+| — | Correspondances → Administration → SIG / rapprochement Schéma-SIG-SIR ; Administration → Utilisateurs / Rôles et droits | Correspondances, Administration |
+
+Classement territorial : Région d'exploitation → Service → Poste source → Feeder tant que la géographie administrative n'est pas chargée (étape 6), puis Région → Département → Commune → Localité ; « Non localisé » toujours en dernière ligne.
+
+### Règles UX communes
+
+- **Filtres** : barre collante, application immédiate, pastilles des filtres actifs (✕, « Tout effacer »), **dans l'URL** (`?du=&au=&region=&service=&poste_source=&feeder=&nature=&cause=&reseau=&exogene=`), conservés d'un onglet à l'autre ; période Semaine / Mois / Année / Personnalisé avec ◀ ▶ ; « Plus de filtres » : cause, réseau HTA / HTB, facteur exogène ; région ou service imposés par le rôle (API `GET /suivi-incidents/filtres`). Un clic dans un graphique, la carte ou un classement ajoute le filtre.
+- **Formats** (`shared/utils/formats-indicateurs.ts`) : SAIFI 2 décimales, SAIDI en heures 1 décimale (détail « h mn » en infobulle), END en MWh 1 décimale (kWh sous 1 MWh), durées « 12 h 30 », pourcentages « 84,5 % ».
+- **Vocabulaire** : « interruptions » pour le total ; « incidents » = Permanent, Semi-permanent, Fugitif, délestage incident HTA ; « postes touchés » ; « coupures-clients » pour Σ clients.
+- **Couleurs métier** (`$nature-*`, `$reseau-*`) : Travaux marine, Incident orange, Délestage rouge, HTA violet, HTB magenta ; valeurs toujours écrites (pas d'information par la couleur seule) ; aplats.
+- **États** par bloc (`sir-etat`) : squelette, vide lisible avec « Effacer les filtres », erreur en français avec « Réessayer ».
+- **Accessibilité** : vrais boutons et liens, infobulles au clavier, `aria-current` sur l'onglet, contraste 4,5:1, textes ≥ 12 px ; **mobile 390 px** : filtres repliés, cibles ≥ 44 px.
+- **Composants partagés** : `sir-etat`, `sir-kpi`, `sir-graphique` (ECharts réduit : barres, courbes, secteurs), `SuiviIncidentsFiltresService`.
 
 ## 3. Écarts dans le modèle de données SIRV2
 
 | Besoin | État SIRV2 | Proposition |
 |---|---|---|
 | Cause « réseau HTB » (`Causes.CauseReseauHTB`) | absent de `causes` (`app/models/referentiel.py`) ; le rapport hebdo DD le déduit du libellé | pas de colonne : règle du rapport hebdo DD sur le libellé de la cause (décision du 25/11, §5), extraite dans une fonction partagée |
-| Cause « facteur exogène » (`Causes.FacteursExogenes`) | absent | colonne booléenne `est_exogene` (Alembic), reprise depuis SIR v1 |
+| Cause « facteur exogène » (`Causes.FacteursExogenes`) | ✅ `causes.est_exogene` (migration `6a7b8c9d0e1f`, posé d'après le libellé pour les causes existantes ; reprise SIR v1 par le loader référentiel) | à faire : exposer le drapeau dans Administration → Référentiel et reprendre `FacteursExogenes` de SIR v1 pour les causes déjà en base (le loader ne le pose qu'à l'insertion) |
 | Coordonnées des postes | calculées à la volée par nom de nœud SIG (`pilotage_repository`, ~l.560-615) | lien `postes.noeud_sig_id` (FK) + statut de localisation, calculés par une tâche Celery et non à chaque requête |
 | Géographie administrative (département, commune, localité) | absente | table `localites` (région, département, commune, localité) reprise du fichier « Postes_Affectes_Localites », FK depuis `noeuds_sig` ou `postes` |
 | Corrections manuelles (`MatchingManuel`) et recensement (`Recensement_Postes`) | partiellement couvert par le rapprochement Schéma / SIG / SIR | reprise des lignes existantes dans les tables SIRV2 du rapprochement |
@@ -97,7 +105,7 @@ Réglé par le principe du 25/11 : périmètre Dakar = région du service (SIRV2
 Restent ouvertes :
 
 1. **Lecteurs actuels** : les personnes qui n'ont qu'un accès lecture à l'ancienne app doivent avoir un compte SIRV2 avec la permission `indicateurs:read` (rôle à choisir ou à créer dans Rôles et droits).
-2. **Graphiques** : SVG maison ou bibliothèque Angular (ex. ngx-echarts) ?
+2. ~~**Graphiques**~~ — **décidé le 25/11/2026** : ngx-echarts, chargé seulement dans le menu Suivi incidents.
 
 ## 6. Comparaison des chiffres (facultative)
 
@@ -111,7 +119,7 @@ Pas un préalable : SIRV2 fait foi. Utile pour préparer les questions des utili
 ## 7. Plan de livraison (une PR par étape, circuit « tests avant le code »)
 
 1. Règle HTB par la cause dans la synthèse SAIFI/SAIDI de l'accueil — **fait le 25/11/2026**.
-2. Squelette : route `/suivi-incidents`, onglets vides, barre de filtres et filtres côté API.
+2. Fondations : route `/suivi-incidents` et onglets (routes enfants), barre de filtres dans l'URL, `GET /suivi-incidents/filtres` (période par défaut, périmètre du rôle), `causes.est_exogene`, composants partagés et ngx-echarts.
 3. Onglets sur les données existantes : SAIFI/SAIDI, Nature, Focus opérationnel, Qualité de service, Carte & évolution.
 4. Géographie : migrations Alembic (§3), import des localités (« Postes_Affectes_Localites », dépôt de l'ancienne app), lien poste ↔ SIG par tâche Celery ; puis onglets Vue d'ensemble et Localisation.
 5. Administration : reprise des corrections manuelles et du recensement dans le rapprochement Schéma / SIG / SIR.

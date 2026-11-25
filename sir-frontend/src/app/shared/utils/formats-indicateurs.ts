@@ -1,0 +1,70 @@
+/**
+ * Formats uniques des indicateurs (locale fr-FR), pour que la même grandeur s'écrive
+ * partout de la même façon : SAIFI 2 décimales, SAIDI en heures 1 décimale, END en MWh
+ * 1 décimale (kWh sous 1 MWh), durées « 12 h 30 », pourcentages « 84,5 % ».
+ */
+
+const nombre = (min: number, max: number) =>
+  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: min, maximumFractionDigits: max });
+
+const ENTIER = nombre(0, 0);
+const UNE = nombre(1, 1);
+const DEUX = nombre(2, 2);
+
+const TIRET = '—';
+
+function absent(v: number | null | undefined): v is null | undefined {
+  return v === null || v === undefined || Number.isNaN(v);
+}
+
+/** Nombre entier avec séparateur de milliers (« 12 345 »). */
+export function formatEntier(v: number | null | undefined): string {
+  return absent(v) ? TIRET : ENTIER.format(v);
+}
+
+/** SAIFI : nombre moyen de coupures par client, 2 décimales. */
+export function formatSaifi(v: number | null | undefined): string {
+  return absent(v) ? TIRET : DEUX.format(v);
+}
+
+/** SAIDI en heures, 1 décimale (« 5,4 h »). */
+export function formatSaidi(heures: number | null | undefined): string {
+  return absent(heures) ? TIRET : `${UNE.format(heures)} h`;
+}
+
+/** Détail d'une durée en heures : « 5 h 21 » (pour les infobulles). */
+export function formatDuree(heures: number | null | undefined): string {
+  if (absent(heures)) return TIRET;
+  const totalMinutes = Math.round(heures * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const mn = totalMinutes % 60;
+  if (h === 0) return `${mn} mn`;
+  return `${ENTIER.format(h)} h ${String(mn).padStart(2, '0')}`;
+}
+
+/** END : MWh avec 1 décimale, kWh entiers sous 1 MWh. */
+export function formatEnd(mwh: number | null | undefined): string {
+  if (absent(mwh)) return TIRET;
+  if (Math.abs(mwh) < 1) return `${ENTIER.format(mwh * 1000)} kWh`;
+  return `${UNE.format(mwh)} MWh`;
+}
+
+/** Pourcentage à partir d'une part (0,845 → « 84,5 % »). */
+export function formatPart(part: number | null | undefined): string {
+  return absent(part) ? TIRET : `${UNE.format(part * 100)} %`;
+}
+
+/**
+ * Écart relatif entre deux périodes (« +12,0 % »), ou null si la période de comparaison
+ * est vide (pas de division par zéro).
+ */
+export function ecartRelatif(actuel: number | null | undefined, precedent: number | null | undefined): number | null {
+  if (absent(actuel) || absent(precedent) || precedent === 0) return null;
+  return (actuel - precedent) / Math.abs(precedent);
+}
+
+export function formatEcart(ecart: number | null): string {
+  if (ecart === null) return TIRET;
+  const signe = ecart > 0 ? '+' : ecart < 0 ? '−' : '';
+  return `${signe}${UNE.format(Math.abs(ecart) * 100)} %`;
+}

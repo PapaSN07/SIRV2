@@ -9,6 +9,7 @@ import {
   notificationRelativeTime,
 } from '../../../core/notifications/notification.utils';
 import { MeResponse } from '../../models/auth.models';
+import { suiviIncidentsActif } from '../../../core/config/fonctionnalites';
 
 interface NavItem {
   label: string;
@@ -78,6 +79,11 @@ export class MainLayoutComponent implements OnDestroy {
       { label: 'Administration', icon: 'admin_panel_settings', route: '/admin/referentiel', enabled: true },
       { label: 'Utilisateurs', icon: 'group', route: '/admin/utilisateurs', enabled: true },
     ];
+    // Même accès que la route /suivi-incidents : rôles dont l'API connaît le périmètre
+    // (indicateurs_service._resolve_scope) ; un rôle créé n'y a pas encore accès.
+    if (suiviIncidentsActif() && this.auth.hasRole('BCC', 'BRC', 'ADMIN_SCR', 'ADMIN_SAQS', 'SUPERVISEUR')) {
+      items.push({ label: 'Suivi incidents', icon: 'monitoring', route: '/suivi-incidents', enabled: true });
+    }
     if (canNotif) {
       items.splice(5, 0, {
         label: 'Notifications',
@@ -96,7 +102,7 @@ export class MainLayoutComponent implements OnDestroy {
       routes.map((r) => byRoute.get(r)).filter((item): item is NavItem => !!item);
     return [
       { title: 'Exploitation', items: pick('/', '/interruptions/distribution', '/workflow/validation') },
-      { title: 'Analyse', items: pick('/rapports', '/assistant', '/notifications/sms') },
+      { title: 'Analyse', items: pick('/suivi-incidents', '/rapports', '/assistant', '/notifications/sms') },
       { title: 'Administration', items: pick('/admin/referentiel', '/admin/utilisateurs') },
     ].filter((section) => section.items.length > 0);
   });

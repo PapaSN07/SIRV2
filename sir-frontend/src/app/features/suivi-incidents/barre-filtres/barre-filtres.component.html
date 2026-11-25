@@ -1,0 +1,194 @@
+<section class="filtres" aria-label="Filtres du suivi des incidents">
+  <button
+    type="button"
+    class="filtres__bascule sir-btn sir-btn--outline sir-btn--sm"
+    [attr.aria-expanded]="ouverte()"
+    aria-controls="filtres-corps"
+    (click)="ouverte.set(!ouverte())"
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+    Filtres
+    @if (nombreActifs() > 0) {
+      <span class="filtres__compteur">{{ nombreActifs() }}<span class="sr-only"> filtres actifs</span></span>
+    }
+    <span class="filtres__periode-courte">· {{ libellePeriode() }}</span>
+  </button>
+
+  <div id="filtres-corps" class="filtres__corps" [class.filtres__corps--ouvert]="ouverte()">
+    <div class="filtres__ligne">
+      <div class="periode" role="group" aria-label="Période">
+        <div class="periode__modes" role="group" aria-label="Type de période">
+          @for (m of modes; track m.id) {
+            <button
+              type="button"
+              class="periode__mode"
+              [class.periode__mode--actif]="modeAffiche() === m.id"
+              [attr.aria-pressed]="modeAffiche() === m.id"
+              (click)="choisirMode(m.id)"
+            >
+              {{ m.libelle }}
+            </button>
+          }
+        </div>
+
+        @if (modeAffiche() === 'personnalise') {
+          <label class="periode__date">
+            <span>Du</span>
+            <input type="date" [value]="f.filtres().debut" [max]="f.filtres().fin" (change)="changerDate('debut', $any($event.target))" />
+          </label>
+          <label class="periode__date">
+            <span>au</span>
+            <input type="date" [value]="f.filtres().fin" [min]="f.filtres().debut" (change)="changerDate('fin', $any($event.target))" />
+          </label>
+        } @else {
+          <div class="periode__nav">
+            <button type="button" class="sir-icon-btn" aria-label="Période précédente" (click)="f.decaler(-1)">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+            </button>
+            <span class="periode__libelle" aria-live="polite">{{ libellePeriode() }}</span>
+            <button
+              type="button"
+              class="sir-icon-btn"
+              [attr.aria-label]="f.finAtteinte() ? 'Période suivante : pas encore commencée' : 'Période suivante'"
+              [attr.aria-disabled]="f.finAtteinte()"
+              [attr.data-tip]="f.finAtteinte() ? 'La période suivante n’est pas encore commencée' : null"
+              (click)="f.finAtteinte() || f.decaler(1)"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="filtres__ligne filtres__champs">
+      @if (!f.regionVerrouillee() && !f.serviceVerrouille()) {
+        <label class="champ">
+          <span class="champ__libelle">Région</span>
+          <select class="sir-select" (change)="changerEntier('region_id', $any($event.target).value)">
+            <option value="" [selected]="f.filtres().region_id === null">Toutes les régions</option>
+            @for (r of regions(); track r.id) {
+              <option [value]="r.id" [selected]="f.filtres().region_id === r.id">{{ r.libelle }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="champ champ--large">
+        <span class="champ__libelle">Poste source</span>
+        <input
+          class="sir-select"
+          type="search"
+          list="liste-postes-sources"
+          placeholder="Tous les postes sources"
+          autocomplete="off"
+          [value]="posteSourceSaisi()"
+          [attr.aria-invalid]="posteInconnu()"
+          [attr.aria-describedby]="posteInconnu() ? 'poste-inconnu' : null"
+          (change)="changerPosteSource($any($event.target))"
+        />
+        @if (posteInconnu()) {
+          <span id="poste-inconnu" class="champ__erreur" role="alert">Poste source introuvable : choisissez-le dans la liste.</span>
+        }
+        <datalist id="liste-postes-sources">
+          @for (p of postesSources(); track p.id) {
+            <option [value]="p.libelle"></option>
+          }
+        </datalist>
+      </label>
+
+      <label class="champ">
+        <span class="champ__libelle">Nature</span>
+        <select class="sir-select" (change)="changerEntier('nature_id', $any($event.target).value)">
+          <option value="" [selected]="f.filtres().nature_id === null">Toutes les natures</option>
+          @for (n of natures(); track n.id) {
+            <option [value]="n.id" [selected]="f.filtres().nature_id === n.id">{{ n.libelle }}</option>
+          }
+        </select>
+      </label>
+
+      <button
+        type="button"
+        class="sir-btn sir-btn--ghost sir-btn--sm filtres__plus"
+        [attr.aria-expanded]="plusDeFiltres()"
+        aria-controls="filtres-plus"
+        (click)="plusDeFiltres.set(!plusDeFiltres())"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">{{ plusDeFiltres() ? 'expand_less' : 'expand_more' }}</span>
+        {{ plusDeFiltres() ? 'Moins de filtres' : 'Plus de filtres' }}
+      </button>
+    </div>
+
+    @if (plusDeFiltres()) {
+      <div id="filtres-plus" class="filtres__ligne filtres__champs">
+        <label class="champ champ--large">
+          <span class="champ__libelle">Cause</span>
+          <select class="sir-select" (change)="changerEntier('cause_id', $any($event.target).value)">
+            <option value="" [selected]="f.filtres().cause_id === null">Toutes les causes</option>
+            @for (c of causes(); track c.id) {
+              <option [value]="c.id" [selected]="f.filtres().cause_id === c.id">{{ c.libelle }}</option>
+            }
+          </select>
+        </label>
+        <label class="champ">
+          <span class="champ__libelle">Réseau en cause</span>
+          <select class="sir-select" (change)="changerReseau($any($event.target).value)">
+            <option value="" [selected]="f.filtres().reseau === null">HTA et HTB</option>
+            <option value="hta" [selected]="f.filtres().reseau === 'hta'">HTA</option>
+            <option value="htb" [selected]="f.filtres().reseau === 'htb'">HTB (réseau HTB, production)</option>
+          </select>
+        </label>
+        <label class="champ">
+          <span class="champ__libelle">Facteur exogène</span>
+          <select class="sir-select" (change)="changerExogene($any($event.target).value)">
+            <option value="" [selected]="f.filtres().exogene === null">Avec et sans</option>
+            <option value="oui" [selected]="f.filtres().exogene === true">Oui seulement</option>
+            <option value="non" [selected]="f.filtres().exogene === false">Non seulement</option>
+          </select>
+        </label>
+      </div>
+    }
+
+    @if (f.erreur(); as erreur) {
+      <p class="filtres__alerte" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        {{ erreur }}
+      </p>
+    }
+    @if (f.avertissement(); as avertissement) {
+      <p class="filtres__info" role="status">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        {{ avertissement }}
+      </p>
+    }
+
+    <button type="button" class="sir-btn sir-btn--primary filtres__fermer" (click)="ouverte.set(false)">
+      Voir les résultats
+    </button>
+
+    @if (listesErreur()) {
+      <p class="filtres__alerte" role="alert">
+        Les listes de choix n’ont pas pu être chargées.
+        <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="chargerListes()">Réessayer</button>
+      </p>
+    }
+  </div>
+
+  @if (pastilles().length > 0) {
+    <ul class="pastilles" aria-label="Filtres actifs">
+      @for (p of pastilles(); track p.cle) {
+        <li class="pastille">
+          <span><span class="pastille__cle">{{ p.libelle }} :</span> {{ p.valeur }}</span>
+          @if (!p.verrouillee) {
+            <button type="button" class="pastille__retirer" [attr.aria-label]="'Retirer le filtre ' + p.libelle" (click)="f.effacer(p.cle)">
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          }
+        </li>
+      }
+      <li>
+        <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="f.toutEffacer()">Tout effacer</button>
+      </li>
+    </ul>
+  }
+</section>

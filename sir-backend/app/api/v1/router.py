@@ -15,6 +15,7 @@ from app.api.v1.assistant.router import router as assistant_router
 from app.api.v1.clients.router import router as clients_router
 from app.api.v1.schemas_unifilaires.rapprochement_router import router as schemas_rapprochement_router
 from app.api.v1.schemas_unifilaires.router import router as schemas_unifilaires_router
+from app.api.v1.suivi_incidents.router import router as suivi_incidents_router
 
 api_router = APIRouter()
 
@@ -26,6 +27,7 @@ api_router.include_router(reseau_router, prefix="/reseau", tags=["reseau"])
 api_router.include_router(distrib_router, prefix="/interruptions/distribution", tags=["interruptions-distribution"])
 api_router.include_router(transport_router, prefix="/interruptions/transport", tags=["interruptions-transport"])
 api_router.include_router(indicateurs_router, prefix="/indicateurs", tags=["indicateurs"])
+api_router.include_router(suivi_incidents_router, prefix="/suivi-incidents", tags=["suivi-incidents"])
 api_router.include_router(rapports_router, prefix="/rapports", tags=["rapports"])
 api_router.include_router(napt_router, prefix="/napt", tags=["napt"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])

@@ -10,8 +10,27 @@ import { CanActivateFn, Router } from '@angular/router';
  */
 export const FONCTIONNALITES = {
   transport: false,
+  /**
+   * Menu « Suivi incidents » (fusion du tableau de bord Suivi incidents SIR, en construction).
+   * Masqué tant que la recette n'est pas faite ; visible en aperçu sur un poste qui a
+   * `localStorage['sir_apercu']` contenant « suivi-incidents ».
+   */
+  suiviIncidents: false,
 } as const;
 
 /** Route d'une partie masquée : retour à l'accueil. */
 export const transportActifGuard: CanActivateFn = () =>
   FONCTIONNALITES.transport ? true : inject(Router).createUrlTree(['/']);
+
+/** Menu Suivi incidents affiché : activé, ou aperçu demandé sur ce poste. */
+export function suiviIncidentsActif(): boolean {
+  if (FONCTIONNALITES.suiviIncidents) return true;
+  try {
+    return (localStorage.getItem('sir_apercu') ?? '').split(',').includes('suivi-incidents');
+  } catch {
+    return false;
+  }
+}
+
+export const suiviIncidentsActifGuard: CanActivateFn = () =>
+  suiviIncidentsActif() ? true : inject(Router).createUrlTree(['/']);

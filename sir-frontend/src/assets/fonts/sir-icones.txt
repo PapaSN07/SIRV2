@@ -38,6 +38,7 @@ close
 code
 compare
 compare_arrows
+construction
 contacts
 content_cut
 cookie
@@ -47,6 +48,7 @@ dashboard
 delete
 description
 details
+docs
 domain
 done
 done_all
@@ -94,6 +96,7 @@ http
 https
 hub
 iframe
+inbox
 info
 input
 inventory_2
@@ -120,6 +123,7 @@ margin
 menu
 merge
 message
+mobile
 mode
 monitoring
 more_vert
@@ -187,10 +191,12 @@ settings
 settings_backup_restore
 shadow
 share_location
+show_chart
 simulation
 sms
 sort
 source
+space_dashboard
 speed
 start
 step
@@ -215,9 +221,12 @@ toast
 today
 token
 toolbar
+tooltip
 touch_app
 transform
 travel_explore
+trending_down
+trending_flat
 trending_up
 try
 tune
@@ -226,6 +235,7 @@ unfold_more
 unsubscribe
 update
 upload_file
+variables
 verified
 verified_user
 visibility

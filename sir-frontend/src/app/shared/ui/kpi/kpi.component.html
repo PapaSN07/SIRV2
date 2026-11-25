@@ -1,0 +1,23 @@
+<article class="kpi" [attr.aria-label]="libelle()">
+  <p class="kpi__libelle">
+    {{ libelle() }}
+    @if (aide()) {
+      <span class="kpi__aide material-symbols-outlined" tabindex="0" role="img" [attr.aria-label]="aide()" [attr.data-tip]="aide()">info</span>
+    }
+  </p>
+  <p class="kpi__valeur">
+    {{ valeur() }}
+    @if (unite()) {
+      <span class="kpi__unite">{{ unite() }}</span>
+    }
+  </p>
+  @if (tendance(); as t) {
+    <p class="kpi__ecart" [class]="'kpi__ecart kpi__ecart--' + t">
+      <span class="material-symbols-outlined" aria-hidden="true">{{ icone() }}</span>
+      {{ ecartTexte() }} <span class="kpi__ecart-ref">vs période précédente</span>
+    </p>
+  }
+  @if (detail()) {
+    <p class="kpi__detail">{{ detail() }}</p>
+  }
+</article>

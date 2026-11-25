@@ -1,4 +1,4 @@
-from sqlalchemy import NVARCHAR, Boolean, CheckConstraint, Integer
+from sqlalchemy import NVARCHAR, Boolean, CheckConstraint, Integer, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -16,6 +16,8 @@ class Cause(Base):
     # distribution | transport | commun
     type_reseau: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Facteur exogène (choc accidentel, agression, malveillance…) : Causes.FacteursExogenes de SIR v1
+    est_exogene: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
 
     __table_args__ = (
         CheckConstraint(

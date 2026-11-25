@@ -1,0 +1,293 @@
+@use '../../../../styles/sir-tokens' as *;
+
+.filtres {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: #fff;
+  border: 1px solid $border-soft;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-1;
+}
+
+.filtres__bascule,
+.filtres__fermer {
+  display: none;
+}
+
+.filtres__corps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.filtres__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.filtres__plus {
+  align-self: flex-end;
+}
+
+.filtres__info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: $sen-navy;
+  font-size: 0.8125rem;
+}
+
+.champ__erreur {
+  color: $danger-fg;
+  font-size: 0.75rem;
+}
+
+.sir-icon-btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.filtres__alerte {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: $danger-fg;
+  font-size: 0.8125rem;
+}
+
+// ── Période ─────────────────────────────────────────────────────────────────
+.periode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.periode__modes {
+  display: inline-flex;
+  padding: 3px;
+  background: $surface-container;
+  border-radius: $radius-sm;
+}
+
+.periode__mode {
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: $on-surface-variant;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &--actif {
+    background: #fff;
+    color: $sen-navy;
+    box-shadow: $shadow-1;
+    font-weight: 600;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-focus;
+  }
+}
+
+.periode__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.periode__libelle {
+  min-width: 13rem;
+  text-align: center;
+  font-family: $font-display;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: $sen-navy;
+  font-variant-numeric: tabular-nums;
+}
+
+.periode__date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: $on-surface-variant;
+
+  input {
+    height: 2.4rem;
+    padding: 0 0.5rem;
+    border: 1px solid $outline-variant;
+    border-radius: $radius-sm;
+    font: inherit;
+    color: $on-surface;
+  }
+}
+
+// ── Champs ──────────────────────────────────────────────────────────────────
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 1 12rem;
+  min-width: 10rem;
+
+  &--large {
+    flex-basis: 16rem;
+  }
+
+  .sir-select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+.champ__libelle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: $on-surface-variant;
+}
+
+// ── Pastilles des filtres actifs ────────────────────────────────────────────
+.pastilles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.625rem 0 0;
+  list-style: none;
+  border-top: 1px solid $border-soft;
+}
+
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0 0.25rem 0 0.75rem;
+  background: $surface-container-high;
+  border-radius: 999px;
+  color: $sen-navy;
+  font-size: 0.8125rem;
+}
+
+.pastille__cle {
+  font-weight: 600;
+}
+
+.pastille__retirer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: $sen-navy;
+  cursor: pointer;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background: rgba($sen-navy, 0.08);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-focus;
+  }
+}
+
+.filtres__compteur {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: $sen-primary;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.filtres__periode-courte {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+// ── Mobile : barre repliée derrière « Filtres (n) » ─────────────────────────
+@media (max-width: 767.98px) {
+  .filtres__bascule {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    max-width: 100%;
+  }
+
+  .filtres__corps {
+    display: none;
+
+    &--ouvert {
+      display: flex;
+    }
+  }
+
+  .champ,
+  .champ--large {
+    flex: 1 1 100%;
+  }
+
+  .periode__libelle {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .periode__nav {
+    width: 100%;
+  }
+
+  .periode__mode,
+  .pastille__retirer {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .periode__nav .sir-icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .sir-select,
+  .periode__date input {
+    height: 2.75rem;
+  }
+
+  .filtres__plus,
+  .pastilles .sir-btn {
+    min-height: 2.75rem;
+  }
+
+  .filtres__fermer {
+    display: inline-flex;
+    justify-content: center;
+    min-height: 2.75rem;
+  }
+}

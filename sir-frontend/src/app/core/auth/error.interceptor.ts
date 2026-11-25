@@ -1,8 +1,14 @@
-import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
+
+/**
+ * Requête dont l'appelant traite lui-même un 403 (ex. filtres hors périmètre retirés puis
+ * relancés) : pas de renvoi vers « Accès refusé ».
+ */
+export const SANS_REDIRECTION_403 = new HttpContextToken<boolean>(() => false);
 
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/refresh', '/auth/change-password', '/auth/logout'];
 
@@ -77,7 +83,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           }),
         );
       }
-      if (error.status === 403 && !isAuthEndpoint(req)) {
+      if (error.status === 403 && !isAuthEndpoint(req) && !req.context.get(SANS_REDIRECTION_403)) {
         void router.navigate(['/acces-refuse']);
       }
       return throwError(() => (error instanceof HttpErrorResponse ? withReadableMessage(error) : error));

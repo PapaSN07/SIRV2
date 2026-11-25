@@ -56,18 +56,30 @@ $error: #e5484d;
 $tertiary-container: $senelec-orange-dark;
 $success: #1e9e6a;
 $success-bg: #e9f6ef;
+// Texte « succès » sur fond clair (contraste 5,3:1)
+$success-fg: #157a52;
 $warning: #f5a524;
 $warning-fg: #b47714;
 $warning-bg: #fdf3e2;
 $danger: #e5484d;
 $danger-bg: #fdecec;
+// Texte d'erreur sur fond clair (contraste 6,5:1 ; $danger seul n'atteint pas 4,5:1)
+$danger-fg: #b42318;
+
+// Couleurs métier (menu Suivi incidents) — miroir de shared/ui/graphique/couleurs-metier.ts
+$nature-travaux: $sen-navy;
+$nature-incident: $sen-orange;
+$nature-delestage: $sen-red;
+$reseau-hta: $sen-primary;
+$reseau-htb: $sen-magenta;
 
 $radius-sm: 8px;
 $radius-md: 12px;
 $radius-lg: 14px;
 $shadow-1: 0 1px 2px rgba(26, 22, 38, 0.05);
 $shadow-2: 0 8px 22px rgba(38, 32, 81, 0.16);
-$shadow-focus: 0 0 0 3px rgba(91, 42, 158, 0.18);
+// Anneau de focus visible sur tout fond (contraste ≥ 3:1, WCAG 1.4.11)
+$shadow-focus: 0 0 0 2px #fff, 0 0 0 4px $sen-primary;
 $font-display: 'Poppins', 'Inter', sans-serif;
 
 $sidebar-width: 248px;

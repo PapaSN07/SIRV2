@@ -1,4 +1,4 @@
-import { transportActifGuard } from './core/config/fonctionnalites';
+import { suiviIncidentsActifGuard, transportActifGuard } from './core/config/fonctionnalites';
 import { Routes } from '@angular/router';
 import { authGuard, premiereConnexionGuard, roleGuard } from './core/auth/role.guard';
 
@@ -146,6 +146,16 @@ export const routes: Routes = [
           import('./features/indicateurs/indicateurs-hub/indicateurs-hub.component').then(
             (m) => m.IndicateursHubComponent,
           ),
+      },
+      {
+        path: 'suivi-incidents',
+        canActivate: [suiviIncidentsActifGuard, roleGuard],
+        // Rôles seulement : l'API ne connaît le périmètre que de ces rôles (_resolve_scope)
+        data: { roles: INDICATEURS_ROLES },
+        loadComponent: () =>
+          import('./features/suivi-incidents/suivi-incidents.component').then((m) => m.SuiviIncidentsComponent),
+        loadChildren: () =>
+          import('./features/suivi-incidents/suivi-incidents.routes').then((m) => m.SUIVI_INCIDENTS_ROUTES),
       },
       {
         path: 'indicateurs/base-clients/atelier',

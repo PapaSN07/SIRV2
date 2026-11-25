@@ -71,6 +71,8 @@ class ReferentielLoader(BaseLoader):
                         libelle=libelle[:200],
                         type_reseau=type_reseau,
                         is_active=True,
+                        # Causes.FacteursExogenes (SIR v1) : choc accidentel, agression, malveillance…
+                        est_exogene=_drapeau(row.get("FacteursExogenes") or row.get("facteursexogenes")),
                     )
                     self.session.add(obj)
                     self.session.flush()
@@ -246,3 +248,13 @@ class ReferentielLoader(BaseLoader):
                     new_id = obj.id
                     self.stats["inserted"] += 1
             self.id_maps.put("types_reseaux", legacy_id, new_id)
+
+
+def _drapeau(valeur: object) -> bool:
+    """Booléen HFSQL (1 / 0, « Vrai » / « Faux », octets) → bool ; absent = faux."""
+    if isinstance(valeur, (bytes, bytearray)):
+        # BIT rendu en octets par le pilote (b'') : vrai si un octet est non nul
+        return any(valeur)
+    if isinstance(valeur, str):
+        return valeur.strip().lower() in {"1", "vrai", "true", "oui", "o", "-1"}
+    return bool(valeur)
