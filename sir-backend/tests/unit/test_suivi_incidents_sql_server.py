@@ -464,3 +464,149 @@ def test_requete_saifi_regroupement_inconnu(regroupement: str) -> None:
 
     with pytest.raises((ValueError, KeyError)):
         repo.requete_saifi(_filtres(), SERVICES_PERIMETRE, regroupement)
+
+
+# --------------------------------------------------------------------------------------------
+# Étape 6a — Carte et Localisation (spécification §11)
+#
+# - ``requete_postes_touches(filtres)`` : **un** ``Select`` groupé par poste (postes.id, code,
+#   libellé, feeder **du poste** — jointure ``feeders.id = postes.feeder_id`` — et son libellé,
+#   poste source de ce feeder et son libellé) ; interruptions distinctes (COUNT DISTINCT),
+#   Σ durée (CAST BIGINT / FLOAT), Σ clients du poste (estimés, sinon touchés : CAST BIGINT) ;
+# - ``requete_postes_natures(filtres)`` : **un** ``Select`` groupé par (poste, natures.libelle,
+#   causes.libelle) ;
+# - ``requete_rapprochement_sig(poste_ids)`` : **liste** de ``Select`` (une par lot de 500
+#   identifiants au plus, limite de 2 100 paramètres de SQL Server) ; liste vide sans identifiant.
+#   Vérification : compilé avec ``literal_binds``, chaque ``IN (…)`` contient au plus 500 valeurs et
+#   l'union des lots couvre tous les identifiants, chacun une fois ; nœud actif ``= 1`` (jamais IS 1).
+# --------------------------------------------------------------------------------------------
+
+_JOINTURE_FEEDER_DU_POSTE = re.compile(
+    r"(?:dbo\.)?feeders\.id\s*=\s*(?:dbo\.)?postes\.feeder_id"
+    r"|(?:dbo\.)?postes\.feeder_id\s*=\s*(?:dbo\.)?feeders\.id",
+    re.IGNORECASE,
+)
+_JOINTURE_PS_DU_FEEDER = re.compile(
+    r"(?:dbo\.)?postes_sources\.id\s*=\s*(?:dbo\.)?feeders\.poste_source_id"
+    r"|(?:dbo\.)?feeders\.poste_source_id\s*=\s*(?:dbo\.)?postes_sources\.id",
+    re.IGNORECASE,
+)
+
+
+def _un_select(fabrique: Callable[..., object], *args: object) -> Select:
+    requete = fabrique(*args)
+    assert isinstance(requete, Select), f"un seul Select attendu, reçu {type(requete)}"
+    return requete
+
+
+@pytest.mark.parametrize("variante", VARIANTES, ids=lambda v: ",".join(v) or "aucun")
+def test_requete_postes_touches_sql_server(variante: dict[str, object]) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    sql = _sql(_un_select(repo.requete_postes_touches, _filtres(**variante)))
+    _controles_communs(sql)
+    liste_select, group_by = _clauses_externes(sql)
+    assert group_by is not None, f"agrégation par poste faite par la base : {sql}"
+    colonnes_gb = _colonnes(group_by)
+    assert ("postes", "id") in colonnes_gb, sql
+    # Feeder et poste source **du poste** (pas ceux de l'interruption)
+    assert _JOINTURE_FEEDER_DU_POSTE.search(sql), f"feeder du poste non joint par postes.feeder_id : {sql}"
+    assert _JOINTURE_PS_DU_FEEDER.search(sql), f"poste source du feeder non joint : {sql}"
+    assert {("feeders", "libelle"), ("postes_sources", "libelle")} <= _colonnes(liste_select), sql
+    # Interruptions distinctes, Σ durée et Σ clients du poste (CAST vérifiés par _controles_communs)
+    assert any(
+        re.search(r"DISTINCT\s*\(?\s*(?:dbo\.)?interruptions\.id\b", a, re.IGNORECASE)
+        for a in _arguments(sql, "COUNT")
+    ), f"COUNT(DISTINCT interruptions.id) attendu : {sql}"
+    sommes = _arguments(sql, "SUM")
+    assert any("duree_minutes" in a for a in sommes), f"Σ durée absente : {sql}"
+    assert any(
+        "nombre_clients_estime" in a and "poste_interruptions.nombre_clients_touches" in a for a in sommes
+    ), f"Σ clients du poste (estimés, sinon touchés du poste) absente : {sql}"
+    assert "poste_interruptions" in sql
+
+
+@pytest.mark.parametrize("variante", VARIANTES, ids=lambda v: ",".join(v) or "aucun")
+def test_requete_postes_natures_sql_server(variante: dict[str, object]) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    sql = _sql(_un_select(repo.requete_postes_natures, _filtres(**variante)))
+    _controles_communs(sql)
+    _, group_by = _clauses_externes(sql)
+    assert group_by is not None, f"agrégation faite par la base : {sql}"
+    colonnes_gb = _colonnes(group_by)
+    assert ("natures", "libelle") in colonnes_gb, sql
+    assert ("causes", "libelle") in colonnes_gb, sql
+    assert colonnes_gb & {("postes", "id"), ("poste_interruptions", "poste_id")}, f"poste absent du GROUP BY : {sql}"
+    assert "poste_interruptions" in sql
+
+
+@pytest.mark.parametrize(
+    "fabrique",
+    [lambda repo, f: repo.requete_postes_touches(f), lambda repo, f: repo.requete_postes_natures(f)],
+    ids=["postes_touches", "postes_natures"],
+)
+def test_requetes_etape6a_reprennent_appliquer_filtres(fabrique: Callable[..., object]) -> None:
+    """Période fin incluse, distribution, région imposée, exogène : par appliquer_filtres."""
+    from app.repositories import suivi_incidents_repository as repo
+
+    sql = _sql_lie(fabrique(repo, _filtres(region_id=2, exogene=True)))
+    assert "'distribution'" in sql
+    assert "2026-11-14" in sql and "2026-11-21" in sql
+    assert "interruptions.region_id = 2" in sql
+    assert "causes.est_exogene = 1" in sql
+    assert "IS 1" not in sql
+    # une seule jointure sur causes (cause_jointe quand la requête la joint déjà)
+    assert len(re.findall(r"JOIN\s+(?:dbo\.)?causes\b", sql, re.IGNORECASE)) <= 1, sql
+
+
+def _valeurs_in(sql: str) -> list[list[int]]:
+    """Valeurs de chaque ``IN (…)`` d'entiers d'un SQL compilé avec literal_binds (les ``IN`` de
+    textes, par exemple ``rapprochement_sig IN ('auto', 'manuel')``, sont ignorés)."""
+    listes = []
+    for argument in _arguments(sql, "IN"):
+        if re.fullmatch(r"\s*-?\d+(?:\s*,\s*-?\d+)*\s*", argument):
+            listes.append([int(v) for v in re.findall(r"-?\d+", argument)])
+    return listes
+
+
+@pytest.mark.parametrize("nombre", [1, 499, 500, 501, 1200])
+def test_requete_rapprochement_sig_lots_de_500(nombre: int) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    ids = list(range(1, nombre + 1))
+    requetes = repo.requete_rapprochement_sig(ids)
+    assert isinstance(requetes, (list, tuple)), f"liste de Select attendue, reçu {type(requetes)}"
+    assert len(requetes) == -(-nombre // 500), "un Select par lot de 500 identifiants"
+    vus: list[int] = []
+    for requete in requetes:
+        assert isinstance(requete, Select), type(requete)
+        sql = _sql_lie(requete)
+        listes = _valeurs_in(sql)
+        assert len(listes) == 1, f"un seul filtre IN d'identifiants de postes attendu : {sql[:500]}"
+        assert len(listes[0]) <= 500, f"IN de {len(listes[0])} valeurs (> 500)"
+        vus.extend(listes[0])
+    assert sorted(vus) == ids, "chaque identifiant dans un lot, une seule fois"
+
+
+def test_requete_rapprochement_sig_sans_identifiant() -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    assert list(repo.requete_rapprochement_sig([])) == []
+
+
+def test_requete_rapprochement_sig_sql_server() -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    (requete,) = repo.requete_rapprochement_sig([1, 2, 3])
+    sql = _sql(requete)
+    _controles_communs(sql)
+    bas = sql.lower()
+    assert re.search(r"\bschema_unifilaire_postes\b", bas), sql
+    assert re.search(r"\bnoeuds_sig\b", bas), sql
+    colonnes = _colonnes(_clauses_externes(sql)[0])
+    assert ("schema_unifilaire_postes", "poste_id") in colonnes, sql
+    assert {("noeuds_sig", "coord_x"), ("noeuds_sig", "coord_y")} <= colonnes, sql
+    lie = _sql_lie(requete)
+    assert "noeuds_sig.est_actif = 1" in lie, f"nœud actif attendu (== true()) : {lie}"
+    assert "IS 1" not in lie and "IS 0" not in lie
