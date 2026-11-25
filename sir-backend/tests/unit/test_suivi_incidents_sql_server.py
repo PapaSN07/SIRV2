@@ -256,3 +256,108 @@ def test_requetes_reprennent_appliquer_filtres(fabrique: Callable[..., object]) 
         assert "interruptions.region_id = 2" in sql
         assert "causes.est_exogene = 1" in sql
         assert "IS 1" not in sql
+
+
+# --------------------------------------------------------------------------------------------
+# Étape 4 — Évolution et Réseau (spécification §9)
+#
+# - ``requete_evolution(filtres)`` : regroupement par jour (CAST(date_apparition AS DATE), valide
+#   sous SQL Server dans le SELECT et le GROUP BY), nature et cause ;
+# - ``requete_reseau(filtres, niveau)`` : sommes par poste source ou feeder (niveau feeder : libellé
+#   du poste source du feeder lu dans postes_sources) ;
+# - ``requete_reseau_postes(filtres, niveau)`` : postes distincts de poste_interruptions par ligne ;
+# - niveau inconnu → ValueError (KeyError toléré), jamais traduit en SQL.
+# --------------------------------------------------------------------------------------------
+
+NIVEAUX_RESEAU = ("poste_source", "feeder")
+_CAST_JOUR = re.compile(r"CAST\s*\(\s*(?:dbo\.)?interruptions\.date_apparition\s+AS\s+DATE\s*\)", re.IGNORECASE)
+
+
+@pytest.mark.parametrize("variante", VARIANTES, ids=lambda v: ",".join(v) or "aucun")
+def test_requete_evolution_sql_server(variante: dict[str, object]) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    textes = [_sql(r) for r in _requetes(repo.requete_evolution, _filtres(**variante))]
+    for sql in textes:
+        _controles_communs(sql)
+    assert len(textes) == 1, "une seule requête groupée par jour, nature et cause"
+    sql = textes[0]
+    liste_select, group_by = _clauses_externes(sql)
+    assert group_by is not None, f"agrégation faite par la base : {sql}"
+    # jour = CAST(date_apparition AS DATE), dans le SELECT et à l'identique dans le GROUP BY
+    assert _CAST_JOUR.search(liste_select), f"jour absent du SELECT : {sql}"
+    assert _CAST_JOUR.search(group_by), f"jour absent du GROUP BY : {sql}"
+    # libellés de nature et de cause pour categorie_nature
+    assert ("natures", "libelle") in _colonnes(group_by), sql
+    assert ("causes", "libelle") in _colonnes(group_by), sql
+    assert "end_mwh" in sql
+
+
+@pytest.mark.parametrize("niveau", NIVEAUX_RESEAU)
+@pytest.mark.parametrize("variante", VARIANTES, ids=lambda v: ",".join(v) or "aucun")
+def test_requete_reseau_sql_server(niveau: str, variante: dict[str, object]) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    textes = [_sql(r) for r in _requetes(repo.requete_reseau, _filtres(**variante), niveau)]
+    for sql in textes:
+        _controles_communs(sql)
+    tout = " ".join(textes)
+    bas = tout.lower()
+    assert "group by" in bas
+    table = {"poste_source": "postes_sources", "feeder": "feeders"}[niveau]
+    assert re.search(rf"\b{table}\b", bas), f"libellé du niveau {niveau} non lu dans {table}"
+    if niveau == "feeder":
+        assert re.search(r"\bpostes_sources\b", bas), "libellé du poste source du feeder non lu"
+    # Σ coupures-clients faite par la base (CAST BIGINT / FLOAT vérifié par _controles_communs)
+    assert any("nombre_clients_touches" in a for a in _arguments(tout, "SUM")), "Σ nombre_clients_touches absente"
+    assert "end_mwh" in tout
+
+
+@pytest.mark.parametrize("niveau", NIVEAUX_RESEAU)
+@pytest.mark.parametrize("variante", VARIANTES, ids=lambda v: ",".join(v) or "aucun")
+def test_requete_reseau_postes_sql_server(niveau: str, variante: dict[str, object]) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    textes = [_sql(r) for r in _requetes(repo.requete_reseau_postes, _filtres(**variante), niveau)]
+    for sql in textes:
+        _controles_communs(sql)
+    tout = " ".join(textes)
+    assert "poste_interruptions" in tout
+    assert "group by" in tout.lower()
+    assert re.search(r"\bDISTINCT\b", tout, re.IGNORECASE), "postes distincts attendus"
+
+
+@pytest.mark.parametrize("fabrique", ["requete_reseau", "requete_reseau_postes"])
+@pytest.mark.parametrize("niveau", ["region", "commune", ""])
+def test_requetes_reseau_niveau_inconnu(fabrique: str, niveau: str) -> None:
+    from app.repositories import suivi_incidents_repository as repo
+
+    with pytest.raises((ValueError, KeyError)):
+        getattr(repo, fabrique)(_filtres(), niveau)
+
+
+@pytest.mark.parametrize(
+    "fabrique",
+    [
+        lambda repo, f: repo.requete_evolution(f),
+        lambda repo, f: repo.requete_reseau(f, "poste_source"),
+        lambda repo, f: repo.requete_reseau(f, "feeder"),
+        lambda repo, f: repo.requete_reseau_postes(f, "poste_source"),
+        lambda repo, f: repo.requete_reseau_postes(f, "feeder"),
+    ],
+    ids=["evolution", "reseau-poste_source", "reseau-feeder", "postes-poste_source", "postes-feeder"],
+)
+def test_requetes_etape4_reprennent_appliquer_filtres(fabrique: Callable[..., object]) -> None:
+    """Période fin incluse, distribution, région imposée, exogène : par appliquer_filtres."""
+    from app.repositories import suivi_incidents_repository as repo
+
+    resultat = fabrique(repo, _filtres(region_id=2, exogene=True))
+    requetes = list(resultat) if isinstance(resultat, (list, tuple)) else [resultat]
+    assert requetes
+    for requete in requetes:
+        sql = _sql_lie(requete)
+        assert "'distribution'" in sql
+        assert "2026-11-14" in sql and "2026-11-21" in sql
+        assert "interruptions.region_id = 2" in sql
+        assert "causes.est_exogene = 1" in sql
+        assert "IS 1" not in sql

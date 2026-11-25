@@ -37,6 +37,27 @@ Interruptions distribution de S47 (tous statuts) :
 Hors S47 : 201 transport (S47, ignorée), 203 le 21/11 à 0 h, 205 le 06/11 (avant S46).
 S46 : 202 (13/11 23 h, Dakar, SDDV, PS 1, F1, 60 min, 400 clients, 0.8 MWh, P1) et
 204 (07/11 0 h, Régions, DRS, PS 3, F4, 20 min, 100 clients, 0.1 MWh, sans poste).
+
+Ajouts de l'étape 4 (Évolution, Réseau), hors des périodes lues par les tests de l'étape 3
+(S46, S47, 13/11 → 16/11, 05/12 → 11/12) :
+
+- feeder 5 « DEPART ISOLE » (F-ISOLE) **sans poste source** ; feeders 10 à 21 « MARS DEPART 10 »
+  à « MARS DEPART 21 » (F-M10 … F-M21, poste source HANN).
+
+| id  | apparition       | rég | svc | PS | feeder | nature | cause    | durée | clients | END  | postes | catégorie |
+|-----|------------------|-----|-----|----|--------|--------|----------|-------|---------|------|--------|-----------|
+| 301 | 10/08/2026 10:00 | 1   | 1   | 1  | 1      | PERM   | 1        | 60    | 100     | 0.3  | P1     | incident  |
+| 302 | 31/08/2026 23:30 | 2   | 3   | 3  | 4      | DEL    | 1        | 30    | 200     | 0.4  | P5     | delestage |
+| 303 | 01/09/2026 00:00 | 1   | 2   | 2  | 3      | COUP   | 3 (trav) | 120   | 50      | 0.6  | P4     | travaux   |
+| 304 | 03/10/2026 10:00 | 1   | 1   | —  | 1      | PERM   | 1        | 60    | 100     | 0.3  | P1, P2 | incident  |
+| 305 | 10/10/2026 08:00 | 1   | 1   | —  | 5      | FUG    | 4 (exo)  | 30    | 200     | 0.4  | P6     | incident  |
+| 306 | 10/10/2026 09:00 | 1   | 1   | —  | 5      | FUG    | 4 (exo)  | 10    | 30      | 0.1  | P6     | incident  |
+| 307 | 31/12/2026 22:00 | 1   | 1   | 1  | 2      | PERM   | 2 (HTB)  | 45    | 300     | 0.9  | P3     | autre     |
+| 308 | 02/01/2027 06:00 | 2   | 3   | 3  | 4      | DEL    | 6 (PROD) | 20    | 400     | 0.5  | P5     | delestage |
+| 309 | 08/01/2027 12:00 | 1   | 2   | 2  | 3      | COUP   | 5 (manœ) | 15    | 60      | 0.05 | P4     | autre     |
+| 310 à 321 | 10/03/2026 08:00 | 1 | 1 | 1 | 10 à 21 | PERM | 1     | 10    | 10      | 0.01 | —      | incident  |
+
+304 à 306 : poste source de l'interruption non renseigné (le feeder, lui, en a un ou non).
 """
 
 from __future__ import annotations
@@ -105,6 +126,20 @@ _INTERRUPTIONS: list[tuple[Any, ...]] = [
     # --- semaine précédente (S46) ---
     (202, "distribution", "valide", "2026-11-13 23:00:00", 1, 1, 1, 1, 1, 1, 60, 400, 0.8, [1]),
     (204, "distribution", "valide", "2026-11-07 00:00:00", 2, 3, 3, 4, 2, 1, 20, 100, 0.1, []),
+    # --- étape 4 : autres mois, changement d'année, feeders sans poste source ---
+    (301, "distribution", "valide", "2026-08-10 10:00:00", 1, 1, 1, 1, 1, 1, 60, 100, 0.3, [1]),
+    (302, "distribution", "valide", "2026-08-31 23:30:00", 2, 3, 3, 4, 3, 1, 30, 200, 0.4, [5]),
+    (303, "distribution", "valide", "2026-09-01 00:00:00", 1, 2, 2, 3, 4, 3, 120, 50, 0.6, [4]),
+    (304, "distribution", "valide", "2026-10-03 10:00:00", 1, 1, None, 1, 1, 1, 60, 100, 0.3, [1, 2]),
+    (305, "distribution", "cloture", "2026-10-10 08:00:00", 1, 1, None, 5, 2, 4, 30, 200, 0.4, [6]),
+    (306, "distribution", "valide", "2026-10-10 09:00:00", 1, 1, None, 5, 2, 4, 10, 30, 0.1, [6]),
+    (307, "distribution", "valide", "2026-12-31 22:00:00", 1, 1, 1, 2, 1, 2, 45, 300, 0.9, [3]),
+    (308, "distribution", "valide", "2027-01-02 06:00:00", 2, 3, 3, 4, 3, 6, 20, 400, 0.5, [5]),
+    (309, "distribution", "en_cours", "2027-01-08 12:00:00", 1, 2, 2, 3, 4, 5, 15, 60, 0.05, [4]),
+    *[
+        (300 + n, "distribution", "valide", "2026-03-10 08:00:00", 1, 1, 1, n, 1, 1, 10, 10, 0.01, [])
+        for n in range(10, 22)
+    ],
 ]
 
 
@@ -121,7 +156,9 @@ def _inserts() -> list[str]:
         "(1, 1, 1, 1, 'F-HANN-1', 'HANN DEPART 1', 1), "
         "(2, 1, 1, 1, 'F-HANN-2', 'HANN DEPART 2', 1), "
         "(3, 2, 2, 1, 'F-BELAIR-2', 'BEL AIR 2', 1), "
-        "(4, 3, 3, 2, 'F-KAO-V', 'KAOLACK VILLE', 1)",
+        "(4, 3, 3, 2, 'F-KAO-V', 'KAOLACK VILLE', 1), "
+        "(5, NULL, 1, 1, 'F-ISOLE', 'DEPART ISOLE', 1), "
+        + ", ".join(f"({n}, 1, 1, 1, 'F-M{n}', 'MARS DEPART {n}', 1)" for n in range(10, 22)),
         "INSERT INTO postes (id, feeder_id, service_id, code, libelle, nombre_clients, is_active) VALUES "
         "(1, 1, 1, 'P1', 'POSTE 1', 600, 1), (2, 1, 1, 'P2', 'POSTE 2', 400, 1), "
         "(3, 2, 1, 'P3', 'POSTE 3', 100, 1), (4, 3, 2, 'P4', 'POSTE 4', 2000, 1), "
