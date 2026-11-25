@@ -159,7 +159,7 @@ export class EvolutionComponent {
         ].join('<br>');
       },
     };
-    const grille = { left: 8, right: 8, top: mesure === 'nombre' ? 36 : 16, bottom: 8, containLabel: true };
+    const grille = { left: 8, right: 8, top: 36, bottom: 8, containLabel: true };
     if (mesure === 'nombre') {
       return {
         grid: grille,

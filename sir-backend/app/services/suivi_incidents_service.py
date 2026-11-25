@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import bisect
 import hashlib
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac_helpers import is_superadmin
 from app.models.utilisateurs import Utilisateur
+from app.repositories import pilotage_repository
 from app.repositories import suivi_incidents_repository as repo
 from app.schemas.suivi_incidents import (
     CategorieNature,
@@ -27,9 +28,11 @@ from app.schemas.suivi_incidents import (
     EvolutionSuivi,
     FiltresIncidents,
     FiltresResolus,
+    IndicateurSaifi,
     KpiSuivi,
     LigneClassement,
     LigneReseau,
+    MoisReference,
     NaturesPoint,
     PeriodeSuivi,
     PerimetreSuivi,
@@ -37,12 +40,17 @@ from app.schemas.suivi_incidents import (
     RepartitionNature,
     RepartitionReseau,
     ReseauSuivi,
+    SaifiMois,
+    SaifiNature,
+    SaifiReseau,
+    SaifiSaidiSuivi,
+    SaifiService,
     SemaineSenelecSchema,
     VueEnsemble,
 )
 from app.services import indicateurs_cache_service as cache
 from app.services import rapport_hebdo_dd_service as hebdo
-from app.services.indicateurs_service import _resolve_scope
+from app.services.indicateurs_service import _load_service_ids, _resolve_scope
 from app.services.periodes import periode_precedente, semaine_senelec, semaine_senelec_passee
 from app.services.reseau_htb import est_cause_htb
 
@@ -530,4 +538,163 @@ async def exporter_reseau(
     titre = f"Suivi incidents — {_PLURIEL_NIVEAU[niveau]} touchés — {resolus.libelle_periode}"
     contenu = await asyncio.to_thread(construire_xlsx_reseau, donnees, titre)
     return contenu, f"suivi_{niveau}_{filtres.debut.isoformat()}_{filtres.fin.isoformat()}.xlsx"
+
+
+# ── Onglet SAIFI / SAIDI ──────────────────────────────────────────────────────────────────
+
+# Filtres qui restreignent le numérateur sans changer le périmètre (dénominateur)
+_FILTRES_CONTRIBUTION = ("poste_source_id", "feeder_id", "nature_id", "cause_id", "reseau", "exogene")
+
+
+def _indicateur(clients: float, client_heures: float, nombre: int, base: int) -> dict[str, Any]:
+    return {
+        "saifi": clients / base if base > 0 else 0.0,
+        "saidi": client_heures / base if base > 0 else 0.0,
+        "interruptions": int(nombre),
+        "clients_coupes": int(clients),
+        "client_heures": float(client_heures),
+        "clients_reference": int(base),
+    }
+
+
+def _sommes(lignes: list[Any]) -> tuple[float, float, int]:
+    return (
+        sum(float(l.clients or 0) for l in lignes),
+        sum(float(l.client_heures or 0) for l in lignes),
+        sum(int(l.nombre or 0) for l in lignes),
+    )
+
+
+async def _base_clients(
+    db: AsyncSession, service_ids: list[int], debut: datetime, fin: datetime, aujourd_hui: date
+) -> tuple[int, tuple[int, int] | None]:
+    """Base clients du périmètre (formule SENELEC) et mois de la base réellement utilisée."""
+    mois = await pilotage_repository.mois_derniere_apparition(db, service_ids, debut, fin)
+    if mois is None:
+        borne = min(fin - timedelta(seconds=1), datetime(aujourd_hui.year, aujourd_hui.month, aujourd_hui.day))
+        mois = (borne.year, borne.month)
+    utilise = await pilotage_repository.dernier_mois_base(db, service_ids, *mois) if service_ids else None
+    if utilise is None:
+        return 0, None
+    base = await pilotage_repository.clients_reference_exacte(db, service_ids, *utilise)
+    return base, utilise
+
+
+def _mois_de_la_periode(debut: date, fin: date) -> list[tuple[int, int]]:
+    mois, courant = [], date(debut.year, debut.month, 1)
+    while courant <= fin:
+        mois.append((courant.year, courant.month))
+        courant = _mois_suivant(courant)
+    return mois
+
+
+async def saifi_saidi(
+    db: AsyncSession,
+    redis: Redis,
+    user: Utilisateur,
+    bruts: dict[str, Any],
+    aujourd_hui: date | None = None,
+) -> SaifiSaidiSuivi:
+    """SAIFI / SAIDI du périmètre, ou contribution des interruptions filtrées (base clients du périmètre)."""
+    resolus = resoudre_filtres(user, bruts)
+    filtres = resolus.filtres
+    scope = _resolve_scope(user, region_id=filtres.region_id)
+    cle = _cle_cache("saifi-saidi", filtres.model_dump_json(), scope.niveau, str(scope.scope_id))
+    en_cache = await cache.get_cached(redis, cle)
+    if en_cache is not None:
+        return SaifiSaidiSuivi.model_validate(en_cache)
+
+    service_ids = await _load_service_ids(db, scope)  # pose aussi la région du calcul
+    contribution = any(getattr(filtres, champ) is not None for champ in _FILTRES_CONTRIBUTION) or (
+        filtres.service_id is not None and not resolus.perimetre.service_verrouille
+    )
+    debut = datetime(filtres.debut.year, filtres.debut.month, filtres.debut.day)
+    fin = datetime(filtres.fin.year, filtres.fin.month, filtres.fin.day) + timedelta(days=1)
+    base, mois_base = await _base_clients(db, service_ids, debut, fin, aujourd_hui or date.today())
+
+    async def lignes(regroupement: str | None) -> list[Any]:
+        if not service_ids:
+            return []
+        return list((await db.execute(repo.requete_saifi(filtres, service_ids, regroupement))).all())
+
+    # Synthèse
+    clients, client_heures, nombre = _sommes(await lignes(None))
+    synthese = IndicateurSaifi(**_indicateur(clients, client_heures, nombre, base))
+
+    # Réseaux et natures : une requête (nature, cause)
+    par_nature = await lignes("nature")
+    reseaux_sommes: dict[str, list[Any]] = {"hta": [], "htb": []}
+    natures_sommes: dict[str, list[Any]] = {cle_n: [] for cle_n, _ in CATEGORIES_NATURE}
+    for ligne in par_nature:
+        reseaux_sommes["htb" if est_cause_htb(ligne.cause) else "hta"].append(ligne)
+        natures_sommes[categorie_nature(ligne.nature, ligne.cause)].append(ligne)
+    reseaux = [
+        SaifiReseau(reseau=r, **_indicateur(*_sommes(reseaux_sommes[r]), base))  # type: ignore[arg-type]
+        for r in ("hta", "htb")
+    ]
+    reseaux.append(SaifiReseau(reseau="total", **_indicateur(*_sommes(par_nature), base)))
+
+    def part(saifi: float) -> float:
+        return saifi / synthese.saifi if synthese.saifi > 0 else 0.0
+
+    natures = []
+    for cle_n, libelle in CATEGORIES_NATURE:
+        valeurs = _indicateur(*_sommes(natures_sommes[cle_n]), base)
+        natures.append(SaifiNature(categorie=cle_n, libelle=libelle, part_saifi=part(valeurs["saifi"]), **valeurs))
+
+    # Série mensuelle : numérateur du mois (rogné à la période) ÷ base du mois civil
+    mois = _mois_de_la_periode(filtres.debut, filtres.fin)
+    par_mois: dict[tuple[int, int], list[float]] = {m: [0.0, 0.0, 0] for m in mois}
+    for ligne in await lignes("jour"):
+        jour = _en_date(ligne.jour)
+        cible = par_mois.get((jour.year, jour.month))
+        if cible is not None:
+            cible[0] += float(ligne.clients or 0)
+            cible[1] += float(ligne.client_heures or 0)
+            cible[2] += int(ligne.nombre or 0)
+    bases = (
+        await pilotage_repository.clients_reference_par_mois(db, service_ids, (mois[0][0] - 1, mois[0][1]), mois[-1])
+        if service_ids
+        else {}
+    )
+    mensuel, cumul_clients, cumul_heures = [], 0.0, 0.0
+    for annee, numero in mois:
+        connus = [k for k, v in bases.items() if k <= (annee, numero) and v > 0]
+        base_mois = bases[max(connus)] if connus else 0
+        c, h, n = par_mois[(annee, numero)]
+        cumul_clients += c
+        cumul_heures += h
+        mensuel.append(
+            SaifiMois(
+                annee=annee,
+                mois=numero,
+                libelle=f"{_MOIS_COURTS[numero - 1]} {annee}",
+                saifi=c / base_mois if base_mois else 0.0,
+                saidi=h / base_mois if base_mois else 0.0,
+                saifi_cumule=cumul_clients / base_mois if base_mois else 0.0,
+                saidi_cumule=cumul_heures / base_mois if base_mois else 0.0,
+                interruptions=int(n),
+            )
+        )
+
+    # Contribution par service (les interruptions sans service sont hors formule)
+    services = []
+    for ligne in await lignes("service"):
+        valeurs = _indicateur(float(ligne.clients or 0), float(ligne.client_heures or 0), int(ligne.nombre or 0), base)
+        services.append(
+            SaifiService(id=ligne.id, code=ligne.code, libelle=ligne.libelle or NON_RENSEIGNE, part_saifi=part(valeurs["saifi"]), **valeurs)
+        )
+    services.sort(key=lambda x: (x.id is None, -x.saifi, x.libelle))
+
+    resultat = SaifiSaidiSuivi(
+        contribution=contribution,
+        synthese=synthese,
+        mois_reference=MoisReference(annee=mois_base[0], mois=mois_base[1]) if mois_base else None,
+        reseaux=reseaux,
+        natures=natures,
+        mensuel=mensuel,
+        services=services,
+    )
+    await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
+    return resultat
 

@@ -12,7 +12,8 @@ from app.models.geo import Service
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
 from app.models.referentiel import Cause, Nature
 from app.models.reseau import Feeder, PosteSource
-from app.repositories.pilotage_repository import condition_reseau
+from app.repositories.perimetre import interruptions_du_perimetre
+from app.repositories.pilotage_repository import _distribution_saifi_saidi, _sommes_clients, condition_reseau
 from app.schemas.suivi_incidents import FiltresIncidents
 
 _FILTRES_EGALITE = (
@@ -200,4 +201,48 @@ def requete_reseau_postes(filtres: FiltresIncidents, niveau: str) -> Select:
         .join(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
     )
     return appliquer_filtres(requete, filtres).group_by(colonne)
+
+
+# ── Onglet SAIFI / SAIDI ──────────────────────────────────────────────────────────────────
+
+REGROUPEMENTS_SAIFI = (None, "nature", "jour", "service")
+
+
+def requete_saifi(filtres: FiltresIncidents, service_ids: list[int], regroupement: str | None = None) -> Select:
+    """Numérateurs SAIFI / SAIDI (formule SENELEC) des interruptions du périmètre et des filtres.
+
+    Mêmes sommes et mêmes exclusions que ``pilotage_repository.requete_sommes_clients`` (clôturées,
+    plus de 5 minutes, clients estimés des postes) ; ``regroupement`` : aucun, (nature, cause),
+    jour d'apparition ou service. Le périmètre (services, région posée par
+    ``indicateurs_service._load_service_ids``) vient de ``interruptions_du_perimetre``.
+    """
+    if regroupement not in REGROUPEMENTS_SAIFI:
+        raise ValueError(f"Regroupement SAIFI inconnu : {regroupement}")
+    colonnes: list = []
+    groupes: list = []
+    requete_base = None
+    if regroupement == "nature":
+        colonnes = [Nature.libelle.label("nature"), Cause.libelle.label("cause")]
+        groupes = [Nature.libelle, Cause.libelle]
+    elif regroupement == "jour":
+        colonnes = [jour_de(Interruption.date_apparition).label("jour")]
+        groupes = [jour_de(Interruption.date_apparition)]
+    elif regroupement == "service":
+        colonnes = [Service.id.label("id"), Service.code.label("code"), Service.libelle.label("libelle")]
+        groupes = [Service.id, Service.code, Service.libelle]
+    requete_base = (
+        select(*colonnes, *_sommes_clients())
+        .select_from(Interruption)
+        .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
+    )
+    if regroupement == "nature":
+        requete_base = requete_base.outerjoin(Nature, Nature.id == Interruption.nature_id).outerjoin(
+            Cause, Cause.id == Interruption.cause_id
+        )
+    elif regroupement == "service":
+        requete_base = requete_base.outerjoin(Service, Service.id == Interruption.service_id)
+    requete = appliquer_filtres(requete_base, filtres, cause_jointe=regroupement == "nature").where(
+        interruptions_du_perimetre(service_ids), *_distribution_saifi_saidi()
+    )
+    return requete.group_by(*groupes) if groupes else requete
 

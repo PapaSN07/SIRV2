@@ -16,7 +16,14 @@ from app.core.deps import require_permission
 from app.core.redis import get_redis
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse
-from app.schemas.suivi_incidents import ClassementSuivi, EvolutionSuivi, FiltresResolus, ReseauSuivi, VueEnsemble
+from app.schemas.suivi_incidents import (
+    ClassementSuivi,
+    EvolutionSuivi,
+    FiltresResolus,
+    ReseauSuivi,
+    SaifiSaidiSuivi,
+    VueEnsemble,
+)
 from app.services import suivi_incidents_service
 
 router = APIRouter()
@@ -149,4 +156,19 @@ async def get_reseau(
 ) -> ApiResponse[ReseauSuivi]:
     resultat = await suivi_incidents_service.reseau(db, redis, current_user, bruts, niveau)
     return ApiResponse.success(resultat)
+
+
+@router.get(
+    "/saifi-saidi",
+    response_model=ApiResponse[SaifiSaidiSuivi],
+    status_code=status.HTTP_200_OK,
+    summary="SAIFI / SAIDI du périmètre ou contribution des interruptions filtrées",
+)
+async def get_saifi_saidi(
+    bruts: dict[str, Any] = Depends(filtres_requete),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[SaifiSaidiSuivi]:
+    return ApiResponse.success(await suivi_incidents_service.saifi_saidi(db, redis, current_user, bruts))
 

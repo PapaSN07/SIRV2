@@ -60,7 +60,7 @@
       @if (!donnees()!.lignes.length) {
         <sir-etat
           type="vide"
-          [actionVide]="f.actifs().length ? 'Effacer les filtres' : null"
+          [actionVide]="f.effacables().length ? 'Effacer les filtres' : null"
           (action)="f.toutEffacer()"
         />
       } @else if (!filtrees().length) {

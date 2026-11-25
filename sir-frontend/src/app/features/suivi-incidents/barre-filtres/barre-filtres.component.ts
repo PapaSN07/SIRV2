@@ -56,6 +56,8 @@ export class BarreFiltresComponent {
   ];
 
   readonly regions = signal<Option[]>([]);
+  /** Services (libellé des pastilles « Service » : clic dans un onglet, service imposé). */
+  readonly services = signal<Option[]>([]);
   readonly postesSources = signal<Option[]>([]);
   readonly natures = signal<Option[]>([]);
   readonly causes = signal<Option[]>([]);
@@ -80,7 +82,7 @@ export class BarreFiltresComponent {
     return `${jourMois(debut)} → ${dateCourte(fin)}`;
   });
 
-  readonly nombreActifs = computed(() => this.f.actifs().length);
+  readonly nombreActifs = computed(() => this.f.effacables().length);
 
   readonly pastilles = computed(() =>
     this.f.actifs().map(({ cle, valeur }) => ({
@@ -126,9 +128,22 @@ export class BarreFiltresComponent {
       .subscribe((listes) => {
         if (!listes) return;
         this.regions.set(vers(listes.regions.filter((r) => r.is_active)));
+        this.chargerServices(listes.regions.filter((r) => r.is_active).map((r) => r.id));
         this.postesSources.set(vers(listes.postes.filter((p) => p.is_active)));
         this.natures.set(vers(listes.natures));
         this.causes.set(vers(listes.causes));
+      });
+  }
+
+  /** Services de chaque région (pas de liste nationale dans l'API) ; un échec garde « n° … ». */
+  private chargerServices(regionIds: number[]): void {
+    if (!regionIds.length) return;
+    forkJoin(regionIds.map((id) => this.geo.getServicesByRegion(id).pipe(catchError(() => of([])))))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((parRegion) => {
+        const uniques = new Map<number, Option>();
+        for (const s of parRegion.flat()) uniques.set(s.id, { id: s.id, libelle: s.libelle });
+        this.services.set([...uniques.values()].sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr')));
       });
   }
 
@@ -189,6 +204,8 @@ export class BarreFiltresComponent {
     switch (cle) {
       case 'region_id':
         return parId(this.regions());
+      case 'service_id':
+        return parId(this.services());
       case 'poste_source_id':
         return parId(this.postesSources());
       case 'nature_id':

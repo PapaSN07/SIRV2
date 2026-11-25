@@ -89,6 +89,13 @@ export class SuiviIncidentsFiltresService {
   readonly regionVerrouillee = computed(() => this.resolus()?.perimetre.region_verrouillee ?? false);
   readonly serviceVerrouille = computed(() => this.resolus()?.perimetre.service_verrouille ?? false);
 
+  /** Filtres que « Tout effacer » retire vraiment (hors région / service imposés par le rôle). */
+  readonly effacables = computed(() =>
+    this.actifs().filter(
+      (a) => !(a.cle === 'region_id' && this.regionVerrouillee()) && !(a.cle === 'service_id' && this.serviceVerrouille()),
+    ),
+  );
+
   /** La période suivante commencerait après aujourd'hui. */
   readonly finAtteinte = computed(() => this._filtres().fin >= aujourdhuiIso());
 

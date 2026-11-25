@@ -75,6 +75,7 @@ fact_check
 feedback
 files
 filter
+filter_alt
 filter_alt_off
 filter_list
 first_page
@@ -130,6 +131,7 @@ monitoring
 more_vert
 nature
 navigation
+note
 notes
 notification_important
 notifications

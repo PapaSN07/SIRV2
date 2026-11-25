@@ -187,7 +187,9 @@
         </li>
       }
       <li>
-        <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="f.toutEffacer()">Tout effacer</button>
+        @if (f.effacables().length) {
+          <button type="button" class="sir-btn sir-btn--ghost sir-btn--sm" (click)="f.toutEffacer()">Tout effacer</button>
+        }
       </li>
     </ul>
   }

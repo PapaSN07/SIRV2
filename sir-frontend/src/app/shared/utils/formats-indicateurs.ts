@@ -1,6 +1,7 @@
 /**
  * Formats uniques des indicateurs (locale fr-FR), pour que la même grandeur s'écrive
- * partout de la même façon : SAIFI 2 décimales, SAIDI en heures 1 décimale, END en MWh
+ * partout de la même façon : SAIFI 3 décimales, SAIDI en heures 3 décimales (comme l'accueil),
+ * END en MWh
  * 1 décimale (kWh sous 1 MWh), durées « 12 h 30 », pourcentages « 84,5 % ».
  */
 
@@ -9,7 +10,7 @@ const nombre = (min: number, max: number) =>
 
 const ENTIER = nombre(0, 0);
 const UNE = nombre(1, 1);
-const DEUX = nombre(2, 2);
+const TROIS = nombre(3, 3);
 
 const TIRET = '—';
 /** Espace fine insécable avant « % » : le symbole ne passe jamais seul à la ligne. */
@@ -24,14 +25,14 @@ export function formatEntier(v: number | null | undefined): string {
   return absent(v) ? TIRET : ENTIER.format(v);
 }
 
-/** SAIFI : nombre moyen de coupures par client, 2 décimales. */
+/** SAIFI : nombre moyen de coupures par client, 3 décimales (contributions faibles lisibles). */
 export function formatSaifi(v: number | null | undefined): string {
-  return absent(v) ? TIRET : DEUX.format(v);
+  return absent(v) ? TIRET : TROIS.format(v);
 }
 
-/** SAIDI en heures, 1 décimale (« 5,4 h »). */
+/** SAIDI en heures, 3 décimales (« 0,325 h ») ; détail « h mn » : formatDuree. */
 export function formatSaidi(heures: number | null | undefined): string {
-  return absent(heures) ? TIRET : `${UNE.format(heures)} h`;
+  return absent(heures) ? TIRET : `${TROIS.format(heures)} h`;
 }
 
 /** Détail d'une durée en heures : « 5 h 21 » (pour les infobulles). */

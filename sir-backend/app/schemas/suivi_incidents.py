@@ -172,3 +172,58 @@ class ReseauSuivi(BaseModel):
     total_interruptions: int
     lignes: list[LigneReseau]
 
+
+# ── Onglet SAIFI / SAIDI ──────────────────────────────────────────────────────────────────
+
+
+class IndicateurSaifi(BaseModel):
+    saifi: float
+    saidi: float = Field(..., description="Heures")
+    interruptions: int = Field(..., description="Interruptions comptées (clôturées, plus de 5 minutes)")
+    clients_coupes: int = Field(..., description="Σ clients estimés des postes (NombreClient)")
+    client_heures: float = Field(..., description="Σ NombreClient × durée (h)")
+    clients_reference: int = Field(..., description="Base clients du dénominateur")
+
+
+class MoisReference(BaseModel):
+    annee: int
+    mois: int
+
+
+class SaifiReseau(IndicateurSaifi):
+    reseau: Literal["hta", "htb", "total"]
+
+
+class SaifiNature(IndicateurSaifi):
+    categorie: CategorieNature
+    libelle: str
+    part_saifi: float
+
+
+class SaifiMois(BaseModel):
+    annee: int
+    mois: int
+    libelle: str
+    saifi: float
+    saidi: float
+    saifi_cumule: float
+    saidi_cumule: float
+    interruptions: int
+
+
+class SaifiService(IndicateurSaifi):
+    id: int | None = None
+    code: str | None = None
+    libelle: str
+    part_saifi: float
+
+
+class SaifiSaidiSuivi(BaseModel):
+    contribution: bool = Field(..., description="Filtres restreignant le numérateur : contribution au périmètre")
+    synthese: IndicateurSaifi
+    mois_reference: MoisReference | None = Field(None, description="Mois de la base clients utilisée")
+    reseaux: list[SaifiReseau]
+    natures: list[SaifiNature]
+    mensuel: list[SaifiMois]
+    services: list[SaifiService]
+

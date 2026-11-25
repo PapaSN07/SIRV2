@@ -1,0 +1,215 @@
+@switch (etat().type) {
+  @case ('chargement') {
+    <div class="ss__kpis">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <sir-etat type="chargement" hauteur="96px" />
+      }
+    </div>
+    <sir-etat type="chargement" hauteur="280px" />
+  }
+  @case ('erreur') {
+    <div class="sir-card">
+      <sir-etat type="erreur" [message]="$any(etat()).message" (reessayer)="reessayer()" />
+    </div>
+  }
+  @case ('ok') {
+    @if (donnees(); as d) {
+      @if (d.contribution) {
+        <p class="ss__bandeau" role="note">
+          <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+          Contribution des interruptions filtrées au SAIFI / SAIDI {{ perimetre() }} : la base clients reste celle de
+          tout le périmètre.
+        </p>
+      }
+
+      @if (sansBase()) {
+        <p class="ss__bandeau ss__bandeau--alerte" role="alert">
+          <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+          Base clients absente pour ce périmètre : SAIFI et SAIDI ne peuvent pas être calculés. Les
+          interruptions comptées restent affichées.
+        </p>
+      }
+
+      <h2 class="sr-only">Synthèse SAIFI / SAIDI</h2>
+      <div class="ss__kpis">
+        <sir-kpi
+          [libelle]="d.contribution ? 'SAIFI (contribution)' : 'SAIFI'"
+          [valeur]="saifi(d.synthese.saifi)"
+          detail="Coupures par client"
+          aide="Nombre moyen de coupures subies par un client : clients coupés ÷ base clients."
+        />
+        <sir-kpi
+          [libelle]="d.contribution ? 'SAIDI (contribution)' : 'SAIDI'"
+          [valeur]="saidi(d.synthese.saidi)"
+          [detail]="sansBase() ? 'Base clients absente' : formatDuree(d.synthese.saidi) + ' par client'"
+          aide="Durée moyenne de coupure par client : Σ clients coupés × durée ÷ base clients."
+        />
+        <sir-kpi
+          libelle="Interruptions comptées"
+          [valeur]="formatEntier(d.synthese.interruptions)"
+          detail="Clôturées, de plus de 5 min"
+          aide="Les interruptions en cours et celles de 5 minutes ou moins n’entrent pas dans SAIFI / SAIDI (règle du 19/11/2026)."
+        />
+        <sir-kpi
+          libelle="Base clients"
+          [valeur]="formatEntier(d.synthese.clients_reference)"
+          [detail]="moisReference() ? 'Mois de ' + moisReference() : 'Aucune base connue'"
+          aide="Clients du périmètre le mois de la dernière interruption de la période (formule SENELEC)."
+        />
+      </div>
+
+      @if (vide()) {
+        <div class="sir-card">
+          <sir-etat
+            type="vide"
+            message="Aucune interruption comptée dans SAIFI / SAIDI sur la période et les filtres choisis."
+            [actionVide]="f.effacables().length ? 'Effacer les filtres' : null"
+            (action)="f.toutEffacer()"
+          />
+        </div>
+      } @else {
+        <div class="ss__grille">
+          <section class="sir-card ss__bloc" aria-labelledby="titre-ss-reseau">
+            <h2 id="titre-ss-reseau" class="ss__titre">Par réseau en cause</h2>
+            <div class="ss__defilement">
+              <table class="sir-table ss__table">
+                <caption class="sr-only">SAIFI et SAIDI par réseau en cause (HTA, HTB, total)</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Réseau</th>
+                    <th scope="col" class="num">SAIFI</th>
+                    <th scope="col" class="num">SAIDI</th>
+                    <th scope="col" class="num secondaire">Interruptions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of d.reseaux; track r.reseau) {
+                    <tr [class.ss__total]="r.reseau === 'total'">
+                      <th scope="row">
+                        <span class="etiquette">
+                          @if (r.reseau !== 'total') {
+                            <span [class]="'pastille pastille--' + r.reseau" aria-hidden="true"></span>
+                          }
+                          {{ libelleReseau[r.reseau] }}
+                        </span>
+                      </th>
+                      <td class="num">{{ saifi(r.saifi) }}</td>
+                      <td class="num">{{ saidi(r.saidi) }}</td>
+                      <td class="num secondaire">{{ formatEntier(r.interruptions) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="sir-card ss__bloc" aria-labelledby="titre-ss-nature">
+            <h2 id="titre-ss-nature" class="ss__titre">Par nature</h2>
+            <div class="ss__defilement">
+              <table class="sir-table ss__table">
+                <caption class="sr-only">SAIFI et SAIDI par nature et part dans le SAIFI</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Nature</th>
+                    <th scope="col" class="num">SAIFI</th>
+                    <th scope="col" class="num">SAIDI</th>
+                    <th scope="col" class="num">{{ d.contribution ? 'Part du total filtré' : 'Part du SAIFI' }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (n of d.natures; track n.categorie) {
+                    <tr>
+                      <th scope="row">
+                        <span class="etiquette">
+                          <span class="pastille" [style.background]="couleurNature[n.categorie]" aria-hidden="true"></span>
+                          {{ n.libelle }}
+                        </span>
+                      </th>
+                      <td class="num">{{ saifi(n.saifi) }}</td>
+                      <td class="num">{{ saidi(n.saidi) }}</td>
+                      <td class="num">{{ formatPart(n.part_saifi) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        @if (plusieursMois()) {
+          <section class="sir-card ss__bloc" aria-labelledby="titre-ss-mois">
+            <div class="ss__entete">
+              <h2 id="titre-ss-mois" class="ss__titre">Évolution mensuelle et cumul</h2>
+              <div class="sir-segment" role="radiogroup" aria-label="Indicateur du graphique" (keydown)="naviguerIndicateur($event)">
+                <button type="button" role="radio" class="sir-segment__choix" [attr.aria-checked]="indicateur() === 'saifi'" [attr.tabindex]="indicateur() === 'saifi' ? 0 : -1" (click)="choisirIndicateur('saifi')">SAIFI</button>
+                <button type="button" role="radio" class="sir-segment__choix" [attr.aria-checked]="indicateur() === 'saidi'" [attr.tabindex]="indicateur() === 'saidi' ? 0 : -1" (click)="choisirIndicateur('saidi')">SAIDI</button>
+              </div>
+            </div>
+            <sir-graphique titre="Évolution mensuelle et cumul" [options]="optionsMensuel()" [resume]="resumeMensuel()" hauteur="280px" />
+          </section>
+        }
+
+        <section class="sir-card ss__bloc" aria-labelledby="titre-ss-services">
+          <h2 id="titre-ss-services" class="ss__titre">Contribution par service</h2>
+          @if (!f.serviceVerrouille()) {
+            <p class="ss__aide">Cliquez sur un service pour filtrer tout le menu.</p>
+          }
+          <div class="ss__defilement">
+            <table class="sir-table ss__table">
+              <caption class="sr-only">Contribution de chaque service au SAIFI et au SAIDI du périmètre</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Service</th>
+                  <th scope="col" class="num">SAIFI</th>
+                  <th scope="col" class="num">SAIDI</th>
+                  <th scope="col" class="num secondaire">Interruptions</th>
+                  <th scope="col" class="num secondaire">Clients coupés</th>
+                  <th scope="col" class="num">{{ d.contribution ? 'Part du total filtré' : 'Part' }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of d.services; track s.id) {
+                  <tr>
+                    <th scope="row">
+                      @if (s.id !== null && !f.serviceVerrouille()) {
+                        <button type="button" class="ss__nom" (click)="filtrerService(s)" [attr.aria-label]="'Filtrer sur ' + s.libelle">
+                          {{ s.libelle }}
+                        </button>
+                      } @else {
+                        {{ s.libelle }}
+                      }
+                      @if (s.code && s.code !== s.libelle) {
+                        <span class="ss__code">{{ s.code }}</span>
+                      }
+                    </th>
+                    <td class="num">{{ saifi(s.saifi) }}</td>
+                    <td class="num">{{ saidi(s.saidi) }}</td>
+                    <td class="num secondaire">{{ formatEntier(s.interruptions) }}</td>
+                    <td class="num secondaire">{{ formatEntier(s.clients_coupes) }}</td>
+                    <td class="num">{{ formatPart(s.part_saifi) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
+      <details class="sir-card ss__methode">
+        <summary>
+          <span class="material-symbols-outlined ss__chevron" aria-hidden="true">expand_more</span>
+          Méthode de calcul
+        </summary>
+        <ul>
+          <li><strong>SAIFI</strong> = Σ clients coupés ÷ base clients ; <strong>SAIDI</strong> = Σ (clients coupés × durée en heures) ÷ base clients.</li>
+          <li>Clients coupés : clients estimés des postes touchés par chaque interruption.</li>
+          <li>Interruptions comptées : distribution, clôturées, de plus de 5 minutes (règle SENELEC du 19/11/2026, IEEE 1366).</li>
+          <li>Base clients : clients du périmètre le mois de la dernière interruption de la période (dernier mois connu à défaut).</li>
+          <li>Évolution mensuelle : chaque mois est divisé par la base clients de ce mois ; le cumul du dernier mois égale la synthèse quand ce mois contient la dernière interruption de la période.</li>
+          <li>Réseau HTB : cause « HTB », « Production » ou « Black start » (règle du rapport hebdo DD) ; HTA sinon.</li>
+          <li>Avec un filtre (poste source, feeder, nature, cause…), les chiffres sont la contribution des interruptions retenues ; la base clients reste celle du périmètre.</li>
+        </ul>
+      </details>
+    }
+  }
+}

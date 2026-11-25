@@ -13,6 +13,7 @@ import {
   NiveauClassement,
   NiveauReseau,
   ReseauSuivi,
+  SaifiSaidiSuivi,
   VueEnsemble,
 } from '../../../shared/models/suivi-incidents.models';
 
@@ -61,6 +62,16 @@ export class SuiviIncidentsService {
     return this.http
       .get<ApiResponse<EvolutionSuivi>>(`${this.apiUrl}/evolution`, {
         params: parametresFiltres(filtres).set('granularite', granularite),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** SAIFI / SAIDI du périmètre (contribution des interruptions filtrées), par réseau, nature, mois, service. */
+  getSaifiSaidi(filtres: FiltresIncidents): Observable<SaifiSaidiSuivi> {
+    return this.http
+      .get<ApiResponse<SaifiSaidiSuivi>>(`${this.apiUrl}/saifi-saidi`, {
+        params: parametresFiltres(filtres),
         context: new HttpContext().set(SANS_REDIRECTION_403, true),
       })
       .pipe(map((res) => unwrap(res)));

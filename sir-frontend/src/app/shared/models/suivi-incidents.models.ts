@@ -149,3 +149,52 @@ export interface ReseauSuivi {
   lignes: LigneReseau[];
 }
 
+/* ── Onglet SAIFI / SAIDI (GET /suivi-incidents/saifi-saidi) ── */
+
+export interface IndicateurSaifi {
+  saifi: number;
+  saidi: number;
+  interruptions: number;
+  clients_coupes: number;
+  client_heures: number;
+  clients_reference: number;
+}
+
+export interface SaifiReseau extends IndicateurSaifi {
+  reseau: ReseauCause | 'total';
+}
+
+export interface SaifiNature extends IndicateurSaifi {
+  categorie: CategorieNature;
+  libelle: string;
+  part_saifi: number;
+}
+
+export interface SaifiMois {
+  annee: number;
+  mois: number;
+  libelle: string;
+  saifi: number;
+  saidi: number;
+  saifi_cumule: number;
+  saidi_cumule: number;
+  interruptions: number;
+}
+
+export interface SaifiService extends IndicateurSaifi {
+  id: number | null;
+  code: string | null;
+  libelle: string;
+  part_saifi: number;
+}
+
+export interface SaifiSaidiSuivi {
+  contribution: boolean;
+  synthese: IndicateurSaifi;
+  mois_reference: { annee: number; mois: number } | null;
+  reseaux: SaifiReseau[];
+  natures: SaifiNature[];
+  mensuel: SaifiMois[];
+  services: SaifiService[];
+}
+

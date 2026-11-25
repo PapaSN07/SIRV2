@@ -56,7 +56,7 @@ Classement territorial : Région d'exploitation → Service → Poste source →
 ### Règles UX communes
 
 - **Filtres** : barre collante, application immédiate, pastilles des filtres actifs (✕, « Tout effacer »), **dans l'URL** (`?du=&au=&region=&service=&poste_source=&feeder=&nature=&cause=&reseau=&exogene=`), conservés d'un onglet à l'autre ; période Semaine / Mois / Année / Personnalisé avec ◀ ▶ ; « Plus de filtres » : cause, réseau HTA / HTB, facteur exogène ; région ou service imposés par le rôle (API `GET /suivi-incidents/filtres`). Un clic dans un graphique, la carte ou un classement ajoute le filtre.
-- **Formats** (`shared/utils/formats-indicateurs.ts`) : SAIFI 2 décimales, SAIDI en heures 1 décimale (détail « h mn » en infobulle), END en MWh 1 décimale (kWh sous 1 MWh), durées « 12 h 30 », pourcentages « 84,5 % ».
+- **Formats** (`shared/utils/formats-indicateurs.ts`) : SAIFI 3 décimales, SAIDI en heures 3 décimales (comme l’accueil) (détail « h mn » en infobulle), END en MWh 1 décimale (kWh sous 1 MWh), durées « 12 h 30 », pourcentages « 84,5 % ».
 - **Vocabulaire** : « interruptions » pour le total ; « incidents » = Permanent, Semi-permanent, Fugitif, délestage incident HTA ; « postes touchés » ; « coupures-clients » pour Σ clients.
 - **Couleurs métier** (`$nature-*`, `$reseau-*`) : Travaux marine, Incident orange, Délestage rouge, HTA violet, HTB magenta ; valeurs toujours écrites (pas d'information par la couleur seule) ; aplats.
 - **États** par bloc (`sir-etat`) : squelette, vide lisible avec « Effacer les filtres », erreur en français avec « Réessayer ».
@@ -121,8 +121,8 @@ Pas un préalable : SIRV2 fait foi. Utile pour préparer les questions des utili
 1. **HTB par la cause** dans la synthèse SAIFI/SAIDI de l'accueil — **fait le 25/11/2026**.
 2. **Fondations** — route `/suivi-incidents` et 6 onglets (routes enfants), barre de filtres dans l'URL, `GET /suivi-incidents/filtres` (période par défaut, périmètre du rôle), `causes.est_exogene`, composants partagés (KPI, états, graphiques ngx-echarts) — **fait le 25/11/2026**.
 3. **Vue d'ensemble** — `GET /suivi-incidents/vue-ensemble` (KPI et période précédente, natures, réseaux HTA / HTB) et `GET /suivi-incidents/classement` (service / poste source / feeder, clic → filtre) — **fait le 25/11/2026** (spécification §8).
-4. **Évolution + Réseau** — série à granularité automatique ; classements postes sources / feeders triables avec recherche, export Excel.
-5. **SAIFI / SAIDI** — rapport par nature, mois × nature, contributions par service.
+4. **Évolution + Réseau** — série à granularité automatique ; classements postes sources / feeders triables avec recherche, export Excel — **fait le 25/11/2026** (spécification §9).
+5. **SAIFI / SAIDI** — synthèse du périmètre ou contribution des interruptions filtrées, HTA / HTB, natures, évolution mensuelle et cumul, contributions par service — **fait le 25/11/2026** (spécification §10).
 6. **Géographie + Carte + Localisation** — migrations Alembic (§3), import des localités (« Postes_Affectes_Localites »), lien poste ↔ SIG par tâche Celery ; onglets Carte et Localisation ; classement territorial administratif.
 7. **Administration** — reprise des corrections manuelles et du recensement dans le rapprochement Schéma / SIG / SIR.
 8. **Recette et bascule** — recette par les utilisateurs de l'ancienne app, retrait de l'interrupteur, redirection de l'ancienne adresse (port 8070) vers SIRV2.
@@ -237,4 +237,53 @@ ligne de titre (période et filtres), puis l'en-tête et les lignes de `/reseau`
 Coupures-clients, Postes touchés, Part (%)). Mêmes droits et même périmètre que `/reseau`.
 
 La contribution au SAIFI par poste source / feeder est reportée à l'étape 5 (base clients).
+
+## 10. Spécification de l'étape 5 — SAIFI / SAIDI (25/11/2026)
+
+Formule SENELEC existante (`saifi_saidi_service`, `docs/indicateurs_sirv2.md`), **sans nouvelle règle** :
+interruptions distribution **clôturées** (`statut` clôturé, `date_remise` renseignée) de **plus de
+5 minutes** (`SAIFI_DUREE_MIN_MINUTES`) ; NombreClient = Σ clients estimés des postes
+(`_clients_poste`) ; SAIDI en heures ; base clients = `clients_reference_exacte` du mois de la
+**dernière apparition** de la période (dernier mois connu à défaut).
+
+**Périmètre (dénominateur)** : celui des indicateurs (`indicateurs_service._resolve_scope` +
+`_load_service_ids`, qui pose la région) à partir des filtres **résolus** : national, région
+(`region_id` imposé au BCC / BRC ou choisi par un national) ou service (SUPERVISEUR). Le mois de
+référence se calcule sur tout le périmètre, sans les autres filtres.
+
+**Numérateur** : interruptions du périmètre (`interruptions_du_perimetre`) **et** des filtres
+(`appliquer_filtres` : poste source, feeder, service choisi par un national, nature, cause, réseau,
+exogène). Avec ces filtres, le résultat est la **contribution** des interruptions retenues au SAIFI /
+SAIDI du périmètre (`contribution = true` dans la réponse). Sans eux, la synthèse est égale à
+`calculer_perimetre(service_ids, debut, fin + 1 jour)` (même chiffre que l'accueil sur la même période).
+
+### `GET /api/v1/suivi-incidents/saifi-saidi`
+
+Mêmes paramètres que `/filtres`. Réponse `ApiResponse[SaifiSaidiSuivi]` :
+
+| Champ | Contenu |
+|---|---|
+| `contribution` | `true` si un filtre autre que période / région / service imposé restreint le numérateur |
+| `synthese` | `IndicateurSaifi` de la période |
+| `mois_reference` | `{annee, mois}` de la base clients **effectivement utilisée** (après repli sur le dernier mois connu), `null` sans base |
+| `reseaux` | 3 lignes `hta`, `htb`, `total` (`IndicateurSaifi` + `reseau`) ; total = hta + htb |
+| `natures` | 4 lignes `incident`, `delestage`, `travaux`, `autre` (`IndicateurSaifi` + `categorie`, `libelle`, `part_saifi`) ; Σ = synthèse |
+| `mensuel` | un point par mois civil touché par la période (rogné aux bornes), dans l'ordre : `{annee, mois, libelle, saifi, saidi, saifi_cumule, saidi_cumule, interruptions}` |
+| `services` | contribution par service (services ayant au moins une interruption comptée), triée par SAIFI décroissant puis libellé : `{id, code, libelle}` + `IndicateurSaifi` + `part_saifi` (pas de ligne « Non renseigné » : la formule exclut les interruptions sans service) |
+
+`IndicateurSaifi` = `{saifi, saidi, interruptions, clients_coupes, client_heures, clients_reference}` :
+`interruptions` = interruptions comptées ; `clients_coupes` = Σ NombreClient ; `client_heures` =
+Σ NombreClient × durée (h) ; `clients_reference` = base clients du dénominateur (la même pour toutes
+les lignes, sauf `mensuel`). `part_saifi` = part du SAIFI de la ligne dans la synthèse (0 si synthèse nulle).
+
+`mensuel` : SAIFI / SAIDI du mois = numérateur du mois ÷ base clients de ce mois (dernier mois connu à
+défaut, comme `serie_perimetre`) ; `saifi_cumule` / `saidi_cumule` = Σ numérateurs depuis le début de
+la période jusqu'à ce mois ÷ base du mois (cumul de la formule SENELEC, égal à la synthèse au dernier
+mois quand ce mois est celui de la dernière apparition). Libellé « nov. 2026 ».
+
+Requêtes (`suivi_incidents_repository`) : `requete_saifi(filtres, service_ids, regroupement)` avec
+`regroupement` = `None` (une ligne), `"nature"` (nature, cause), `"jour"` (jour d'apparition,
+`jour_de`), `"service"` (service) ; regroupement inconnu → `ValueError`. Conditions :
+`appliquer_filtres` + `interruptions_du_perimetre(service_ids)` + `_distribution_saifi_saidi()`.
+Cache Redis 1 h `suivi:saifi-saidi:{empreinte des filtres résolus et du périmètre}` : un national filtré sur un service et le SUPERVISEUR de ce service ont les mêmes filtres mais pas le même dénominateur.
 

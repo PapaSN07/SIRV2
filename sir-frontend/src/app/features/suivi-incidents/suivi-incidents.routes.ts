@@ -41,15 +41,7 @@ export const SUIVI_INCIDENTS_ROUTES: Routes = [
   {
     path: 'saifi-saidi',
     title: 'SAIFI / SAIDI — Suivi incidents',
-    ...aVenir({
-      titre: 'SAIFI / SAIDI',
-      etape: 5,
-      contenu: [
-        'Synthèse HTA / HTB / total : semaine passée, mois en cours, cumul annuel',
-        'Évolution mensuelle et cumul depuis janvier',
-        'Rapport par nature, tableau mois × nature, contribution par service',
-      ],
-    }),
+    loadComponent: () => import('./saifi-saidi/saifi-saidi.component').then((m) => m.SaifiSaidiComponent),
   },
   {
     path: 'localisation',
