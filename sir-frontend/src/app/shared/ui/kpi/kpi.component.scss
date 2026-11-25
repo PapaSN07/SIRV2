@@ -18,44 +18,68 @@
 
 .kpi__libelle {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 0.25rem;
   color: $on-surface-variant;
   font-size: 0.8125rem;
   font-weight: 500;
 }
 
+.kpi {
+  position: relative;
+}
+
+// Bouton d'aide : icône de 16 px, zone active de 44 px (tactile)
 .kpi__aide {
   position: relative;
-  font-size: 1rem;
-  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
+  background: none;
+  color: $on-surface-variant;
+  cursor: help;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+  }
+
+  &:hover,
+  &[aria-expanded='true'] {
+    color: $sen-primary;
+  }
 
   &:focus-visible {
     outline: none;
     box-shadow: $shadow-focus;
   }
+}
 
-  &:hover::after,
-  &:focus::after {
-    content: attr(data-tip);
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 50%;
-    z-index: 10;
-    width: max-content;
-    max-width: 260px;
-    padding: 0.5rem 0.625rem;
-    transform: translateX(-50%);
-    background: $sen-navy;
-    color: #fff;
-    border-radius: $radius-sm;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.75rem;
-    font-weight: 400;
-    line-height: 1.4;
-    white-space: normal;
-  }
+// Bulle d'aide : dans la carte, jamais hors de l'écran
+.kpi__bulle {
+  position: absolute;
+  top: 2.5rem;
+  right: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  padding: 0.5rem 0.625rem;
+  background: $sen-navy;
+  color: #fff;
+  border-radius: $radius-sm;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: $shadow-1;
 }
 
 .kpi__valeur {
@@ -65,6 +89,7 @@
   line-height: 1.2;
   color: $on-surface;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .kpi__unite {
@@ -77,8 +102,9 @@
 
 .kpi__ecart {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  column-gap: 0.375rem;
   font-size: 0.8125rem;
   font-weight: 600;
 
@@ -97,6 +123,13 @@
   &--stable {
     color: $on-surface-variant;
   }
+}
+
+.kpi__ecart-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
 }
 
 .kpi__ecart-ref {

@@ -20,6 +20,7 @@ export const COULEUR_NATURE: Record<string, string> = {
   travaux: COULEURS.navy,
   incident: COULEURS.orange,
   delestage: COULEURS.rouge,
+  autre: COULEURS.texteSecondaire,
 };
 
 export const COULEUR_RESEAU = { hta: COULEURS.violet, htb: COULEURS.magenta } as const;

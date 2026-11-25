@@ -67,9 +67,14 @@ _norme = normaliser_libelle
 
 
 def categorie(ligne: LigneHebdo) -> str:
-    cause = _norme(ligne.cause)
-    nature = _norme(ligne.nature)
-    if est_cause_htb(ligne.cause):
+    return categorie_libelles(ligne.nature, ligne.cause)
+
+
+def categorie_libelles(nature_libelle: str | None, cause_libelle: str | None) -> str:
+    """Catégorie du rapport hebdo DD d'après les libellés de nature et de cause."""
+    cause = _norme(cause_libelle)
+    nature = _norme(nature_libelle)
+    if est_cause_htb(cause_libelle):
         return HTB_DELESTAGE if ("PRODUCTION" in cause or "DELESTAGE" in nature) else HTB_AUTRES
     if "MANOEUVRE" in cause:
         return MANOEUVRE_HTA

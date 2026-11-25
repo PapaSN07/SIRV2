@@ -1,4 +1,6 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, signal } from '@angular/core';
+
+let compteur = 0;
 import { ecartRelatif, formatEcart } from '../../utils/formats-indicateurs';
 
 /**
@@ -24,6 +26,10 @@ export class KpiComponent {
   readonly actuel = input<number | null>(null);
   readonly precedent = input<number | null>(null);
   readonly sensFavorable = input<'hausse' | 'baisse'>('baisse');
+
+  /** Aide ouverte au clic (tactile) ou au clavier ; fermée en quittant le bouton ou par Échap. */
+  readonly aideOuverte = signal(false);
+  readonly idAide = `kpi-aide-${++compteur}`;
 
   readonly ecart = computed(() => ecartRelatif(this.actuel(), this.precedent()));
   readonly ecartTexte = computed(() => (this.tendance() === 'stable' ? 'stable' : formatEcart(this.ecart())));

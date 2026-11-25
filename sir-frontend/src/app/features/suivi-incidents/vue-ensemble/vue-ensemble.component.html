@@ -1,0 +1,240 @@
+@switch (vue().type) {
+  @case ('chargement') {
+    <div class="vue__kpis">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+        <sir-etat type="chargement" hauteur="96px" />
+      }
+    </div>
+    <sir-etat type="chargement" hauteur="240px" />
+  }
+  @case ('erreur') {
+    <div class="sir-card">
+      <sir-etat type="erreur" [message]="$any(vue()).message" (reessayer)="reessayer()" />
+    </div>
+  }
+  @case ('ok') {
+    @if (donnees(); as d) {
+      <h2 class="sr-only">Indicateurs clés</h2>
+      <div class="vue__kpis">
+        <sir-kpi
+          libelle="Interruptions"
+          [valeur]="formatEntier(d.kpi.nombre_interruptions)"
+          [actuel]="d.kpi.nombre_interruptions"
+          [precedent]="d.kpi_precedent.nombre_interruptions"
+          [detail]="'Précédente : ' + formatEntier(d.kpi_precedent.nombre_interruptions)"
+          aide="Interruptions distribution apparues sur la période, tous statuts."
+        />
+        <sir-kpi
+          libelle="Durée cumulée"
+          [valeur]="formatDuree(d.kpi.duree_totale_heures)"
+          [actuel]="d.kpi.duree_totale_heures"
+          [precedent]="d.kpi_precedent.duree_totale_heures"
+          [detail]="'Précédente : ' + formatDuree(d.kpi_precedent.duree_totale_heures)"
+          aide="Somme des durées des interruptions (les interruptions en cours ne comptent pas)."
+        />
+        <sir-kpi
+          libelle="Durée moyenne"
+          [valeur]="d.kpi.duree_moyenne_minutes === null ? '—' : formatDuree(d.kpi.duree_moyenne_minutes / 60)"
+          [actuel]="d.kpi.duree_moyenne_minutes"
+          [precedent]="d.kpi_precedent.duree_moyenne_minutes"
+          [detail]="'Précédente : ' + (d.kpi_precedent.duree_moyenne_minutes === null ? '—' : formatDuree(d.kpi_precedent.duree_moyenne_minutes / 60))"
+          aide="Moyenne sur les interruptions dont la durée est connue."
+        />
+        <sir-kpi
+          libelle="Postes touchés"
+          [valeur]="formatEntier(d.kpi.postes_touches)"
+          [actuel]="d.kpi.postes_touches"
+          [precedent]="d.kpi_precedent.postes_touches"
+          [detail]="'Précédente : ' + formatEntier(d.kpi_precedent.postes_touches)"
+          aide="Postes HTA/BT distincts coupés au moins une fois."
+        />
+        <sir-kpi
+          libelle="Coupures-clients"
+          [valeur]="formatEntier(d.kpi.coupures_clients)"
+          [actuel]="d.kpi.coupures_clients"
+          [precedent]="d.kpi_precedent.coupures_clients"
+          [detail]="'Précédente : ' + formatEntier(d.kpi_precedent.coupures_clients)"
+          aide="Somme des clients touchés par chaque interruption (un client coupé deux fois compte deux fois)."
+        />
+        <sir-kpi
+          libelle="Énergie non distribuée"
+          [valeur]="formatEndParties(d.kpi.end_mwh).valeur"
+          [unite]="formatEndParties(d.kpi.end_mwh).unite"
+          aide="END des interruptions distribution, en MWh (en kWh sous 1 MWh)."
+          [actuel]="d.kpi.end_mwh"
+          [precedent]="d.kpi_precedent.end_mwh"
+          [detail]="'Précédente : ' + formatEnd(d.kpi_precedent.end_mwh)"
+        />
+      </div>
+      @if (vide()) {
+        <div class="sir-card">
+          <sir-etat
+            type="vide"
+            [actionVide]="f.actifs().length ? 'Effacer les filtres' : null"
+            (action)="f.toutEffacer()"
+          />
+        </div>
+      } @else {
+        <p class="vue__comparaison">Écarts calculés par rapport à {{ libellePrecedent() }}.</p>
+        <div class="vue__grille">
+          <section class="sir-card vue__bloc" aria-labelledby="titre-natures">
+            <h2 id="titre-natures" class="vue__titre">Répartition par nature</h2>
+            <sir-graphique
+              titre="Interruptions par nature"
+              [options]="optionsNatures()"
+              [resume]="resumeNatures()"
+              hauteur="200px"
+            />
+            <div class="vue__defilement">
+            <table class="sir-table vue__table">
+              <caption class="sr-only">Interruptions par nature : nombre, part, durée et END</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nature</th>
+                  <th scope="col" class="num">Nombre</th>
+                  <th scope="col" class="num secondaire">Part</th>
+                  <th scope="col" class="num secondaire">Durée</th>
+                  <th scope="col" class="num">END</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (n of d.natures; track n.categorie) {
+                  <tr>
+                    <th scope="row">
+                      <span class="etiquette">
+                        <span [class]="'pastille pastille--' + n.categorie" aria-hidden="true"></span>
+                        {{ n.libelle }}
+                      </span>
+                    </th>
+                    <td class="num">{{ formatEntier(n.nombre) }}</td>
+                    <td class="num secondaire">{{ formatPart(n.part) }}</td>
+                    <td class="num secondaire">{{ formatDuree(n.duree_heures) }}</td>
+                    <td class="num">{{ formatEnd(n.end_mwh) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            </div>
+          </section>
+
+          <section class="sir-card vue__bloc" aria-labelledby="titre-reseaux">
+            <h2 id="titre-reseaux" class="vue__titre">Réseau en cause</h2>
+            <p class="vue__aide">HTB : cause « HTB », « Production » ou « Black start » (règle du rapport hebdo DD).</p>
+            <div class="vue__defilement">
+            <table class="sir-table vue__table">
+              <caption class="sr-only">Interruptions et END par réseau en cause</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Réseau</th>
+                  <th scope="col" class="num">Nombre</th>
+                  <th scope="col" class="num">Durée</th>
+                  <th scope="col" class="num">END</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of d.reseaux; track r.reseau) {
+                  <tr [class.vue__total]="r.reseau === 'total'">
+                    <th scope="row">
+                      <span class="etiquette">
+                        @if (r.reseau !== 'total') {
+                          <span [class]="'pastille pastille--' + r.reseau" aria-hidden="true"></span>
+                        }
+                        {{ libelleReseau[r.reseau] }}
+                      </span>
+                    </th>
+                    <td class="num">{{ formatEntier(r.nombre) }}</td>
+                    <td class="num">{{ formatDuree(r.duree_heures) }}</td>
+                    <td class="num">{{ formatEnd(r.end_mwh) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            </div>
+          </section>
+        </div>
+      }
+    }
+  }
+}
+
+@if (!vide()) {
+  <section class="sir-card vue__bloc vue__classement" aria-labelledby="titre-classement">
+    <div class="vue__entete">
+      <h2 id="titre-classement" class="vue__titre" tabindex="-1">Les plus touchés</h2>
+      <div class="niveaux" role="radiogroup" aria-label="Niveau du classement" (keydown)="naviguerNiveau($event)">
+        @for (n of niveaux; track n.cle) {
+          <button
+            type="button"
+            role="radio"
+            class="niveaux__choix"
+            [attr.aria-checked]="niveau() === n.cle"
+            [attr.tabindex]="niveau() === n.cle ? 0 : -1"
+            (click)="choisirNiveau(n.cle)"
+          >
+            {{ n.libelle }}
+          </button>
+        }
+      </div>
+    </div>
+    <p class="vue__aide">Cliquez sur un nom pour filtrer tout le menu sur ce {{ niveauCourant().libelle.toLowerCase() }}.</p>
+
+    @switch (classement().type) {
+      @case ('chargement') {
+        <sir-etat type="chargement" hauteur="220px" />
+      }
+      @case ('erreur') {
+        <sir-etat type="erreur" [message]="$any(classement()).message" (reessayer)="reessayerClassement()" />
+      }
+      @case ('ok') {
+        <div class="vue__defilement">
+          <table class="sir-table vue__table">
+            <caption class="sr-only">
+              Classement par {{ niveauCourant().libelle.toLowerCase() }} : nombre d’interruptions, part, durée et END
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ niveauCourant().libelle }}</th>
+                <th scope="col" class="num">Nombre</th>
+                <th scope="col" class="num secondaire">Part</th>
+                <th scope="col" class="num secondaire">Durée</th>
+                <th scope="col" class="num">END</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of lignesClassement(); track l.id) {
+                <tr [class.vue__non-renseigne]="l.id === null">
+                  <th scope="row">
+                    @if (l.id !== null) {
+                      <button type="button" class="lien-filtre" (click)="filtrerSur(l)" [attr.aria-label]="'Filtrer sur ' + l.libelle">
+                        <span class="lien-filtre__nom">{{ l.libelle }}</span>
+                        @if (l.code && l.code !== l.libelle) {
+                          <span class="lien-filtre__code">{{ l.code }}</span>
+                        }
+                      </button>
+                    } @else {
+                      {{ l.libelle }}
+                    }
+                    <span class="barre" aria-hidden="true"><span [style.width.%]="(l.nombre / maxClassement()) * 100"></span></span>
+                  </th>
+                  <td class="num">{{ formatEntier(l.nombre) }}</td>
+                  <td class="num secondaire">{{ formatPart(l.part) }}</td>
+                  <td class="num secondaire">{{ formatDuree(l.duree_heures) }}</td>
+                  <td class="num">{{ formatEnd(l.end_mwh) }}</td>
+                </tr>
+              }
+              @if (autresClassement(); as a) {
+                <tr class="vue__non-renseigne">
+                  <th scope="row">{{ a.libelle }}</th>
+                  <td class="num">{{ formatEntier(a.nombre) }}</td>
+                  <td class="num secondaire">{{ formatPart(a.part) }}</td>
+                  <td class="num secondaire">{{ formatDuree(a.duree_heures) }}</td>
+                  <td class="num">{{ formatEnd(a.end_mwh) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  </section>
+}

@@ -32,3 +32,22 @@ def semaine_senelec(jour: date) -> SemaineSenelec:
 def semaine_senelec_passee(aujourd_hui: date) -> SemaineSenelec:
     """Dernière semaine terminée : son vendredi est strictement avant ``aujourd_hui``."""
     return semaine_senelec(semaine_senelec(aujourd_hui).debut - timedelta(days=1))
+
+
+def _fin_de_mois(jour: date) -> date:
+    suivant = date(jour.year + (jour.month == 12), jour.month % 12 + 1, 1)
+    return suivant - timedelta(days=1)
+
+
+def periode_precedente(debut: date, fin: date) -> tuple[date, date]:
+    """Période de comparaison : semaine SENELEC, mois ou année précédents, sinon même durée juste avant."""
+    semaine = semaine_senelec(debut)
+    if semaine.debut == debut and semaine.fin == fin:
+        return debut - timedelta(days=7), fin - timedelta(days=7)
+    if (debut.month, debut.day) == (1, 1) and (fin.year, fin.month, fin.day) == (debut.year, 12, 31):
+        return date(debut.year - 1, 1, 1), date(debut.year - 1, 12, 31)
+    if debut.day == 1 and fin == _fin_de_mois(debut):
+        fin_precedente = debut - timedelta(days=1)
+        return fin_precedente.replace(day=1), fin_precedente
+    jours = (fin - debut).days + 1
+    return debut - timedelta(days=jours), debut - timedelta(days=1)

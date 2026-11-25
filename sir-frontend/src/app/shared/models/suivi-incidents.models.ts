@@ -45,3 +45,66 @@ export interface FiltresResolus {
 
 /** Raccourcis du sélecteur de période. */
 export type ModePeriode = 'semaine' | 'mois' | 'annee' | 'personnalise';
+
+/* ── Onglet Vue d'ensemble (GET /suivi-incidents/vue-ensemble, /classement) ── */
+
+export interface PeriodeSuivi {
+  debut: string;
+  fin: string;
+  libelle: string;
+}
+
+export interface KpiSuivi {
+  nombre_interruptions: number;
+  duree_totale_heures: number;
+  duree_moyenne_minutes: number | null;
+  postes_touches: number;
+  coupures_clients: number;
+  end_mwh: number;
+}
+
+export type CategorieNature = 'incident' | 'delestage' | 'travaux' | 'autre';
+
+export interface RepartitionNature {
+  categorie: CategorieNature;
+  libelle: string;
+  nombre: number;
+  duree_heures: number;
+  end_mwh: number;
+  part: number;
+}
+
+export interface RepartitionReseau {
+  reseau: ReseauCause | 'total';
+  nombre: number;
+  duree_heures: number;
+  end_mwh: number;
+}
+
+export interface VueEnsemble {
+  filtres: FiltresResolus;
+  periode_precedente: PeriodeSuivi;
+  kpi: KpiSuivi;
+  kpi_precedent: KpiSuivi;
+  natures: RepartitionNature[];
+  reseaux: RepartitionReseau[];
+}
+
+export type NiveauClassement = 'service' | 'poste_source' | 'feeder';
+
+export interface LigneClassement {
+  id: number | null;
+  code: string | null;
+  libelle: string;
+  nombre: number;
+  duree_heures: number;
+  end_mwh: number;
+  part: number;
+}
+
+export interface ClassementSuivi {
+  niveau: NiveauClassement;
+  total_interruptions: number;
+  lignes: LigneClassement[];
+  autres: LigneClassement | null;
+}

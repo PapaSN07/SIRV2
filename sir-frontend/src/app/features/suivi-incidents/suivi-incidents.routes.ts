@@ -13,16 +13,7 @@ export const SUIVI_INCIDENTS_ROUTES: Routes = [
   {
     path: 'vue-ensemble',
     title: 'Vue d’ensemble — Suivi incidents',
-    ...aVenir({
-      titre: 'Vue d’ensemble',
-      etape: 3,
-      contenu: [
-        'Indicateurs clés de la période, avec l’écart par rapport à la période précédente',
-        'Répartition Travaux / Incident / Délestage (nombre et durée)',
-        'Énergie non distribuée HTA, HTB et totale',
-        'Classement par région, service, poste source et feeder ; un clic filtre les autres onglets',
-      ],
-    }),
+    loadComponent: () => import('./vue-ensemble/vue-ensemble.component').then((m) => m.VueEnsembleComponent),
   },
   {
     path: 'carte',

@@ -94,9 +94,9 @@
     min-height: 2.75rem;
   }
 
+  // Le bouton « Filtres » de la barre rappelle déjà la période : la zone collante garde
+  // seulement les onglets (moins de hauteur prise à l'écran)
   .suivi__rappel {
-    justify-content: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
   }
 }

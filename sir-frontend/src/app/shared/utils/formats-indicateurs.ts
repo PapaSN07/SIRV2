@@ -12,6 +12,8 @@ const UNE = nombre(1, 1);
 const DEUX = nombre(2, 2);
 
 const TIRET = '—';
+/** Espace fine insécable avant « % » : le symbole ne passe jamais seul à la ligne. */
+const ESPACE_FINE = ' ';
 
 function absent(v: number | null | undefined): v is null | undefined {
   return v === null || v === undefined || Number.isNaN(v);
@@ -49,9 +51,16 @@ export function formatEnd(mwh: number | null | undefined): string {
   return `${UNE.format(mwh)} MWh`;
 }
 
+/** END en deux parties pour une carte KPI (unité affichée plus petite) : « 1 843,3 » + « MWh ». */
+export function formatEndParties(mwh: number | null | undefined): { valeur: string; unite: string | null } {
+  if (absent(mwh)) return { valeur: TIRET, unite: null };
+  if (Math.abs(mwh) < 1) return { valeur: ENTIER.format(mwh * 1000), unite: 'kWh' };
+  return { valeur: UNE.format(mwh), unite: 'MWh' };
+}
+
 /** Pourcentage à partir d'une part (0,845 → « 84,5 % »). */
 export function formatPart(part: number | null | undefined): string {
-  return absent(part) ? TIRET : `${UNE.format(part * 100)} %`;
+  return absent(part) ? TIRET : `${UNE.format(part * 100)}${ESPACE_FINE}%`;
 }
 
 /**
@@ -66,5 +75,7 @@ export function ecartRelatif(actuel: number | null | undefined, precedent: numbe
 export function formatEcart(ecart: number | null): string {
   if (ecart === null) return TIRET;
   const signe = ecart > 0 ? '+' : ecart < 0 ? '−' : '';
-  return `${signe}${UNE.format(Math.abs(ecart) * 100)} %`;
+  // Au-delà de ±999 %, la valeur exacte n'aide pas la lecture (période de comparaison presque vide)
+  if (Math.abs(ecart) > 9.99) return `> ${signe}999${ESPACE_FINE}%`;
+  return `${signe}${UNE.format(Math.abs(ecart) * 100)}${ESPACE_FINE}%`;
 }

@@ -4,7 +4,13 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { SANS_REDIRECTION_403 } from '../../../core/auth/error.interceptor';
 import { ApiResponse } from '../../../shared/models/api.models';
-import { FiltresIncidents, FiltresResolus } from '../../../shared/models/suivi-incidents.models';
+import {
+  ClassementSuivi,
+  FiltresIncidents,
+  FiltresResolus,
+  NiveauClassement,
+  VueEnsemble,
+} from '../../../shared/models/suivi-incidents.models';
 
 /** Appels HTTP du menu « Suivi incidents » (`/api/v1/suivi-incidents`). */
 @Injectable({ providedIn: 'root' })
@@ -21,6 +27,26 @@ export class SuiviIncidentsService {
     return this.http
       .get<ApiResponse<FiltresResolus>>(`${this.apiUrl}/filtres`, {
         params: parametresFiltres(filtres),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Indicateurs de la période et de la période précédente, natures, réseaux HTA / HTB. */
+  getVueEnsemble(filtres: FiltresIncidents): Observable<VueEnsemble> {
+    return this.http
+      .get<ApiResponse<VueEnsemble>>(`${this.apiUrl}/vue-ensemble`, {
+        params: parametresFiltres(filtres),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Classement des services, postes sources ou feeders les plus touchés. */
+  getClassement(filtres: FiltresIncidents, niveau: NiveauClassement, limite = 10): Observable<ClassementSuivi> {
+    return this.http
+      .get<ApiResponse<ClassementSuivi>>(`${this.apiUrl}/classement`, {
+        params: parametresFiltres(filtres).set('niveau', niveau).set('limite', limite),
         context: new HttpContext().set(SANS_REDIRECTION_403, true),
       })
       .pipe(map((res) => unwrap(res)));

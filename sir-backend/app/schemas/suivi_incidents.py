@@ -59,3 +59,66 @@ class FiltresResolus(BaseModel):
     )
     libelle_periode: str
     perimetre: PerimetreSuivi
+
+
+# ── Onglet Vue d'ensemble ─────────────────────────────────────────────────────────────────
+
+CategorieNature = Literal["incident", "delestage", "travaux", "autre"]
+NiveauClassement = Literal["service", "poste_source", "feeder"]
+
+
+class PeriodeSuivi(BaseModel):
+    debut: date
+    fin: date
+    libelle: str
+
+
+class KpiSuivi(BaseModel):
+    nombre_interruptions: int
+    duree_totale_heures: float
+    duree_moyenne_minutes: float | None = Field(None, description="Moyenne des durées renseignées")
+    postes_touches: int
+    coupures_clients: int = Field(..., description="Σ clients touchés par interruption")
+    end_mwh: float
+
+
+class RepartitionNature(BaseModel):
+    categorie: CategorieNature
+    libelle: str
+    nombre: int
+    duree_heures: float
+    end_mwh: float
+    part: float = Field(..., description="Part du nombre d'interruptions (0 à 1)")
+
+
+class RepartitionReseau(BaseModel):
+    reseau: Literal["hta", "htb", "total"]
+    nombre: int
+    duree_heures: float
+    end_mwh: float
+
+
+class VueEnsemble(BaseModel):
+    filtres: FiltresResolus
+    periode_precedente: PeriodeSuivi
+    kpi: KpiSuivi
+    kpi_precedent: KpiSuivi
+    natures: list[RepartitionNature]
+    reseaux: list[RepartitionReseau]
+
+
+class LigneClassement(BaseModel):
+    id: int | None = Field(None, description="Null : sans rattachement (« Non renseigné ») ou ligne « Autres »")
+    code: str | None = None
+    libelle: str
+    nombre: int
+    duree_heures: float
+    end_mwh: float
+    part: float
+
+
+class ClassementSuivi(BaseModel):
+    niveau: NiveauClassement
+    total_interruptions: int
+    lignes: list[LigneClassement]
+    autres: LigneClassement | None = Field(None, description="Somme des lignes au-delà de la limite")

@@ -118,9 +118,70 @@ Pas un préalable : SIRV2 fait foi. Utile pour préparer les questions des utili
 
 ## 7. Plan de livraison (une PR par étape, circuit « tests avant le code »)
 
-1. Règle HTB par la cause dans la synthèse SAIFI/SAIDI de l'accueil — **fait le 25/11/2026**.
-2. Fondations : route `/suivi-incidents` et onglets (routes enfants), barre de filtres dans l'URL, `GET /suivi-incidents/filtres` (période par défaut, périmètre du rôle), `causes.est_exogene`, composants partagés et ngx-echarts.
-3. Onglets sur les données existantes : SAIFI/SAIDI, Nature, Focus opérationnel, Qualité de service, Carte & évolution.
-4. Géographie : migrations Alembic (§3), import des localités (« Postes_Affectes_Localites », dépôt de l'ancienne app), lien poste ↔ SIG par tâche Celery ; puis onglets Vue d'ensemble et Localisation.
-5. Administration : reprise des corrections manuelles et du recensement dans le rapprochement Schéma / SIG / SIR.
-6. Bascule au déploiement : recette par les utilisateurs de l'ancienne app, puis redirection de l'ancienne adresse (port 8070) vers SIRV2.
+1. **HTB par la cause** dans la synthèse SAIFI/SAIDI de l'accueil — **fait le 25/11/2026**.
+2. **Fondations** — route `/suivi-incidents` et 6 onglets (routes enfants), barre de filtres dans l'URL, `GET /suivi-incidents/filtres` (période par défaut, périmètre du rôle), `causes.est_exogene`, composants partagés (KPI, états, graphiques ngx-echarts) — **fait le 25/11/2026**.
+3. **Vue d'ensemble** — `GET /suivi-incidents/vue-ensemble` (KPI et période précédente, natures, réseaux HTA / HTB) et `GET /suivi-incidents/classement` (service / poste source / feeder, clic → filtre) — **fait le 25/11/2026** (spécification §8).
+4. **Évolution + Réseau** — série à granularité automatique ; classements postes sources / feeders triables avec recherche, export Excel.
+5. **SAIFI / SAIDI** — rapport par nature, mois × nature, contributions par service.
+6. **Géographie + Carte + Localisation** — migrations Alembic (§3), import des localités (« Postes_Affectes_Localites »), lien poste ↔ SIG par tâche Celery ; onglets Carte et Localisation ; classement territorial administratif.
+7. **Administration** — reprise des corrections manuelles et du recensement dans le rapprochement Schéma / SIG / SIR.
+8. **Recette et bascule** — recette par les utilisateurs de l'ancienne app, retrait de l'interrupteur, redirection de l'ancienne adresse (port 8070) vers SIRV2.
+
+## 8. Spécification de l'étape 3 — Vue d'ensemble (25/11/2026)
+
+Données : interruptions **distribution**, **tous statuts** (comme le rapport hebdo DD), datées par
+`date_apparition` sur [debut, fin] (fin incluse), filtrées par `appliquer_filtres` sur les filtres
+**résolus** (`resoudre_filtres`) : la région imposée au BCC / BRC et le service imposé au
+SUPERVISEUR deviennent des clauses `WHERE` (RBAC double avec `require_permission("indicateurs","read")`).
+Mêmes paramètres de requête que `GET /suivi-incidents/filtres`.
+
+### `GET /api/v1/suivi-incidents/vue-ensemble`
+
+Réponse `ApiResponse[VueEnsemble]` :
+
+| Champ | Contenu |
+|---|---|
+| `filtres` | `FiltresResolus` (comme `/filtres`) |
+| `periode_precedente` | `{debut, fin, libelle}` — `periodes.periode_precedente(debut, fin)` |
+| `kpi`, `kpi_precedent` | `KpiSuivi` de la période et de la période précédente (mêmes filtres hors période) |
+| `natures` | 4 lignes, toujours dans l'ordre `incident`, `delestage`, `travaux`, `autre` |
+| `reseaux` | 3 lignes : `hta`, `htb`, `total` (réseau par la cause, `condition_reseau`) |
+
+`KpiSuivi` : `nombre_interruptions` (int) ; `duree_totale_heures` (Σ `duree_minutes` / 60, nulles = 0) ;
+`duree_moyenne_minutes` (moyenne des durées renseignées, `null` si aucune) ; `postes_touches`
+(postes distincts de `poste_interruptions`) ; `coupures_clients` (Σ `nombre_clients_touches`, nulles = 0) ;
+`end_mwh` (Σ `interruptions_distribution.end_mwh`, nulles = 0).
+
+`RepartitionNature` : `categorie`, `libelle`, `nombre`, `duree_heures`, `end_mwh`, `part`
+(nombre / total, 0 si total nul). Catégorie = `suivi_incidents_service.categorie_nature(nature, cause)`,
+dérivée de `rapport_hebdo_dd_service.categorie` :
+
+| Catégorie hebdo DD | Catégorie suivi | Libellé |
+|---|---|---|
+| Permanent, Semi permanent, Fugitif | `incident` | Incidents |
+| Délestage incident HTA, Délestage HTB / production | `delestage` | Délestages |
+| Travaux réseau HTA | `travaux` | Travaux |
+| Manœuvre, Autres coupures HTA, Autres HTB | `autre` | Autres coupures |
+
+`RepartitionReseau` : `reseau` (`hta` | `htb` | `total`), `nombre`, `duree_heures`, `end_mwh` ; total = hta + htb.
+
+`periode_precedente` : semaine Senelec → semaine précédente ; mois civil complet → mois précédent
+complet ; année civile → année précédente ; sinon même nombre de jours juste avant `debut`.
+
+### `GET /api/v1/suivi-incidents/classement`
+
+Paramètres en plus des filtres : `niveau` = `service` | `poste_source` | `feeder` (obligatoire),
+`limite` 1 à 50 (défaut 10) ; autre valeur → 422 enveloppé.
+
+Réponse `ApiResponse[ClassementSuivi]` : `niveau`, `total_interruptions`, `lignes`
+(`{id, code, libelle, nombre, duree_heures, end_mwh, part}`), `autres` (somme des lignes au-delà de
+`limite`, `null` s'il n'y en a pas). Tri : nombre décroissant puis libellé. La ligne sans
+rattachement (`id = null`, libellé « Non renseigné ») est toujours **la dernière**, hors limite.
+
+Cache Redis 1 h par (endpoint, filtres résolus) — clé `suivi:{endpoint}:{empreinte}`.
+
+### Points ouverts de l'étape 3
+
+- **Cache d'une heure sans invalidation** : une interruption saisie apparaît dans la Vue d'ensemble au plus une heure après (la liste des interruptions la montre tout de suite). À décider : garder 1 h, ou invalider `suivi:*` à la création, la clôture et la validation.
+- **Catégorie « Travaux »** : suit la règle du rapport hebdo DD (cause contenant « Travaux »). Une interruption de nature « Travaux » dont la cause ne le dit pas tombe dans « Autres coupures » — à confirmer sur les natures réelles de SIRV2.
+- **Interruptions en cours** : comptées dans le nombre, pas dans la durée (durée non encore connue).
