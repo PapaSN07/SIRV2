@@ -33,6 +33,14 @@ class NoeudSig(Base):
     puissance: Mapped[str | None] = mapped_column(NVARCHAR(50), nullable=True)
     famille_poste: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
     cellule: Mapped[str | None] = mapped_column(NVARCHAR(100), nullable=True)
+    # Source : sir_v1 (tables SIG de SIR v1) ou arcgis (export KMZ validé, migration 5f6a7b8c9d0e)
+    source: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, server_default="sir_v1")
+    global_id: Mapped[str | None] = mapped_column(NVARCHAR(40), nullable=True)
+    poste_source: Mapped[str | None] = mapped_column(NVARCHAR(255), nullable=True)
+    statut_validation: Mapped[str | None] = mapped_column(NVARCHAR(30), nullable=True)
+    # 0 : nœud SIR v1 remplacé par le nœud ArcGIS du même poste (plus proposé ni compté)
+    est_actif: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1", index=True)
+    date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )
@@ -69,6 +77,8 @@ class TronconSig(Base):
     date_maj: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
     # Tronçon du dernier chargement SIG de son départ (recalculé à chaque import) : filtre des écrans
     est_dernier: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+    source: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, server_default="sir_v1")
+    global_id: Mapped[str | None] = mapped_column(NVARCHAR(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, server_default=MSSQL_NOW
     )

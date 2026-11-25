@@ -161,8 +161,11 @@ def main() -> int:
 
         # 3. SIG : nœud de même nom (unique), rattaché à un feeder SIRV2
         sig_par_cle: dict[str, set[int]] = defaultdict(set)
+        # Nœuds en service seulement (SIG ArcGIS à la place des nœuds SIR v1 remplacés, migration 5f6a7b8c9d0e)
+        actifs = " AND est_actif = 1" if session.execute(
+            text("SELECT COL_LENGTH('dbo.noeuds_sig', 'est_actif')")).scalar() is not None else ""
         for nom, feeder_id in session.execute(
-            text("SELECT nom, feeder_id FROM dbo.noeuds_sig WHERE nom IS NOT NULL")
+            text(f"SELECT nom, feeder_id FROM dbo.noeuds_sig WHERE nom IS NOT NULL{actifs}")
         ).all():
             cle = cle_poste(nom)
             if cle:

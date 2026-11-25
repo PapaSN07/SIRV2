@@ -56,7 +56,7 @@ async def _avec_cache(redis: Redis | None, cle: str, modele: type[T], calcul: Ca
 
 
 def _cle_cache(*parties: object) -> str:
-    return "sig:v2:" + ":".join(str(p if p is not None else "") for p in parties)
+    return "sig:v3:" + ":".join(str(p if p is not None else "") for p in parties)
 
 
 def _cle(valeur: object) -> str:

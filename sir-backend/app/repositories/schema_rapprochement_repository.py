@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import bindparam, func, or_, select, update
+from sqlalchemy import bindparam, func, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, load_only
 
@@ -53,7 +53,7 @@ async def poste(db: AsyncSession, schema_id: int, poste_schema_id: int) -> Schem
 
 
 async def noeuds_sig_nommes(db: AsyncSession) -> list[tuple[int, str]]:
-    rows = (await db.execute(select(NoeudSig.id, NoeudSig.nom).where(NoeudSig.nom.isnot(None)))).all()
+    rows = (await db.execute(select(NoeudSig.id, NoeudSig.nom).where(NoeudSig.nom.isnot(None), NoeudSig.est_actif == true()))).all()
     return [(int(i), str(n)) for i, n in rows]
 
 
@@ -68,7 +68,7 @@ async def rechercher_noeuds_sig(db: AsyncSession, recherche: str, *, limite: int
         .options(
             load_only(NoeudSig.id, NoeudSig.nom, NoeudSig.nom_feeder, NoeudSig.station, NoeudSig.categorie)
         )
-        .where(or_(NoeudSig.nom.ilike(motif), NoeudSig.nom_feeder.ilike(motif)))
+        .where(or_(NoeudSig.nom.ilike(motif), NoeudSig.nom_feeder.ilike(motif)), NoeudSig.est_actif == true())
         .order_by(NoeudSig.nom, NoeudSig.id)
         .limit(limite)
     )

@@ -22,6 +22,8 @@ _TRIS_TRONCONS = {"nom_troncon", "nom_feeder", "longueur_m", "tension_kv"}
 _TRIS_NOEUDS = {"nom", "nom_feeder", "station", "categorie"}
 # Catégorie SIG sans distinction de casse ni d'espaces (« MIXTE » et « mixte » ne font qu'une)
 _CATEGORIE = func.upper(func.trim(NoeudSig.categorie))
+# Nœuds en service : un nœud SIR v1 remplacé par le nœud ArcGIS du même poste n'est plus compté
+_ACTIF = NoeudSig.est_actif == true()
 
 
 def _motif(mot: str) -> str:
@@ -84,7 +86,7 @@ async def synthese(db: AsyncSession) -> SyntheseSig:
                 func.count(NoeudSig.coord_x),
                 func.count(NoeudSig.feeder_id),
                 func.count(func.distinct(NoeudSig.station)),
-            )
+            ).where(_ACTIF)
         )
     ).one()
     troncons = (
@@ -106,6 +108,7 @@ async def synthese(db: AsyncSession) -> SyntheseSig:
     categories = (
         await db.execute(
             select(func.coalesce(_CATEGORIE, "(sans catégorie)"), func.count(NoeudSig.id))
+            .where(_ACTIF)
             .group_by(_CATEGORIE)
             .order_by(func.count(NoeudSig.id).desc())
         )
@@ -143,7 +146,7 @@ async def lister_stations(
             func.avg(NoeudSig.coord_x).label("x"),
             func.avg(NoeudSig.coord_y).label("y"),
         )
-        .where(NoeudSig.station.isnot(None))
+        .where(NoeudSig.station.isnot(None), _ACTIF)
         .group_by(NoeudSig.station)
         .order_by(NoeudSig.station)
     )
@@ -222,7 +225,7 @@ async def noeuds_par_feeder(db: AsyncSession, noms: list[str]) -> dict[str, tupl
                 cast(func.count(NoeudSig.id), BigInteger),
                 cast(func.count(NoeudSig.coord_x), BigInteger),
             )
-            .where(NoeudSig.nom_feeder.in_(sorted(set(noms))))
+            .where(NoeudSig.nom_feeder.in_(sorted(set(noms))), _ACTIF)
             .group_by(NoeudSig.nom_feeder)
         )
     ).all()
@@ -308,7 +311,7 @@ async def lister_noeuds(
         NoeudSig.puissance,
         NoeudSig.famille_poste,
         NoeudSig.cellule,
-    )
+    ).where(_ACTIF)
     if nom_feeder:
         query = query.where(NoeudSig.nom_feeder == nom_feeder)
     if station:
@@ -342,7 +345,7 @@ async def noeuds_carte(
     query = select(
         NoeudSig.id, NoeudSig.nom, NoeudSig.nom_feeder, NoeudSig.station, _CATEGORIE.label("categorie"),
         NoeudSig.coord_x, NoeudSig.coord_y,
-    ).where(NoeudSig.coord_x.isnot(None), NoeudSig.coord_y.isnot(None))
+    ).where(NoeudSig.coord_x.isnot(None), NoeudSig.coord_y.isnot(None), _ACTIF)
     if nom_feeder:
         query = query.where(NoeudSig.nom_feeder == nom_feeder)
     if station:

@@ -571,6 +571,7 @@ async def coords_par_nom(
             select(NoeudSig.nom, NoeudSig.station, NoeudSig.feeder_id, NoeudSig.coord_x, NoeudSig.coord_y).where(
                 NoeudSig.coord_x.isnot(None),
                 NoeudSig.coord_y.isnot(None),
+                NoeudSig.est_actif == true(),
                 or_(NoeudSig.nom.in_(lot), NoeudSig.station.in_(lot)),
             )
         )
@@ -930,6 +931,7 @@ async def points_sig_par_service(db: AsyncSession, pas: int = 5) -> list[tuple[i
             Feeder.service_id.isnot(None),
             NoeudSig.coord_x.isnot(None),
             NoeudSig.coord_y.isnot(None),
+            NoeudSig.est_actif == true(),
             NoeudSig.id % pas == 0,
         )
     )
