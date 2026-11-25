@@ -1,16 +1,17 @@
 """Requêtes du pilotage indicateurs : défauts aux 100 km, objectifs, carte, classements."""
 
 import math
-from typing import Any
+from typing import Any, Literal
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Float, Row, cast, extract, func, or_, select, true
+from sqlalchemy import BigInteger, Float, Row, and_, cast, extract, func, not_, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Region, Service
 from app.models.indicateurs import NombreClientMois, ObjectifIndicateur
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption, STATUTS_CLOTURES
+from app.models.referentiel import Cause
 from app.models.reseau import Feeder, Poste, Troncon
 from app.models.sig import NoeudSig, TronconSig
 from app.repositories.sig_admin_repository import _dernier_chargement as dernier_chargement_sig
@@ -204,28 +205,64 @@ def _sommes_clients():
     )
 
 
+# Réseau en cause d'une interruption distribution (décision du 25/11/2026, règle du rapport
+# hebdo DD) : HTB quand le libellé de la cause contient l'un de ces mots, HTA sinon
+# (y compris sans cause). Règle Python : app/services/reseau_htb.est_cause_htb.
+MOTIFS_CAUSE_HTB: tuple[str, ...] = ("HTB", "PRODUCTION", "BLACK START")
+
+Reseau = Literal["hta", "htb"]
+
+
+def _cause_htb():
+    """Condition SQL « cause HTB » (libellé en majuscules ; motifs sans accent)."""
+    libelle = func.upper(Cause.libelle)
+    return or_(*(libelle.like(f"%{motif}%") for motif in MOTIFS_CAUSE_HTB))
+
+
+def condition_reseau(reseau: Reseau):
+    """Filtre HTA / HTB ; la requête doit joindre `causes` en externe (cause facultative)."""
+    if reseau == "htb":
+        return and_(Cause.libelle.isnot(None), _cause_htb())
+    # NOT (NULL LIKE …) vaut NULL : une interruption sans cause est HTA, à garder explicitement
+    return or_(Cause.libelle.is_(None), not_(_cause_htb()))
+
+
+def requete_sommes_clients(
+    service_ids: list[int],
+    debut: datetime,
+    fin: datetime,
+    reseau: Reseau | None = None,
+):
+    """Σ NombreClient, Σ(NombreClient × dureeHeure) et nombre d'interruptions SAIFI/SAIDI du
+    périmètre sur [debut, fin[, toute la distribution ou un seul réseau (HTA / HTB)."""
+    requete = (
+        select(*_sommes_clients())
+        .select_from(Interruption)
+        .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
+    )
+    conditions = [
+        interruptions_du_perimetre(service_ids),
+        *_distribution_saifi_saidi(),
+        Interruption.date_apparition >= debut,
+        Interruption.date_apparition < fin,
+    ]
+    if reseau is not None:
+        requete = requete.outerjoin(Cause, Cause.id == Interruption.cause_id)
+        conditions.append(condition_reseau(reseau))
+    return requete.where(*conditions)
+
+
 async def sommer_clients(
     db: AsyncSession,
     service_ids: list[int],
     debut: datetime,
     fin: datetime,
+    reseau: Reseau | None = None,
 ) -> ClientsDureeRow:
     """NombreClient et Σ(NombreClient × dureeHeure), datés par l'apparition (formule SENELEC)."""
     if not service_ids:
         return ClientsDureeRow(0, 0.0, 0)
-    row = (
-        await db.execute(
-            select(*_sommes_clients())
-            .select_from(Interruption)
-            .outerjoin(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
-            .where(
-                interruptions_du_perimetre(service_ids),
-                *_distribution_saifi_saidi(),
-                Interruption.date_apparition >= debut,
-                Interruption.date_apparition < fin,
-            )
-        )
-    ).one()
+    row = (await db.execute(requete_sommes_clients(service_ids, debut, fin, reseau))).one()
     return ClientsDureeRow(
         clients=int(row.clients or 0),
         client_heures=float(row.client_heures or 0),
@@ -256,6 +293,11 @@ def requete_clients_transport(debut: datetime, fin: datetime):
 
 
 async def sommer_clients_transport(db: AsyncSession, debut: datetime, fin: datetime) -> ClientsDureeRow:
+    """Clients et client-heures des interruptions transport / OMVG.
+
+    Conservé pour un futur indicateur transport : la synthèse SAIFI/SAIDI ne l'utilise plus
+    depuis le 25/11/2026 (HTB = cause des interruptions distribution).
+    """
     row = (await db.execute(requete_clients_transport(debut, fin))).one()
     return ClientsDureeRow(
         clients=int(row.clients or 0),

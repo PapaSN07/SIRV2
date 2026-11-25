@@ -881,9 +881,10 @@ async def get_synthese_saifi_saidi(
 ) -> SyntheseSaifiSaidiResponse:
     """SAIFI/SAIDI HTA, HTB et les deux confondus, sur la semaine passée, le mois et l'année.
 
-    HTA : formule SENELEC du périmètre (``calculer_perimetre``). HTB : interruptions transport
-    et OMVG, clients touchés saisis, rapportés à la même base clients (vue nationale seule).
-    Total : somme des numérateurs sur la même base clients.
+    Formule SENELEC du périmètre (``calculer_perimetre``) sur les interruptions distribution,
+    réparties par la cause (décision du 25/11/2026, ``reseau_htb``) : HTB si la cause désigne
+    le réseau HTB ou la production, HTA sinon. Même base clients pour les deux : le total est
+    leur somme. Les interruptions transport / OMVG n'entrent plus dans la synthèse.
     """
     jour = aujourd_hui or date.today()
     scope = _resolve_scope(user, region_id=region_id)
@@ -895,24 +896,24 @@ async def get_synthese_saifi_saidi(
         periodes: list[SyntheseSaifiSaidiPeriode] = []
         reference = 0
         for cle, libelle, debut, fin in periodes_synthese(jour):
-            hta = await saifi_saidi_service.calculer_perimetre(db, service_ids, debut, fin, today=jour)
+            hta = await saifi_saidi_service.calculer_perimetre(
+                db, service_ids, debut, fin, today=jour, reseau="hta"
+            )
+            htb = await saifi_saidi_service.calculer_perimetre(
+                db, service_ids, debut, fin, today=jour, reseau="htb"
+            )
             reference = hta.total_clients_reference
             valeurs_hta = SaifiSaidiValeurs(
                 saifi=hta.saifi, saidi=hta.saidi, nombre_interruptions=hta.nombre_interruptions
             )
-            htb = total = None
-            if scope.niveau == "national":
-                trans = await pilotage_repository.sommer_clients_transport(db, debut, fin)
-                htb = SaifiSaidiValeurs(
-                    saifi=float(saifi_saidi_service.calcul_saifi(trans.clients, reference)),
-                    saidi=float(saifi_saidi_service.calcul_saidi(trans.client_heures, reference)),
-                    nombre_interruptions=trans.nombre,
-                )
-                total = SaifiSaidiValeurs(
-                    saifi=round(hta.saifi + htb.saifi, 6),
-                    saidi=round(hta.saidi + htb.saidi, 6),
-                    nombre_interruptions=hta.nombre_interruptions + trans.nombre,
-                )
+            valeurs_htb = SaifiSaidiValeurs(
+                saifi=htb.saifi, saidi=htb.saidi, nombre_interruptions=htb.nombre_interruptions
+            )
+            total = SaifiSaidiValeurs(
+                saifi=round(hta.saifi + htb.saifi, 6),
+                saidi=round(hta.saidi + htb.saidi, 6),
+                nombre_interruptions=hta.nombre_interruptions + htb.nombre_interruptions,
+            )
             periodes.append(
                 SyntheseSaifiSaidiPeriode(
                     cle=cle,  # type: ignore[arg-type]
@@ -920,7 +921,7 @@ async def get_synthese_saifi_saidi(
                     debut=debut.date(),
                     fin=(fin - timedelta(days=1)).date(),
                     hta=valeurs_hta,
-                    htb=htb,
+                    htb=valeurs_htb,
                     total=total,
                 )
             )
@@ -933,7 +934,8 @@ async def get_synthese_saifi_saidi(
 
     if scope.niveau == "service":
         return SyntheseSaifiSaidiResponse.model_validate(await _loader())
-    cache_key = build_cache_key("synthese-saifi-saidi", scope.cache_region_id, jour.year, int(jour.strftime("%m%d")))
+    # v2 : HTB par la cause depuis le 25/11/2026 (les réponses v1 comptaient le transport)
+    cache_key = build_cache_key("synthese-saifi-saidi-v2", scope.cache_region_id, jour.year, int(jour.strftime("%m%d")))
     cached = await get_cached(redis, cache_key)
     if not isinstance(cached, dict) or "periodes" not in cached:
         cached = await _loader()

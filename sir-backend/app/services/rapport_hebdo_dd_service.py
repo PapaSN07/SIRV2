@@ -19,7 +19,6 @@ fugitifs ; leur END comprend aussi les délestages incidents HTA (comme le modè
 
 from __future__ import annotations
 
-import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -29,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories import rapport_hebdo_repository as repo
 from app.repositories.rapport_hebdo_repository import LigneHebdo
 from app.services import saifi_saidi_service
+from app.services.reseau_htb import est_cause_htb, normaliser_libelle
 
 PERMANENT = "permanent"
 SEMI_PERMANENT = "semi_permanent"
@@ -63,17 +63,13 @@ _SEUIL_INCIDENT_HTB = 20
 _MAX_FAITS_PAR_ZONE = 12  # interruptions HTA dans la journée pour parler d'un incident HTB
 
 
-def _norme(texte: str | None) -> str:
-    if not texte:
-        return ""
-    sans_accent = unicodedata.normalize("NFKD", texte.replace("œ", "oe").replace("Œ", "OE"))
-    return "".join(c for c in sans_accent if not unicodedata.combining(c)).upper().strip()
+_norme = normaliser_libelle
 
 
 def categorie(ligne: LigneHebdo) -> str:
     cause = _norme(ligne.cause)
     nature = _norme(ligne.nature)
-    if "HTB" in cause or "PRODUCTION" in cause or "BLACK START" in cause:
+    if est_cause_htb(ligne.cause):
         return HTB_DELESTAGE if ("PRODUCTION" in cause or "DELESTAGE" in nature) else HTB_AUTRES
     if "MANOEUVRE" in cause:
         return MANOEUVRE_HTA

@@ -269,7 +269,7 @@ export interface SyntheseSaifiSaidiPeriode {
   debut: string;
   fin: string;
   hta: SaifiSaidiValeurs;
-  /** HTB (transport, OMVG) et total : vue nationale seulement. */
+  /** HTB (cause réseau HTB ou production) et total HTA + HTB, à tous les niveaux. */
   htb: SaifiSaidiValeurs | null;
   total: SaifiSaidiValeurs | null;
 }

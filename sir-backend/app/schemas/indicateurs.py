@@ -326,7 +326,8 @@ class SyntheseSaifiSaidiPeriode(BaseModel):
     debut: date
     fin: date = Field(..., description="Dernier jour inclus")
     hta: SaifiSaidiValeurs
-    # HTB (transport, OMVG) et total : vue nationale seulement (le transport n'a pas de région)
+    # HTB / HTA : réseau en cause des interruptions distribution (décision du 25/11/2026) ;
+    # renseignés à tous les niveaux, facultatifs pour compatibilité avec les anciennes réponses en cache
     htb: SaifiSaidiValeurs | None = None
     total: SaifiSaidiValeurs | None = None
 

@@ -167,8 +167,17 @@ SAIDI = DIVIDE(SUMX('Interruptions', [NombreClient] * [TotalDureeInterruption]),
   (`include_services=true`) ; elle donne 0 pour un service sans ligne NombreClientMois.
 - Sans ligne `NombreClientMois` pour le mois de référence, l'indicateur est vide (comme `DIVIDE`).
 
+- **HTA / HTB** (décision du 25/11/2026, règle du rapport hebdo DD) : une interruption distribution
+  est HTB quand le libellé de sa cause contient « HTB », « PRODUCTION » ou « BLACK START » (casse et
+  accents ignorés), HTA sinon, y compris sans cause (`app/services/reseau_htb.est_cause_htb`, en SQL
+  `pilotage_repository.condition_reseau`). `calculer_perimetre(..., reseau="hta"|"htb")` ne filtre que
+  le numérateur : mois de référence et base clients restent ceux de toute la distribution, donc
+  HTA + HTB = ensemble. Synthèse de l'accueil (`GET /indicateurs/synthese-saifi-saidi`) : HTA, HTB et
+  total à tous les niveaux (national, région, service) ; les interruptions transport / OMVG n'y entrent
+  plus (elles y figuraient comme « HTB » jusqu'au 25/11/2026).
+
 Code : `app/services/saifi_saidi_service.py`, `app/repositories/pilotage_repository.py`
-(`sommer_clients`, `mois_derniere_apparition`, `clients_reference_exacte`).
+(`sommer_clients`, `requete_sommes_clients`, `mois_derniere_apparition`, `clients_reference_exacte`).
 Recalcul après import : `docker compose exec api python -m scripts.recalcul_saifi_saidi --depuis 2024-01`.
 
 ### Agrégation service → région → national (un mois)

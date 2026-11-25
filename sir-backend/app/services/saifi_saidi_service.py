@@ -257,15 +257,20 @@ async def calculer_perimetre(
     debut: datetime,
     fin: datetime,
     today: date | None = None,
+    reseau: pilotage_repository.Reseau | None = None,
 ) -> SaifiSaidiPerimetre:
     """SAIFI/SAIDI d'un périmètre (service, région, national) sur [debut, fin[.
+
+    `reseau` ("hta" / "htb", cause de l'interruption, décision du 25/11/2026) ne filtre que
+    le numérateur : le mois de référence et la base clients restent ceux de toute la
+    distribution du périmètre, pour que HTA + HTB = ensemble.
 
     Le numérateur et le dénominateur sont sommés sur tout le périmètre, comme la mesure
     Power BI : le nombre de clients HFSQL est souvent porté par un service représentatif de
     la région, alors que les interruptions sont rattachées à chaque service. Un calcul
     service par service donnerait 0 partout où ces deux rattachements diffèrent.
     """
-    totaux = await pilotage_repository.sommer_clients(db, service_ids, debut, fin)
+    totaux = await pilotage_repository.sommer_clients(db, service_ids, debut, fin, reseau=reseau)
     mois = await pilotage_repository.mois_derniere_apparition(db, service_ids, debut, fin)
     if mois is None:
         jour = today or date.today()

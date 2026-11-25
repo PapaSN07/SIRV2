@@ -58,3 +58,6 @@ docs/Rapport_Journalier_mensuel/
 
 # Fichiers de verrou Office
 ~$*
+
+# Résultats de scripts/fusion/collecter_chiffres.py (chiffres SENELEC, hors dépôt)
+scripts/fusion/resultats_*.json
