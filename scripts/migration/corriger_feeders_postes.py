@@ -7,12 +7,13 @@ Origine, dans la table Postes de SIR v1 :
 - 1 630 postes portent idfeeder = 30 (SAUVEGARDE) alors que leur texte nomme le vrai feeder (ex. SAII) :
   la reprise a privilégié idfeeder.
 
-Pour chaque poste sans feeder ou sur un feeder par défaut, trois sources proposent un feeder :
+Pour chaque poste sans feeder ou sur un feeder par défaut, quatre sources proposent un feeder :
+0. exploitants : liste des postes tenue par les exploitants (« LISTE POSTES DAKAR … .xlsx », --liste-exploitants) ;
 1. texte   : colonne « feeder » de la table Postes de SIR v1 (si ce n'est pas un feeder par défaut) ;
 2. interr. : feeder des interruptions où le poste a été coupé (poste_interruptions, majoritaire à 60 %) ;
 3. sig     : feeder du nœud SIG de même nom (nom porté par un seul nœud).
-Décision : sources concordantes → « sure » ; une seule source → « probable » ; sources en désaccord →
-« a_arbitrer » (non modifié, à traiter dans Administration → Schémas unifilaires → Rapprochement).
+Décision : sources concordantes → « sure » ; majorité d'au moins deux sources → « majoritaire » ; une seule
+source → « probable » ; désaccord sans majorité → « a_arbitrer » (non modifié, à traiter dans Administration → Schémas unifilaires → Rapprochement).
 
 Usage (poste SENELEC, accès à la base SIRV2) :
     python scripts/migration/corriger_feeders_postes.py
@@ -67,14 +68,46 @@ def feeder_majoritaire(comptes: Counter[int], exclus: set[int]) -> int | None:
 
 
 def decider(propositions: dict[str, int | None]) -> tuple[int | None, str]:
-    """(feeder retenu, niveau) à partir des propositions {source: feeder_id}."""
-    valeurs = {v for v in propositions.values() if v is not None}
-    if not valeurs:
+    """(feeder retenu, niveau) à partir des propositions {source: feeder_id}.
+
+    sure : au moins deux sources, toutes d'accord ; majoritaire : un feeder porté par au moins deux sources
+    et par plus de sources que tout autre ; probable : une seule source ; a_arbitrer : désaccord sans majorité.
+    """
+    votes = Counter(v for v in propositions.values() if v is not None)
+    if not votes:
         return None, "sans_source"
-    if len(valeurs) > 1:
-        return None, "a_arbitrer"
-    n = sum(1 for v in propositions.values() if v is not None)
-    return next(iter(valeurs)), ("sure" if n >= 2 else "probable")
+    (premier, n1), *autres = votes.most_common()
+    if not autres:
+        return premier, ("sure" if n1 >= 2 else "probable")
+    if n1 >= 2 and n1 > autres[0][1]:
+        return premier, "majoritaire"
+    return None, "a_arbitrer"
+
+
+def lire_liste_exploitants(chemin: Path) -> list[tuple[str, str, str, str]]:
+    """Liste des postes tenue par les exploitants (.xlsx) : (service, poste source, feeder, poste).
+
+    Colonnes reconnues par leur en-tête : SERVICES, POSTES SOURCES, FEEDERS, POSTES.
+    """
+    from openpyxl import load_workbook
+
+    classeur = load_workbook(chemin, read_only=True, data_only=True)
+    lignes: list[tuple[str, str, str, str]] = []
+    for feuille in classeur.worksheets:
+        entete: dict[str, int] | None = None
+        for valeurs in feuille.iter_rows(values_only=True):
+            cellules = [str(v).strip() if v is not None else "" for v in valeurs]
+            if entete is None:
+                cles = {cle_feeder(c): i for i, c in enumerate(cellules)}
+                if {"FEEDERS", "POSTES"} <= cles.keys():
+                    entete = cles
+                continue
+            def col(nom: str) -> str:
+                i = entete.get(nom)  # type: ignore[union-attr]
+                return cellules[i] if i is not None and i < len(cellules) else ""
+            if col("POSTES") and col("FEEDERS"):
+                lignes.append((col("SERVICES"), col("POSTESSOURCES"), col("FEEDERS"), col("POSTES")))
+    return lignes
 
 
 def _texte_sir_v1() -> dict[str, str]:
@@ -122,7 +155,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--execute", action="store_true", help="écrire en base (sinon simulation)")
     parser.add_argument("--niveau", choices=("sure", "probable"), default="probable",
-                        help="sure : seulement les sources concordantes ; probable : aussi une source seule")
+                        help="sure : seulement les sources concordantes ; probable : aussi majoritaire et source seule")
+    parser.add_argument("--liste-exploitants", type=Path,
+                        help="liste des postes des exploitants (.xlsx : SERVICES, POSTES SOURCES, FEEDERS, POSTES)")
+    parser.add_argument("--tous", action="store_true",
+                        help="examiner aussi les postes sur un feeder ordinaire (changés seulement si « sure »)")
     parser.add_argument("--restaurer", type=Path, help="rapport d'une exécution précédente à annuler")
     args = parser.parse_args()
     if args.restaurer:
@@ -146,8 +183,31 @@ def main() -> int:
         postes = session.execute(
             text("SELECT id, code, libelle, feeder_id FROM dbo.postes WHERE is_active = 1")
         ).all()
-        a_corriger = [p for p in postes if p.feeder_id is None or int(p.feeder_id) in defaut]
-        print(f"{len(postes)} postes actifs, dont {len(a_corriger)} sans feeder ou sur un feeder par défaut.")
+        par_defaut = {int(p.id) for p in postes if p.feeder_id is None or int(p.feeder_id) in defaut}
+        a_corriger = postes if args.tous else [p for p in postes if int(p.id) in par_defaut]
+        print(f"{len(postes)} postes actifs, dont {len(par_defaut)} sans feeder ou sur un feeder par défaut ;"
+              f" {len(a_corriger)} examinés.")
+
+        # 1. Liste des exploitants : feeder cherché d'abord parmi ceux de son poste source
+        exploitants: dict[str, set[int]] = defaultdict(set)
+        if args.liste_exploitants:
+            feeders_du_ps: dict[str, dict[str, set[int]]] = defaultdict(lambda: defaultdict(set))
+            for i, lib, code, ps in feeders:
+                for nom in (lib, code):
+                    if cle_feeder(nom):
+                        feeders_du_ps[cle_feeder(ps)][cle_feeder(nom)].add(int(i))
+            liste = lire_liste_exploitants(args.liste_exploitants)
+            inconnus: Counter[str] = Counter()
+            for _service, ps, feeder, poste in liste:
+                ids = feeders_du_ps.get(cle_feeder(ps), {}).get(cle_feeder(feeder)) or par_cle.get(cle_feeder(feeder), set())
+                if len(ids) == 1:
+                    exploitants[cle_poste(poste)].add(next(iter(ids)))
+                else:
+                    inconnus[f"{ps} / {feeder}"] += 1
+            print(f"Liste des exploitants : {len(liste)} postes ; feeders non reconnus dans SIRV2 :"
+                  f" {sum(inconnus.values())} postes ({len(inconnus)} feeders)")
+            for nom, n in inconnus.most_common(15):
+                print(f"    {nom} : {n}")
 
         # 2. Feeders des interruptions où le poste a été coupé (feeder du lien, sinon de l'interruption)
         coupures: dict[int, Counter[int]] = defaultdict(Counter)
@@ -176,7 +236,10 @@ def main() -> int:
 
     lignes: list[dict[str, object]] = []
     for p in a_corriger:
-        props: dict[str, int | None] = {"texte": None, "interruptions": None, "sig": None}
+        props: dict[str, int | None] = {"exploitants": None, "texte": None, "interruptions": None, "sig": None}
+        expl = exploitants.get(cle_poste(p.libelle), set())
+        if len(expl) == 1:
+            props["exploitants"] = next(iter(expl))
         texte = textes.get(legacy.get(int(p.id), ""), "")
         ids = par_cle.get(cle_feeder(texte), set())
         if len(ids) == 1 and not ids & defaut:
@@ -186,10 +249,15 @@ def main() -> int:
         if len(sig) == 1 and next(iter(sig)) not in defaut and next(iter(sig)) != -1:
             props["sig"] = next(iter(sig))
         retenu, niveau = decider(props)
+        if int(p.id) not in par_defaut:
+            # Poste sur un feeder ordinaire (--tous) : changé seulement si toutes les sources concordent
+            if retenu == p.feeder_id or niveau != "sure":
+                continue
         lignes.append({
             "poste_id": p.id, "code": p.code, "poste": p.libelle,
             "ancien_feeder_id": p.feeder_id or "", "ancien_feeder": nom_feeder.get(int(p.feeder_id), "") if p.feeder_id else "",
             "texte_sir_v1": texte,
+            "feeder_exploitants": nom_feeder.get(props["exploitants"], "") if props["exploitants"] else "",
             "feeder_texte": nom_feeder.get(props["texte"], "") if props["texte"] else "",
             "feeder_interruptions": nom_feeder.get(props["interruptions"], "") if props["interruptions"] else "",
             "feeder_sig": nom_feeder.get(props["sig"], "") if props["sig"] else "",
@@ -203,8 +271,8 @@ def main() -> int:
     niveaux = Counter(str(li["niveau"]) for li in lignes)
     print("Propositions :", ", ".join(f"{k} {v}" for k, v in niveaux.most_common()))
     print("Sources :", ", ".join(
-        f"{s} {sum(1 for li in lignes if li['feeder_' + s])}" for s in ("texte", "interruptions", "sig")))
-    acceptes = {"sure"} if args.niveau == "sure" else {"sure", "probable"}
+        f"{s} {sum(1 for li in lignes if li['feeder_' + s])}" for s in ("exploitants", "texte", "interruptions", "sig")))
+    acceptes = {"sure"} if args.niveau == "sure" else {"sure", "majoritaire", "probable"}
     a_appliquer = [li for li in lignes if li["niveau"] in acceptes and li["nouveau_feeder_id"]]
     print(f"À appliquer (niveau {args.niveau}) : {len(a_appliquer)} postes ;"
           f" à arbitrer : {niveaux.get('a_arbitrer', 0)} ; sans source : {niveaux.get('sans_source', 0)}.")

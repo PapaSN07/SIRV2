@@ -43,3 +43,23 @@ def test_feeder_majoritaire_des_coupures() -> None:
     assert feeder_majoritaire(Counter({7: 3, 52: 10, 9: 1}), exclus={52}) == 7  # 3/4 hors défaut
     assert feeder_majoritaire(Counter({7: 1, 9: 1}), exclus=set()) is None  # pas de majorité
     assert feeder_majoritaire(Counter({52: 4}), exclus={52}) is None
+
+
+def test_decision_majoritaire() -> None:
+    assert decider({"exploitants": 7, "sig": 7, "texte": 9, "interruptions": None}) == (7, "majoritaire")
+    assert decider({"exploitants": 7, "sig": 9, "texte": 9, "interruptions": 7}) == (None, "a_arbitrer")
+
+
+def test_liste_exploitants_par_entete(tmp_path: Path) -> None:
+    from openpyxl import Workbook
+
+    from scripts.migration.corriger_feeders_postes import lire_liste_exploitants
+
+    classeur = Workbook()
+    feuille = classeur.active
+    feuille.append(["SERVICES", "POSTES SOURCES", "FEEDERS", "POSTES"])
+    feuille.append(["SDDV", "HANN", "SOPRIM", "PA 14"])
+    feuille.append(["SDDV", "HANN", None, "SANS FEEDER"])
+    chemin = tmp_path / "liste.xlsx"
+    classeur.save(chemin)
+    assert lire_liste_exploitants(chemin) == [("SDDV", "HANN", "SOPRIM", "PA 14")]
