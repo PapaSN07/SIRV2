@@ -442,7 +442,7 @@ def test_requete_saifi_regles_de_la_formule(regroupement: str | None) -> None:
     # _distribution_saifi_saidi : statut clôturé, date de remise, durée > 5 minutes
     assert re.search(r"interruptions\.statut IN \(N?'cloture', N?'valide', N?'archive'\)", sql), sql
     assert re.search(r"interruptions\.date_remise IS NOT NULL", sql), sql
-    assert re.search(r"coalesce\(interruptions\.duree_minutes, 0\) > 5\b", sql, re.IGNORECASE), sql
+    assert re.search(r"coalesce\((?:dbo\.)?interruptions\.duree_minutes, 0\) > 5\b", sql, re.IGNORECASE), sql
 
 
 @pytest.mark.parametrize("regroupement", REGROUPEMENTS_SAIFI, ids=lambda r: r or "aucun")
