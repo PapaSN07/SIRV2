@@ -1,0 +1,188 @@
+@use '../../../../styles/sir-tokens' as *;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.loc__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.loc__bloc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+}
+
+.loc__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.loc__titre {
+  margin: 0;
+  color: $sen-navy;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.loc__aide {
+  margin: 0;
+  color: $on-surface-variant;
+  font-size: 0.8125rem;
+}
+
+.loc__corriger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.loc__defilement {
+  overflow-x: auto;
+}
+
+.loc__table {
+  font-size: 0.875rem;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  tbody th {
+    max-width: 22rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: $sen-navy;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    background: transparent;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+.loc__nom {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $sen-primary;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: 2px;
+    box-shadow: $shadow-focus;
+  }
+}
+
+.loc__code {
+  display: block;
+  color: $on-surface-variant;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.loc__mobile {
+  display: none;
+}
+
+.loc__non-renseigne th,
+.loc__non-renseigne td {
+  color: $on-surface-variant;
+  font-style: italic;
+}
+
+.loc__taux {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loc__jauge {
+  display: inline-block;
+  width: 4rem;
+  height: 6px;
+  border-radius: 3px;
+  background: $surface-container-low;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: $sen-primary;
+  }
+}
+
+.loc__pages {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  color: $on-surface-variant;
+  font-size: 0.8125rem;
+
+  [aria-disabled='true'] {
+    color: $on-surface-variant;
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .loc__bloc {
+    padding: 0.875rem;
+  }
+
+  .secondaire,
+  .loc__jauge {
+    display: none;
+  }
+
+  .loc__mobile {
+    display: inline;
+  }
+
+  .loc__table th,
+  .loc__table td {
+    padding: 0.5rem 0.375rem;
+  }
+
+  .loc__table tbody th {
+    max-width: 55vw;
+  }
+
+  .loc__nom,
+  .loc__corriger {
+    min-height: 2.75rem;
+  }
+
+  .loc__pages .sir-icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

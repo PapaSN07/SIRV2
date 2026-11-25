@@ -177,7 +177,7 @@ export class ReseauComponent {
 
   filtrerSur(ligne: LigneReseau): void {
     if (ligne.id === null) return;
-    this.f.definir({ [this.niveauCourant().filtre]: ligne.id } as Partial<FiltresIncidents>);
+    this.f.definir({ [this.niveauCourant().filtre]: ligne.id } as Partial<FiltresIncidents>, ligne.libelle);
   }
 
   exporter(): void {

@@ -184,7 +184,7 @@ export class SaifiSaidiComponent {
 
   filtrerService(s: SaifiService): void {
     if (s.id === null || this.f.serviceVerrouille()) return;
-    this.f.definir({ service_id: s.id });
+    this.f.definir({ service_id: s.id }, s.libelle);
     // La pastille du filtre apparaît en haut : on y ramène la vue
     document.getElementById('suivi-filtres')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }

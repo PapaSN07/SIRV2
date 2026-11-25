@@ -46,6 +46,7 @@ cookie
 create
 cycle
 dashboard
+dataset
 delete
 description
 details
@@ -57,6 +58,7 @@ download
 draft
 draw
 edit
+edit_location_alt
 edit_note
 electric_bolt
 electrical_services

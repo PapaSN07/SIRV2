@@ -11,9 +11,16 @@ from sqlalchemy.sql.expression import ColumnElement, FunctionElement
 from app.models.geo import Service
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
 from app.models.referentiel import Cause, Nature
-from app.models.reseau import Feeder, PosteSource
+from app.models.reseau import Feeder, Poste, PosteSource
+from app.models.schema_unifilaire import SchemaUnifilairePoste
+from app.models.sig import NoeudSig
 from app.repositories.perimetre import interruptions_du_perimetre
-from app.repositories.pilotage_repository import _distribution_saifi_saidi, _sommes_clients, condition_reseau
+from app.repositories.pilotage_repository import (
+    _clients_poste,
+    _distribution_saifi_saidi,
+    _sommes_clients,
+    condition_reseau,
+)
 from app.schemas.suivi_incidents import FiltresIncidents
 
 _FILTRES_EGALITE = (
@@ -245,4 +252,83 @@ def requete_saifi(filtres: FiltresIncidents, service_ids: list[int], regroupemen
         interruptions_du_perimetre(service_ids), *_distribution_saifi_saidi()
     )
     return requete.group_by(*groupes) if groupes else requete
+
+
+# ── Onglets Carte et Localisation ─────────────────────────────────────────────────────────
+
+# SQL Server : 2 100 paramètres au plus par requête
+TAILLE_LOT_IDS = 500
+RAPPROCHEMENTS_SIG_RETENUS = ("auto", "manuel")
+
+
+def requete_postes_touches(filtres: FiltresIncidents) -> Select:
+    """Postes des interruptions filtrées : feeder et poste source **du poste**, interruptions
+    distinctes, Σ durée (minutes) et Σ clients du poste (estimés, sinon touchés)."""
+    requete = (
+        select(
+            Poste.id.label("poste_id"),
+            Poste.code.label("code"),
+            Poste.libelle.label("libelle"),
+            Poste.feeder_id.label("feeder_id"),
+            Feeder.libelle.label("feeder"),
+            PosteSource.id.label("poste_source_id"),
+            PosteSource.libelle.label("poste_source"),
+            func.count(func.distinct(Interruption.id)).label("nombre"),
+            func.sum(cast(Interruption.duree_minutes, BigInteger)).label("duree_minutes"),
+            func.sum(_clients_poste()).label("clients"),
+        )
+        .select_from(Interruption)
+        .join(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
+        .join(Poste, Poste.id == PosteInterruption.poste_id)
+        .outerjoin(Feeder, Feeder.id == Poste.feeder_id)
+        .outerjoin(PosteSource, PosteSource.id == Feeder.poste_source_id)
+    )
+    return appliquer_filtres(requete, filtres).group_by(
+        Poste.id, Poste.code, Poste.libelle, Poste.feeder_id, Feeder.libelle, PosteSource.id, PosteSource.libelle
+    )
+
+
+def requete_postes_natures(filtres: FiltresIncidents) -> Select:
+    """Interruptions distinctes par (poste, nature, cause) : nature dominante d'un poste."""
+    requete = (
+        select(
+            PosteInterruption.poste_id.label("poste_id"),
+            Nature.libelle.label("nature"),
+            Cause.libelle.label("cause"),
+            func.count(func.distinct(Interruption.id)).label("nombre"),
+        )
+        .select_from(Interruption)
+        .join(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
+        .outerjoin(Nature, Nature.id == Interruption.nature_id)
+        .outerjoin(Cause, Cause.id == Interruption.cause_id)
+    )
+    return appliquer_filtres(requete, filtres, cause_jointe=True).group_by(
+        PosteInterruption.poste_id, Nature.libelle, Cause.libelle
+    )
+
+
+def requete_rapprochement_sig(poste_ids: list[int]) -> list[Select]:
+    """Coordonnées des nœuds SIG rapprochés (auto / manuel, nœud actif), un Select par lot de 500 postes.
+
+    Lignes triées par poste puis par id de rapprochement : la première exploitable fait foi.
+    """
+    ids = sorted(set(poste_ids))
+    return [
+        select(
+            SchemaUnifilairePoste.poste_id.label("poste_id"),
+            SchemaUnifilairePoste.id.label("rapprochement_id"),
+            NoeudSig.coord_x.label("coord_x"),
+            NoeudSig.coord_y.label("coord_y"),
+        )
+        .join(NoeudSig, NoeudSig.id == SchemaUnifilairePoste.noeud_sig_id)
+        .where(
+            SchemaUnifilairePoste.poste_id.in_(ids[debut : debut + TAILLE_LOT_IDS]),
+            SchemaUnifilairePoste.rapprochement_sig.in_(RAPPROCHEMENTS_SIG_RETENUS),
+            NoeudSig.est_actif == true(),
+            NoeudSig.coord_x.isnot(None),
+            NoeudSig.coord_y.isnot(None),
+        )
+        .order_by(SchemaUnifilairePoste.poste_id, SchemaUnifilairePoste.id)
+        for debut in range(0, len(ids), TAILLE_LOT_IDS)
+    ]
 

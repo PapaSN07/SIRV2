@@ -17,9 +17,11 @@ from app.core.redis import get_redis
 from app.models.utilisateurs import Utilisateur
 from app.schemas.common import ApiResponse
 from app.schemas.suivi_incidents import (
+    CarteSuivi,
     ClassementSuivi,
     EvolutionSuivi,
     FiltresResolus,
+    LocalisationSuivi,
     ReseauSuivi,
     SaifiSaidiSuivi,
     VueEnsemble,
@@ -171,4 +173,37 @@ async def get_saifi_saidi(
     current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
 ) -> ApiResponse[SaifiSaidiSuivi]:
     return ApiResponse.success(await suivi_incidents_service.saifi_saidi(db, redis, current_user, bruts))
+
+
+@router.get(
+    "/carte",
+    response_model=ApiResponse[CarteSuivi],
+    status_code=status.HTTP_200_OK,
+    summary="Carte : postes touchés localisés (rapprochement SIG, sinon nom du poste)",
+)
+async def get_carte(
+    bruts: dict[str, Any] = Depends(filtres_requete),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[CarteSuivi]:
+    return ApiResponse.success(await suivi_incidents_service.carte(db, redis, current_user, bruts))
+
+
+@router.get(
+    "/localisation",
+    response_model=ApiResponse[LocalisationSuivi],
+    status_code=status.HTTP_200_OK,
+    summary="Localisation : taux de postes touchés placés, par poste source, postes non localisés",
+)
+async def get_localisation(
+    bruts: dict[str, Any] = Depends(filtres_requete),
+    page: str | None = Query(None, description="Page (≥ 1, défaut 1)"),
+    size: str | None = Query(None, description="Taille de page (1 à 100, défaut 20)"),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    current_user: Utilisateur = Depends(require_permission("indicateurs", "read")),
+) -> ApiResponse[LocalisationSuivi]:
+    resultat = await suivi_incidents_service.localisation(db, redis, current_user, bruts, page, size)
+    return ApiResponse.success(resultat)
 

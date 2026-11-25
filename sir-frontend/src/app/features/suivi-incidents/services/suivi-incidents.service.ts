@@ -5,11 +5,13 @@ import { environment } from '../../../../environments/environment';
 import { SANS_REDIRECTION_403 } from '../../../core/auth/error.interceptor';
 import { ApiResponse } from '../../../shared/models/api.models';
 import {
+  CarteSuivi,
   ClassementSuivi,
   EvolutionSuivi,
   FiltresIncidents,
   FiltresResolus,
   Granularite,
+  LocalisationSuivi,
   NiveauClassement,
   NiveauReseau,
   ReseauSuivi,
@@ -72,6 +74,26 @@ export class SuiviIncidentsService {
     return this.http
       .get<ApiResponse<SaifiSaidiSuivi>>(`${this.apiUrl}/saifi-saidi`, {
         params: parametresFiltres(filtres),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Postes touchés placés sur la carte (rapprochement SIG, sinon nom du poste). */
+  getCarte(filtres: FiltresIncidents): Observable<CarteSuivi> {
+    return this.http
+      .get<ApiResponse<CarteSuivi>>(`${this.apiUrl}/carte`, {
+        params: parametresFiltres(filtres),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Taux de localisation, détail par poste source et postes non localisés (paginés). */
+  getLocalisation(filtres: FiltresIncidents, page = 1, size = 20): Observable<LocalisationSuivi> {
+    return this.http
+      .get<ApiResponse<LocalisationSuivi>>(`${this.apiUrl}/localisation`, {
+        params: parametresFiltres(filtres).set('page', page).set('size', size),
         context: new HttpContext().set(SANS_REDIRECTION_403, true),
       })
       .pipe(map((res) => unwrap(res)));

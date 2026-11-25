@@ -123,7 +123,7 @@ Pas un préalable : SIRV2 fait foi. Utile pour préparer les questions des utili
 3. **Vue d'ensemble** — `GET /suivi-incidents/vue-ensemble` (KPI et période précédente, natures, réseaux HTA / HTB) et `GET /suivi-incidents/classement` (service / poste source / feeder, clic → filtre) — **fait le 25/11/2026** (spécification §8).
 4. **Évolution + Réseau** — série à granularité automatique ; classements postes sources / feeders triables avec recherche, export Excel — **fait le 25/11/2026** (spécification §9).
 5. **SAIFI / SAIDI** — synthèse du périmètre ou contribution des interruptions filtrées, HTA / HTB, natures, évolution mensuelle et cumul, contributions par service — **fait le 25/11/2026** (spécification §10).
-6. **Géographie + Carte + Localisation** — migrations Alembic (§3), import des localités (« Postes_Affectes_Localites »), lien poste ↔ SIG par tâche Celery ; onglets Carte et Localisation ; classement territorial administratif.
+6. **Géographie + Carte + Localisation** — découpée : **6a** Carte et Localisation sur les données existantes (spécification §11) — **faite le 25/11/2026** ; **6b** géographie administrative ci-dessous, quand le fichier des localités sera disponible sur le réseau SENELEC — migrations Alembic (§3), import des localités (« Postes_Affectes_Localites »), lien poste ↔ SIG par tâche Celery ; onglets Carte et Localisation ; classement territorial administratif.
 7. **Administration** — reprise des corrections manuelles et du recensement dans le rapprochement Schéma / SIG / SIR.
 8. **Recette et bascule** — recette par les utilisateurs de l'ancienne app, retrait de l'interrupteur, redirection de l'ancienne adresse (port 8070) vers SIRV2.
 
@@ -286,4 +286,75 @@ Requêtes (`suivi_incidents_repository`) : `requete_saifi(filtres, service_ids, 
 `jour_de`), `"service"` (service) ; regroupement inconnu → `ValueError`. Conditions :
 `appliquer_filtres` + `interruptions_du_perimetre(service_ids)` + `_distribution_saifi_saidi()`.
 Cache Redis 1 h `suivi:saifi-saidi:{empreinte des filtres résolus et du périmètre}` : un national filtré sur un service et le SUPERVISEUR de ce service ont les mêmes filtres mais pas le même dénominateur.
+
+## 11. Spécification de l'étape 6a — Carte et Localisation (25/11/2026)
+
+Mêmes règles que les étapes 3 à 5 : interruptions distribution, tous statuts, filtres **résolus**
+appliqués par `appliquer_filtres` (RBAC double), mêmes paramètres que `/filtres`, 422 enveloppés,
+cache Redis 1 h `suivi:{endpoint}:{empreinte des filtres résolus et des paramètres}`.
+
+**Postes touchés** : postes des `poste_interruptions` des interruptions filtrées, regroupés par poste.
+
+**Localisation d'un poste** (sans nouvelle table ; le lien stocké par tâche Celery reste prévu pour 6b) :
+1. `rapprochement` : une ligne `schema_unifilaire_postes` avec ce `poste_id`, un `noeud_sig_id`,
+   `rapprochement_sig` = `auto` ou `manuel` (pas `ambigu`), nœud SIG actif (`est_actif`) avec des
+   coordonnées dans l'emprise du Sénégal (`pilotage_repository._lon_lat`) ; plusieurs lignes → la plus
+   petite `id` ;
+2. `nom` : sinon, règle du pilotage — `pilotage_repository.coords_par_nom` sur le libellé puis le code
+   du poste, homonymes départagés par `choisir_point` avec le **feeder du poste** (`postes.feeder_id`) ;
+3. sinon le poste est **non localisé**.
+
+### `GET /api/v1/suivi-incidents/carte`
+
+Réponse `ApiResponse[CarteSuivi]` : `postes_touches`, `postes_localises`, `tronque` (bool), `points`.
+Un point par poste **localisé** :
+`{poste_id, code, libelle, feeder_id, feeder, nombre, duree_heures, clients, nature_dominante, longitude, latitude, localisation}`
+- `feeder_id`, `feeder` : identifiant et libellé du feeder du poste (`null` sans feeder) ;
+- `nombre` : interruptions distinctes du poste ; `duree_heures` : Σ durée de ces interruptions (h) ;
+- `clients` : Σ clients du poste (`nombre_clients_estime`, sinon `nombre_clients_touches`, sinon 0) ;
+- `nature_dominante` : catégorie (`categorie_nature`) la plus fréquente parmi les interruptions du
+  poste ; égalité → ordre `incident`, `delestage`, `travaux`, `autre` ;
+- `localisation` : `rapprochement` | `nom`.
+Au plus **3 000** points : les postes aux interruptions les plus nombreuses (puis libellé) ; `tronque`
+vaut `true` si des postes localisés ont été écartés. Tri des points : nombre décroissant puis libellé.
+
+### `GET /api/v1/suivi-incidents/localisation`
+
+Paramètres en plus : `page` (≥ 1, défaut 1), `size` (1 à 100, défaut 20) ; autre valeur → 422 enveloppé.
+Réponse `ApiResponse[LocalisationSuivi]` :
+- `postes_touches`, `postes_localises`, `taux` (localisés ÷ touchés, 0 si aucun) ;
+- `par_mode` : `{rapprochement, nom}` (nombre de postes localisés par chaque règle) ;
+- `postes_sources` : par poste source du **feeder du poste** :
+  `{id, libelle, postes_touches, non_localises, taux}`, triés par `non_localises` décroissant puis libellé,
+  « Non renseigné » (`id = null`, poste sans feeder ou feeder sans poste source) en dernier ;
+- `non_localises` : liste paginée `{total, page, size, items}` des postes non localisés,
+  `{poste_id, code, libelle, feeder, poste_source, interruptions}`, triés par interruptions
+  décroissantes puis libellé.
+
+Écran : lien « Corriger dans le rapprochement » vers Administration → Schémas unifilaires
+(`/admin/schemas-unifilaires`) pour les rôles qui y ont accès.
+
+Requêtes (`suivi_incidents_repository`) : `requete_postes_touches(filtres)` (par poste : id, code,
+libellé, feeder du poste et son libellé, poste source du feeder et son libellé, interruptions distinctes,
+Σ durée, Σ clients), `requete_postes_natures(filtres)` (par poste, nature, cause : nombre),
+`requete_rapprochement_sig(poste_ids)` (poste → coordonnées du nœud rapproché) ; lots de 500
+identifiants au plus (limite de 2 100 paramètres de SQL Server).
+
+### Points ouverts de l'étape 6a
+
+- **Feeder du poste ou de l'interruption** : la carte et le tableau par poste source rangent un poste
+  selon **son** feeder (`postes.feeder_id`), alors que les filtres portent sur le feeder et le poste
+  source de **l'interruption**. Pour un poste dont le feeder a été corrigé (23/11) ou coché sur une
+  interruption d'un autre départ (19/11), « Filtrer sur ce feeder » peut donc changer ses chiffres.
+  À trancher : garder la règle, ou ranger et filtrer sur les colonnes dénormalisées de
+  `poste_interruptions` (`feeder_id`, `poste_source_id`).
+- **Performance** : le calcul des postes localisés est mis en cache 1 h par jeu de filtres
+  (`suivi:postes-localises:*`), partagé par la carte et les pages de Localisation. Reste à faire :
+  index sur `noeuds_sig.station` (recherche par nom) et lien poste ↔ nœud SIG stocké par tâche Celery (6b).
+- **Fond de carte** : tuiles OpenStreetMap publiques, comme l'administration SIG ; sur un serveur sans
+  Internet, le fond reste gris (les postes s'affichent). Serveur de tuiles interne à prévoir pour la production.
+- **Dakar au zoom national** : les postes de Dakar s'entassent tant qu'on ne zoome pas. À prévoir :
+  regroupement des bulles proches (`leaflet.markercluster`) ou boutons « Dakar / National ».
+- **Couleurs Incidents / Délestages** (orange / rouge) peu distinctes pour un daltonien : la nature est
+  aussi écrite dans la bulle et dans la liste des postes ; une couleur plus éloignée reste à choisir dans la charte.
 

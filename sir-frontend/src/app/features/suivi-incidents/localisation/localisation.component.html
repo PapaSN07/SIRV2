@@ -1,0 +1,144 @@
+@switch (etat().type) {
+  @case ('chargement') {
+    <div class="loc__kpis">
+      @for (i of [1, 2, 3]; track i) {
+        <sir-etat type="chargement" hauteur="96px" />
+      }
+    </div>
+    <sir-etat type="chargement" hauteur="280px" />
+  }
+  @case ('erreur') {
+    <div class="sir-card">
+      <sir-etat type="erreur" [message]="$any(etat()).message" (reessayer)="reessayer()" />
+    </div>
+  }
+  @case ('ok') {
+    @if (donnees(); as d) {
+      @if (!d.postes_touches) {
+        <div class="sir-card">
+          <sir-etat
+            type="vide"
+            message="Aucun poste touché sur la période et les filtres choisis."
+            [actionVide]="f.effacables().length ? 'Effacer les filtres' : null"
+            (action)="f.toutEffacer()"
+          />
+        </div>
+      } @else {
+        <h2 class="sr-only">Localisation des postes touchés</h2>
+        <div class="loc__kpis">
+          <sir-kpi
+            libelle="Postes localisés"
+            [valeur]="formatPart(d.taux)"
+            [detail]="formatEntier(d.postes_localises) + ' sur ' + formatEntier(d.postes_touches) + ' postes touchés'"
+            aide="Postes placés sur la carte : par le rapprochement Schéma / SIG / SIR, sinon par leur nom dans le SIG."
+          />
+          <sir-kpi
+            libelle="Par le rapprochement"
+            [valeur]="formatEntier(d.par_mode.rapprochement)"
+            detail="Nœud SIG rapproché (auto ou manuel)"
+          />
+          <sir-kpi
+            libelle="Par le nom du poste"
+            [valeur]="formatEntier(d.par_mode.nom)"
+            detail="Nom ou code retrouvé dans le SIG"
+          />
+        </div>
+
+        <section class="sir-card loc__bloc" aria-labelledby="titre-loc-liste">
+          <div class="loc__entete">
+            <h2 id="titre-loc-liste" class="loc__titre">Postes non localisés ({{ formatEntier(d.non_localises.total) }})</h2>
+            @if (voitRapprochement() && d.non_localises.total) {
+              <a class="sir-btn sir-btn--outline sir-btn--sm loc__corriger" routerLink="/admin/schemas-unifilaires">
+                <span class="material-symbols-outlined" aria-hidden="true">edit_location_alt</span>
+                {{ peutCorriger() ? 'Corriger dans le rapprochement' : 'Voir le rapprochement' }}
+              </a>
+            }
+          </div>
+          @if (!d.non_localises.total) {
+            <p class="loc__aide">Tous les postes touchés sont placés sur la carte.</p>
+          } @else {
+            <div class="loc__defilement">
+              <table class="sir-table loc__table">
+                <caption class="sr-only">Postes touchés non localisés, du plus touché au moins touché</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Poste</th>
+                    <th scope="col" class="secondaire">Feeder</th>
+                    <th scope="col" class="secondaire">Poste source</th>
+                    <th scope="col" class="num">Interruptions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of d.non_localises.items; track p.poste_id) {
+                    <tr>
+                      <th scope="row">
+                        {{ p.libelle }}
+                        <span class="loc__code">{{ p.code }}@if (p.feeder) {<span class="loc__mobile"> · {{ p.feeder }}</span>}</span>
+                      </th>
+                      <td class="secondaire">{{ p.feeder ?? '—' }}</td>
+                      <td class="secondaire">{{ p.poste_source ?? '—' }}</td>
+                      <td class="num">{{ formatEntier(p.interruptions) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            @if (nombrePages() > 1) {
+              <nav class="loc__pages" aria-label="Pages des postes non localisés">
+                <button type="button" class="sir-icon-btn" (click)="allerPage(page() - 1)" [attr.aria-disabled]="page() <= 1 ? 'true' : null" aria-label="Page précédente">
+                  <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+                </button>
+                <span aria-live="polite">Page {{ page() }} / {{ nombrePages() }}</span>
+                <button type="button" class="sir-icon-btn" (click)="allerPage(page() + 1)" [attr.aria-disabled]="page() >= nombrePages() ? 'true' : null" aria-label="Page suivante">
+                  <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                </button>
+              </nav>
+            }
+          }
+        </section>
+
+        <section class="sir-card loc__bloc" aria-labelledby="titre-loc-ps">
+          <h2 id="titre-loc-ps" class="loc__titre">Par poste source</h2>
+          <p class="loc__aide">Cliquez sur un poste source pour filtrer tout le menu.</p>
+          <div class="loc__defilement">
+            <table class="sir-table loc__table">
+              <caption class="sr-only">Postes touchés, non localisés et taux de localisation par poste source</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Poste source</th>
+                  <th scope="col" class="num secondaire">Postes touchés</th>
+                  <th scope="col" class="num">Non localisés</th>
+                  <th scope="col" class="num">Localisés</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (ps of d.postes_sources; track ps.id) {
+                  <tr [class.loc__non-renseigne]="ps.id === null">
+                    <th scope="row">
+                      @if (ps.id !== null) {
+                        <button type="button" class="loc__nom" (click)="filtrerPosteSource(ps.id, ps.libelle)" [attr.aria-label]="'Filtrer sur ' + ps.libelle">
+                          {{ ps.libelle }}
+                        </button>
+                      } @else {
+                        {{ ps.libelle }}
+                      }
+                    </th>
+                    <td class="num secondaire">{{ formatEntier(ps.postes_touches) }}</td>
+                    <td class="num">{{ formatEntier(ps.non_localises) }}</td>
+                    <td class="num">
+                      <span class="loc__taux">
+                        <span class="loc__jauge" aria-hidden="true"><span [style.width.%]="ps.taux * 100"></span></span>
+                        {{ formatPart(ps.taux) }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      }
+    }
+  }
+}

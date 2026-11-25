@@ -198,3 +198,55 @@ export interface SaifiSaidiSuivi {
   services: SaifiService[];
 }
 
+/* ── Onglets Carte et Localisation (GET /suivi-incidents/carte, /localisation) ── */
+
+export type ModeLocalisation = 'rapprochement' | 'nom';
+
+export interface PointCarte {
+  poste_id: number;
+  code: string;
+  libelle: string;
+  feeder_id: number | null;
+  feeder: string | null;
+  nombre: number;
+  duree_heures: number;
+  clients: number;
+  nature_dominante: CategorieNature;
+  longitude: number;
+  latitude: number;
+  localisation: ModeLocalisation;
+}
+
+export interface CarteSuivi {
+  postes_touches: number;
+  postes_localises: number;
+  tronque: boolean;
+  points: PointCarte[];
+}
+
+export interface LocalisationPosteSource {
+  id: number | null;
+  libelle: string;
+  postes_touches: number;
+  non_localises: number;
+  taux: number;
+}
+
+export interface PosteNonLocalise {
+  poste_id: number;
+  code: string;
+  libelle: string;
+  feeder: string | null;
+  poste_source: string | null;
+  interruptions: number;
+}
+
+export interface LocalisationSuivi {
+  postes_touches: number;
+  postes_localises: number;
+  taux: number;
+  par_mode: Record<ModeLocalisation, number>;
+  postes_sources: LocalisationPosteSource[];
+  non_localises: { total: number; page: number; size: number; items: PosteNonLocalise[] };
+}
+

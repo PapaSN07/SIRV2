@@ -200,6 +200,8 @@ export class BarreFiltresComponent {
   }
 
   private libelleValeur(cle: CleFiltre, valeur: unknown): string {
+    const connu = this.f.libelleConnu(cle, valeur);
+    if (connu) return connu;
     const parId = (liste: Option[]) => liste.find((o) => o.id === valeur)?.libelle ?? `n° ${valeur}`;
     switch (cle) {
       case 'region_id':

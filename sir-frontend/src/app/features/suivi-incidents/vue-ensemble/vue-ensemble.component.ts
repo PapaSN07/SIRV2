@@ -176,7 +176,7 @@ export class VueEnsembleComponent {
   /** Un clic sur une ligne du classement devient un filtre du menu (pastille annulable). */
   filtrerSur(ligne: LigneClassement): void {
     if (ligne.id === null) return;
-    this.f.definir({ [this.niveauCourant().filtre]: ligne.id } as Partial<FiltresIncidents>);
+    this.f.definir({ [this.niveauCourant().filtre]: ligne.id } as Partial<FiltresIncidents>, ligne.libelle);
     // Le tableau se recharge : le focus va au titre du bloc plutôt que de retomber sur la page
     document.getElementById('titre-classement')?.focus();
   }

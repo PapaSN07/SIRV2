@@ -75,6 +75,8 @@ export class SuiviIncidentsFiltresService {
   /** Information non bloquante (ex. filtre hors périmètre retiré). */
   readonly avertissement = signal<string | null>(null);
   readonly chargement = signal(false);
+  /** Libellés transmis par l'onglet qui pose un filtre (clic dans un classement, sur la carte). */
+  private readonly libelles = signal<Map<string, string>>(new Map());
 
   /** Filtres à appliquer dans les onglets : ceux de l'API (région / service imposés), sinon ceux demandés. */
   readonly effectifs = computed<FiltresIncidents>(() => this.resolus()?.filtres ?? this._filtres());
@@ -131,8 +133,22 @@ export class SuiviIncidentsFiltresService {
       });
   }
 
-  /** Modifie un ou plusieurs filtres et met l'URL à jour (nouvelle entrée d'historique : Précédent annule). */
-  definir(modif: Partial<FiltresIncidents>): void {
+  /** Libellé d'une valeur de filtre transmis par un onglet, sinon null (la barre cherche dans ses listes). */
+  libelleConnu(cle: CleFiltre, valeur: unknown): string | null {
+    return this.libelles().get(`${cle}:${valeur}`) ?? null;
+  }
+
+  /**
+   * Modifie un ou plusieurs filtres et met l'URL à jour (nouvelle entrée d'historique : Précédent annule).
+   * `libelle` : nom de la valeur posée, pour la pastille (feeder, service… choisis depuis un onglet).
+   */
+  definir(modif: Partial<FiltresIncidents>, libelle?: string | null): void {
+    if (libelle) {
+      const [cle, valeur] = Object.entries(modif)[0] ?? [];
+      if (cle !== undefined && valeur !== null && valeur !== undefined) {
+        this.libelles.update((m) => new Map(m).set(`${cle}:${valeur}`, libelle));
+      }
+    }
     this.avertissement.set(null);
     this._filtres.update((f) => ({ ...f, ...modif }));
     this.ecrireUrl();

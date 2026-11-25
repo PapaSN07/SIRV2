@@ -23,6 +23,7 @@ from app.models.utilisateurs import Utilisateur
 from app.repositories import pilotage_repository
 from app.repositories import suivi_incidents_repository as repo
 from app.schemas.suivi_incidents import (
+    CarteSuivi,
     CategorieNature,
     ClassementSuivi,
     EvolutionSuivi,
@@ -32,10 +33,16 @@ from app.schemas.suivi_incidents import (
     KpiSuivi,
     LigneClassement,
     LigneReseau,
+    LocalisationPosteSource,
+    LocalisationSuivi,
     MoisReference,
     NaturesPoint,
+    PageNonLocalises,
+    ParModeLocalisation,
     PeriodeSuivi,
     PerimetreSuivi,
+    PointCarte,
+    PosteNonLocalise,
     PointEvolution,
     RepartitionNature,
     RepartitionReseau,
@@ -694,6 +701,196 @@ async def saifi_saidi(
         natures=natures,
         mensuel=mensuel,
         services=services,
+    )
+    await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
+    return resultat
+
+
+# ── Onglets Carte et Localisation ─────────────────────────────────────────────────────────
+
+# Lue à chaque appel (les tests la remplacent) : au-delà, la carte devient illisible et lourde
+LIMITE_POINTS_CARTE = 3000
+_ORDRE_NATURES = {cle_n: i for i, (cle_n, _) in enumerate(CATEGORIES_NATURE)}
+
+
+async def _postes_localises(db: AsyncSession, filtres: FiltresIncidents) -> list[dict[str, Any]]:
+    """Postes touchés avec leur nature dominante et leur position (rapprochement SIG, sinon nom)."""
+    postes = [dict(ligne._mapping) for ligne in (await db.execute(repo.requete_postes_touches(filtres))).all()]
+    if not postes:
+        return []
+
+    # Nature dominante : la catégorie la plus fréquente ; égalité → incident, délestage, travaux, autre
+    comptes: dict[int, dict[str, int]] = {}
+    for ligne in (await db.execute(repo.requete_postes_natures(filtres))).all():
+        par_categorie = comptes.setdefault(ligne.poste_id, {})
+        categorie = categorie_nature(ligne.nature, ligne.cause)
+        par_categorie[categorie] = par_categorie.get(categorie, 0) + int(ligne.nombre or 0)
+
+    # 1. Nœud SIG rapproché (première ligne exploitable par poste)
+    rapproches: dict[int, tuple[float, float]] = {}
+    for requete in repo.requete_rapprochement_sig([p["poste_id"] for p in postes]):
+        for ligne in (await db.execute(requete)).all():
+            if ligne.poste_id in rapproches:
+                continue
+            longitude, latitude = pilotage_repository._lon_lat(ligne.coord_x, ligne.coord_y)
+            if longitude is not None and latitude is not None:
+                rapproches[ligne.poste_id] = (longitude, latitude)
+
+    # 2. Nom (puis code) du poste dans le SIG, homonymes départagés par le feeder du poste
+    restants = [p for p in postes if p["poste_id"] not in rapproches]
+    coords = (
+        await pilotage_repository.coords_par_nom(db, [p["libelle"] for p in restants] + [p["code"] for p in restants])
+        if restants
+        else {}
+    )
+    for poste in postes:
+        par_categorie = comptes.get(poste["poste_id"], {})
+        poste["nature_dominante"] = (
+            min(par_categorie, key=lambda c: (-par_categorie[c], _ORDRE_NATURES[c])) if par_categorie else "autre"
+        )
+        if poste["poste_id"] in rapproches:
+            poste["longitude"], poste["latitude"] = rapproches[poste["poste_id"]]
+            poste["localisation"] = "rapprochement"
+            continue
+        candidats = coords.get((poste["libelle"] or "").casefold()) or coords.get((poste["code"] or "").casefold()) or []
+        point = pilotage_repository.choisir_point(candidats, poste["feeder_id"])
+        poste["longitude"], poste["latitude"] = point if point else (None, None)
+        poste["localisation"] = "nom" if point else None
+    return postes
+
+
+async def _postes_localises_en_cache(db: AsyncSession, redis: Redis, filtres: FiltresIncidents) -> list[dict[str, Any]]:
+    """``_postes_localises`` calculé une fois par jeu de filtres résolus (1 h), partagé par la carte et
+    toutes les pages de Localisation : sur une année nationale, ce calcul est le plus coûteux du menu."""
+    cle = _cle_cache("postes-localises", filtres.model_dump_json())
+    en_cache = await cache.get_cached(redis, cle)
+    if en_cache is not None:
+        return list(en_cache)
+    postes = await _postes_localises(db, filtres)
+    await cache.set_cached(redis, cle, postes)
+    return postes
+
+
+async def carte(db: AsyncSession, redis: Redis, user: Utilisateur, bruts: dict[str, Any]) -> CarteSuivi:
+    """Postes touchés localisés, les plus touchés d'abord, au plus ``LIMITE_POINTS_CARTE``."""
+    filtres = resoudre_filtres(user, bruts).filtres
+    limite = LIMITE_POINTS_CARTE
+    cle = _cle_cache("carte", filtres.model_dump_json(), str(limite))
+    en_cache = await cache.get_cached(redis, cle)
+    if en_cache is not None:
+        return CarteSuivi.model_validate(en_cache)
+
+    postes = await _postes_localises_en_cache(db, redis, filtres)
+    localises = sorted((p for p in postes if p["localisation"]), key=lambda p: (-int(p["nombre"] or 0), p["libelle"]))
+    points = [
+        PointCarte(
+            poste_id=p["poste_id"],
+            code=p["code"],
+            libelle=p["libelle"],
+            feeder_id=p["feeder_id"],
+            feeder=p["feeder"],
+            nombre=int(p["nombre"] or 0),
+            duree_heures=_heures(p["duree_minutes"]),
+            clients=int(p["clients"] or 0),
+            nature_dominante=p["nature_dominante"],
+            longitude=p["longitude"],
+            latitude=p["latitude"],
+            localisation=p["localisation"],
+        )
+        for p in localises[:limite]
+    ]
+    resultat = CarteSuivi(
+        postes_touches=len(postes),
+        postes_localises=len(localises),
+        tronque=len(localises) > limite,
+        points=points,
+    )
+    await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
+    return resultat
+
+
+def _entier_borne(valeur: int | str | None, defaut: int, minimum: int, maximum: int, nom: str) -> int:
+    """Paramètre de pagination : entier dans [minimum, maximum], sinon 422 enveloppé."""
+    if valeur is None or valeur == "":
+        return defaut
+    try:
+        entier = int(str(valeur))
+    except ValueError:
+        entier = minimum - 1
+    if not minimum <= entier <= maximum:
+        raise _invalide_classement(f"Le paramètre {nom} doit être un entier entre {minimum} et {maximum}")
+    return entier
+
+
+async def localisation(
+    db: AsyncSession,
+    redis: Redis,
+    user: Utilisateur,
+    bruts: dict[str, Any],
+    page: int | str | None = 1,
+    size: int | str | None = 20,
+) -> LocalisationSuivi:
+    """Taux de postes touchés localisés, détail par poste source, postes non localisés paginés."""
+    page_n = _entier_borne(page, 1, 1, 1_000_000, "page")
+    taille = _entier_borne(size, 20, 1, 100, "size")
+    filtres = resoudre_filtres(user, bruts).filtres
+    cle = _cle_cache("localisation", filtres.model_dump_json(), str(page_n), str(taille))
+    en_cache = await cache.get_cached(redis, cle)
+    if en_cache is not None:
+        return LocalisationSuivi.model_validate(en_cache)
+
+    postes = await _postes_localises_en_cache(db, redis, filtres)
+    localises = [p for p in postes if p["localisation"]]
+
+    par_ps: dict[int | None, dict[str, Any]] = {}
+    for p in postes:
+        ligne = par_ps.setdefault(
+            p["poste_source_id"],
+            {"libelle": p["poste_source"] if p["poste_source_id"] is not None else NON_RENSEIGNE, "touches": 0, "non": 0},
+        )
+        ligne["touches"] += 1
+        ligne["non"] += 0 if p["localisation"] else 1
+    postes_sources = sorted(
+        (
+            LocalisationPosteSource(
+                id=ps_id,
+                libelle=v["libelle"],
+                postes_touches=v["touches"],
+                non_localises=v["non"],
+                taux=(v["touches"] - v["non"]) / v["touches"] if v["touches"] else 0.0,
+            )
+            for ps_id, v in par_ps.items()
+        ),
+        key=lambda x: (x.id is None, -x.non_localises, x.libelle),
+    )
+
+    non_localises = sorted((p for p in postes if not p["localisation"]), key=lambda p: (-int(p["nombre"] or 0), p["libelle"]))
+    debut = (page_n - 1) * taille
+    resultat = LocalisationSuivi(
+        postes_touches=len(postes),
+        postes_localises=len(localises),
+        taux=len(localises) / len(postes) if postes else 0.0,
+        par_mode=ParModeLocalisation(
+            rapprochement=sum(1 for p in localises if p["localisation"] == "rapprochement"),
+            nom=sum(1 for p in localises if p["localisation"] == "nom"),
+        ),
+        postes_sources=postes_sources,
+        non_localises=PageNonLocalises(
+            total=len(non_localises),
+            page=page_n,
+            size=taille,
+            items=[
+                PosteNonLocalise(
+                    poste_id=p["poste_id"],
+                    code=p["code"],
+                    libelle=p["libelle"],
+                    feeder=p["feeder"],
+                    poste_source=p["poste_source"],
+                    interruptions=int(p["nombre"] or 0),
+                )
+                for p in non_localises[debut : debut + taille]
+            ],
+        ),
     )
     await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
     return resultat

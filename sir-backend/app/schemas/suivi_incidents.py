@@ -227,3 +227,68 @@ class SaifiSaidiSuivi(BaseModel):
     mensuel: list[SaifiMois]
     services: list[SaifiService]
 
+
+# ── Onglets Carte et Localisation ─────────────────────────────────────────────────────────
+
+ModeLocalisation = Literal["rapprochement", "nom"]
+
+
+class PointCarte(BaseModel):
+    poste_id: int
+    code: str
+    libelle: str
+    feeder_id: int | None = None
+    feeder: str | None = None
+    nombre: int
+    duree_heures: float
+    clients: int
+    nature_dominante: CategorieNature
+    longitude: float
+    latitude: float
+    localisation: ModeLocalisation
+
+
+class CarteSuivi(BaseModel):
+    postes_touches: int
+    postes_localises: int
+    tronque: bool = Field(..., description="Des postes localisés ont été écartés (limite de points)")
+    points: list[PointCarte]
+
+
+class ParModeLocalisation(BaseModel):
+    rapprochement: int
+    nom: int
+
+
+class LocalisationPosteSource(BaseModel):
+    id: int | None = None
+    libelle: str
+    postes_touches: int
+    non_localises: int
+    taux: float
+
+
+class PosteNonLocalise(BaseModel):
+    poste_id: int
+    code: str
+    libelle: str
+    feeder: str | None = None
+    poste_source: str | None = None
+    interruptions: int
+
+
+class PageNonLocalises(BaseModel):
+    total: int
+    page: int
+    size: int
+    items: list[PosteNonLocalise]
+
+
+class LocalisationSuivi(BaseModel):
+    postes_touches: int
+    postes_localises: int
+    taux: float
+    par_mode: ParModeLocalisation
+    postes_sources: list[LocalisationPosteSource]
+    non_localises: PageNonLocalises
+
