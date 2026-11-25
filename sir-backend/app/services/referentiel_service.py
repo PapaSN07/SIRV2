@@ -315,8 +315,16 @@ async def update_item(
             },
         )
 
-    effective_type = body.type_reseau or getattr(record, "type_reseau", None)
-    _ensure_can_write(current_user, resource, effective_type)
+    # Droit vérifié sur le réseau ACTUEL de l'élément, puis sur le nouveau s'il change : sinon un
+    # admin déplacerait chez lui (et modifierait) un élément de l'autre direction.
+    type_actuel = getattr(record, "type_reseau", None)
+    if type_actuel is not None:
+        _ensure_can_write(current_user, resource, type_actuel)
+    if body.type_reseau is not None and body.type_reseau != type_actuel:
+        _ensure_can_write(current_user, resource, body.type_reseau)
+    elif type_actuel is None:
+        # Sans réseau actuel ni nouveau : contrôle habituel (422 « type_reseau obligatoire » si exigé)
+        _ensure_can_write(current_user, resource, body.type_reseau)
     _refuser_exogene_hors_causes(resource, body.est_exogene)
 
     if body.code and body.code != record.code:

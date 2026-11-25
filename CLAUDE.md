@@ -278,6 +278,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreurs** : dans la table `Postes` de SIR v1, 6 626 postes portent le texte « AIR SENEGAL 30 KV » avec `idfeeder = 0` (valeur par défaut jamais corrigée) ; 1 630 ont `idfeeder = 30` (SAUVEGARDE) alors que leur texte nomme le vrai départ. La reprise privilégiait `idfeeder` et recopiait les valeurs par défaut. Conséquence : liste « postes du feeder » fausse à la saisie.
 **Règles** : feeder d'un poste repris = texte d'abord, `idfeeder` ensuite, jamais un feeder par défaut (`FkResolver.resolve_feeder_id_poste`) ; une synchronisation SIR v1 ne remplace pas un feeder corrigé par « aucun » ; correction des données : `scripts/migration/corriger_feeders_postes.py` (texte SIR v1, interruptions, SIG ; sûr / probable / à arbitrer ; rapport avec ancien feeder, `--restaurer`) ; toute reprise est contrôlée sur la concentration anormale des valeurs, pas seulement sur les totaux.
 
+### 25/11/2026 — Référentiel : droit vérifié sur le réseau envoyé et non sur le réseau actuel
+**Contexte** : relecture de l'ajout du facteur exogène dans Administration → Référentiel.
+**Erreur** : `referentiel_service.update_item` contrôlait `_ensure_can_write` sur `body.type_reseau or record.type_reseau` : un Admin Dispatching qui envoyait `type_reseau: "transport"` sur une cause distribution passait le contrôle, déplaçait la cause et la modifiait (drapeau exogène compris). La suppression, elle, contrôlait déjà le réseau actuel.
+**Règles** : un droit se vérifie sur l'état **en base** de l'objet, puis, si un champ de périmètre change, aussi sur la nouvelle valeur — jamais sur la seule valeur envoyée ; tests `tests/integration/test_api_referentiel_droits_type.py`. En plus, un champ propre à une ressource (`est_exogene`) envoyé pour une autre ressource est refusé (422), pas ignoré, et une clé de cache change de forme (`s2`) quand la forme de la réponse change.
+
 ---
 
 *Dernière mise à jour : Juin 2026*
