@@ -117,38 +117,6 @@
   &--htb { background: $reseau-htb; }
 }
 
-// Choix du niveau du classement (boutons radio)
-.niveaux {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid $outline-variant;
-  border-radius: 999px;
-  background: #fff;
-}
-
-.niveaux__choix {
-  min-height: 2.25rem;
-  padding: 0 0.875rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: $sen-navy;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-
-  &[aria-checked='true'] {
-    background: $sen-primary;
-    color: #fff;
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: $shadow-focus;
-  }
-}
-
 // Ligne du classement : nom cliquable (filtre) et barre de proportion
 .lien-filtre {
   display: inline-flex;
@@ -219,10 +187,6 @@
 
   .vue__bloc {
     padding: 0.875rem;
-  }
-
-  .niveaux__choix {
-    min-height: 2.75rem;
   }
 
   .lien-filtre {

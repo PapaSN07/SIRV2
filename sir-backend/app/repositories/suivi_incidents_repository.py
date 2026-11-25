@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import BigInteger, Float, Select, cast, false, func, or_, select, true
+from sqlalchemy import BigInteger, Date, Float, Select, cast, false, func, null, or_, select, true
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.expression import ColumnElement, FunctionElement
 
 from app.models.geo import Service
 from app.models.interruptions import Interruption, InterruptionDistribution, PosteInterruption
@@ -117,3 +119,85 @@ def requete_classement(filtres: FiltresIncidents, niveau: str) -> Select:
         .outerjoin(modele, modele.id == colonne)
     )
     return appliquer_filtres(requete, filtres).group_by(modele.id, modele.code, modele.libelle)
+
+
+# ── Onglets Évolution et Réseau ────────────────────────────────────────────────────────────
+
+
+class jour_de(FunctionElement):  # noqa: N801 — construction SQL, nommée comme une fonction
+    """Jour d'un DATETIME2 : ``CAST(x AS DATE)`` (SQL Server), ``date(x)`` (SQLite des tests).
+
+    Sous SQLite, ``CAST('2026-11-20 23:59:00' AS DATE)`` donne 2026 : un ``cast`` brut serait faux.
+    """
+
+    type = Date()
+    inherit_cache = True
+
+
+@compiles(jour_de)
+def _jour_de_defaut(element: jour_de, compiler, **kw) -> str:  # type: ignore[no-untyped-def]
+    return f"CAST({compiler.process(element.clauses, **kw)} AS DATE)"
+
+
+@compiles(jour_de, "sqlite")
+def _jour_de_sqlite(element: jour_de, compiler, **kw) -> str:  # type: ignore[no-untyped-def]
+    return f"date({compiler.process(element.clauses, **kw)})"
+
+
+def requete_evolution(filtres: FiltresIncidents) -> Select:
+    """Sommes par (jour, nature, cause) ; regroupement en semaines / mois et catégories en Python."""
+    jour = jour_de(Interruption.date_apparition)
+    requete = _avec_distribution(
+        select(jour.label("jour"), Nature.libelle.label("nature"), Cause.libelle.label("cause"), *_sommes())
+        .select_from(Interruption)
+        .outerjoin(Nature, Nature.id == Interruption.nature_id)
+        .outerjoin(Cause, Cause.id == Interruption.cause_id)
+    )
+    return appliquer_filtres(requete, filtres, cause_jointe=True).group_by(
+        jour_de(Interruption.date_apparition), Nature.libelle, Cause.libelle
+    )
+
+
+_NIVEAUX_RESEAU = {
+    "poste_source": (PosteSource, Interruption.poste_source_id),
+    "feeder": (Feeder, Interruption.feeder_id),
+}
+
+
+def _niveau_reseau(niveau: str) -> tuple[type, ColumnElement]:
+    if niveau not in _NIVEAUX_RESEAU:
+        raise ValueError(f"Niveau du tableau Réseau inconnu : {niveau}")
+    return _NIVEAUX_RESEAU[niveau]
+
+
+def requete_reseau(filtres: FiltresIncidents, niveau: str) -> Select:
+    """Sommes par poste source ou par feeder (avec le libellé du poste source du feeder)."""
+    modele, colonne = _niveau_reseau(niveau)
+    colonnes_ligne = [modele.id.label("id"), modele.code.label("code"), modele.libelle.label("libelle")]
+    requete = (
+        select(
+            *colonnes_ligne,
+            (PosteSource.libelle if modele is Feeder else null()).label("poste_source"),
+            *_sommes(),
+            func.sum(cast(Interruption.nombre_clients_touches, BigInteger)).label("coupures_clients"),
+        )
+        .select_from(Interruption)
+        .outerjoin(modele, modele.id == colonne)
+    )
+    groupes = [modele.id, modele.code, modele.libelle]
+    if modele is Feeder:
+        requete = requete.outerjoin(PosteSource, PosteSource.id == Feeder.poste_source_id)
+        groupes.append(PosteSource.libelle)
+    return appliquer_filtres(_avec_distribution(requete), filtres).group_by(*groupes)
+
+
+def requete_reseau_postes(filtres: FiltresIncidents, niveau: str) -> Select:
+    """Postes distincts touchés par ligne (identifiant du poste source / feeder de l'interruption)."""
+    _, colonne = _niveau_reseau(niveau)
+    requete = (
+        select(colonne.label("id"), func.count(func.distinct(PosteInterruption.poste_id)).label("postes"))
+        .select_from(Interruption)
+        .join(PosteInterruption, PosteInterruption.interruption_id == Interruption.id)
+    )
+    return appliquer_filtres(requete, filtres).group_by(colonne)
+

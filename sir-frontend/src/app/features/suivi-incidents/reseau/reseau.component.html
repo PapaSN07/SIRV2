@@ -1,0 +1,141 @@
+<section class="sir-card res" aria-labelledby="titre-reseau">
+  <div class="res__entete">
+    <h2 id="titre-reseau" class="res__titre">{{ niveauCourant().pluriel }} touchés</h2>
+    <div class="sir-segment" role="radiogroup" aria-label="Niveau du tableau" (keydown)="naviguerNiveau($event)">
+      @for (n of niveaux; track n.cle) {
+        <button
+          type="button"
+          role="radio"
+          class="sir-segment__choix"
+          [attr.aria-checked]="niveau() === n.cle"
+          [attr.tabindex]="niveau() === n.cle ? 0 : -1"
+          (click)="choisirNiveau(n.cle)"
+        >
+          {{ n.pluriel }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="res__outils">
+    <label class="res__recherche">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <span class="sr-only">Rechercher un {{ niveauCourant().libelle.toLowerCase() }}</span>
+      <input
+        type="search"
+        class="sir-select"
+        [placeholder]="'Rechercher (nom, code' + (niveau() === 'feeder' ? ', poste source)' : ')')"
+        [value]="recherche()"
+        (input)="chercher($any($event.target).value)"
+        aria-controls="tableau-reseau"
+      />
+    </label>
+    @if (etat().type === 'ok' && donnees()!.lignes.length) {
+      <button
+        type="button"
+        class="sir-btn sir-btn--outline sir-btn--sm res__export"
+        (click)="exporter()"
+        [attr.aria-disabled]="export() !== null ? 'true' : null"
+        [attr.aria-busy]="export() !== null"
+      >
+        <span class="material-symbols-outlined" [class.res__tourne]="export()" aria-hidden="true">
+          {{ export() ? 'autorenew' : 'download' }}
+        </span>
+        {{ export() ? 'Export en cours…' : 'Exporter (Excel)' }}
+      </button>
+    }
+  </div>
+  @if (erreurExport()) {
+    <p class="res__erreur" role="alert">{{ erreurExport() }}</p>
+  }
+
+  @switch (etat().type) {
+    @case ('chargement') {
+      <sir-etat type="chargement" hauteur="360px" />
+    }
+    @case ('erreur') {
+      <sir-etat type="erreur" [message]="$any(etat()).message" (reessayer)="reessayer()" />
+    }
+    @case ('ok') {
+      @if (!donnees()!.lignes.length) {
+        <sir-etat
+          type="vide"
+          [actionVide]="f.actifs().length ? 'Effacer les filtres' : null"
+          (action)="f.toutEffacer()"
+        />
+      } @else if (!filtrees().length) {
+        <sir-etat type="vide" [message]="'Aucun résultat pour « ' + recherche() + ' ».'" actionVide="Effacer la recherche" (action)="chercher('')" />
+      } @else {
+        <p class="res__aide" aria-live="polite">
+          {{ resumePage() }} · {{ formatEntier(donnees()!.total_interruptions) }} interruptions au total.
+          Cliquez sur un nom pour filtrer tout le menu.
+        </p>
+        <div class="res__defilement">
+          <table id="tableau-reseau" class="sir-table res__table">
+            <caption class="sr-only">
+              {{ niveauCourant().pluriel }} touchés : interruptions, durée, END, coupures-clients et postes touchés.
+              Les en-têtes de colonne permettent de trier.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" [attr.aria-sort]="ariaSort('libelle')">
+                  <button type="button" class="res__tri" (click)="trier('libelle')">
+                    {{ niveauCourant().libelle }}
+                    <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri('libelle') }}</span>
+                  </button>
+                </th>
+                @for (c of colonnes; track c.cle) {
+                  <th scope="col" class="num" [class.secondaire]="c.secondaire" [attr.aria-sort]="ariaSort(c.cle)">
+                    <button type="button" class="res__tri" (click)="trier(c.cle)">
+                      {{ c.libelle }}
+                      <span class="material-symbols-outlined" aria-hidden="true">{{ iconeTri(c.cle) }}</span>
+                    </button>
+                  </th>
+                }
+                <th scope="col" class="num secondaire">Part</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of lignesPage(); track l.id) {
+                <tr [class.res__non-renseigne]="l.id === null">
+                  <th scope="row">
+                    @if (l.id !== null) {
+                      <button type="button" class="res__nom" (click)="filtrerSur(l)" [attr.aria-label]="'Filtrer sur ' + l.libelle">
+                        {{ l.libelle }}
+                      </button>
+                    } @else {
+                      {{ l.libelle }}
+                    }
+                    @if (l.code || l.poste_source) {
+                      <span class="res__sous">
+                        {{ l.code }}@if (l.code && l.poste_source) { · }{{ l.poste_source }}
+                      </span>
+                    }
+                  </th>
+                  <td class="num">{{ formatEntier(l.nombre) }}</td>
+                  <td class="num secondaire">{{ formatDuree(l.duree_heures) }}</td>
+                  <td class="num">{{ formatEnd(l.end_mwh) }}</td>
+                  <td class="num secondaire">{{ l.id === null && !l.coupures_clients ? '—' : formatEntier(l.coupures_clients) }}</td>
+                  <td class="num secondaire">{{ l.id === null && !l.postes_touches ? '—' : formatEntier(l.postes_touches) }}</td>
+                  <td class="num secondaire">{{ formatPart(l.part) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (nombrePages() > 1) {
+          <nav class="res__pages" aria-label="Pages du tableau">
+            <button type="button" class="sir-icon-btn" (click)="allerPage(page() - 1)" [attr.aria-disabled]="page() <= 1 ? 'true' : null" aria-label="Page précédente">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+            </button>
+            <span>Page {{ page() }} / {{ nombrePages() }}</span>
+            <button type="button" class="sir-icon-btn" (click)="allerPage(page() + 1)" [attr.aria-disabled]="page() >= nombrePages() ? 'true' : null" aria-label="Page suivante">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+            </button>
+          </nav>
+        }
+      }
+    }
+  }
+</section>

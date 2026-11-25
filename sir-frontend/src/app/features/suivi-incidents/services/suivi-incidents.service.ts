@@ -1,14 +1,18 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { HttpClient, HttpContext, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { SANS_REDIRECTION_403 } from '../../../core/auth/error.interceptor';
 import { ApiResponse } from '../../../shared/models/api.models';
 import {
   ClassementSuivi,
+  EvolutionSuivi,
   FiltresIncidents,
   FiltresResolus,
+  Granularite,
   NiveauClassement,
+  NiveauReseau,
+  ReseauSuivi,
   VueEnsemble,
 } from '../../../shared/models/suivi-incidents.models';
 
@@ -50,6 +54,59 @@ export class SuiviIncidentsService {
         context: new HttpContext().set(SANS_REDIRECTION_403, true),
       })
       .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Série d'interruptions par jour, semaine Senelec ou mois (« auto » : selon la durée de la période). */
+  getEvolution(filtres: FiltresIncidents, granularite: Granularite | 'auto' = 'auto'): Observable<EvolutionSuivi> {
+    return this.http
+      .get<ApiResponse<EvolutionSuivi>>(`${this.apiUrl}/evolution`, {
+        params: parametresFiltres(filtres).set('granularite', granularite),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Tous les postes sources ou feeders touchés (tri, recherche et pages côté écran). */
+  getReseau(filtres: FiltresIncidents, niveau: NiveauReseau): Observable<ReseauSuivi> {
+    return this.http
+      .get<ApiResponse<ReseauSuivi>>(`${this.apiUrl}/reseau`, {
+        params: parametresFiltres(filtres).set('niveau', niveau),
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(map((res) => unwrap(res)));
+  }
+
+  /** Fichier Excel du tableau Réseau ; une erreur reçue en Blob est relue pour garder le message. */
+  exporterReseau(filtres: FiltresIncidents, niveau: NiveauReseau): Observable<{ blob: Blob; nom: string }> {
+    return this.http
+      .get(`${this.apiUrl}/reseau/export`, {
+        params: parametresFiltres(filtres).set('niveau', niveau),
+        responseType: 'blob',
+        observe: 'response',
+        context: new HttpContext().set(SANS_REDIRECTION_403, true),
+      })
+      .pipe(
+        map((res) => {
+          const disposition = res.headers.get('Content-Disposition') ?? '';
+          const nom = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `suivi_${niveau}.xlsx`;
+          return { blob: res.body ?? new Blob(), nom };
+        }),
+        catchError((err: HttpErrorResponse) => {
+          if (!(err.error instanceof Blob)) return throwError(() => err);
+          return from(err.error.text()).pipe(
+            switchMap((texte) => {
+              let message = 'L’export n’a pas pu être produit.';
+              try {
+                const corps = JSON.parse(texte) as { error?: string; detail?: { error?: string } };
+                message = corps.error ?? corps.detail?.error ?? message;
+              } catch {
+                /* corps non JSON : message par défaut */
+              }
+              return throwError(() => new Error(message));
+            }),
+          );
+        }),
+      );
   }
 }
 

@@ -161,12 +161,12 @@
   <section class="sir-card vue__bloc vue__classement" aria-labelledby="titre-classement">
     <div class="vue__entete">
       <h2 id="titre-classement" class="vue__titre" tabindex="-1">Les plus touchés</h2>
-      <div class="niveaux" role="radiogroup" aria-label="Niveau du classement" (keydown)="naviguerNiveau($event)">
+      <div class="sir-segment" role="radiogroup" aria-label="Niveau du classement" (keydown)="naviguerNiveau($event)">
         @for (n of niveaux; track n.cle) {
           <button
             type="button"
             role="radio"
-            class="niveaux__choix"
+            class="sir-segment__choix"
             [attr.aria-checked]="niveau() === n.cle"
             [attr.tabindex]="niveau() === n.cle ? 0 : -1"
             (click)="choisirNiveau(n.cle)"

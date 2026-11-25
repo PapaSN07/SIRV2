@@ -1,5 +1,7 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, DestroyRef, afterNextRender, computed, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { BarreFiltresComponent } from './barre-filtres/barre-filtres.component';
 import { SuiviIncidentsFiltresService, modePeriode } from './services/suivi-incidents-filtres.service';
@@ -71,6 +73,21 @@ export const ONGLETS_SUIVI: OngletSuivi[] = [
 export class SuiviIncidentsComponent {
   private readonly filtres = inject(SuiviIncidentsFiltresService);
   readonly onglets = ONGLETS_SUIVI;
+
+  constructor() {
+    // Sur mobile, la barre d'onglets défile : l'onglet actif est ramené dans la partie visible
+    const montrerOngletActif = () =>
+      setTimeout(() =>
+        document.querySelector('.suivi__onglets .sir-tab--active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }),
+      );
+    afterNextRender(montrerOngletActif);
+    inject(Router)
+      .events.pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(inject(DestroyRef)),
+      )
+      .subscribe(montrerOngletActif);
+  }
 
   /** « S47 · 14/11 → 20/11/2026 · 2 filtres » : rappel quand la barre complète est hors de vue. */
   readonly rappelFiltres = computed(() => {

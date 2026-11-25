@@ -12,6 +12,7 @@ article
 assessment
 assistant
 attribution
+autorenew
 badge
 bento
 block
@@ -198,6 +199,7 @@ sort
 source
 space_dashboard
 speed
+stack
 start
 step
 steps

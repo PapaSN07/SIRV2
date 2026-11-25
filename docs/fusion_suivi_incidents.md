@@ -185,3 +185,56 @@ Cache Redis 1 h par (endpoint, filtres résolus) — clé `suivi:{endpoint}:{emp
 - **Cache d'une heure sans invalidation** : une interruption saisie apparaît dans la Vue d'ensemble au plus une heure après (la liste des interruptions la montre tout de suite). À décider : garder 1 h, ou invalider `suivi:*` à la création, la clôture et la validation.
 - **Catégorie « Travaux »** : suit la règle du rapport hebdo DD (cause contenant « Travaux »). Une interruption de nature « Travaux » dont la cause ne le dit pas tombe dans « Autres coupures » — à confirmer sur les natures réelles de SIRV2.
 - **Interruptions en cours** : comptées dans le nombre, pas dans la durée (durée non encore connue).
+
+## 9. Spécification de l'étape 4 — Évolution et Réseau (25/11/2026)
+
+Mêmes règles que l'étape 3 : interruptions distribution, tous statuts, filtres **résolus**
+(`resoudre_filtres`) appliqués par `appliquer_filtres` (RBAC double), mêmes paramètres de requête
+que `/filtres`, erreurs 422 **enveloppées** `{"status":"error","data":null,"error":…}`, cache Redis
+1 h `suivi:{endpoint}:{empreinte des filtres résolus et des paramètres}`.
+
+### `GET /api/v1/suivi-incidents/evolution`
+
+Paramètre en plus : `granularite` = `auto` (défaut) | `jour` | `semaine` | `mois` ; autre valeur → 422.
+`auto` : `jour` si la période fait ≤ 31 jours, `semaine` (semaine Senelec) si ≤ 186 jours, `mois` sinon.
+`jour` demandé sur plus de 366 jours → 422 (trop de points).
+
+Réponse `ApiResponse[EvolutionSuivi]` : `granularite` (celle appliquée, jamais `auto`), `points`.
+Un point par intervalle, **tous les intervalles de la période, vides compris**, dans l'ordre :
+`{debut, fin, libelle, nombre, duree_heures, end_mwh, natures}` où `natures` =
+`{incident, delestage, travaux, autre}` (nombre d'interruptions par catégorie, `categorie_nature`).
+
+- `jour` : `debut = fin` = le jour, libellé « 14/11 ».
+- `semaine` : semaine Senelec (samedi → vendredi), libellé « S47 » ; le premier et le dernier point
+  sont **rognés** aux bornes de la période (`debut` ≥ début demandé, `fin` ≤ fin demandée).
+- `mois` : mois civil, libellé « nov. 2026 » (abréviations françaises : janv., févr., mars, avr.,
+  mai, juin, juil., août, sept., oct., nov., déc.), rogné de même.
+
+Somme des `nombre` des points = `kpi.nombre_interruptions` de la Vue d'ensemble pour les mêmes filtres.
+Requête : `suivi_incidents_repository.requete_evolution(filtres)` — regroupement par **jour**
+(`CAST(date_apparition AS DATE)`), nature et cause ; regroupement en semaines / mois en Python.
+
+### `GET /api/v1/suivi-incidents/reseau`
+
+Paramètre en plus : `niveau` = `poste_source` | `feeder` (obligatoire, sinon 422).
+Réponse `ApiResponse[ReseauSuivi]` : `niveau`, `total_interruptions`, `lignes` — **toutes** les lignes
+(pas de limite : tri, recherche et pagination côté écran), triées par nombre décroissant puis libellé,
+« Non renseigné » (`id = null`) en dernier. Une ligne :
+`{id, code, libelle, poste_source, nombre, duree_heures, end_mwh, coupures_clients, postes_touches, part}`
+- `poste_source` : libellé du poste source du feeder (niveau `feeder`), `null` au niveau `poste_source` ;
+- `coupures_clients` : Σ `interruptions.nombre_clients_touches` ; `postes_touches` : postes distincts
+  de `poste_interruptions` ; `part` = nombre / total.
+Requêtes : `requete_reseau(filtres, niveau)` (sommes) et `requete_reseau_postes(filtres, niveau)`
+(postes distincts par ligne) ; niveau inconnu → `ValueError`.
+
+### `GET /api/v1/suivi-incidents/reseau/export`
+
+Mêmes paramètres que `/reseau`. Fichier Excel (`openpyxl`, construit dans un thread) :
+`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+`Content-Disposition: attachment; filename="suivi_{niveau}_{debut}_{fin}.xlsx"`. Une feuille, une
+ligne de titre (période et filtres), puis l'en-tête et les lignes de `/reseau` dans le même ordre
+(colonnes : Poste source / Feeder, Code, [Poste source], Interruptions, Durée (h), END (MWh),
+Coupures-clients, Postes touchés, Part (%)). Mêmes droits et même périmètre que `/reseau`.
+
+La contribution au SAIFI par poste source / feeder est reportée à l'étape 5 (base clients).
+

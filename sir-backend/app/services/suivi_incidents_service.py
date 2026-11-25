@@ -7,8 +7,10 @@ limité à son service. Les valeurs imposées par le rôle remplacent celles de 
 
 from __future__ import annotations
 
+import asyncio
+import bisect
 import hashlib
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -22,14 +24,19 @@ from app.repositories import suivi_incidents_repository as repo
 from app.schemas.suivi_incidents import (
     CategorieNature,
     ClassementSuivi,
+    EvolutionSuivi,
     FiltresIncidents,
     FiltresResolus,
     KpiSuivi,
     LigneClassement,
+    LigneReseau,
+    NaturesPoint,
     PeriodeSuivi,
     PerimetreSuivi,
+    PointEvolution,
     RepartitionNature,
     RepartitionReseau,
+    ReseauSuivi,
     SemaineSenelecSchema,
     VueEnsemble,
 )
@@ -302,3 +309,225 @@ async def classement(
     resultat = ClassementSuivi(niveau=niveau, total_interruptions=total, lignes=lignes, autres=autres)  # type: ignore[arg-type]
     await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
     return resultat
+
+
+# ── Onglet Évolution ──────────────────────────────────────────────────────────────────────
+
+GRANULARITES = ("jour", "semaine", "mois")
+JOURS_MAX_GRANULARITE_JOUR = 366
+_MOIS_COURTS = ("janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc.")
+
+
+def granularite_auto(debut: date, fin: date) -> str:
+    """Jour jusqu'à 31 jours, semaine SENELEC jusqu'à 186 jours, mois au-delà (fin incluse)."""
+    jours = (fin - debut).days + 1
+    if jours <= 31:
+        return "jour"
+    if jours <= 186:
+        return "semaine"
+    return "mois"
+
+
+def _mois_suivant(jour: date) -> date:
+    return date(jour.year + (jour.month == 12), jour.month % 12 + 1, 1)
+
+
+def intervalles(debut: date, fin: date, granularite: str) -> list[tuple[date, date, str]]:
+    """Points de la série : contigus, couvrant [debut, fin], premier et dernier rognés aux bornes."""
+    if granularite not in GRANULARITES:
+        raise ValueError(f"Granularité inconnue : {granularite}")
+    points: list[tuple[date, date, str]] = []
+    courant = debut
+    while courant <= fin:
+        if granularite == "jour":
+            fin_point, libelle = courant, f"{courant:%d/%m}"
+        elif granularite == "semaine":
+            semaine = semaine_senelec(courant)
+            fin_point, libelle = semaine.fin, f"S{semaine.numero}"
+        else:
+            fin_point = _mois_suivant(courant) - timedelta(days=1)
+            libelle = f"{_MOIS_COURTS[courant.month - 1]} {courant.year}"
+        fin_point = min(fin_point, fin)
+        points.append((courant, fin_point, libelle))
+        courant = fin_point + timedelta(days=1)
+    return points
+
+
+def _en_date(valeur: Any) -> date:
+    """Jour renvoyé par la base : ``date`` (SQL Server) ou texte « AAAA-MM-JJ » (SQLite)."""
+    if isinstance(valeur, date):
+        return valeur if type(valeur) is date else valeur.date()  # type: ignore[union-attr]
+    return date.fromisoformat(str(valeur)[:10])
+
+
+
+
+async def evolution(
+    db: AsyncSession,
+    redis: Redis,
+    user: Utilisateur,
+    bruts: dict[str, Any],
+    granularite: str | None = "auto",
+) -> EvolutionSuivi:
+    """Série par jour, semaine SENELEC ou mois, tous les intervalles (vides compris), par nature."""
+    choix = "auto" if granularite is None else granularite
+    if choix != "auto" and choix not in GRANULARITES:
+        raise _invalide_classement("Granularité attendue : auto, jour, semaine ou mois")
+    filtres = resoudre_filtres(user, bruts).filtres
+    appliquee = granularite_auto(filtres.debut, filtres.fin) if choix == "auto" else choix
+    if appliquee == "jour" and (filtres.fin - filtres.debut).days + 1 > JOURS_MAX_GRANULARITE_JOUR:
+        raise _invalide_classement("Pas de série par jour au-delà d'un an : choisissez la semaine ou le mois")
+    cle = _cle_cache("evolution", filtres.model_dump_json(), appliquee)
+    en_cache = await cache.get_cached(redis, cle)
+    if en_cache is not None:
+        return EvolutionSuivi.model_validate(en_cache)
+
+    bornes = intervalles(filtres.debut, filtres.fin, appliquee)
+    debuts = [b[0] for b in bornes]
+    sommes = [[0, 0.0, 0.0, {cle_n: 0 for cle_n, _ in CATEGORIES_NATURE}] for _ in bornes]
+    for ligne in (await db.execute(repo.requete_evolution(filtres))).all():
+        i = bisect.bisect_right(debuts, _en_date(ligne.jour)) - 1
+        if i < 0:
+            continue
+        nombre = int(ligne.nombre or 0)
+        point = sommes[i]
+        point[0] += nombre
+        point[1] += float(ligne.duree_minutes or 0)
+        point[2] += float(ligne.end_mwh or 0)
+        point[3][categorie_nature(ligne.nature, ligne.cause)] += nombre
+    resultat = EvolutionSuivi(
+        granularite=appliquee,  # type: ignore[arg-type]
+        points=[
+            PointEvolution(
+                debut=d,
+                fin=f,
+                libelle=libelle,
+                nombre=int(somme[0]),
+                duree_heures=_heures(somme[1]),
+                end_mwh=_mwh(somme[2]),
+                natures=NaturesPoint(**somme[3]),
+            )
+            for (d, f, libelle), somme in zip(bornes, sommes)
+        ],
+    )
+    await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
+    return resultat
+
+
+# ── Onglet Réseau ─────────────────────────────────────────────────────────────────────────
+
+NIVEAUX_RESEAU = ("poste_source", "feeder")
+_LIBELLE_NIVEAU = {"poste_source": "Poste source", "feeder": "Feeder"}
+_PLURIEL_NIVEAU = {"poste_source": "Postes sources", "feeder": "Feeders"}
+
+
+def _niveau_reseau(niveau: str | None) -> str:
+    if niveau not in NIVEAUX_RESEAU:
+        raise _invalide_classement("Niveau attendu : poste_source ou feeder")
+    return niveau
+
+
+async def _reseau(db: AsyncSession, redis: Redis, filtres: FiltresIncidents, niveau: str) -> ReseauSuivi:
+    cle = _cle_cache("reseau", filtres.model_dump_json(), niveau)
+    en_cache = await cache.get_cached(redis, cle)
+    if en_cache is not None:
+        return ReseauSuivi.model_validate(en_cache)
+
+    postes = {
+        ligne.id: int(ligne.postes or 0)
+        for ligne in (await db.execute(repo.requete_reseau_postes(filtres, niveau))).all()
+    }
+    brutes = (await db.execute(repo.requete_reseau(filtres, niveau))).all()
+    total = sum(int(ligne.nombre or 0) for ligne in brutes)
+    lignes = [
+        LigneReseau(
+            id=ligne.id,
+            code=ligne.code if ligne.id is not None else None,
+            libelle=ligne.libelle if ligne.id is not None else NON_RENSEIGNE,
+            poste_source=ligne.poste_source if ligne.id is not None else None,
+            nombre=int(ligne.nombre or 0),
+            duree_heures=_heures(ligne.duree_minutes),
+            end_mwh=_mwh(ligne.end_mwh),
+            coupures_clients=int(ligne.coupures_clients or 0),
+            postes_touches=postes.get(ligne.id, 0),
+            part=_part(int(ligne.nombre or 0), total),
+        )
+        for ligne in brutes
+    ]
+    lignes.sort(key=lambda l: (l.id is None, -l.nombre, l.libelle))
+    resultat = ReseauSuivi(niveau=niveau, total_interruptions=total, lignes=lignes)  # type: ignore[arg-type]
+    await cache.set_cached(redis, cle, resultat.model_dump(mode="json"))
+    return resultat
+
+
+async def reseau(
+    db: AsyncSession, redis: Redis, user: Utilisateur, bruts: dict[str, Any], niveau: str | None
+) -> ReseauSuivi:
+    """Tous les postes sources ou feeders touchés ; « Non renseigné » en dernier."""
+    niveau = _niveau_reseau(niveau)
+    filtres = resoudre_filtres(user, bruts).filtres
+    return await _reseau(db, redis, filtres, niveau)
+
+
+
+
+def construire_xlsx_reseau(donnees: ReseauSuivi, titre: str) -> bytes:
+    """Classeur d'une feuille : titre, en-tête, lignes dans l'ordre du tableau Réseau."""
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    classeur = Workbook()
+    feuille = classeur.active
+    feuille.title = _PLURIEL_NIVEAU[donnees.niveau]
+    feuille.append([titre])
+    feuille["A1"].font = Font(bold=True, size=12)
+    feuille.append([])
+    entete = [_LIBELLE_NIVEAU[donnees.niveau], "Code"]
+    if donnees.niveau == "feeder":
+        entete.append("Poste source")
+    entete += ["Interruptions", "Durée (h)", "END (MWh)", "Coupures-clients", "Postes touchés", "Part (%)"]
+    feuille.append(entete)
+    remplissage = PatternFill("solid", fgColor="262051")
+    for cellule in feuille[3]:
+        cellule.font = Font(bold=True, color="FFFFFF")
+        cellule.fill = remplissage
+    for ligne in donnees.lignes:
+        valeurs: list[object] = [ligne.libelle, ligne.code]
+        if donnees.niveau == "feeder":
+            valeurs.append(ligne.poste_source)
+        valeurs += [
+            ligne.nombre,
+            round(ligne.duree_heures, 2),
+            round(ligne.end_mwh, 3),
+            ligne.coupures_clients,
+            ligne.postes_touches,
+            round(ligne.part * 100, 1),
+        ]
+        feuille.append(valeurs)
+        # Libellés venus de la base : toujours du texte, jamais une formule (« =… »)
+        for cellule in feuille[feuille.max_row]:
+            if isinstance(cellule.value, str):
+                cellule.data_type = "s"
+    for i, largeur in enumerate([34, 14] + ([30] if donnees.niveau == "feeder" else []) + [14, 12, 12, 16, 14, 10], start=1):
+        feuille.column_dimensions[get_column_letter(i)].width = largeur
+    feuille.freeze_panes = "A4"
+    sortie = BytesIO()
+    classeur.save(sortie)
+    return sortie.getvalue()
+
+
+async def exporter_reseau(
+    db: AsyncSession, redis: Redis, user: Utilisateur, bruts: dict[str, Any], niveau: str | None
+) -> tuple[bytes, str]:
+    """Fichier Excel du tableau Réseau (mêmes droits et même périmètre que ``reseau``)."""
+    niveau = _niveau_reseau(niveau)
+    resolus = resoudre_filtres(user, bruts)
+    filtres = resolus.filtres
+    donnees = await _reseau(db, redis, filtres, niveau)
+    titre = f"Suivi incidents — {_PLURIEL_NIVEAU[niveau]} touchés — {resolus.libelle_periode}"
+    contenu = await asyncio.to_thread(construire_xlsx_reseau, donnees, titre)
+    return contenu, f"suivi_{niveau}_{filtres.debut.isoformat()}_{filtres.fin.isoformat()}.xlsx"
+

@@ -108,3 +108,44 @@ export interface ClassementSuivi {
   lignes: LigneClassement[];
   autres: LigneClassement | null;
 }
+
+/* ── Onglets Évolution et Réseau (GET /suivi-incidents/evolution, /reseau) ── */
+
+export type Granularite = 'jour' | 'semaine' | 'mois';
+
+export interface PointEvolution {
+  debut: string;
+  fin: string;
+  libelle: string;
+  nombre: number;
+  duree_heures: number;
+  end_mwh: number;
+  natures: Record<CategorieNature, number>;
+}
+
+export interface EvolutionSuivi {
+  granularite: Granularite;
+  points: PointEvolution[];
+}
+
+export type NiveauReseau = 'poste_source' | 'feeder';
+
+export interface LigneReseau {
+  id: number | null;
+  code: string | null;
+  libelle: string;
+  poste_source: string | null;
+  nombre: number;
+  duree_heures: number;
+  end_mwh: number;
+  coupures_clients: number;
+  postes_touches: number;
+  part: number;
+}
+
+export interface ReseauSuivi {
+  niveau: NiveauReseau;
+  total_interruptions: number;
+  lignes: LigneReseau[];
+}
+

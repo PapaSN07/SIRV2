@@ -466,3 +466,50 @@ h3,
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+// ── Sélecteur à choix unique (groupe radio en pastilles) ─────────────────────
+// <div class="sir-segment" role="radiogroup"> + <button role="radio" class="sir-segment__choix">
+.sir-segment {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: 2px;
+  border: 1px solid $outline-variant;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.sir-segment__choix {
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: $sen-navy;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &[aria-checked='true'] {
+    background: rgba($sen-primary, 0.12);
+    color: $sen-primary;
+    font-weight: 600;
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    color: $on-surface-variant;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-focus;
+  }
+
+  @media (max-width: 767.98px) {
+    min-height: 2.75rem;
+  }
+}
+

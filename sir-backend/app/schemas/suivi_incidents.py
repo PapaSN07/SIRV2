@@ -122,3 +122,53 @@ class ClassementSuivi(BaseModel):
     total_interruptions: int
     lignes: list[LigneClassement]
     autres: LigneClassement | None = Field(None, description="Somme des lignes au-delà de la limite")
+
+
+# ── Onglets Évolution et Réseau ───────────────────────────────────────────────────────────
+
+Granularite = Literal["jour", "semaine", "mois"]
+NiveauReseau = Literal["poste_source", "feeder"]
+
+
+class NaturesPoint(BaseModel):
+    """Nombre d'interruptions du point par catégorie de nature."""
+
+    incident: int = 0
+    delestage: int = 0
+    travaux: int = 0
+    autre: int = 0
+
+
+class PointEvolution(BaseModel):
+    debut: date
+    fin: date
+    libelle: str
+    nombre: int
+    duree_heures: float
+    end_mwh: float
+    natures: NaturesPoint
+
+
+class EvolutionSuivi(BaseModel):
+    granularite: Granularite
+    points: list[PointEvolution] = Field(..., description="Tous les intervalles de la période, vides compris")
+
+
+class LigneReseau(BaseModel):
+    id: int | None = Field(None, description="Null : sans rattachement (« Non renseigné »)")
+    code: str | None = None
+    libelle: str
+    poste_source: str | None = Field(None, description="Poste source du feeder (niveau feeder)")
+    nombre: int
+    duree_heures: float
+    end_mwh: float
+    coupures_clients: int
+    postes_touches: int
+    part: float
+
+
+class ReseauSuivi(BaseModel):
+    niveau: NiveauReseau
+    total_interruptions: int
+    lignes: list[LigneReseau]
+

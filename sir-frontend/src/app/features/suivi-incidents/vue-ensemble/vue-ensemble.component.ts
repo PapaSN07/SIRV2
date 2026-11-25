@@ -1,7 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, combineLatest, distinctUntilChanged, filter, map, of, switchMap, tap } from 'rxjs';
+import { combineLatest, map } from 'rxjs';
 import type { EChartsOption } from 'echarts';
 import {
   ClassementSuivi,
@@ -21,10 +20,9 @@ import {
   formatEntier,
   formatPart,
 } from '../../../shared/utils/formats-indicateurs';
+import { Etat, charger, filtresResolus$ } from '../services/chargement';
 import { SuiviIncidentsFiltresService } from '../services/suivi-incidents-filtres.service';
 import { SuiviIncidentsService } from '../services/suivi-incidents.service';
-
-type Etat<T> = { type: 'chargement' } | { type: 'erreur'; message: string } | { type: 'ok'; donnees: T };
 
 const NIVEAUX: { cle: NiveauClassement; libelle: string; filtre: keyof FiltresIncidents }[] = [
   { cle: 'service', libelle: 'Service', filtre: 'service_id' },
@@ -33,32 +31,6 @@ const NIVEAUX: { cle: NiveauClassement; libelle: string; filtre: keyof FiltresIn
 ];
 
 const LIBELLE_RESEAU = { hta: 'HTA', htb: 'HTB', total: 'Total' } as const;
-
-const memes = <T>(a: T, b: T): boolean => JSON.stringify(a) === JSON.stringify(b);
-
-function messageErreur(err: unknown): string {
-  if (err instanceof HttpErrorResponse && err.status === 403) {
-    return 'Ces données sont hors de votre périmètre.';
-  }
-  if (err instanceof HttpErrorResponse && (err.status === 0 || err.status >= 500)) {
-    return 'Les indicateurs n’ont pas pu être chargés (serveur indisponible). Réessayez dans un instant.';
-  }
-  const m = (err as { message?: unknown } | null)?.message;
-  return typeof m === 'string' && m ? m : 'Les données n’ont pas pu être chargées.';
-}
-
-/** Charge une ressource à chaque changement de clé ; « Réessayer » relance la dernière. */
-function charger<K, T>(cle$: Observable<K>, appel: (cle: K) => Observable<T>, cible: (e: Etat<T>) => void): Observable<unknown> {
-  return cle$.pipe(
-    tap(() => cible({ type: 'chargement' })),
-    switchMap((cle) =>
-      appel(cle).pipe(
-        map((donnees) => cible({ type: 'ok', donnees })),
-        catchError((err: unknown) => of(cible({ type: 'erreur', message: messageErreur(err) }))),
-      ),
-    ),
-  );
-}
 
 /**
  * Onglet « Vue d'ensemble » : indicateurs clés avec l'écart à la période précédente,
@@ -93,10 +65,7 @@ export class VueEnsembleComponent {
   private readonly filtresResolus = computed(() => this.f.resolus()?.filtres ?? null);
 
   constructor() {
-    const filtres$ = toObservable(this.filtresResolus).pipe(
-      filter((x): x is FiltresIncidents => x !== null),
-      distinctUntilChanged<FiltresIncidents>(memes),
-    );
+    const filtres$ = filtresResolus$(this.filtresResolus);
 
     charger(
       combineLatest([filtres$, toObservable(this.relance)]).pipe(map(([x]) => x)),

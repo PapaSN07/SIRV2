@@ -1,0 +1,158 @@
+@use '../../../../styles/sir-tokens' as *;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.evo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+}
+
+.evo__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.evo__titre {
+  margin: 0;
+  color: $sen-navy;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.evo__choix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.evo__aide {
+  margin: 0;
+  color: $on-surface-variant;
+  font-size: 0.8125rem;
+}
+
+.evo__donnees {
+  summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    color: $sen-primary;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: none;
+      border-radius: 2px;
+      box-shadow: $shadow-focus;
+    }
+  }
+}
+
+.evo__defilement {
+  max-height: 420px;
+  margin-top: 0.5rem;
+  overflow: auto;
+}
+
+.evo__table {
+  font-size: 0.875rem;
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  tbody th {
+    white-space: normal;
+    color: $sen-navy;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    background: transparent;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+// Libellé de ligne : zoom sur la période (équivalent clavier du clic sur une barre)
+.evo__zoom {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $sen-primary;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: 2px;
+    box-shadow: $shadow-focus;
+  }
+}
+
+.evo__dates {
+  display: block;
+  color: $on-surface-variant;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.evo__total th,
+.evo__total td {
+  font-weight: 700;
+  border-top: 2px solid $outline-variant;
+}
+
+@media (max-width: 767.98px) {
+  .evo {
+    padding: 0.875rem;
+  }
+
+  .evo__choix {
+    width: 100%;
+  }
+
+  .secondaire {
+    display: none;
+  }
+
+  .evo__table th,
+  .evo__table td {
+    padding: 0.5rem 0.375rem;
+  }
+
+  .evo__donnees summary,
+  .evo__zoom {
+    min-height: 2.75rem;
+  }
+
+  .evo__dates {
+    display: none;
+  }
+}

@@ -63,7 +63,7 @@ export class GraphiqueComponent {
   /** Phrase résumant ce que montre le graphique (lecteurs d'écran). */
   readonly resume = input<string | null>(null);
   readonly hauteur = input('280px');
-  readonly clic = output<{ nom: string; serie: string | null; valeur: unknown }>();
+  readonly clic = output<{ nom: string; serie: string | null; valeur: unknown; index: number | null }>();
 
   /** Fusion à deux niveaux : un graphique qui précise `tooltip.trigger` garde le style de base. */
   readonly optionsCompletes = computed<EChartsOption>(() => {
@@ -78,8 +78,13 @@ export class GraphiqueComponent {
     return fusion as EChartsOption;
   });
 
-  surClic(evenement: { name?: string; seriesName?: string; value?: unknown }): void {
+  surClic(evenement: { name?: string; seriesName?: string; value?: unknown; dataIndex?: number }): void {
     if (!evenement.name) return;
-    this.clic.emit({ nom: evenement.name, serie: evenement.seriesName ?? null, valeur: evenement.value });
+    this.clic.emit({
+      nom: evenement.name,
+      serie: evenement.seriesName ?? null,
+      valeur: evenement.value,
+      index: evenement.dataIndex ?? null,
+    });
   }
 }

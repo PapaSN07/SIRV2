@@ -31,27 +31,12 @@ export const SUIVI_INCIDENTS_ROUTES: Routes = [
   {
     path: 'evolution',
     title: 'Évolution — Suivi incidents',
-    ...aVenir({
-      titre: 'Évolution',
-      etape: 4,
-      contenu: [
-        'Nombre et durée des interruptions par jour, par semaine Senelec ou par mois selon la période',
-        'Répartition par nature',
-      ],
-    }),
+    loadComponent: () => import('./evolution/evolution.component').then((m) => m.EvolutionComponent),
   },
   {
     path: 'reseau',
     title: 'Réseau — Suivi incidents',
-    ...aVenir({
-      titre: 'Réseau',
-      etape: 4,
-      contenu: [
-        'Postes sources et feeders les plus touchés : tableaux triables avec recherche',
-        'Nombre, durée, END et contribution au SAIFI',
-        'Export Excel',
-      ],
-    }),
+    loadComponent: () => import('./reseau/reseau.component').then((m) => m.ReseauComponent),
   },
   {
     path: 'saifi-saidi',

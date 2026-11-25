@@ -1,0 +1,135 @@
+<section class="sir-card evo" aria-labelledby="titre-evolution">
+  <div class="evo__entete">
+    <h2 id="titre-evolution" class="evo__titre">Évolution des interruptions</h2>
+    <div class="evo__choix">
+      <div
+        class="sir-segment"
+        role="radiogroup"
+        aria-label="Mesure affichée"
+        (keydown)="naviguer($event, mesures, mesure(), choisirMesure)"
+      >
+        @for (m of mesures; track m.cle) {
+          <button
+            type="button"
+            role="radio"
+            class="sir-segment__choix"
+            [attr.aria-checked]="mesure() === m.cle"
+            [attr.tabindex]="mesure() === m.cle ? 0 : -1"
+            (click)="choisirMesure(m.cle)"
+          >
+            {{ m.libelle }}
+          </button>
+        }
+      </div>
+      <div
+        class="sir-segment"
+        role="radiogroup"
+        aria-label="Regroupement"
+        (keydown)="naviguer($event, granularites, granulariteEffective(), choisirGranularite, estJourDesactive)"
+      >
+        @for (g of granularites; track g.cle) {
+          <button
+            type="button"
+            role="radio"
+            class="sir-segment__choix"
+            [attr.aria-checked]="granulariteEffective() === g.cle"
+            [attr.tabindex]="granulariteEffective() === g.cle ? 0 : -1"
+            [attr.aria-disabled]="estJourDesactive(g.cle) ? 'true' : null"
+            [attr.aria-describedby]="estJourDesactive(g.cle) ? 'evo-jour-indisponible' : null"
+            (click)="choisirGranularite(g.cle)"
+          >
+            {{ g.libelle }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @switch (etat().type) {
+    @case ('chargement') {
+      <sir-etat type="chargement" hauteur="320px" />
+    }
+    @case ('erreur') {
+      <sir-etat type="erreur" [message]="$any(etat()).message" (reessayer)="reessayer()" />
+    }
+    @case ('ok') {
+      @if (vide()) {
+        <sir-etat
+          type="vide"
+          [actionVide]="f.actifs().length ? 'Effacer les filtres' : null"
+          (action)="f.toutEffacer()"
+        />
+      } @else {
+        <p class="evo__aide">
+          Un point par {{ uniteAppliquee() }}.
+          @if (jourIndisponible()) {
+            <span id="evo-jour-indisponible">Pas de série par jour au-delà d’un an.</span>
+          }
+          @if (donnees()!.points.length > 1) {
+            Cliquez sur une barre pour afficher seulement cette période.
+          }
+        </p>
+        <sir-graphique
+          titre="Évolution des interruptions"
+          [options]="options()"
+          [resume]="resume()"
+          hauteur="320px"
+          (clic)="zoomer($event)"
+        />
+
+        <details class="evo__donnees">
+          <summary>Voir les données ({{ donnees()!.points.length }} lignes)</summary>
+          <div class="evo__defilement">
+            <table class="sir-table evo__table">
+              <caption class="sr-only">Interruptions par {{ uniteAppliquee() }} et par nature</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Période</th>
+                  <th scope="col" class="num">Interruptions</th>
+                  @for (n of natures; track n.cle) {
+                    <th scope="col" class="num secondaire">{{ n.libelle }}</th>
+                  }
+                  <th scope="col" class="num secondaire">Durée</th>
+                  <th scope="col" class="num">END</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of donnees()!.points; track p.debut; let i = $index) {
+                  <tr>
+                    <th scope="row">
+                      @if (donnees()!.points.length > 1) {
+                        <button type="button" class="evo__zoom" (click)="zoomerLigne(i)" [attr.aria-label]="'Afficher seulement ' + intervalle(p)">
+                          {{ p.libelle }}
+                        </button>
+                      } @else {
+                        {{ p.libelle }}
+                      }
+                      @if (p.debut !== p.fin) {
+                        <span class="evo__dates">{{ intervalle(p) }}</span>
+                      }
+                    </th>
+                    <td class="num">{{ formatEntier(p.nombre) }}</td>
+                    @for (n of natures; track n.cle) {
+                      <td class="num secondaire">{{ formatEntier(p.natures[n.cle]) }}</td>
+                    }
+                    <td class="num secondaire">{{ formatDuree(p.duree_heures) }}</td>
+                    <td class="num">{{ formatEnd(p.end_mwh) }}</td>
+                  </tr>
+                }
+                <tr class="evo__total">
+                  <th scope="row">Total</th>
+                  <td class="num">{{ formatEntier(totaux().nombre) }}</td>
+                  @for (n of natures; track n.cle) {
+                    <td class="num secondaire">{{ formatEntier(totaux().natures[n.cle]) }}</td>
+                  }
+                  <td class="num secondaire">{{ formatDuree(totaux().duree) }}</td>
+                  <td class="num">{{ formatEnd(totaux().end) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      }
+    }
+  }
+</section>
