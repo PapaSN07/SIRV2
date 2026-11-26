@@ -65,3 +65,21 @@ def test_troncon_et_lecture_kmz(tmp_path: Path) -> None:
     assert t is not None
     assert (t["nom_feeder"], t["nom_noeud_amont"], t["nom_noeud_aval"], t["tension_kv"]) == ("SIES", "REMONTEE SOUT", "H61 SBM", 30.0)
     assert t["type_conducteur"].startswith("Aérien") and 100 < t["longueur_m"] < 120  # type: ignore[union-attr,operator]
+
+
+def test_excel_apporte_l_unite_d_exploitation(tmp_path: Path) -> None:
+    import pandas as pd
+
+    from scripts.migration.import_sig_arcgis import enrichir_par_excel
+
+    n = noeud_arcgis(attributs_description(BULLE))
+    assert n is not None
+    chemin = tmp_path / "postes.xlsx"
+    pd.DataFrame([
+        {"Nom du poste": "BATA", "Unite D'exploitation": "UED RUFISQUE", "StructureD": "Antenne",
+         "X_Centroid": 257339.437693, "Y_Centroid": 1626840.05},
+        {"Nom du poste": "AUTRE", "Unite D'exploitation": "UED SUD", "StructureD": "Coupure",
+         "X_Centroid": 1.0, "Y_Centroid": 2.0},
+    ]).to_excel(chemin, index=False)
+    assert enrichir_par_excel([n], chemin) == (1, 1)
+    assert n["delegation"] == "UED RUFISQUE"

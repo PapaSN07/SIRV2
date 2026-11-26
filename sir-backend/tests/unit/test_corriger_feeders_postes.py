@@ -32,26 +32,22 @@ def test_feeder_du_poste_texte_d_abord_jamais_par_defaut() -> None:
     assert fk.resolve_feeder_id_poste({"idfeeder": 12, "feeder": ""}) == 7
 
 
-def test_decision_par_concordance_des_sources() -> None:
-    # historique SIR v1 (texte, itd, interruptions) = une seule famille : leur accord seul reste « probable »
-    assert decider({"texte": 7, "interruptions": 7, "sig": None}) == (7, "probable")
-    assert decider({"texte": 7, "interruptions": 7, "sig": 7}) == (7, "sure")
-    assert decider({"texte": None, "interruptions": None, "sig": 9}) == (9, "probable")
-    assert decider({"texte": 7, "interruptions": 7, "sig": 9}) == (None, "a_arbitrer")
-    assert decider({"texte": None, "interruptions": None, "sig": None}) == (None, "sans_source")
+def test_decision_itd_reference_puis_historique_puis_recensement() -> None:
+    assert decider({"itd": 7, "texte": 7, "interruptions": None, "sig": 9}) == (7, "sure")
+    assert decider({"itd": 7, "texte": 9, "interruptions": 9, "recensement": 9}) == (7, "itd")
+    assert decider({"itd": None, "texte": 7, "interruptions": 7}) == (7, "historique")
+    assert decider({"itd": None, "texte": None, "interruptions": 8, "recensement": 9}) == (8, "historique")
+    assert decider({"itd": None, "texte": None, "interruptions": None, "recensement": 9}) == (9, "recensement")
+    assert decider({"exploitants": 4}) == (4, "recensement")
+    assert decider({"itd": None, "texte": 7, "interruptions": 8, "recensement": 9}) == (9, "recensement")
+    assert decider({"itd": None, "texte": 7, "interruptions": 8}) == (None, "a_arbitrer")
+    assert decider({"sig": 9}) == (None, "sans_source")
 
 
 def test_feeder_majoritaire_des_coupures() -> None:
     assert feeder_majoritaire(Counter({7: 3, 52: 10, 9: 1}), exclus={52}) == 7  # 3/4 hors défaut
     assert feeder_majoritaire(Counter({7: 1, 9: 1}), exclus=set()) is None  # pas de majorité
     assert feeder_majoritaire(Counter({52: 4}), exclus={52}) is None
-
-
-def test_decision_majoritaire() -> None:
-    # terrain + SIG l'emportent sur l'historique (départ reconfiguré) ; terrain contre SIG : à arbitrer
-    assert decider({"exploitants": 7, "recensement": 7, "sig": 7, "itd": 9, "texte": 9, "interruptions": 9}) == (7, "sure")
-    assert decider({"exploitants": 7, "itd": 9, "texte": 9}) == (7, "terrain")
-    assert decider({"exploitants": 7, "sig": 9, "texte": 9, "interruptions": 7}) == (None, "a_arbitrer")
 
 
 def test_liste_exploitants_par_entete(tmp_path: Path) -> None:

@@ -14,8 +14,8 @@ Pour chaque poste sans feeder ou sur un feeder par défaut, plusieurs sources pr
 1. texte   : colonne « feeder » de la table Postes de SIR v1 (si ce n'est pas un feeder par défaut) ;
 2. interr. : feeder des interruptions où le poste a été coupé (poste_interruptions, majoritaire à 60 %) ;
 3. sig     : feeder du nœud SIG de même nom (nom porté par un seul nœud).
-Décision par famille de sources (terrain, SIG, historique SIR v1 ; voir decider) : « sure », « terrain »,
-« probable » ou « a_arbitrer » (non modifié, à traiter dans Administration → Schémas unifilaires → Rapprochement).
+Décision (règle SENELEC du 26/11/2026, voir decider) : la base ITD fait foi, confirmée par le texte SIR v1 et
+les interruptions ; le recensement terrain complète quand les trois manquent ; le SIG n'est qu'indicatif (non modifié, à traiter dans Administration → Schémas unifilaires → Rapprochement).
 
 Usage (poste SENELEC, accès à la base SIRV2) :
     python scripts/migration/corriger_feeders_postes.py
@@ -94,47 +94,32 @@ def feeder_majoritaire(comptes: Counter[int], exclus: set[int]) -> int | None:
     return feeder if n / total >= PART_MAJORITAIRE else None
 
 
-FAMILLE_TERRAIN = ("exploitants", "recensement")          # tenues par les exploitants (2026)
-FAMILLE_HISTORIQUE = ("itd", "texte", "interruptions")    # historique SIR v1 : une seule origine
-
-
-def _avis_famille(propositions: dict[str, int | None], sources: tuple[str, ...]) -> int | None:
-    """Avis d'une famille de sources : le feeder majoritaire de ses membres, None s'ils se contredisent à égalité."""
-    votes = Counter(propositions[s] for s in sources if propositions.get(s) is not None)
-    if not votes:
-        return None
-    (premier, n1), *autres = votes.most_common()
-    return premier if not autres or n1 > autres[0][1] else None
-
-
 def decider(propositions: dict[str, int | None]) -> tuple[int | None, str]:
-    """(feeder retenu, niveau) à partir des propositions {source: feeder_id}.
+    """(feeder retenu, niveau) à partir des propositions {source: feeder_id} — règle SENELEC du 26/11/2026.
 
-    Les sources ne sont pas indépendantes (constat du 26/11/2026) : texte SIR v1, Postes_HTA et interruptions
-    concordent à 97–99 % (même historique SIR v1), liste des exploitants et recensement à 100 %. On raisonne
-    donc par famille — terrain (exploitants, recensement), SIG, historique SIR v1 — et le terrain, plus récent,
-    l'emporte sur l'historique (départs reconfigurés : CONSULAT pris sur PEYTAVIN, GOLF NORD sur PARCELLES…).
+    La base ITD (IndicateursTransportDistribution, Postes_HTA) est la référence ; le texte SIR v1 et les
+    interruptions la confirment (même historique, accord 97–99 %). Quand les trois manquent, le recensement
+    terrain (à défaut la liste des exploitants) complète. Le SIG n'entre pas dans la décision (il est mis à
+    jour à part, import ArcGIS) ; il reste affiché dans le rapport.
 
-    sure        : au moins deux familles d'accord, sans famille contraire (ou terrain + SIG contre l'historique) ;
-    terrain     : le terrain seul, ou le terrain contre l'historique sans SIG ;
-    probable    : une seule famille (SIG ou historique) ;
-    a_arbitrer  : terrain contre SIG, ou SIG contre historique sans terrain ;
-    sans_source : aucune famille.
+    sure        : ITD confirmée par le texte SIR v1 ou les interruptions ;
+    itd         : ITD seule (ou contre le texte / les interruptions : ITD fait foi) ;
+    historique  : pas d'ITD, texte SIR v1 et / ou interruptions d'accord ;
+    recensement : rien dans l'historique, feeder du recensement terrain (ou de la liste des exploitants) ;
+    a_arbitrer  : pas d'ITD, texte et interruptions en désaccord, et pas de recensement ;
+    sans_source : aucune source.
     """
-    t = _avis_famille(propositions, FAMILLE_TERRAIN)
-    g = propositions.get("sig")
-    h = _avis_famille(propositions, FAMILLE_HISTORIQUE)
-    if t is not None:
-        if g is not None and g != t:
-            return None, "a_arbitrer"
-        if g == t or h == t:
-            return t, "sure"
-        return t, "terrain"
-    if g is not None and h is not None:
-        return (g, "sure") if g == h else (None, "a_arbitrer")
-    if g is not None or h is not None:
-        return (g if g is not None else h), "probable"
-    return None, "sans_source"
+    itd = propositions.get("itd")
+    texte, interruptions = propositions.get("texte"), propositions.get("interruptions")
+    terrain = propositions.get("recensement") or propositions.get("exploitants")
+    if itd is not None:
+        return itd, ("sure" if itd in (texte, interruptions) else "itd")
+    historique = {v for v in (texte, interruptions) if v is not None}
+    if len(historique) == 1:
+        return next(iter(historique)), "historique"
+    if terrain is not None:
+        return terrain, "recensement"
+    return (None, "a_arbitrer") if historique else (None, "sans_source")
 
 
 def lire_liste_exploitants(chemin: Path) -> list[tuple[str, str, str, str]]:
@@ -252,7 +237,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--execute", action="store_true", help="écrire en base (sinon simulation)")
     parser.add_argument("--niveau", choices=("sure", "probable"), default="probable",
-                        help="sure : familles de sources concordantes ; probable : aussi terrain seul et famille seule")
+                        help="sure : ITD confirmée seulement ; probable : aussi ITD seule, historique, recensement")
     parser.add_argument("--liste-exploitants", type=Path,
                         help="liste des postes des exploitants (.xlsx : SERVICES, POSTES SOURCES, FEEDERS, POSTES)")
     parser.add_argument("--sans-itd", action="store_true",
@@ -385,7 +370,7 @@ def main() -> int:
     print("Propositions :", ", ".join(f"{k} {v}" for k, v in niveaux.most_common()))
     print("Sources :", ", ".join(
         f"{s} {sum(1 for li in lignes if li['feeder_' + s])}" for s in ("exploitants", "recensement", "itd", "texte", "interruptions", "sig")))
-    acceptes = {"sure"} if args.niveau == "sure" else {"sure", "terrain", "probable"}
+    acceptes = {"sure"} if args.niveau == "sure" else {"sure", "itd", "historique", "recensement"}
     a_appliquer = [li for li in lignes if li["niveau"] in acceptes and li["nouveau_feeder_id"]]
     print(f"À appliquer (niveau {args.niveau}) : {len(a_appliquer)} postes ;"
           f" à arbitrer : {niveaux.get('a_arbitrer', 0)} ; sans source : {niveaux.get('sans_source', 0)}.")

@@ -17,6 +17,7 @@ Règles :
   au-delà) ; la géométrie de 3 025 câbles et des postes est illisible dans le KML (coordonnées hors Sénégal).
 
 Usage (poste SENELEC) :
+    python scripts/migration/import_sig_arcgis.py "D:\\Senelec\\SIRV2\\DAKAR HTA.mxd.kmz" --excel "D:\\Senelec\\SIRV2\\POSTES DAKAR.xls"
     python scripts/migration/import_sig_arcgis.py "D:\\Senelec\\SIRV2\\DAKAR HTA.mxd.kmz"            # simulation
     python scripts/migration/import_sig_arcgis.py "D:\\Senelec\\SIRV2\\DAKAR HTA.mxd.kmz" --execute  # après sauvegarde
 """
@@ -175,6 +176,42 @@ def lire_kmz(chemin: Path) -> dict[str, list[tuple[dict[str, str | None], list[l
     return couches
 
 
+def enrichir_par_excel(noeuds: list[dict[str, object]], chemin: Path) -> tuple[int, int]:
+    """Complète les postes du KMZ avec l'export Excel de la même couche (« POSTES DAKAR.xls »).
+
+    Appariement par le centroïde (X, Y à 0,1 m près : même export ArcGIS). L'Excel apporte l'unité
+    d'exploitation (UED…), rangée dans `delegation` (la zone de responsabilité du KMZ, DRD…, à défaut),
+    et la structure du poste. Renvoie (postes appariés, lignes Excel sans poste dans le KMZ).
+    """
+    import pandas as pd
+
+    df = pd.read_excel(chemin)
+    colonnes = {cle_feeder(c): c for c in df.columns}
+    cx, cy = colonnes.get("XCENTROID"), colonnes.get("YCENTROID")
+    if cx is None or cy is None:
+        raise ValueError(f"{chemin.name} : colonnes X_Centroid / Y_Centroid introuvables")
+    ued, structure = colonnes.get("UNITEDEXPLOITATION"), colonnes.get("STRUCTURED")
+    par_xy = {
+        (round(float(n["coord_x"]), 1), round(float(n["coord_y"]), 1)): n  # type: ignore[arg-type]
+        for n in noeuds if n["coord_x"] and n["coord_y"]
+    }
+    apparies = orphelins = 0
+    for ligne in df.to_dict("records"):
+        try:
+            n = par_xy.get((round(float(ligne[cx]), 1), round(float(ligne[cy]), 1)))
+        except (TypeError, ValueError):
+            n = None
+        if n is None:
+            orphelins += 1
+            continue
+        apparies += 1
+        if ued and isinstance(ligne.get(ued), str) and ligne[ued].strip():
+            n["delegation"] = ligne[ued].strip()[:100]
+        if structure and isinstance(ligne.get(structure), str) and ligne[structure].strip() and not n["famille_poste"]:
+            n["famille_poste"] = ligne[structure].strip()[:100]
+    return apparies, orphelins
+
+
 def cle_feeder(nom: str | None) -> str:
     texte = unicodedata.normalize("NFKD", nom or "").encode("ascii", "ignore").decode().upper()
     return re.sub(r"[^A-Z0-9]", "", texte)
@@ -186,6 +223,7 @@ def cle_feeder(nom: str | None) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("kmz", type=Path)
+    parser.add_argument("--excel", type=Path, help="export Excel des postes (« POSTES DAKAR.xls ») : unité d'exploitation")
     parser.add_argument("--execute", action="store_true", help="écrire en base (sinon simulation)")
     args = parser.parse_args()
 
@@ -206,6 +244,9 @@ def main() -> int:
     ]
     longueur_km = sum(float(t["longueur_m"] or 0) for t in troncons) / 1000
     print(f"  {len(noeuds)} postes, {len(troncons)} tronçons ({longueur_km:.1f} km)")
+    if args.excel:
+        apparies, orphelins = enrichir_par_excel(noeuds, args.excel)
+        print(f"  Excel {args.excel.name} : {apparies} postes complétés (unité d'exploitation), {orphelins} lignes sans poste dans le KMZ")
 
     with get_session() as session:
         migre = session.execute(text("SELECT COL_LENGTH('dbo.noeuds_sig', 'global_id')")).scalar() is not None
