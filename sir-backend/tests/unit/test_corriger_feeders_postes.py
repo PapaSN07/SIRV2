@@ -63,3 +63,15 @@ def test_liste_exploitants_par_entete(tmp_path: Path) -> None:
     chemin = tmp_path / "liste.xlsx"
     classeur.save(chemin)
     assert lire_liste_exploitants(chemin) == [("SDDV", "HANN", "SOPRIM", "PA 14")]
+
+
+def test_resoudre_feeder_exact_puis_proche_dans_le_poste_source() -> None:
+    from scripts.migration.corriger_feeders_postes import resoudre_feeder
+
+    du_ps = {"BELAIR": {"ALBERTSARRAUT": {3}, "MEDINA6KV": {4}}, "AEROPORT": {"AIRSENEGAL30KV": {52}}}
+    par_cle = {"ALBERTSARRAUT": {3}, "AIRSENEGAL30KV": {52}, "SOPRIM": {9}}
+    assert resoudre_feeder("SOPRIM", "HANN", du_ps, par_cle) == 9
+    assert resoudre_feeder("ALBERT SARRAULT", "BEL AIR", du_ps, par_cle) == 3
+    assert resoudre_feeder("AIR SENEGAL", "AEROPORT", du_ps, par_cle) == 52
+    assert resoudre_feeder("MEDINA", "BEL AIR", du_ps, par_cle) == 4
+    assert resoudre_feeder("LFTR", "AEROPORT", du_ps, par_cle) is None

@@ -7,8 +7,10 @@ Origine, dans la table Postes de SIR v1 :
 - 1 630 postes portent idfeeder = 30 (SAUVEGARDE) alors que leur texte nomme le vrai feeder (ex. SAII) :
   la reprise a privilégié idfeeder.
 
-Pour chaque poste sans feeder ou sur un feeder par défaut, quatre sources proposent un feeder :
+Pour chaque poste sans feeder ou sur un feeder par défaut, plusieurs sources proposent un feeder :
 0. exploitants : liste des postes tenue par les exploitants (« LISTE POSTES DAKAR … .xlsx », --liste-exploitants) ;
+0. recensement : recensement terrain (IndicateursTransportDistribution.Recensement_Postes, FeederDMS) ;
+0. itd     : feeder de Postes_HTA (IDFeeder → Feeders) dans IndicateursTransportDistribution ;
 1. texte   : colonne « feeder » de la table Postes de SIR v1 (si ce n'est pas un feeder par défaut) ;
 2. interr. : feeder des interruptions où le poste a été coupé (poste_interruptions, majoritaire à 60 %) ;
 3. sig     : feeder du nœud SIG de même nom (nom porté par un seul nœud).
@@ -55,6 +57,31 @@ PART_MAJORITAIRE = 0.6
 def cle_feeder(nom: str | None) -> str:
     texte = unicodedata.normalize("NFKD", nom or "").encode("ascii", "ignore").decode().upper()
     return re.sub(r"[^A-Z0-9]", "", texte)
+
+
+def resoudre_feeder(
+    nom: str | None,
+    poste_source: str | None,
+    feeders_du_ps: dict[str, dict[str, set[int]]],
+    par_cle: dict[str, set[int]],
+) -> int | None:
+    """Feeder SIRV2 d'un nom saisi à la main : exact dans le poste source, exact partout, puis proche
+    dans le poste source (« ALBERT SARRAULT » / « ALBERT SARRAUT », « AIR SENEGAL » / « AIR SENEGAL 30 KV »)."""
+    import difflib
+
+    cle = cle_feeder(nom)
+    if not cle:
+        return None
+    du_ps = feeders_du_ps.get(cle_feeder(poste_source), {})
+    for ids in (du_ps.get(cle), par_cle.get(cle)):
+        if ids and len(ids) == 1:
+            return next(iter(ids))
+    candidats = [k for k in du_ps if k.startswith(cle) or cle.startswith(k)]
+    if len(candidats) != 1:
+        candidats = difflib.get_close_matches(cle, list(du_ps), n=2, cutoff=0.85)
+    if len(candidats) == 1 and len(du_ps[candidats[0]]) == 1:
+        return next(iter(du_ps[candidats[0]]))
+    return None
 
 
 def feeder_majoritaire(comptes: Counter[int], exclus: set[int]) -> int | None:
@@ -134,6 +161,50 @@ def _legacy_postes() -> dict[int, str]:
     return {int(v): str(k) for k, v in donnees.items() if str(k).isdigit()}
 
 
+def _sources_itd(
+    feeders_du_ps: dict[str, dict[str, set[int]]], par_cle: dict[str, set[int]]
+) -> tuple[dict[str, int], dict[str, int]]:
+    """{IDPostes: feeder SIRV2} d'après Postes_HTA (IDFeeder) et Recensement_Postes (FeederDMS)."""
+    from scripts.migration.itd_sqlserver import connect_itd
+
+    try:
+        cn = connect_itd()
+    except Exception as e:  # noqa: BLE001
+        print(f"Base IndicateursTransportDistribution injoignable ({e}) : sources ITD ignorées.")
+        return {}, {}
+    cur = cn.cursor()
+    cur.execute(
+        "SELECT p.IDPostes, f.Feeder, COALESCE(NULLIF(f.PosteSOurce, ''), p.PosteSource)"
+        " FROM dbo.Postes_HTA p JOIN dbo.Feeders f ON f.IDFeeder = p.IDFeeder"
+        " WHERE p.IDFeeder IS NOT NULL AND p.IDFeeder <> 0"
+    )
+    itd: dict[str, int] = {}
+    non_resolus = 0
+    for idp, feeder, ps in cur.fetchall():
+        fid = resoudre_feeder(feeder, ps, feeders_du_ps, par_cle)
+        if fid is None:
+            non_resolus += 1
+        else:
+            itd[str(int(idp))] = fid
+    cur.execute(
+        "SELECT IDPostes, FeederDMS, PosteSource FROM dbo.Recensement_Postes"
+        " WHERE IDPostes IS NOT NULL AND FeederDMS IS NOT NULL AND FeederDMS <> ''"
+    )
+    rec: dict[str, set[int]] = defaultdict(set)
+    rec_non_resolus = 0
+    for idp, feeder, ps in cur.fetchall():
+        fid = resoudre_feeder(feeder, ps, feeders_du_ps, par_cle)
+        if fid is None:
+            rec_non_resolus += 1
+        else:
+            rec[str(int(idp))].add(fid)
+    cn.close()
+    recensement = {k: next(iter(v)) for k, v in rec.items() if len(v) == 1}
+    print(f"ITD Postes_HTA : {len(itd)} postes avec un feeder reconnu ({non_resolus} feeders non reconnus) ;"
+          f" recensement terrain : {len(recensement)} postes ({rec_non_resolus} lignes non reconnues).")
+    return itd, recensement
+
+
 def restaurer(fichier: Path, executer: bool) -> int:
     with fichier.open(encoding="utf-8-sig") as f:
         lignes = [r for r in csv.DictReader(f, delimiter=";") if r["applique"] == "oui"]
@@ -158,6 +229,8 @@ def main() -> int:
                         help="sure : seulement les sources concordantes ; probable : aussi majoritaire et source seule")
     parser.add_argument("--liste-exploitants", type=Path,
                         help="liste des postes des exploitants (.xlsx : SERVICES, POSTES SOURCES, FEEDERS, POSTES)")
+    parser.add_argument("--sans-itd", action="store_true",
+                        help="ne pas lire la base IndicateursTransportDistribution")
     parser.add_argument("--tous", action="store_true",
                         help="examiner aussi les postes sur un feeder ordinaire (changés seulement si « sure »)")
     parser.add_argument("--restaurer", type=Path, help="rapport d'une exécution précédente à annuler")
@@ -188,20 +261,21 @@ def main() -> int:
         print(f"{len(postes)} postes actifs, dont {len(par_defaut)} sans feeder ou sur un feeder par défaut ;"
               f" {len(a_corriger)} examinés.")
 
+        feeders_du_ps: dict[str, dict[str, set[int]]] = defaultdict(lambda: defaultdict(set))
+        for i, lib, code, ps in feeders:
+            for nom in (lib, code):
+                if cle_feeder(nom):
+                    feeders_du_ps[cle_feeder(ps)][cle_feeder(nom)].add(int(i))
+
         # 1. Liste des exploitants : feeder cherché d'abord parmi ceux de son poste source
         exploitants: dict[str, set[int]] = defaultdict(set)
         if args.liste_exploitants:
-            feeders_du_ps: dict[str, dict[str, set[int]]] = defaultdict(lambda: defaultdict(set))
-            for i, lib, code, ps in feeders:
-                for nom in (lib, code):
-                    if cle_feeder(nom):
-                        feeders_du_ps[cle_feeder(ps)][cle_feeder(nom)].add(int(i))
             liste = lire_liste_exploitants(args.liste_exploitants)
             inconnus: Counter[str] = Counter()
             for _service, ps, feeder, poste in liste:
-                ids = feeders_du_ps.get(cle_feeder(ps), {}).get(cle_feeder(feeder)) or par_cle.get(cle_feeder(feeder), set())
-                if len(ids) == 1:
-                    exploitants[cle_poste(poste)].add(next(iter(ids)))
+                fid = resoudre_feeder(feeder, ps, feeders_du_ps, par_cle)
+                if fid is not None:
+                    exploitants[cle_poste(poste)].add(fid)
                 else:
                     inconnus[f"{ps} / {feeder}"] += 1
             print(f"Liste des exploitants : {len(liste)} postes ; feeders non reconnus dans SIRV2 :"
@@ -231,16 +305,27 @@ def main() -> int:
             if cle:
                 sig_par_cle[cle].add(int(feeder_id) if feeder_id is not None else -1)
 
+    # 4. Ancienne base IndicateursTransportDistribution (srv-bddomtech), par IDPostes de SIR v1 :
+    #    Postes_HTA.IDFeeder → Feeders.Feeder, et recensement terrain (Recensement_Postes.FeederDMS)
+    itd_feeder, recensement = _sources_itd(feeders_du_ps, par_cle) if not args.sans_itd else ({}, {})
+
     textes = _texte_sir_v1()
     legacy = _legacy_postes()
 
     lignes: list[dict[str, object]] = []
     for p in a_corriger:
-        props: dict[str, int | None] = {"exploitants": None, "texte": None, "interruptions": None, "sig": None}
+        props: dict[str, int | None] = {
+            "exploitants": None, "recensement": None, "itd": None, "texte": None, "interruptions": None, "sig": None,
+        }
+        # Sources tenues par les exploitants (liste, recensement terrain) : un feeder par défaut y est légitime
         expl = exploitants.get(cle_poste(p.libelle), set())
         if len(expl) == 1:
             props["exploitants"] = next(iter(expl))
-        texte = textes.get(legacy.get(int(p.id), ""), "")
+        id_v1 = legacy.get(int(p.id), "")
+        props["recensement"] = recensement.get(id_v1)
+        if itd_feeder.get(id_v1) not in defaut:
+            props["itd"] = itd_feeder.get(id_v1)
+        texte = textes.get(id_v1, "")
         ids = par_cle.get(cle_feeder(texte), set())
         if len(ids) == 1 and not ids & defaut:
             props["texte"] = next(iter(ids))
@@ -258,6 +343,8 @@ def main() -> int:
             "ancien_feeder_id": p.feeder_id or "", "ancien_feeder": nom_feeder.get(int(p.feeder_id), "") if p.feeder_id else "",
             "texte_sir_v1": texte,
             "feeder_exploitants": nom_feeder.get(props["exploitants"], "") if props["exploitants"] else "",
+            "feeder_recensement": nom_feeder.get(props["recensement"], "") if props["recensement"] else "",
+            "feeder_itd": nom_feeder.get(props["itd"], "") if props["itd"] else "",
             "feeder_texte": nom_feeder.get(props["texte"], "") if props["texte"] else "",
             "feeder_interruptions": nom_feeder.get(props["interruptions"], "") if props["interruptions"] else "",
             "feeder_sig": nom_feeder.get(props["sig"], "") if props["sig"] else "",
@@ -271,7 +358,7 @@ def main() -> int:
     niveaux = Counter(str(li["niveau"]) for li in lignes)
     print("Propositions :", ", ".join(f"{k} {v}" for k, v in niveaux.most_common()))
     print("Sources :", ", ".join(
-        f"{s} {sum(1 for li in lignes if li['feeder_' + s])}" for s in ("exploitants", "texte", "interruptions", "sig")))
+        f"{s} {sum(1 for li in lignes if li['feeder_' + s])}" for s in ("exploitants", "recensement", "itd", "texte", "interruptions", "sig")))
     acceptes = {"sure"} if args.niveau == "sure" else {"sure", "majoritaire", "probable"}
     a_appliquer = [li for li in lignes if li["niveau"] in acceptes and li["nouveau_feeder_id"]]
     print(f"À appliquer (niveau {args.niveau}) : {len(a_appliquer)} postes ;"
