@@ -1,7 +1,19 @@
 """Tests d'intégration — failles de droits restantes après le correctif des comptes à plusieurs rôles.
 
-A. Un admin non superadmin ne modifie pas ses propres rôles et ne réinitialise pas son propre
-   mot de passe par l'administration (son profil reste modifiable).
+A. Son propre compte — décision du 26/11/2026 (remplace, pour « ses propres rôles », la décision
+   du 17/11/2026 et la règle du 26/11/2026 « un admin ne change ni ses propres rôles ni son mot de
+   passe par l'administration ») : un admin, de direction compris, fait TOUT sur son propre compte
+   depuis Administration → Utilisateurs : modifier son profil et ses rôles (rôles de l'autre
+   direction, rôles créés quelle que soit leur direction, SUPERADMIN, ADMIN_SAQS), réinitialiser
+   son mot de passe sans l'ancien ; le contrôle de direction ne s'applique pas à soi-même.
+   Inchangé : il ne désactive pas son propre compte ; sur un AUTRE compte, un admin de direction
+   n'agit que si tous les rôles du compte relèvent de sa direction et n'attribue que des rôles de
+   sa direction. Tests réécrits pour cette décision (attente inversée, même scénario) :
+   test_admin_scr_ne_s_ajoute_pas_un_role_cree → test_admin_scr_s_ajoute_un_role_cree ;
+   test_admin_scr_ne_se_retire_pas_admin_scr → test_admin_scr_se_retire_admin_scr ;
+   test_admin_scr_ne_reinitialise_pas_son_propre_mot_de_passe → test_admin_scr_reinitialise_son_propre_mot_de_passe ;
+   test_admin_dispatching_ne_reinitialise_pas_son_propre_mot_de_passe →
+   test_admin_dispatching_reinitialise_son_propre_mot_de_passe.
 B. Un rôle créé dans la matrice (hors ROLES_SYSTEME) relève d'une direction selon ses droits :
    direction D si toutes les ressources de ses droits sont dans propres(D) ∪ partagées ; un rôle
    sans droit relève des deux ; un rôle portant une ressource réservée (admin_roles,
@@ -25,7 +37,7 @@ from fastapi import HTTPException
 from httpx import AsyncClient, Response
 
 from app.core.deps import require_permission, require_role
-from app.core.security import create_access_token
+from app.core.security import create_access_token, verify_password
 from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 from app.repositories import admin_utilisateur_repository as admin_repo
 from app.schemas.base_clients import DroitsAtelier
@@ -303,34 +315,175 @@ async def _creer(client: AsyncClient, acteur: Utilisateur, roles: list[str]) -> 
 
 
 # ===========================================================================
-# A. Un admin sur son propre compte
+# A. Un admin sur son propre compte (décision du 26/11/2026)
 # ===========================================================================
 
 
-async def test_admin_scr_ne_s_ajoute_pas_un_role_cree(client: AsyncClient) -> None:
+def _verifier_roles_ecrits(ecritures: Ecritures, user_id: int, attendus: list[str]) -> None:
+    """replace_roles appelé une fois, pour ce compte, avec exactement ces rôles."""
+    ecritures.replace_roles.assert_awaited_once()
+    args = ecritures.replace_roles.await_args.args
+    assert args[1] == user_id
+    attendu = {(_rid(nom), 1 if nom in _ROLES_AVEC_SCOPE else None) for nom in attendus}
+    assert set(args[2]) == attendu
+
+
+def _verifier_audit(ecritures: Ecritures, acteur: Utilisateur, cible: Utilisateur) -> None:
+    ecritures.log_audit.assert_awaited_once()
+    kwargs = ecritures.log_audit.await_args.kwargs
+    assert kwargs["user_id"] == acteur.id
+    assert kwargs["record_id"] == cible.id
+
+
+def _verifier_reset_propre(response: Response, ecritures: Ecritures, acteur: Utilisateur) -> None:
+    """204, nouveau hash (vérifie le nouveau mot de passe) écrit pour son compte, audit."""
+    assert response.status_code == 204, f"Attendu 204, obtenu {response.status_code} : {response.text}"
+    ecritures.reset_password.assert_awaited_once()
+    args = ecritures.reset_password.await_args.args
+    assert args[1] == acteur.id
+    nouveau_hash = args[2]
+    assert nouveau_hash != "hash-non-utilise"
+    assert verify_password(NOUVEAU_MDP["new_password"], nouveau_hash)
+    _verifier_audit(ecritures, acteur, acteur)
+    assert ecritures.log_audit.await_args.kwargs["new_values"] == {"action": "reset_password"}
+
+
+async def test_admin_scr_s_ajoute_un_role_cree(client: AsyncClient) -> None:
     acteur = _admin_scr()
     response, ecritures = await _put(
         client, acteur, acteur, {"roles": [_attribution("ADMIN_SCR"), _attribution("CREE_SANS_DROIT")]}
     )
-    _verifier_refus(response, ecritures)
+    assert response.status_code == 200, f"Attendu 200, obtenu {response.status_code} : {response.text}"
+    _verifier_roles_ecrits(ecritures, acteur.id, ["ADMIN_SCR", "CREE_SANS_DROIT"])
+    _verifier_audit(ecritures, acteur, acteur)
 
 
-async def test_admin_scr_ne_se_retire_pas_admin_scr(client: AsyncClient) -> None:
+async def test_admin_scr_se_retire_admin_scr(client: AsyncClient) -> None:
     acteur = _admin_scr()
     response, ecritures = await _put(client, acteur, acteur, {"roles": [_attribution("BCC")]})
-    _verifier_refus(response, ecritures)
+    assert response.status_code == 200, f"Attendu 200, obtenu {response.status_code} : {response.text}"
+    _verifier_roles_ecrits(ecritures, acteur.id, ["BCC"])
+    _verifier_audit(ecritures, acteur, acteur)
 
 
-async def test_admin_scr_ne_reinitialise_pas_son_propre_mot_de_passe(client: AsyncClient) -> None:
+async def test_admin_scr_reinitialise_son_propre_mot_de_passe(client: AsyncClient) -> None:
     acteur = _admin_scr()
     response, ecritures = await _reset(client, acteur, acteur)
-    _verifier_refus(response, ecritures)
+    _verifier_reset_propre(response, ecritures, acteur)
 
 
-async def test_admin_dispatching_ne_reinitialise_pas_son_propre_mot_de_passe(client: AsyncClient) -> None:
+async def test_admin_dispatching_reinitialise_son_propre_mot_de_passe(client: AsyncClient) -> None:
     acteur = _admin_dispatching()
     response, ecritures = await _reset(client, acteur, acteur)
+    _verifier_reset_propre(response, ecritures, acteur)
+
+
+# Décision du 26/11/2026 : attributions à soi-même sans limite de direction
+
+_ACTEURS_SOI = {"ADMIN_SCR": _admin_scr, "ADMIN_DISPATCHING": _admin_dispatching}
+
+
+@pytest.mark.parametrize(
+    ("acteur_nom", "role_ajoute"),
+    [
+        pytest.param("ADMIN_SCR", "ADMIN_DISPATCHING", id="admin_scr_s_attribue_admin_dispatching"),
+        pytest.param("ADMIN_SCR", "DISPATCHER", id="admin_scr_s_attribue_dispatcher"),
+        pytest.param("ADMIN_SCR", "SUPERADMIN", id="admin_scr_s_attribue_superadmin"),
+        pytest.param("ADMIN_SCR", "ADMIN_SAQS", id="admin_scr_s_attribue_admin_saqs"),
+        pytest.param("ADMIN_SCR", "CREE_TRANSPORT_VALIDATE", id="admin_scr_s_attribue_role_cree_transport"),
+        pytest.param("ADMIN_SCR", "CREE_ADMIN_ROLES_UPDATE", id="admin_scr_s_attribue_role_cree_reserve"),
+        pytest.param("ADMIN_DISPATCHING", "CREE_DISTRIB_UPDATE", id="admin_dispatching_s_attribue_role_cree_distribution"),
+        pytest.param("ADMIN_DISPATCHING", "ADMIN_SCR", id="admin_dispatching_s_attribue_admin_scr"),
+    ],
+)
+async def test_admin_s_attribue_un_role_hors_direction(
+    client: AsyncClient, acteur_nom: str, role_ajoute: str
+) -> None:
+    acteur = _ACTEURS_SOI[acteur_nom]()
+    response, ecritures = await _put(
+        client, acteur, acteur, {"roles": [_attribution(acteur_nom), _attribution(role_ajoute)]}
+    )
+    assert response.status_code == 200, f"Attendu 200, obtenu {response.status_code} : {response.text}"
+    _verifier_roles_ecrits(ecritures, acteur.id, [acteur_nom, role_ajoute])
+    _verifier_audit(ecritures, acteur, acteur)
+
+
+async def test_admin_scr_portant_un_role_transport_modifie_son_profil(client: AsyncClient) -> None:
+    """Le contrôle de direction ne s'applique pas à soi-même : profil seul."""
+    acteur = _utilisateur(1, "admin_scr", ["ADMIN_SCR", "ADMIN_DISPATCHING"])
+    response, ecritures = await _put(client, acteur, acteur, {"nom": "Nouveau nom"})
+    assert response.status_code == 200, f"Attendu 200, obtenu {response.status_code} : {response.text}"
+    ecritures.update_profile.assert_awaited_once()
+    ecritures.replace_roles.assert_not_awaited()
+    _verifier_audit(ecritures, acteur, acteur)
+
+
+async def test_admin_scr_portant_un_role_transport_modifie_ses_roles(client: AsyncClient) -> None:
+    acteur = _utilisateur(1, "admin_scr", ["ADMIN_SCR", "DISPATCHER"])
+    response, ecritures = await _put(
+        client,
+        acteur,
+        acteur,
+        {
+            "nom": "Nouveau nom",
+            "roles": [_attribution("ADMIN_SCR"), _attribution("DISPATCHER"), _attribution("CREE_TRANSPORT_READ")],
+        },
+    )
+    assert response.status_code == 200, f"Attendu 200, obtenu {response.status_code} : {response.text}"
+    ecritures.update_profile.assert_awaited_once()
+    _verifier_roles_ecrits(ecritures, acteur.id, ["ADMIN_SCR", "DISPATCHER", "CREE_TRANSPORT_READ"])
+    _verifier_audit(ecritures, acteur, acteur)
+
+
+async def test_admin_scr_portant_un_role_transport_reinitialise_son_mot_de_passe(client: AsyncClient) -> None:
+    acteur = _utilisateur(1, "admin_scr", ["ADMIN_SCR", "ADMIN_DISPATCHING"])
+    response, ecritures = await _reset(client, acteur, acteur)
+    _verifier_reset_propre(response, ecritures, acteur)
+
+
+# Gardes inchangées le 26/11/2026 : compte d'un autre, désactivation de son propre compte
+
+
+async def test_admin_scr_ne_modifie_pas_un_autre_compte_portant_un_role_transport(client: AsyncClient) -> None:
+    response, ecritures = await _put(client, _admin_scr(), _cible(["BCC", "DISPATCHER"]), {"nom": "Nouveau nom"})
     _verifier_refus(response, ecritures)
+
+
+async def test_admin_scr_ne_reinitialise_pas_le_mdp_d_un_autre_compte_portant_un_role_transport(
+    client: AsyncClient,
+) -> None:
+    response, ecritures = await _reset(client, _admin_scr(), _cible(["BCC", "DISPATCHER"]))
+    _verifier_refus(response, ecritures)
+
+
+async def test_admin_scr_n_attribue_pas_admin_dispatching_a_un_autre_compte(client: AsyncClient) -> None:
+    response, ecritures = await _put(
+        client, _admin_scr(), _cible(["BCC"]), {"roles": [_attribution("BCC"), _attribution("ADMIN_DISPATCHING")]}
+    )
+    _verifier_refus(response, ecritures)
+
+
+async def test_admin_scr_n_attribue_pas_superadmin_a_un_autre_compte(client: AsyncClient) -> None:
+    response, ecritures = await _put(
+        client, _admin_scr(), _cible(["BCC"]), {"roles": [_attribution("BCC"), _attribution("SUPERADMIN")]}
+    )
+    _verifier_refus(response, ecritures)
+
+
+@pytest.mark.parametrize(
+    "roles",
+    [
+        pytest.param(["ADMIN_SCR"], id="admin_scr"),
+        pytest.param(["ADMIN_SCR", "ADMIN_DISPATCHING"], id="admin_scr_portant_un_role_transport"),
+    ],
+)
+async def test_admin_scr_ne_desactive_pas_son_propre_compte(client: AsyncClient, roles: list[str]) -> None:
+    acteur = _utilisateur(1, "admin_scr", roles)
+    with _environnement(acteur, acteur) as ecritures:
+        response = await client.patch(f"{URL}/{acteur.id}/desactiver", headers=_token(acteur))
+    _verifier_refus(response, ecritures)
+    if roles == ["ADMIN_SCR"]:
+        assert "propre compte" in response.json()["detail"]["error"]
 
 
 # Gardes vertes

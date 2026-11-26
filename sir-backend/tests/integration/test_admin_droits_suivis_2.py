@@ -10,7 +10,12 @@ Depuis que le compte connecté n'est plus chargé qu'avec ses rôles actifs
 2. Modification de son propre compte (PUT /api/v1/admin/utilisateurs/{id}) par un admin qui détient
    un rôle créé désactivé : si l'ensemble (role_id, scope_service_id) demandé, une fois retirés les
    rôles désactivés qu'il détient déjà, égale l'ensemble de ses rôles actifs, le profil est modifié
-   (200) et les rôles ne sont pas remplacés (rôle désactivé conservé). Tout autre changement → 403.
+   (200) et les rôles ne sont pas remplacés (rôle désactivé conservé). Tout autre changement est
+   accepté depuis la décision du 26/11/2026 (un admin fait tout sur son propre compte ; remplace la
+   règle du 26/11/2026 « un admin ne change ni ses propres rôles ni son mot de passe par
+   l'administration ») : test_admin_ne_s_ajoute_pas_un_role_meme_avec_un_role_desactive (403) →
+   test_admin_s_ajoute_un_role_meme_avec_un_role_desactive (200, rôles écrits, rôle désactivé
+   détenu conservé, audit).
 """
 
 import uuid
@@ -295,8 +300,9 @@ async def test_admin_modifie_son_profil_en_renvoyant_ses_roles_avec_un_role_desa
     ecritures.replace_roles.assert_not_awaited()
 
 
-async def test_admin_ne_s_ajoute_pas_un_role_meme_avec_un_role_desactive(client: AsyncClient) -> None:
-    """Garde : ajouter un autre rôle → 403, sans écriture ni audit."""
+async def test_admin_s_ajoute_un_role_meme_avec_un_role_desactive(client: AsyncClient) -> None:
+    """Décision du 26/11/2026 : ajouter un autre rôle à son propre compte → 200, rôles écrits
+    (le rôle désactivé qu'il détient déjà et renvoie est conservé, pas refusé en 422), audit."""
     with _environnement() as ecritures:
         response = await client.put(
             f"{URL}/1",
@@ -306,10 +312,11 @@ async def test_admin_ne_s_ajoute_pas_un_role_meme_avec_un_role_desactive(client:
                 "roles": [_attribution("ADMIN_SCR"), _attribution("CREE_DESACTIVE"), _attribution("CREE_SANS_DROIT")],
             },
         )
-    assert response.status_code == 403, response.text
-    detail = response.json()["detail"]
-    assert detail["status"] == "error" and detail["data"] is None
-    assert isinstance(detail["error"], str) and detail["error"].strip()
-    ecritures.update_profile.assert_not_awaited()
-    ecritures.replace_roles.assert_not_awaited()
-    ecritures.log_audit.assert_not_awaited()
+    assert response.status_code == 200, f"Attendu 200, obtenu {response.status_code} : {response.text}"
+    ecritures.update_profile.assert_awaited_once()
+    ecritures.replace_roles.assert_awaited_once()
+    args = ecritures.replace_roles.await_args.args
+    assert args[1] == 1
+    assert set(args[2]) == {(CATALOGUE[nom][0], None) for nom in ("ADMIN_SCR", "CREE_DESACTIVE", "CREE_SANS_DROIT")}
+    ecritures.log_audit.assert_awaited_once()
+    assert ecritures.log_audit.await_args.kwargs["user_id"] == 1
