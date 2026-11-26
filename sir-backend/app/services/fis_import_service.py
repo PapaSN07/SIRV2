@@ -8,7 +8,9 @@ Règles d'accès (identiques à la saisie manuelle) :
 - chaque ligne doit appartenir au périmètre d'écriture de l'utilisateur
   (BCC/BRC → sa région, Superviseur → son service) ; sinon elle est rejetée ;
 - statut « valide » seulement si l'utilisateur a le droit de valider,
-  sinon « cloture » : les interruptions passent par la file de validation.
+  sinon « cloture » : les interruptions passent par la file de validation ;
+- le Référentiel (natures, causes, sièges) est lu, jamais écrit : une valeur
+  inconnue, inactive ou transport rejette la ligne avec un motif.
 
 Formule END vérifiée sur données réelles :
     END (kWh) = Puissance_coupée (kW) × Durée (minutes) / 60
@@ -28,7 +30,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Service
@@ -338,85 +340,94 @@ def parse_fis_sheet(file_bytes: bytes) -> list[FisRow]:
 
 
 # ---------------------------------------------------------------------------
-# Résolution des référentiels DB (get-or-create)
+# Résolution des référentiels DB — lecture seule
 # ---------------------------------------------------------------------------
+#
+# L'import FIS est ouvert au BCC, qui n'a pas le droit d'écrire le Référentiel
+# (`referentiel_service._ensure_can_write`) : il ne crée JAMAIS de nature, cause
+# ou siège. Il ne rattache qu'une entrée active et, pour une cause ou un siège,
+# de type distribution ou commun (mêmes règles que la saisie manuelle,
+# `interruption_distribution_service._validate_referentiel_distribution`).
+# Sinon la ligne est rejetée avec un motif, sans repli silencieux sur AUTRE /
+# INCONNUE (classement faux dans les indicateurs).
+
+_TYPES_RESEAU_DISTRIBUTION = tuple(sorted(distribution_rules._DISTRIBUTION_TYPE_RESEAU))
+
+
+def _code_depuis_libelle(key: str, correspondances: dict[str, Any]) -> Any:
+    """Correspondance EXACTE d'un libellé FIS normalisé (None sinon).
+
+    Pas de correspondance partielle : « Défaut semi-permanent » deviendrait
+    PERMANENT, « Autre élément BT » AUTRE. À défaut, l'entrée est cherchée par
+    son libellé exact en base, puis la ligne est rejetée.
+    """
+    return correspondances.get(key)
+
+
+async def _resoudre_referentiel(
+    db: AsyncSession,
+    modele: type[Nature] | type[Cause] | type[Siege],
+    categorie: str,
+    libelle: str,
+    code: str | None,
+    *,
+    filtrer_type_reseau: bool,
+) -> Any:
+    """Entrée valide trouvée par code puis par libellé, sinon ValueError (rien n'est créé)."""
+    conditions = [modele.is_active == true()]
+    if filtrer_type_reseau:
+        conditions.append(modele.type_reseau.in_(_TYPES_RESEAU_DISTRIBUTION))  # type: ignore[union-attr]
+
+    if code is not None:
+        result = await db.execute(select(modele).where(modele.code == code, *conditions))
+        entree = result.scalar_one_or_none()
+        if entree is not None:
+            return entree
+
+    key = _normalise(libelle)
+    result = await db.execute(
+        select(modele).where(func.lower(func.trim(modele.libelle)) == key, *conditions).order_by(modele.id).limit(1)
+    )
+    entree = result.scalars().first()
+    if entree is not None:
+        return entree
+
+    precision = " de type distribution ou commun" if filtrer_type_reseau else ""
+    raise ValueError(
+        f"{categorie} « {libelle.strip()} » : aucune entrée active{precision} dans le référentiel "
+        "(l'import n'en crée pas — à ajouter par l'Admin SCR)"
+    )
 
 
 async def _get_or_create_nature(db: AsyncSession, libelle: str) -> Nature | None:
-    """Résout ou crée une Nature depuis le libellé FIS."""
+    """Résout une Nature existante et active (nom historique : ne crée plus rien)."""
     if not libelle:
         return None
-    key = _normalise(libelle)
-    code = NATURE_LIBELLE_TO_CODE.get(key)
-    if code is None:
-        # Essai partiel
-        for k, c in NATURE_LIBELLE_TO_CODE.items():
-            if k in key or key in k:
-                code = c
-                break
-    if code is None:
-        code = "AUTRE"
-
-    result = await db.execute(select(Nature).where(Nature.code == code))
-    existing = result.scalar_one_or_none()
-    if existing:
-        return existing
-
-    nature = Nature(code=code, libelle=libelle.strip(), is_active=True)
-    db.add(nature)
-    await db.flush()
-    return nature
+    code = _code_depuis_libelle(_normalise(libelle), NATURE_LIBELLE_TO_CODE)
+    return await _resoudre_referentiel(db, Nature, "Nature", libelle, code, filtrer_type_reseau=False)
 
 
 async def _get_or_create_cause(db: AsyncSession, libelle: str) -> tuple[Cause | None, bool]:
-    """Résout ou crée une Cause depuis le libellé FIS. Retourne (cause, is_force_majeure)."""
+    """Résout une Cause existante, active, distribution ou commun. Retourne (cause, is_force_majeure).
+
+    Nom historique : ne crée plus rien. Force majeure d'après la correspondance FIS
+    du libellé, quelle que soit l'entrée trouvée ; False pour un libellé hors correspondance.
+    """
     if not libelle:
         return None, False
-    key = _normalise(libelle)
-    mapping = CAUSE_LIBELLE_TO_CODE.get(key)
-    if mapping is None:
-        for k, v in CAUSE_LIBELLE_TO_CODE.items():
-            if k in key or key in k:
-                mapping = v
-                break
-    if mapping is None:
-        mapping = ("INCONNUE", False)
-
-    code, is_fm = mapping
-    result = await db.execute(select(Cause).where(Cause.code == code))
-    existing = result.scalar_one_or_none()
-    if existing:
-        return existing, is_fm
-
-    cause = Cause(code=code, libelle=libelle.strip(), type_reseau="distribution", is_active=True)
-    db.add(cause)
-    await db.flush()
+    mapping = _code_depuis_libelle(_normalise(libelle), CAUSE_LIBELLE_TO_CODE)
+    code, is_fm = mapping if mapping is not None else (None, False)
+    cause = await _resoudre_referentiel(db, Cause, "Cause", libelle, code, filtrer_type_reseau=True)
+    # La force majeure suit le libellé FIS (les codes migrés diffèrent : DAGRESSION…)
     return cause, is_fm
 
 
 async def _get_or_create_siege(db: AsyncSession, libelle: str | None) -> Siege | None:
-    """Résout ou crée un Siège depuis le libellé FIS."""
+    """Résout un Siège existant, actif, distribution ou commun (nom historique : ne crée plus rien)."""
     if not libelle:
         return None
-    key = _normalise(libelle)
-    code = SIEGE_LIBELLE_TO_CODE.get(key)
-    if code is None:
-        for k, c in SIEGE_LIBELLE_TO_CODE.items():
-            if k in key or key in k:
-                code = c
-                break
-    if code is None:
-        code = "AUTRE"
-
-    result = await db.execute(select(Siege).where(Siege.code == code))
-    existing = result.scalar_one_or_none()
-    if existing:
-        return existing
-
-    siege = Siege(code=code, libelle=libelle.strip(), type_reseau="distribution", is_active=True)
-    db.add(siege)
-    await db.flush()
-    return siege
+    code = _code_depuis_libelle(_normalise(libelle), SIEGE_LIBELLE_TO_CODE)
+    return await _resoudre_referentiel(db, Siege, "Siège", libelle, code, filtrer_type_reseau=True)
 
 
 async def _find_service(db: AsyncSession, libelle: str) -> Service | None:
