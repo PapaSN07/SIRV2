@@ -212,6 +212,7 @@ stream
 style
 support
 switch
+sync_alt
 tab
 table
 table_view

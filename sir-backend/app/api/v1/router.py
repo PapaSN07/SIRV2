@@ -13,6 +13,7 @@ from app.api.v1.napt.router import router as napt_router
 from app.api.v1.notifications.router import router as notifications_router
 from app.api.v1.assistant.router import router as assistant_router
 from app.api.v1.clients.router import router as clients_router
+from app.api.v1.correspondances_fis.router import router as correspondances_fis_router
 from app.api.v1.schemas_unifilaires.rapprochement_router import router as schemas_rapprochement_router
 from app.api.v1.schemas_unifilaires.router import router as schemas_unifilaires_router
 from app.api.v1.suivi_incidents.router import router as suivi_incidents_router
@@ -33,6 +34,7 @@ api_router.include_router(napt_router, prefix="/napt", tags=["napt"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(assistant_router, prefix="/assistant", tags=["assistant"])
 api_router.include_router(clients_router, prefix="/clients", tags=["base-clients"])
+api_router.include_router(correspondances_fis_router, prefix="/correspondances-fis", tags=["correspondances-fis"])
 # Rapprochement d'abord : ses routes statiques passent avant /{schema_id}
 api_router.include_router(schemas_rapprochement_router, prefix="/schemas-unifilaires", tags=["schemas-unifilaires"])
 api_router.include_router(schemas_unifilaires_router, prefix="/schemas-unifilaires", tags=["schemas-unifilaires"])

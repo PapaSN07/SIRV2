@@ -121,3 +121,4 @@ from app.models.schema_unifilaire import (  # noqa: F401,E402
     SchemaUnifilairePoste,
     SchemaUnifilaireTuile,
 )
+from app.models.correspondance_fis import CorrespondanceFis  # noqa: F401,E402

@@ -29,6 +29,13 @@
           }
         </button>
       }
+      @if (canManageFis()) {
+        <p class="ref-menu__titre ref-menu__titre--groupe">Import FIS</p>
+        <a class="ref-menu__item" routerLink="/admin/referentiel/correspondances-fis">
+          <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
+          <span class="ref-menu__label">Correspondances FIS</span>
+        </a>
+      }
     </nav>
 
     <div class="ref-contenu">
