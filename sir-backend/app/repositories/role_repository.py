@@ -26,6 +26,14 @@ async def get_role(db: AsyncSession, role_id: int) -> Role | None:
     return result.scalar_one_or_none()
 
 
+async def utilisateur_detient_role(db: AsyncSession, utilisateur_id: int, role_id: int) -> bool:
+    """Vrai si le compte détient le rôle en base, actif ou non (le compte connecté n'a que ses rôles actifs)."""
+    result = await db.execute(
+        select(UserRole.id).where(UserRole.utilisateur_id == utilisateur_id, UserRole.role_id == role_id).limit(1)
+    )
+    return result.first() is not None
+
+
 async def role_par_nom(db: AsyncSession, nom: str) -> Role | None:
     result = await db.execute(select(Role.id, Role.nom).where(func.upper(Role.nom) == nom.upper()))
     return result.first()  # type: ignore[return-value]

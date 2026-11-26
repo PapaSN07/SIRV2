@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.rbac_helpers import ROLES_SYSTEME
-from app.models.utilisateurs import Role, UserRole, Utilisateur
+from app.models.utilisateurs import Permission, Role, RolePermission, UserRole, Utilisateur
 
 # Rôles gérés par chaque direction admin
 DISTRIBUTION_ROLE_NAMES: frozenset[str] = frozenset(
@@ -18,16 +18,47 @@ _DIRECTION_ROLES: dict[str, frozenset[str]] = {
     "transport": TRANSPORT_ROLE_NAMES,
 }
 
+# Rôles créés dans la matrice : une direction ne les attribue et ne gère leurs titulaires que si
+# tous leurs droits portent sur ses ressources propres ou partagées (décision du 26/11/2026).
+RESSOURCES_PARTAGEES: frozenset[str] = frozenset({"rapports", "notifications", "reseau"})
+RESSOURCES_RESERVEES: frozenset[str] = frozenset({"admin_roles", "admin_utilisateurs"})
+_RESSOURCES_DIRECTION: dict[str, frozenset[str]] = {
+    "distribution": frozenset({"interruptions_distribution", "napt", "indicateurs", "assistant"})
+    | RESSOURCES_PARTAGEES,
+    "transport": frozenset({"interruptions_transport"}) | RESSOURCES_PARTAGEES,
+}
+
 
 def _utilisateur_options() -> list:
+    # Tous les rôles (actifs ou non) et leurs droits : le périmètre d'un admin en dépend
     return [
         selectinload(Utilisateur.user_roles)
         .selectinload(UserRole.role)
+        .selectinload(Role.role_permissions)
+        .selectinload(RolePermission.permission)
     ]
 
 
 def allowed_roles_for_direction(direction: str) -> frozenset[str]:
     return _DIRECTION_ROLES[direction]
+
+
+def ressources_direction(direction: str) -> frozenset[str]:
+    """Ressources dont les droits peuvent figurer dans un rôle créé géré par la direction."""
+    return _RESSOURCES_DIRECTION[direction]
+
+
+def role_cree_dans_direction(role: Role, direction: str) -> bool:
+    """Vrai si tous les droits du rôle créé portent sur des ressources de la direction (ou partagées).
+
+    Un rôle sans droit relève des deux directions ; un rôle avec un droit réservé (administration)
+    ne relève d'aucune.
+    """
+    ressources = ressources_direction(direction)
+    return all(
+        rp.permission is not None and rp.permission.ressource in ressources
+        for rp in role.role_permissions
+    )
 
 
 def user_has_direction_role(user: Utilisateur, direction: str) -> bool:
@@ -36,18 +67,25 @@ def user_has_direction_role(user: Utilisateur, direction: str) -> bool:
     Il faut au moins un rôle, et TOUS les rôles système (ROLES_SYSTEME) du compte dans la direction :
     un compte qui détient aussi SUPERADMIN, ADMIN_SAQS ou un rôle de l'autre direction est hors
     périmètre (sinon un admin de direction pourrait réinitialiser son mot de passe ou lui retirer
-    ses autres rôles). Les rôles créés dans la matrice (hors rôles SIRV2) ne gênent pas.
+    ses autres rôles). Chaque rôle créé dans la matrice (hors rôles SIRV2) doit relever de la
+    direction (`role_cree_dans_direction`), actif ou non.
     """
     allowed = allowed_roles_for_direction(direction)
-    noms = [ur.role.nom for ur in user.user_roles]
-    return bool(noms) and all(nom in allowed for nom in noms if nom in ROLES_SYSTEME)
+    roles = [ur.role for ur in user.user_roles]
+    return bool(roles) and all(
+        role.nom in allowed if role.nom in ROLES_SYSTEME else role_cree_dans_direction(role, direction)
+        for role in roles
+    )
 
 
 async def get_by_id(db: AsyncSession, user_id: int) -> Utilisateur | None:
+    # populate_existing : si la cible est le compte connecté (déjà chargé avec ses seuls rôles
+    # actifs), l'administration doit tout de même voir tous ses rôles
     result = await db.execute(
         select(Utilisateur)
         .where(Utilisateur.id == user_id)
         .options(*_utilisateur_options())
+        .execution_options(populate_existing=True)
     )
     return result.scalar_one_or_none()
 
@@ -60,7 +98,11 @@ async def get_by_login(db: AsyncSession, login: str) -> Utilisateur | None:
 
 
 async def get_role_by_id(db: AsyncSession, role_id: int) -> Role | None:
-    result = await db.execute(select(Role).where(Role.id == role_id))
+    result = await db.execute(
+        select(Role)
+        .where(Role.id == role_id)
+        .options(selectinload(Role.role_permissions).selectinload(RolePermission.permission))
+    )
     return result.scalar_one_or_none()
 
 
@@ -108,11 +150,21 @@ async def list_by_direction(
         .where(Role.nom.in_(ROLES_SYSTEME - allowed))
         .distinct()
     )
+    # … ou un rôle créé portant un droit hors des ressources de la direction
+    role_cree_hors_direction_subq = (
+        select(UserRole.utilisateur_id)
+        .join(Role, UserRole.role_id == Role.id)
+        .join(RolePermission, RolePermission.role_id == Role.id)
+        .join(Permission, RolePermission.permission_id == Permission.id)
+        .where(Role.nom.notin_(ROLES_SYSTEME), Permission.ressource.notin_(ressources_direction(direction)))
+        .distinct()
+    )
 
     filtre = filtre_recherche(recherche)
     conditions = [
         Utilisateur.id.in_(user_ids_subq),
         Utilisateur.id.notin_(hors_direction_subq),
+        Utilisateur.id.notin_(role_cree_hors_direction_subq),
     ] + ([filtre] if filtre is not None else [])
     count_result = await db.execute(select(func.count(Utilisateur.id)).where(*conditions))
     total = count_result.scalar_one()
