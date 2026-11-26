@@ -1,0 +1,224 @@
+<section class="admin-page">
+  <sir-page-header
+    title="Correspondances FIS"
+    [breadcrumbs]="[
+      { label: 'Tableau de bord', route: '/' },
+      { label: 'Administration' },
+      { label: 'Référentiels', route: '/admin/referentiel' },
+      { label: 'Correspondances FIS' },
+    ]"
+  />
+
+  <sir-admin-nav />
+
+  <div class="sir-card">
+    <div class="cf-entete">
+      <div>
+        <h2 class="cf-entete__titre">
+          <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
+          Correspondances FIS
+        </h2>
+        <p class="cf-entete__aide">
+          L’import FIS ne crée aucune entrée du Référentiel : une nature, une cause, un siège ou une
+          signalisation dont le libellé n’est pas reconnu fait rejeter la ligne. Associez ici le libellé
+          du fichier FIS à une entrée existante (active, de type distribution ou commun).
+        </p>
+      </div>
+      @if (!formOpen()) {
+        <button type="button" class="sir-btn sir-btn--primary" (click)="ouvrirAjout()">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Ajouter une correspondance
+        </button>
+      }
+    </div>
+
+    @if (formOpen()) {
+      <div class="form-panel">
+        <h3 class="form-panel__title">Nouvelle correspondance</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label class="field__label" for="cf-categorie">Catégorie</label>
+            <select id="cf-categorie" class="field__select" (change)="onCategorie($any($event.target).value)">
+              @for (c of categories; track c.key) {
+                <option [value]="c.key" [selected]="categorie() === c.key">{{ c.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="cf-libelle">Libellé dans le fichier FIS</label>
+            <input
+              id="cf-libelle"
+              class="field__input"
+              maxlength="200"
+              placeholder="Tel qu’il apparaît dans le motif de rejet"
+              [ngModel]="libelleFis()"
+              (ngModelChange)="libelleFis.set($event)"
+            />
+            <span class="field__aide">Majuscules et espaces de début et de fin sont ignorés.</span>
+          </div>
+
+          <div class="field field--full">
+            <span class="field__label" id="cf-cible-label">Entrée du Référentiel visée</span>
+            @if (cible(); as c) {
+              <div class="cible-choisie">
+                <span class="code">{{ c.code }}</span>
+                <span class="cible-choisie__libelle">{{ c.libelle }}</span>
+                <button type="button" class="sir-btn sir-btn--outline" (click)="changerCible()">Changer</button>
+              </div>
+            } @else {
+              <div class="sir-search cible-recherche">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <input
+                  type="search"
+                  aria-labelledby="cf-cible-label"
+                  [placeholder]="'Rechercher : ' + libelleCategorie(categorie()).toLowerCase() + ' (code ou libellé)'"
+                  [ngModel]="recherche()"
+                  (ngModelChange)="onRecherche($event)"
+                />
+              </div>
+              <div class="cibles" role="listbox" aria-labelledby="cf-cible-label">
+                @if (rechercheEnCours()) {
+                  <p class="cibles__vide">Recherche…</p>
+                } @else {
+                  @for (item of cibles(); track item.id) {
+                    <button type="button" role="option" class="cibles__item" aria-selected="false" (click)="choisirCible(item)">
+                      <span class="code">{{ item.code }}</span>
+                      <span class="cibles__libelle">{{ item.libelle }}</span>
+                      @if (item.type_reseau === 'commun') {
+                        <span class="sir-pill">Commun</span>
+                      }
+                    </button>
+                  } @empty {
+                    <p class="cibles__vide">
+                      Aucune entrée active trouvée. Si elle n’existe pas, créez-la d’abord dans
+                      <a routerLink="/admin/referentiel">Référentiels</a>.
+                    </p>
+                  }
+                }
+              </div>
+            }
+          </div>
+
+          @if (categorie() === 'cause') {
+            <fieldset class="field field--full force-majeure">
+              <legend class="field__label">Force majeure</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="cf-fm"
+                  [checked]="forceMajeure() === 'regle'"
+                  (change)="forceMajeure.set('regle')"
+                />
+                Non renseignée (règle de l’import)
+              </label>
+              <label>
+                <input type="radio" name="cf-fm" [checked]="forceMajeure() === 'oui'" (change)="forceMajeure.set('oui')" />
+                Oui
+              </label>
+              <label>
+                <input type="radio" name="cf-fm" [checked]="forceMajeure() === 'non'" (change)="forceMajeure.set('non')" />
+                Non
+              </label>
+            </fieldset>
+          }
+        </div>
+
+        @if (erreurForm()) {
+          <p class="alert alert--error alert--inline" role="alert">{{ erreurForm() }}</p>
+        }
+
+        <div class="form-panel__actions">
+          @if (manque(); as m) {
+            <span class="form-panel__manque">{{ m }}</span>
+          }
+          <button type="button" class="sir-btn sir-btn--outline" (click)="fermerAjout()">Annuler</button>
+          <button
+            type="button"
+            class="sir-btn sir-btn--primary"
+            [disabled]="saving() || manque() !== null"
+            (click)="enregistrer()"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">save</span>
+            {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <div class="sir-toolbar">
+      <select class="sir-select" aria-label="Catégorie" (change)="onFiltre($any($event.target).value)">
+        <option value="" [selected]="filtre() === null">Toutes les catégories</option>
+        @for (c of categories; track c.key) {
+          <option [value]="c.key" [selected]="filtre() === c.key">{{ c.label }}</option>
+        }
+      </select>
+      <span class="cf-total">{{ items().length }} correspondance{{ items().length > 1 ? 's' : '' }}</span>
+    </div>
+
+    @if (message()) {
+      <p class="alert alert--ok" role="status">{{ message() }}</p>
+    }
+    @if (erreur()) {
+      <p class="alert alert--error" role="alert">{{ erreur() }}</p>
+    }
+
+    @if (loading()) {
+      <p class="loading">Chargement…</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="sir-table">
+          <thead>
+            <tr>
+              <th>Catégorie</th>
+              <th>Libellé FIS</th>
+              <th>Entrée du Référentiel</th>
+              <th>Force majeure</th>
+              <th>Ajoutée le</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of items(); track row.id) {
+              <tr>
+                <td class="nowrap">{{ libelleCategorie(row.categorie) }}</td>
+                <td class="libelle-fis">« {{ row.libelle_fis }} »</td>
+                <td>
+                  <span class="code">{{ row.referentiel_code }}</span>
+                  <span class="libelle">{{ row.referentiel_libelle }}</span>
+                </td>
+                <td class="nowrap">
+                  @if (row.categorie === 'cause') {
+                    {{ libelleForceMajeure(row.is_force_majeure) }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="nowrap">{{ row.created_at ? (row.created_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+                <td class="col-actions">
+                  <div class="sir-actions">
+                    <button
+                      type="button"
+                      class="sir-icon-btn sir-icon-btn--danger"
+                      data-tip="Supprimer"
+                      [disabled]="suppressionId() === row.id"
+                      [attr.aria-label]="'Supprimer la correspondance ' + row.libelle_fis"
+                      (click)="supprimer(row)"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="vide" colspan="6">
+                  {{ filtre() ? 'Aucune correspondance pour cette catégorie.' : 'Aucune correspondance FIS.' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>

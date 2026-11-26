@@ -82,6 +82,39 @@
               <p class="fis-hint">Seules les 50 premières sont listées.</p>
             }
           </details>
+          @if (rejetsReferentiel() > 0) {
+            <div class="fis-aide-ref" role="note">
+              <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
+              <div>
+                <p>
+                  {{ rejetsReferentiel() }} ligne(s) rejetée(s) parce qu’un libellé du fichier n’est pas reconnu
+                  par le Référentiel. L’import ne crée pas d’entrée du Référentiel :
+                  @if (peutGererCorrespondances()) {
+                    associez ces libellés à une entrée existante dans
+                    <a routerLink="/admin/referentiel/correspondances-fis">Référentiel → Correspondances FIS</a>,
+                    puis relancez le contrôle du fichier.
+                  } @else {
+                    demandez à l’Admin SCR d’ajouter une correspondance FIS
+                    (Référentiel → Correspondances FIS), puis relancez le contrôle du fichier.
+                  }
+                </p>
+                @if (peutGererCorrespondances() && libellesNonReconnus().length) {
+                  <ul class="fis-aide-ref__liens">
+                    @for (l of libellesNonReconnus(); track l.categorie + l.libelle) {
+                      <li>
+                        <a
+                          routerLink="/admin/referentiel/correspondances-fis"
+                          [queryParams]="{ categorie: l.categorie, libelle: l.libelle }"
+                        >
+                          Associer {{ l.nomCategorie.toLowerCase() }} « {{ l.libelle }} »
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          }
         }
       </div>
     }

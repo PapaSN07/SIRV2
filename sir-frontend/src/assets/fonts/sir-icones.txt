@@ -125,6 +125,7 @@ monitoring
 more_vert
 nature
 navigation
+note
 notes
 notification_important
 notifications
@@ -200,6 +201,7 @@ stream
 style
 support
 switch
+sync_alt
 tab
 table
 table_view

@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FONCTIONNALITES } from '../../../core/config/fonctionnalites';
 import { ReferentielService } from '../services/referentiel.service';
@@ -44,7 +45,7 @@ interface ReferentielFormState {
 @Component({
   selector: 'sir-referentiel-list',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, AdminNavComponent, PaginatorComponent],
+  imports: [FormsModule, RouterLink, PageHeaderComponent, AdminNavComponent, PaginatorComponent],
   templateUrl: './referentiel-list.component.html',
   styleUrl: './referentiel-list.component.scss',
 })
@@ -74,6 +75,8 @@ export class ReferentielListComponent implements OnInit {
   readonly form = signal<ReferentielFormState>(this.emptyForm());
 
   readonly canWrite = computed(() => this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING'));
+  /** Correspondances FIS : Admin SCR (et SUPERADMIN, via hasRole). */
+  readonly canManageFis = computed(() => this.auth.hasRole('ADMIN_SCR'));
 
   ngOnInit(): void {
     this.load();

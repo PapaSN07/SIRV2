@@ -203,6 +203,16 @@ export const routes: Routes = [
           ),
       },
       {
+        // Libellé FIS → entrée du Référentiel : création / suppression réservées à l'Admin SCR (et SUPERADMIN)
+        path: 'admin/referentiel/correspondances-fis',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN_SCR'] },
+        loadComponent: () =>
+          import('./features/referentiel/correspondances-fis/correspondances-fis.component').then(
+            (m) => m.CorrespondancesFisComponent,
+          ),
+      },
+      {
         path: 'admin/reseau/distribution',
         canActivate: [roleGuard],
         data: { roles: ADMIN_RESEAU_DIST_ROLES, permission: 'reseau:read' },

@@ -48,7 +48,8 @@ export class AdminNavComponent {
   readonly tabs = computed<AdminTab[]>(() => {
     this.auth.currentUser();
     const tabs: AdminTab[] = [
-      { route: '/admin/referentiel', label: 'Référentiels', icon: 'list_alt', exact: true },
+      // Pas « exact » : l'onglet reste actif sur /admin/referentiel/correspondances-fis
+      { route: '/admin/referentiel', label: 'Référentiels', icon: 'list_alt' },
     ];
     if (this.auth.hasRole('ADMIN_SCR', 'BCC', 'BRC', 'ADMIN_SAQS', 'SUPERVISEUR') || this.auth.hasPermission('reseau:read')) {
       tabs.push({ route: '/admin/reseau/distribution', label: 'Réseau distribution', icon: 'lan' });
