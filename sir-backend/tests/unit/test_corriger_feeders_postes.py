@@ -33,9 +33,11 @@ def test_feeder_du_poste_texte_d_abord_jamais_par_defaut() -> None:
 
 
 def test_decision_par_concordance_des_sources() -> None:
-    assert decider({"texte": 7, "interruptions": 7, "sig": None}) == (7, "sure")
+    # historique SIR v1 (texte, itd, interruptions) = une seule famille : leur accord seul reste « probable »
+    assert decider({"texte": 7, "interruptions": 7, "sig": None}) == (7, "probable")
+    assert decider({"texte": 7, "interruptions": 7, "sig": 7}) == (7, "sure")
     assert decider({"texte": None, "interruptions": None, "sig": 9}) == (9, "probable")
-    assert decider({"texte": 7, "interruptions": 9, "sig": None}) == (None, "a_arbitrer")
+    assert decider({"texte": 7, "interruptions": 7, "sig": 9}) == (None, "a_arbitrer")
     assert decider({"texte": None, "interruptions": None, "sig": None}) == (None, "sans_source")
 
 
@@ -46,7 +48,9 @@ def test_feeder_majoritaire_des_coupures() -> None:
 
 
 def test_decision_majoritaire() -> None:
-    assert decider({"exploitants": 7, "sig": 7, "texte": 9, "interruptions": None}) == (7, "majoritaire")
+    # terrain + SIG l'emportent sur l'historique (départ reconfiguré) ; terrain contre SIG : à arbitrer
+    assert decider({"exploitants": 7, "recensement": 7, "sig": 7, "itd": 9, "texte": 9, "interruptions": 9}) == (7, "sure")
+    assert decider({"exploitants": 7, "itd": 9, "texte": 9}) == (7, "terrain")
     assert decider({"exploitants": 7, "sig": 9, "texte": 9, "interruptions": 7}) == (None, "a_arbitrer")
 
 
