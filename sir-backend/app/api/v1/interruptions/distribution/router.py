@@ -116,13 +116,18 @@ async def import_fis(
     - Statut «valide» si l'utilisateur peut valider, sinon «cloture» (file de validation)
 
     - Lit la feuille «Détails interruptions»
-    - Ne crée aucune entrée du Référentiel : nature, cause ou siège inconnu,
-      inactif ou transport → ligne rejetée avec un motif
+    - Ne crée aucune entrée du Référentiel : nature, cause, siège ou signalisation
+      inconnu, inactif ou transport → ligne rejetée avec un motif ; les correspondances
+      FIS administrées par l'Admin SCR passent avant la table interne
+    - Service, feeder et poste source par correspondance exacte (code ou libellé) ;
+      libellé ambigu → ligne rejetée ; poste source = celui du feeder trouvé
     - Convertit END kWh → MWh, Puissance kW → MW
-    - Ignore les doublons si `skip_existing=true`
+    - Doublon (même numéro, même année) : ignoré si `skip_existing=true`, sinon ligne
+      rejetée — jamais créé
+    - Historique des statuts : création (et validation si importée validée), motif « Import FIS »
 
     Permissions requises : `interruptions_distribution:create`
-    (rôles : BCC, ADMIN_SCR, ADMIN_SAQS)
+    (rôles : BCC, BRC, ADMIN_SCR ; SUPERADMIN)
     """
     if not (file.filename or "").lower().endswith(_FIS_EXTENSIONS):
         raise _fis_error(
@@ -133,7 +138,7 @@ async def import_fis(
         raise _fis_error(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Fichier FIS trop volumineux (10 Mo max)"
         )
-    result = await fis_import_service.import_fis_file(
+    result = await fis_import_service.importer_fis(
         db,
         content,
         current_user=current_user,

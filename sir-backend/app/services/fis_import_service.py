@@ -9,8 +9,13 @@ Règles d'accès (identiques à la saisie manuelle) :
   (BCC/BRC → sa région, Superviseur → son service) ; sinon elle est rejetée ;
 - statut « valide » seulement si l'utilisateur a le droit de valider,
   sinon « cloture » : les interruptions passent par la file de validation ;
-- le Référentiel (natures, causes, sièges) est lu, jamais écrit : une valeur
-  inconnue, inactive ou transport rejette la ligne avec un motif.
+- le Référentiel (natures, causes, sièges, signalisations) est lu, jamais écrit :
+  une valeur inconnue, inactive ou transport rejette la ligne avec un motif ;
+- les correspondances FIS administrées (Admin SCR) passent avant la table interne ;
+- service, feeder et poste source sont trouvés par correspondance exacte (code ou
+  libellé), jamais par ressemblance ; une ambiguïté rejette la ligne ;
+- doublon = même numéro, distribution, même année : ignoré (`skip_existing`) ou
+  rejeté, jamais créé.
 
 Formule END vérifiée sur données réelles :
     END (kWh) = Puissance_coupée (kW) × Durée (minutes) / 60
@@ -25,19 +30,23 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, true
+from sqlalchemy import func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.geo import Service
 from app.models.interruptions import Interruption, InterruptionDistribution
-from app.models.referentiel import Cause, Nature, Siege
+from app.models.interruption_statut_historique import ACTION_CREATION, ACTION_VALIDATION
+from app.models.referentiel import Cause, Nature, Siege, Signalisation
 from app.models.reseau import Feeder, PosteSource
 from app.models.utilisateurs import Utilisateur
+from app.repositories import correspondance_fis_repository, interruption_statut_repository
+from app.schemas.correspondance_fis import normaliser_libelle_fis
 from app.services import interruption_distribution_service as distribution_rules
 
 logger = logging.getLogger(__name__)
@@ -141,6 +150,7 @@ class FisRow:
     end_kwh: float
     troncon: str | None = None
     observations: str | None = None
+    signalisation_libelle: str | None = None
 
 
 @dataclass
@@ -159,6 +169,8 @@ class FisImportResult:
     periode_debut: datetime | None = None
     periode_fin: datetime | None = None
     services_touches: list[str] = field(default_factory=list)
+    # (id, statut) des interruptions créées — historique des statuts (importer_fis)
+    creees: list[tuple[int, str]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -172,10 +184,8 @@ def _region_du_compte(user) -> int | None:
 
 
 def _normalise(s: str | None) -> str:
-    """Normalise une chaîne : strip + lowercase."""
-    if s is None:
-        return ""
-    return s.strip().lower()
+    """Normalise une chaîne : espace insécable remplacé, strip, minuscules."""
+    return normaliser_libelle_fis(s)
 
 
 def _find_header_row(ws) -> dict[str, int] | None:  # type: ignore[type-arg]
@@ -238,6 +248,14 @@ def _parse_datetime(val: Any) -> datetime | None:
     return None
 
 
+def _texte_facultatif(val: Any) -> str | None:
+    """Texte nettoyé (espaces de bord, espace insécable compris) ou None si vide."""
+    if val is None:
+        return None
+    texte = str(val).replace("\xa0", " ").strip()
+    return texte or None
+
+
 def parse_fis_sheet(file_bytes: bytes) -> list[FisRow]:
     """Lit un fichier FIS Excel et retourne les lignes de 'Détails interruptions'."""
     try:
@@ -275,6 +293,7 @@ def parse_fis_sheet(file_bytes: bytes) -> list[FisRow]:
     # Colonnes optionnelles
     idx_trc = _col(headers, "tronçon")
     idx_obs = _col(headers, "observation")
+    idx_sig = _col(headers, _COL_SIGNALISATION)
 
     required_cols = {
         "N°": idx_num,
@@ -332,6 +351,7 @@ def parse_fis_sheet(file_bytes: bytes) -> list[FisRow]:
                 end_kwh=_parse_float(end_val),
                 troncon=str(raw_row[idx_trc]).strip() if idx_trc is not None and raw_row[idx_trc] else None,  # type: ignore[index]
                 observations=str(raw_row[idx_obs]).strip() if idx_obs is not None and raw_row[idx_obs] else None,  # type: ignore[index]
+                signalisation_libelle=_texte_facultatif(raw_row[idx_sig]) if idx_sig is not None else None,  # type: ignore[index]
             )
         )
 
@@ -395,7 +415,8 @@ async def _resoudre_referentiel(
     precision = " de type distribution ou commun" if filtrer_type_reseau else ""
     raise ValueError(
         f"{categorie} « {libelle.strip()} » : aucune entrée active{precision} dans le référentiel "
-        "(l'import n'en crée pas — à ajouter par l'Admin SCR)"
+        "(l'import n'en crée pas — l'Admin SCR peut l'associer à une entrée existante : "
+        "Référentiel → Correspondances FIS)"
     )
 
 
@@ -430,66 +451,259 @@ async def _get_or_create_siege(db: AsyncSession, libelle: str | None) -> Siege |
     return await _resoudre_referentiel(db, Siege, "Siège", libelle, code, filtrer_type_reseau=True)
 
 
+async def _resoudre_signalisation(db: AsyncSession, libelle: str | None) -> Signalisation | None:
+    """Résout une Signalisation existante, active, distribution ou commun (libellé exact).
+
+    Comme les autres entrées du Référentiel : rien n'est créé, une valeur inconnue, inactive
+    ou transport lève ValueError (la ligne est rejetée).
+    """
+    if not _normalise(libelle):
+        return None
+    return await _resoudre_referentiel(
+        db, Signalisation, "Signalisation", libelle or "", None, filtrer_type_reseau=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Correspondances FIS administrées (Admin SCR) — prioritaires
+# ---------------------------------------------------------------------------
+
+_NOMS_CATEGORIES: dict[str, str] = {
+    "nature": "Nature",
+    "cause": "Cause",
+    "siege": "Siège",
+    "signalisation": "Signalisation",
+}
+
+
+def _correspondance(correspondances: dict[tuple[str, str], Any] | None, categorie: str, libelle: str | None) -> Any:
+    """Correspondance administrée du libellé (clé normalisée), None sinon."""
+    if not correspondances:
+        return None
+    cle = _normalise(libelle)
+    if not cle:
+        return None
+    return correspondances.get((categorie, cle))
+
+
+def _cible_correspondance(correspondance: Any, categorie: str, libelle: str) -> Any:
+    """Entrée visée par la correspondance, contrôlée comme une saisie manuelle (sinon ValueError)."""
+    cible = getattr(correspondance, categorie, None)
+    nom = _NOMS_CATEGORIES[categorie]
+    if cible is None:
+        raise ValueError(
+            f"{nom} « {libelle.strip()} » : la correspondance FIS ne pointe vers aucune entrée du référentiel"
+        )
+    hors_distribution = categorie != "nature" and getattr(cible, "type_reseau", None) not in _TYPES_RESEAU_DISTRIBUTION
+    if not cible.is_active or hors_distribution:
+        raise ValueError(
+            f"{nom} « {libelle.strip()} » : la correspondance FIS pointe vers « {cible.code} », "
+            "inactive ou hors distribution dans le référentiel (à corriger par l'Admin SCR)"
+        )
+    return cible
+
+
+async def _resoudre_nature(
+    db: AsyncSession, libelle: str, correspondances: dict[tuple[str, str], Any] | None
+) -> Nature | None:
+    correspondance = _correspondance(correspondances, "nature", libelle)
+    if correspondance is not None:
+        return _cible_correspondance(correspondance, "nature", libelle)
+    return await _get_or_create_nature(db, libelle)
+
+
+async def _resoudre_cause(
+    db: AsyncSession, libelle: str, correspondances: dict[tuple[str, str], Any] | None
+) -> tuple[Cause | None, bool]:
+    correspondance = _correspondance(correspondances, "cause", libelle)
+    if correspondance is None:
+        return await _get_or_create_cause(db, libelle)
+    cause = _cible_correspondance(correspondance, "cause", libelle)
+    if correspondance.is_force_majeure is not None:
+        return cause, bool(correspondance.is_force_majeure)
+    # Force majeure non précisée : règle de la table interne (False hors table)
+    mapping = _code_depuis_libelle(_normalise(libelle), CAUSE_LIBELLE_TO_CODE)
+    return cause, mapping[1] if mapping is not None else False
+
+
+async def _resoudre_siege(
+    db: AsyncSession, libelle: str | None, correspondances: dict[tuple[str, str], Any] | None
+) -> Siege | None:
+    correspondance = _correspondance(correspondances, "siege", libelle)
+    if correspondance is not None:
+        return _cible_correspondance(correspondance, "siege", libelle or "")
+    return await _get_or_create_siege(db, libelle)
+
+
+async def _resoudre_signalisation_fis(
+    db: AsyncSession, libelle: str | None, correspondances: dict[tuple[str, str], Any] | None
+) -> Signalisation | None:
+    correspondance = _correspondance(correspondances, "signalisation", libelle)
+    if correspondance is not None:
+        return _cible_correspondance(correspondance, "signalisation", libelle or "")
+    return await _resoudre_signalisation(db, libelle)
+
+
+# ---------------------------------------------------------------------------
+# Service, feeder, poste source — correspondance exacte (code ou libellé)
+# ---------------------------------------------------------------------------
+#
+# Plus de recherche par ressemblance (`LIKE %…%`) : « DAK » trouvait « DAKAR »,
+# « F1 » trouvait « F10 ». Plusieurs candidats → ValueError « ambigu » (ligne rejetée).
+
+_MAX_CANDIDATS = 50
+
+
+def _egal_normalise(colonne: Any, cle: str) -> Any:
+    return func.lower(func.trim(colonne)) == cle
+
+
+def _ambigu(categorie: str, libelle: str, nombre: int) -> ValueError:
+    return ValueError(
+        f"{categorie} « {libelle.strip()} » ambigu : {nombre} correspondances exactes, "
+        "préciser le code dans le fichier"
+    )
+
+
 async def _find_service(db: AsyncSession, libelle: str) -> Service | None:
-    """Cherche un service par code ou libelle."""
-    if not libelle:
+    """Service par code exact, sinon par libellé exact (insensible à la casse) ; ValueError si ambigu."""
+    cle = _normalise(libelle)
+    if not cle:
         return None
-    # Par code exact (ex: SDRBD, SDPG, SDRN1…)
-    result = await db.execute(select(Service).where(Service.code == libelle.upper()))
-    service = result.scalar_one_or_none()
-    if service:
-        return service
-    # Par libelle insensible casse
-    result = await db.execute(select(Service).where(Service.libelle.ilike(f"%{libelle}%")))
-    return result.scalars().first()
+    for colonne in (Service.code, Service.libelle):
+        result = await db.execute(
+            select(Service)
+            .where(Service.is_active == true(), _egal_normalise(colonne, cle))
+            .order_by(Service.id)
+            .limit(2)
+        )
+        candidats = list(result.scalars().all())
+        if len(candidats) == 1:
+            return candidats[0]
+        if len(candidats) > 1:
+            raise _ambigu("Service", libelle, len(candidats))
+    return None
 
 
-async def _find_feeder(db: AsyncSession, libelle: str, service_id: int | None) -> Feeder | None:
-    """Cherche un feeder par libelle dans le service donné ou globalement."""
-    if not libelle:
+async def _postes_sources_nommes(db: AsyncSession, libelle: str | None) -> set[int]:
+    """Identifiants des postes sources actifs dont le code ou le libellé égale le texte."""
+    cle = _normalise(libelle)
+    if not cle:
+        return set()
+    result = await db.execute(
+        select(PosteSource.id).where(
+            PosteSource.is_active == true(),
+            or_(_egal_normalise(PosteSource.code, cle), _egal_normalise(PosteSource.libelle, cle)),
+        )
+    )
+    return set(result.scalars().all())
+
+
+async def _departager_par_source(
+    db: AsyncSession, candidats: list[Feeder], source_libelle: str | None
+) -> list[Feeder]:
+    """Feeders homonymes (« DEPART 1 » sous plusieurs postes sources) : garde ceux de la Source du fichier."""
+    if len(candidats) < 2 or not source_libelle:
+        return candidats
+    sources = await _postes_sources_nommes(db, source_libelle)
+    retenus = [f for f in candidats if f.poste_source_id in sources]
+    return retenus or candidats
+
+
+async def _find_feeder(
+    db: AsyncSession, libelle: str, service_id: int | None, source_libelle: str | None = None
+) -> Feeder | None:
+    """Feeder actif par code ou libellé exact.
+
+    Plusieurs candidats : ceux du service de la ligne, puis ceux du poste source du fichier ;
+    aucun dans le service : un candidat unique d'un autre service est accepté (départ partagé,
+    ex. YEN) ; sinon ValueError « ambigu ».
+    """
+    cle = _normalise(libelle)
+    if not cle:
         return None
-    query = select(Feeder).where(Feeder.libelle.ilike(f"%{libelle}%"))
-    if service_id:
-        query = query.where(Feeder.service_id == service_id)
-    result = await db.execute(query.limit(1))
-    return result.scalar_one_or_none()
+    result = await db.execute(
+        select(Feeder)
+        .where(
+            Feeder.is_active == true(),
+            or_(_egal_normalise(Feeder.code, cle), _egal_normalise(Feeder.libelle, cle)),
+        )
+        .order_by(Feeder.id)
+        .limit(_MAX_CANDIDATS)
+    )
+    candidats = list(result.scalars().all())
+    if service_id is not None:
+        du_service = await _departager_par_source(
+            db, [f for f in candidats if f.service_id == service_id], source_libelle
+        )
+        if len(du_service) == 1:
+            return du_service[0]
+        if len(du_service) > 1:
+            raise _ambigu("Feeder", libelle, len(du_service))
+    candidats = await _departager_par_source(db, candidats, source_libelle)
+    if len(candidats) == 1:
+        return candidats[0]
+    if len(candidats) > 1:
+        raise _ambigu("Feeder", libelle, len(candidats))
+    return None
 
 
 async def _find_poste_source(db: AsyncSession, libelle: str) -> PosteSource | None:
-    """Cherche un poste source par libelle."""
-    if not libelle:
+    """Poste source actif par code ou libellé exact ; ValueError si ambigu."""
+    cle = _normalise(libelle)
+    if not cle:
         return None
-    result = await db.execute(select(PosteSource).where(PosteSource.libelle.ilike(f"%{libelle}%")).limit(1))
-    return result.scalar_one_or_none()
-
-
-async def _find_system_user(db: AsyncSession) -> Utilisateur:
-    """Retourne le premier utilisateur actif pour les imports (utilisateur système)."""
     result = await db.execute(
-        select(Utilisateur)
-        .where(Utilisateur.is_active == True)  # noqa: E712
-        .limit(1)
+        select(PosteSource)
+        .where(
+            PosteSource.is_active == true(),
+            or_(_egal_normalise(PosteSource.code, cle), _egal_normalise(PosteSource.libelle, cle)),
+        )
+        .order_by(PosteSource.id)
+        .limit(2)
     )
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise RuntimeError("Aucun utilisateur actif trouvé — " "exécuter les seeds avant d'importer un fichier FIS")
-    return user
+    candidats = list(result.scalars().all())
+    if len(candidats) > 1:
+        raise _ambigu("Poste source", libelle, len(candidats))
+    return candidats[0] if candidats else None
 
 
-async def _interruption_exists(db: AsyncSession, numero: int) -> bool:
-    """Vérifie si une interruption avec ce numéro existe déjà."""
+async def _interruption_exists(db: AsyncSession, numero: int, annee: int) -> bool:
+    """Interruption distribution de même numéro dans la même année (la numérotation repart à 1).
+
+    Filtre par intervalle de dates (et non DATEPART) : l'index sur date_apparition reste utilisable.
+    """
+    debut = datetime(annee, 1, 1)
+    fin = datetime(annee + 1, 1, 1)
     result = await db.execute(
-        select(Interruption.id).where(
+        select(Interruption.id)
+        .where(
             Interruption.numero_interruption == numero,
             Interruption.type_direction == "distribution",
+            Interruption.date_apparition >= debut,
+            Interruption.date_apparition < fin,
         )
+        .limit(1)
     )
-    return result.scalar_one_or_none() is not None
+    return result.scalars().first() is not None
 
 
 async def _rollback_savepoint(savepoint: Any) -> None:
     if savepoint is not None and savepoint.is_active:
         await savepoint.rollback()
+
+
+async def _en_cache(cache: dict[Any, Any], cle: Any, fabrique: Callable[[], Awaitable[Any]]) -> Any:
+    """Résolution mémorisée pour l'import, rejets compris (un libellé rejeté n'est résolu qu'une fois)."""
+    if cle not in cache:
+        try:
+            cache[cle] = await fabrique()
+        except ValueError as exc:
+            cache[cle] = exc
+    valeur = cache[cle]
+    if isinstance(valeur, ValueError):
+        raise ValueError(str(valeur))
+    return valeur
 
 
 # ---------------------------------------------------------------------------
@@ -518,6 +732,7 @@ async def import_fis_file(
     *,
     current_user: Utilisateur,
     skip_existing: bool = True,
+    correspondances: dict[tuple[str, str], Any] | None = None,
 ) -> FisImportResult:
     """Parse le fichier FIS et importe les interruptions en base.
 
@@ -525,14 +740,18 @@ async def import_fis_file(
         db: session SQLAlchemy async.
         file_bytes: contenu brut du fichier Excel FIS.
         current_user: utilisateur qui déclenche l'import (périmètre + droit de valider).
-        skip_existing: si True, ignore les numéros déjà présents en base.
+        skip_existing: si True, ignore les numéros déjà présents dans l'année ; sinon la
+            ligne est rejetée (un doublon n'est jamais créé).
+        correspondances: correspondances FIS administrées `{(catégorie, libellé normalisé): …}`,
+            prioritaires sur la table interne et la recherche par libellé.
 
     Returns:
-        FisImportResult avec statistiques d'import.
+        FisImportResult avec statistiques d'import et interruptions créées.
     """
     stats = FisImportStats()
     services_touches: set[str] = set()
     dates: list[datetime] = []
+    creees: list[tuple[int, str]] = []
     created_by_id = current_user.id
     statut_import = "valide" if _can_validate(current_user) else "cloture"
 
@@ -543,28 +762,32 @@ async def import_fis_file(
     if not rows:
         return FisImportResult(stats=stats)
 
-    # 2. Pré-charger le cache des référentiels
-    nature_cache: dict[str, Nature | None] = {}
-    cause_cache: dict[str, tuple[Cause | None, bool]] = {}
-    siege_cache: dict[str, Siege | None] = {}
-    service_cache: dict[str, Service | None] = {}
-    feeder_cache: dict[tuple[str, int | None], Feeder | None] = {}
-    poste_source_cache: dict[str, PosteSource | None] = {}
+    # 2. Caches de résolution (rejets compris)
+    nature_cache: dict[str, Any] = {}
+    cause_cache: dict[str, Any] = {}
+    siege_cache: dict[str, Any] = {}
+    signalisation_cache: dict[str, Any] = {}
+    service_cache: dict[str, Any] = {}
+    feeder_cache: dict[tuple[str, int | None], Any] = {}
+    poste_source_cache: dict[str, Any] = {}
 
     # 3. Importer ligne par ligne — chaque ligne dans un savepoint : une ligne
     #    en erreur est annulée seule, sans laisser d'écriture partielle.
     for row in rows:
         savepoint = None
         try:
-            # Doublon
-            if skip_existing and await _interruption_exists(db, row.numero):
-                stats.doublons_ignores += 1
-                continue
+            # Doublon : même numéro, distribution, même année
+            annee = row.date_apparition.year
+            if await _interruption_exists(db, row.numero, annee):
+                if skip_existing:
+                    stats.doublons_ignores += 1
+                    continue
+                raise ValueError(f"interruption n° {row.numero} déjà présente en {annee} : doublon non créé")
 
             # Résolution service
-            if row.service_libelle not in service_cache:
-                service_cache[row.service_libelle] = await _find_service(db, row.service_libelle)
-            service = service_cache[row.service_libelle]
+            service = await _en_cache(
+                service_cache, _normalise(row.service_libelle), lambda: _find_service(db, row.service_libelle)
+            )
             service_id = service.id if service else None
 
             # Périmètre d'écriture : mêmes règles que la saisie manuelle
@@ -574,40 +797,52 @@ async def import_fis_file(
             else:
                 await distribution_rules._ensure_service_in_write_scope(db, current_user, service_id)
 
-            # Résolution poste source
-            ps_key = row.source_libelle
-            if ps_key not in poste_source_cache:
-                poste_source_cache[ps_key] = await _find_poste_source(db, row.source_libelle)
-            poste_source = poste_source_cache[ps_key]
+            # Résolution feeder, puis poste source : celui du feeder, sinon celui du fichier
+            feeder = await _en_cache(
+                feeder_cache,
+                (_normalise(row.feeder_libelle), service_id, _normalise(row.source_libelle)),
+                lambda: _find_feeder(db, row.feeder_libelle, service_id, source_libelle=row.source_libelle),
+            )
+            if feeder is not None:
+                poste_source_id = feeder.poste_source_id
+                # Compte national, service du fichier introuvable : celui du feeder (comme la saisie)
+                if service_id is None and feeder.service_id is not None:
+                    service_id = feeder.service_id
+            else:
+                poste_source = await _en_cache(
+                    poste_source_cache,
+                    _normalise(row.source_libelle),
+                    lambda: _find_poste_source(db, row.source_libelle),
+                )
+                poste_source_id = poste_source.id if poste_source else None
 
-            # Résolution feeder
-            fdr_key = (row.feeder_libelle, service_id)
-            if fdr_key not in feeder_cache:
-                feeder_cache[fdr_key] = await _find_feeder(db, row.feeder_libelle, service_id)
-            feeder = feeder_cache[fdr_key]
-
-            # Résolution nature
-            nat_key = _normalise(row.nature_libelle)
-            if nat_key not in nature_cache:
-                nature_cache[nat_key] = await _get_or_create_nature(db, row.nature_libelle)
-            nature = nature_cache[nat_key]
-
-            # Résolution cause
-            cau_key = _normalise(row.cause_libelle)
-            if cau_key not in cause_cache:
-                cause_cache[cau_key] = await _get_or_create_cause(db, row.cause_libelle)
-            cause, is_force_majeure = cause_cache[cau_key]
-
-            # Résolution siège
-            sie_key = _normalise(row.siege_libelle or "")
-            if sie_key not in siege_cache:
-                siege_cache[sie_key] = await _get_or_create_siege(db, row.siege_libelle)
-            siege = siege_cache[sie_key]
+            # Référentiel (lu, jamais écrit) : correspondances administrées d'abord
+            nature = await _en_cache(
+                nature_cache,
+                _normalise(row.nature_libelle),
+                lambda: _resoudre_nature(db, row.nature_libelle, correspondances),
+            )
+            cause, is_force_majeure = await _en_cache(
+                cause_cache,
+                _normalise(row.cause_libelle),
+                lambda: _resoudre_cause(db, row.cause_libelle, correspondances),
+            )
+            siege = await _en_cache(
+                siege_cache,
+                _normalise(row.siege_libelle),
+                lambda: _resoudre_siege(db, row.siege_libelle, correspondances),
+            )
+            signalisation = await _en_cache(
+                signalisation_cache,
+                _normalise(row.signalisation_libelle),
+                lambda: _resoudre_signalisation_fis(db, row.signalisation_libelle, correspondances),
+            )
 
             # Flags
             nature_code = nature.code if nature else ""
             is_fugitive = nature_code in NATURES_FUGITIVES
-            is_programme = nature_code in NATURES_PROGRAMMEES
+            # Même règle que la saisie manuelle (code ou libellé : coupure, travaux, programmée)
+            is_programme = nature_code in NATURES_PROGRAMMEES or distribution_rules._nature_programmee(nature)
 
             # Conversion kW → MW, kWh → MWh
             puissance_mw = row.puissance_kw / 1000.0
@@ -615,7 +850,7 @@ async def import_fis_file(
 
             # Région d'exploitation : celle du départ ; un BCC / BRC n'importe que sa région
             region_id = await distribution_rules.repo.region_du_depart(
-                db, poste_source.id if poste_source else None, service_id, feeder_id=feeder.id if feeder else None
+                db, poste_source_id, service_id, feeder_id=feeder.id if feeder else None
             )
             region_compte = _region_du_compte(current_user)
             if region_compte is not None:
@@ -634,13 +869,14 @@ async def import_fis_file(
                 service_id=service_id,
                 region_id=region_id,
                 feeder_id=feeder.id if feeder else None,
-                poste_source_id=poste_source.id if poste_source else None,
+                poste_source_id=poste_source_id,
                 date_apparition=row.date_apparition,
                 date_remise=row.date_remise,
                 duree_minutes=row.duree_minutes if row.duree_minutes > 0 else None,
                 cause_id=cause.id if cause else None,
                 siege_id=siege.id if siege else None,
                 nature_id=nature.id if nature else None,
+                signalisation_id=signalisation.id if signalisation else None,
                 is_force_majeure=is_force_majeure,
                 is_fugitive=is_fugitive,
                 puissance_coupee_mw=puissance_mw if puissance_mw > 0 else None,
@@ -666,6 +902,7 @@ async def import_fis_file(
             stats.importees += 1
             stats.end_total_kwh += row.end_kwh
             dates.append(row.date_apparition)
+            creees.append((interruption.id, statut_import))
             if row.service_libelle:
                 services_touches.add(row.service_libelle)
 
@@ -688,4 +925,55 @@ async def import_fis_file(
         periode_debut=min(dates) if dates else None,
         periode_fin=max(dates) if dates else None,
         services_touches=sorted(services_touches),
+        creees=creees,
     )
+
+
+# ---------------------------------------------------------------------------
+# Orchestration (route POST /interruptions/distribution/import-fis)
+# ---------------------------------------------------------------------------
+
+MOTIF_HISTORIQUE = "Import FIS"
+
+
+async def importer_fis(
+    db: AsyncSession,
+    contenu: bytes,
+    *,
+    current_user: Utilisateur,
+    skip_existing: bool = True,
+) -> FisImportResult:
+    """Import FIS complet : correspondances administrées, import, historique des statuts.
+
+    Chaque interruption créée reçoit sa ligne « création » dans l'historique, et une ligne
+    « validation » si elle est importée validée — au nom de l'utilisateur qui importe.
+    """
+    correspondances = await correspondance_fis_repository.dictionnaire(db)
+    resultat = await import_fis_file(
+        db,
+        contenu,
+        current_user=current_user,
+        skip_existing=skip_existing,
+        correspondances=correspondances,
+    )
+    for interruption_id, statut in resultat.creees:
+        await interruption_statut_repository.ajouter(
+            db,
+            interruption_id=interruption_id,
+            action=ACTION_CREATION,
+            ancien_statut=None,
+            nouveau_statut=statut,
+            utilisateur_id=current_user.id,
+            motif=MOTIF_HISTORIQUE,
+        )
+        if statut == "valide":
+            await interruption_statut_repository.ajouter(
+                db,
+                interruption_id=interruption_id,
+                action=ACTION_VALIDATION,
+                ancien_statut="cloture",
+                nouveau_statut="valide",
+                utilisateur_id=current_user.id,
+                motif=MOTIF_HISTORIQUE,
+            )
+    return resultat
