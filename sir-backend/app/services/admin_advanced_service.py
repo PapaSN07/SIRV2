@@ -88,8 +88,9 @@ async def create_role(db: AsyncSession, current_user: Utilisateur, body: RoleCre
         user_id=current_user.id,
         new_values={"nom": nom, "permission_ids": ids},
     )
+    role_id = role.id  # lu avant expire : un attribut expiré relu hors await lève MissingGreenlet
     db.expire(role)
-    cree = await role_repository.get_role(db, role.id)
+    cree = await role_repository.get_role(db, role_id)
     return _role_response(cree)  # type: ignore[arg-type]
 
 
@@ -101,7 +102,12 @@ async def update_role(
         raise _erreur(status.HTTP_404_NOT_FOUND, "Rôle introuvable")
     if role.nom == SUPERADMIN_ROLE:
         raise _erreur(status.HTTP_403_FORBIDDEN, "Le rôle SUPERADMIN ne se modifie pas")
-    if not is_superadmin(current_user) and role.nom in role_names(current_user):
+    # Le compte connecté n'est chargé qu'avec ses rôles actifs : pour un rôle désactivé, la détention est lue
+    # en base (le modifier puis le réactiver rendrait ses droits à l'admin)
+    if not is_superadmin(current_user) and (
+        role.nom in role_names(current_user)
+        or (not role.is_active and await role_repository.utilisateur_detient_role(db, current_user.id, role_id))
+    ):
         raise _erreur(
             status.HTTP_403_FORBIDDEN, "Vous ne pouvez pas modifier les droits d'un rôle que vous détenez"
         )
@@ -132,10 +138,10 @@ async def update_role(
         old_values={"permission_ids": anciens},
         new_values={"permission_ids": nouveaux, "is_active": role.is_active, "description": role.description},
     )
-    db.expire(role)
-    modifie = await role_repository.get_role(db, role.id)
+    db.expire(role)  # role_id (paramètre) plutôt que role.id : attribut expiré, relu hors await
+    modifie = await role_repository.get_role(db, role_id)
     comptes = await role_repository.nombre_utilisateurs_par_role(db)
-    return _role_response(modifie, comptes.get(role.id, 0))  # type: ignore[arg-type]
+    return _role_response(modifie, comptes.get(role_id, 0))  # type: ignore[arg-type]
 
 
 async def list_permissions(db: AsyncSession) -> list[PermissionInfo]:

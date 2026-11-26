@@ -169,12 +169,16 @@
         </div>
         <div class="field field--full">
           <span class="field__label">Rôles</span>
+          @if (ficheDuCompteConnecte()) {
+            <p class="field__hint">Vos propres rôles ne se modifient que par un super-administrateur.</p>
+          }
           <div class="role-checkboxes">
             @for (role of roleOptions(); track role.id) {
               <label class="role-check">
                 <input
                   type="checkbox"
                   [checked]="isRoleSelected(role.id)"
+                  [disabled]="ficheDuCompteConnecte()"
                   (change)="toggleRole(role.id)"
                 />
                 <span>{{ role.nom }}</span>
@@ -192,6 +196,7 @@
                   class="field__input role-service__select"
                   [id]="'service-role-' + role.id"
                   [value]="serviceDuRole(role.id) ?? ''"
+                  [disabled]="ficheDuCompteConnecte()"
                   (change)="choisirService(role.id, $any($event.target).value)"
                 >
                   <option value="">{{ roleAvecService(role.nom) ? 'Choisir le service…' : 'Aucun (national)' }}</option>
@@ -203,7 +208,12 @@
             }
           }
         </div>
-        @if (editingId() !== null) {
+        @if (ficheDuCompteConnecte()) {
+          <div class="field">
+            <span class="field__label">Mot de passe</span>
+            <p class="field__hint">Changez votre mot de passe depuis <a routerLink="/changer-mot-de-passe">Changer mon mot de passe</a>.</p>
+          </div>
+        } @else if (editingId() !== null) {
           <div class="field">
             <label class="field__label" for="user-reset">Nouveau mot de passe (optionnel)</label>
             <input

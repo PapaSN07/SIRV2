@@ -59,7 +59,8 @@ def require_role(*roles: str):
                     "error": "Aucun rôle assigné à ce compte",
                 },
             )
-        user_role_names = {ur.role.nom for ur in current_user.user_roles}
+        # Un rôle désactivé ne donne aucun droit
+        user_role_names = {ur.role.nom for ur in current_user.user_roles if ur.role.is_active is not False}
         if not user_role_names.intersection(roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -93,6 +94,8 @@ def require_permission(resource: str, action: str):
         if is_superadmin(current_user):
             return current_user
         for user_role in current_user.user_roles:
+            if user_role.role.is_active is False:  # un rôle désactivé ne donne aucun droit
+                continue
             for rp in user_role.role.role_permissions:
                 perm = rp.permission
                 if perm.ressource == resource and perm.action == action:

@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { GeoService } from '../../geo/services/geo.service';
 import { Service } from '../../../shared/models/geo.models';
@@ -38,7 +39,7 @@ interface UserFormState {
 @Component({
   selector: 'sir-utilisateurs-list',
   standalone: true,
-  imports: [FormsModule, PageHeaderComponent, AdminNavComponent, PaginatorComponent],
+  imports: [FormsModule, RouterLink, PageHeaderComponent, AdminNavComponent, PaginatorComponent],
   templateUrl: './utilisateurs-list.component.html',
   styleUrl: './utilisateurs-list.component.scss',
 })
@@ -67,6 +68,12 @@ export class UtilisateursListComponent implements OnInit {
   readonly form = signal<UserFormState>(this.emptyForm());
 
   readonly canWrite = computed(() => this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING'));
+
+  /** Fiche du compte connecté (hors superadmin) : ni ses rôles ni son mot de passe ne se changent ici. */
+  readonly ficheDuCompteConnecte = computed(() => {
+    const moi = this.auth.currentUser();
+    return moi !== null && this.editingId() === moi.id && moi.role_label !== 'SUPERADMIN';
+  });
 
   // Ajout depuis l'annuaire (LDAP / Active Directory)
   readonly annuaireOuvert = signal(false);
@@ -282,11 +289,13 @@ export class UtilisateursListComponent implements OnInit {
       email: state.email.trim() || null,
       telephone: state.telephone.trim() || null,
       matricule: state.matricule.trim() || null,
-      roles,
+      // Ses propres rôles ne se modifient que par un super-administrateur : ils ne sont pas envoyés
+      ...(this.ficheDuCompteConnecte() ? {} : { roles }),
     };
+    const avecMotDePasse = state.reset_password.length >= 8 && !this.ficheDuCompteConnecte();
     this.adminUsers.update(editId, body).subscribe({
       next: () => {
-        if (state.reset_password.length >= 8) {
+        if (avecMotDePasse) {
           this.adminUsers.resetPassword(editId, { new_password: state.reset_password }).subscribe({
             next: () => this.afterSave(),
             error: (err: Error) => this.onSaveError(err),

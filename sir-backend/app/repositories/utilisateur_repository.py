@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,9 +11,11 @@ def _utilisateur_options() -> list:
     Charge la chaîne complète :
       user_roles → role → role_permissions → permission
     Évite tout lazy load synchrone dans les services et dépendances.
+    Seuls les rôles actifs sont chargés : un rôle désactivé ne donne aucun droit.
     """
+    roles_actifs = select(Role.id).where(Role.is_active == true())
     return [
-        selectinload(Utilisateur.user_roles)
+        selectinload(Utilisateur.user_roles.and_(UserRole.role_id.in_(roles_actifs)))
         .selectinload(UserRole.role)
         .selectinload(Role.role_permissions)
         .selectinload(RolePermission.permission)
