@@ -116,7 +116,8 @@ async def import_fis(
     - Statut «valide» si l'utilisateur peut valider, sinon «cloture» (file de validation)
 
     - Lit la feuille «Détails interruptions»
-    - Crée les référentiels manquants (Nature, Cause, Siège) à la volée
+    - Ne crée aucune entrée du Référentiel : nature, cause ou siège inconnu,
+      inactif ou transport → ligne rejetée avec un motif
     - Convertit END kWh → MWh, Puissance kW → MW
     - Ignore les doublons si `skip_existing=true`
 
