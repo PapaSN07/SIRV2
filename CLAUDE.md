@@ -283,6 +283,11 @@ Quand Claude rencontre une erreur en travaillant sur ce projet :
 **Erreur** : `referentiel_service.update_item` contrôlait `_ensure_can_write` sur `body.type_reseau or record.type_reseau` : un Admin Dispatching qui envoyait `type_reseau: "transport"` sur une cause distribution passait le contrôle, déplaçait la cause et la modifiait (drapeau exogène compris). La suppression, elle, contrôlait déjà le réseau actuel.
 **Règles** : un droit se vérifie sur l'état **en base** de l'objet, puis, si un champ de périmètre change, aussi sur la nouvelle valeur — jamais sur la seule valeur envoyée ; tests `tests/integration/test_api_referentiel_droits_type.py`. En plus, un champ propre à une ressource (`est_exogene`) envoyé pour une autre ressource est refusé (422), pas ignoré, et une clé de cache change de forme (`s2`) quand la forme de la réponse change.
 
+### 25/11/2026 — Admin de direction maître d'un compte à plusieurs rôles (administration des utilisateurs)
+**Contexte** : revue de sécurité ; `admin_utilisateur_repository.user_has_direction_role`, utilisé avant la modification, l'activation / désactivation, la réinitialisation du mot de passe et le remplacement des rôles d'un compte.
+**Erreur** : le contrôle était un `any(...)` : un compte entrait dans le périmètre d'un Admin SCR ou d'un Admin Dispatching dès qu'un seul de ses rôles était dans sa direction (ou était un rôle créé de la matrice). Un Admin Dispatching pouvait réinitialiser le mot de passe d'un compte DISPATCHER + ADMIN_SCR (ou SUPERADMIN + rôle créé) puis se connecter avec, ou lui retirer ses rôles de l'autre direction (`_validate_role_assignments` ne contrôle que les rôles envoyés, pas ceux retirés). Tests verts car aucun ne construisait de compte à plusieurs rôles.
+**Règles** : un droit sur un objet se vérifie sur **tout** son état en base, jamais sur une partie (même motif que le Référentiel) ; un admin non superadmin n'agit sur un compte que si celui-ci a au moins un rôle et que **tous** ses rôles système (`ROLES_SYSTEME`) sont dans sa direction — jamais SUPERADMIN ni ADMIN_SAQS ; la liste des comptes d'une direction suit la même règle (`list_by_direction`) ; tout contrôle de droits reçoit un test avec une cible à plusieurs rôles mêlant directions (`tests/integration/test_admin_utilisateurs_perimetre_multi_roles.py`).
+
 ---
 
 *Dernière mise à jour : Juin 2026*

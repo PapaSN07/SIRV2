@@ -31,10 +31,16 @@ def allowed_roles_for_direction(direction: str) -> frozenset[str]:
 
 
 def user_has_direction_role(user: Utilisateur, direction: str) -> bool:
-    """Vérifie si l'utilisateur possède au moins un rôle de la direction."""
+    """Vrai si le compte relève entièrement de la direction de l'admin.
+
+    Il faut au moins un rôle, et TOUS les rôles système (ROLES_SYSTEME) du compte dans la direction :
+    un compte qui détient aussi SUPERADMIN, ADMIN_SAQS ou un rôle de l'autre direction est hors
+    périmètre (sinon un admin de direction pourrait réinitialiser son mot de passe ou lui retirer
+    ses autres rôles). Les rôles créés dans la matrice (hors rôles SIRV2) ne gênent pas.
+    """
     allowed = allowed_roles_for_direction(direction)
-    # Rôle créé dans la matrice (hors rôles SIRV2) : visible des deux directions
-    return any(ur.role.nom in allowed or ur.role.nom not in ROLES_SYSTEME for ur in user.user_roles)
+    noms = [ur.role.nom for ur in user.user_roles]
+    return bool(noms) and all(nom in allowed for nom in noms if nom in ROLES_SYSTEME)
 
 
 async def get_by_id(db: AsyncSession, user_id: int) -> Utilisateur | None:
@@ -83,7 +89,7 @@ async def list_by_direction(
     page_size: int,
     recherche: str | None = None,
 ) -> tuple[list[Utilisateur], int]:
-    """Liste paginée des utilisateurs ayant au moins un rôle de la direction."""
+    """Liste paginée des comptes de la direction (même règle que `user_has_direction_role`)."""
     allowed = allowed_roles_for_direction(direction)
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
@@ -95,9 +101,19 @@ async def list_by_direction(
         .where(or_(Role.nom.in_(allowed), Role.nom.notin_(ROLES_SYSTEME)))
         .distinct()
     )
+    # Exclut les comptes qui détiennent un rôle système hors de la direction
+    hors_direction_subq = (
+        select(UserRole.utilisateur_id)
+        .join(Role, UserRole.role_id == Role.id)
+        .where(Role.nom.in_(ROLES_SYSTEME - allowed))
+        .distinct()
+    )
 
     filtre = filtre_recherche(recherche)
-    conditions = [Utilisateur.id.in_(user_ids_subq)] + ([filtre] if filtre is not None else [])
+    conditions = [
+        Utilisateur.id.in_(user_ids_subq),
+        Utilisateur.id.notin_(hors_direction_subq),
+    ] + ([filtre] if filtre is not None else [])
     count_result = await db.execute(select(func.count(Utilisateur.id)).where(*conditions))
     total = count_result.scalar_one()
 
