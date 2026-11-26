@@ -39,7 +39,7 @@ Légende : ✅ existe dans SIRV2 · 🟡 existe en partie · ❌ à créer.
 
 ### Organisation retenue (25/11/2026)
 
-Un nouveau menu **« Suivi incidents »** dans SIRV2 (section Analyse ; route `/suivi-incidents`, `roleGuard` + `indicateurs:read`), masqué par l'interrupteur `FONCTIONNALITES.suiviIncidents` jusqu'à la recette (aperçu sur un poste : `localStorage['sir_apercu'] = 'suivi-incidents'`). Choix validés : **6 onglets** (les doublons de l'ancienne app sont regroupés), graphiques **ngx-echarts** (chargés à la demande), période par défaut **semaine Senelec passée**.
+Un nouveau menu **« Suivi incidents »** dans SIRV2 (section Analyse ; route `/suivi-incidents`, `roleGuard` + `indicateurs:read`), visible depuis le 26/11/2026 (interrupteur `FONCTIONNALITES.suiviIncidents` à `true` ; à `false`, aperçu possible sur un poste avec `localStorage['sir_apercu'] = 'suivi-incidents'`) ; l'ancienne application reste l'outil de référence jusqu'au basculement. Choix validés : **6 onglets** (les doublons de l'ancienne app sont regroupés), graphiques **ngx-echarts** (chargés à la demande), période par défaut **semaine Senelec passée**.
 
 | Onglet (route enfant) | Contenu | Remplace (ancienne app) |
 |---|---|---|
@@ -125,7 +125,7 @@ Pas un préalable : SIRV2 fait foi. Utile pour préparer les questions des utili
 5. **SAIFI / SAIDI** — synthèse du périmètre ou contribution des interruptions filtrées, HTA / HTB, natures, évolution mensuelle et cumul, contributions par service — **fait le 25/11/2026** (spécification §10).
 6. **Géographie + Carte + Localisation** — découpée : **6a** Carte et Localisation sur les données existantes (spécification §11) — **faite le 25/11/2026** ; **6b** géographie administrative ci-dessous, quand le fichier des localités sera disponible sur le réseau SENELEC — migrations Alembic (§3), import des localités (« Postes_Affectes_Localites »), lien poste ↔ SIG par tâche Celery ; onglets Carte et Localisation ; classement territorial administratif.
 7. **Administration** — reprise des corrections manuelles et du recensement dans le rapprochement Schéma / SIG / SIR.
-8. **Recette et bascule** — recette par les utilisateurs de l'ancienne app, retrait de l'interrupteur, redirection de l'ancienne adresse (port 8070) vers SIRV2.
+8. **Recette et bascule** — recette par les utilisateurs de l'ancienne app (menu déjà visible depuis le 26/11/2026), redirection de l'ancienne adresse (port 8070) vers SIRV2.
 
 ## 8. Spécification de l'étape 3 — Vue d'ensemble (25/11/2026)
 

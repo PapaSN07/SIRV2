@@ -11,11 +11,11 @@ import { CanActivateFn, Router } from '@angular/router';
 export const FONCTIONNALITES = {
   transport: false,
   /**
-   * Menu « Suivi incidents » (fusion du tableau de bord Suivi incidents SIR, en construction).
-   * Masqué tant que la recette n'est pas faite ; visible en aperçu sur un poste qui a
-   * `localStorage['sir_apercu']` contenant « suivi-incidents ».
+   * Menu « Suivi incidents » (fusion du tableau de bord Suivi incidents SIR).
+   * Visible depuis le 26/11/2026 ; repasser à false pour le masquer (l'aperçu par
+   * `localStorage['sir_apercu']` contenant « suivi-incidents » reste alors possible).
    */
-  suiviIncidents: false,
+  suiviIncidents: true,
 } as const;
 
 /** Route d'une partie masquée : retour à l'accueil. */
