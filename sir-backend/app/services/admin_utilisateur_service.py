@@ -73,13 +73,6 @@ def _build_response(user: Utilisateur) -> UtilisateurResponse:
     )
 
 
-def _refus(message: str) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail={"status": "error", "data": None, "error": message},
-    )
-
-
 def _roles_actuels(user: Utilisateur, actifs_seulement: bool = False) -> set[tuple[int, int | None]]:
     return {
         (ur.role_id, ur.scope_service_id)
@@ -260,7 +253,10 @@ async def update_utilisateur(
             },
         )
 
-    _ensure_user_in_direction(user, direction)
+    # Son propre compte : un admin y agit sans limite de direction (décision du 26/11/2026)
+    propre_compte = user.id == current_user.id
+    if not propre_compte:
+        _ensure_user_in_direction(user, direction)
 
     # Rôles validés (422 / 403) avant toute écriture : un refus ne laisse rien en base
     roles: list[tuple[int, int | None]] | None = None
@@ -274,13 +270,15 @@ async def update_utilisateur(
                     "error": "Au moins un rôle est obligatoire",
                 },
             )
-        if user.id == current_user.id and direction != "all":
-            # Un admin ne change pas ses propres rôles (décision du 17/11/2026) : seul un superadmin le fait.
-            # Ses rôles désactivés (renvoyés ou omis par l'écran) sont conservés tels quels.
+        if propre_compte and direction != "all":
+            # Ses rôles désactivés (renvoyés ou omis par l'écran) sont conservés tels quels ; les autres
+            # sont validés sans contrôle de direction. Rôles inchangés : rien n'est réécrit.
             inactifs = {ur.role_id for ur in user.user_roles if ur.role.is_active is False}
-            demandes = {(a.role_id, a.scope_service_id) for a in body.roles if a.role_id not in inactifs}
+            actifs_demandes = [a for a in body.roles if a.role_id not in inactifs]
+            demandes = {(a.role_id, a.scope_service_id) for a in actifs_demandes}
             if demandes != _roles_actuels(user, actifs_seulement=True):
-                raise _refus("Vous ne pouvez pas modifier vos propres rôles")
+                conserves = [(ur.role_id, ur.scope_service_id) for ur in user.user_roles if ur.role_id in inactifs]
+                roles = conserves + await _validate_role_assignments(db, "all", actifs_demandes)
         else:
             roles = await _validate_role_assignments(db, direction, body.roles)
 
@@ -397,11 +395,9 @@ async def reset_password(
             },
         )
 
-    _ensure_user_in_direction(user, direction)
-
-    # Son propre mot de passe se change avec l'ancien (« Changer mon mot de passe »), pas par l'administration
-    if user.id == current_user.id and direction != "all":
-        raise _refus("Changez votre propre mot de passe depuis « Changer mon mot de passe »")
+    # Son propre mot de passe : un admin le réinitialise aussi par l'administration (décision du 26/11/2026)
+    if user.id != current_user.id:
+        _ensure_user_in_direction(user, direction)
 
     password_hash = hash_password(body.new_password)
     await admin_repo.reset_password(db, user_id, password_hash)

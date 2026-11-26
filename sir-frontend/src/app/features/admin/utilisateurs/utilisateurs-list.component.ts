@@ -69,12 +69,6 @@ export class UtilisateursListComponent implements OnInit {
 
   readonly canWrite = computed(() => this.auth.hasRole('ADMIN_SCR', 'ADMIN_DISPATCHING'));
 
-  /** Fiche du compte connecté (hors superadmin) : ni ses rôles ni son mot de passe ne se changent ici. */
-  readonly ficheDuCompteConnecte = computed(() => {
-    const moi = this.auth.currentUser();
-    return moi !== null && this.editingId() === moi.id && moi.role_label !== 'SUPERADMIN';
-  });
-
   // Ajout depuis l'annuaire (LDAP / Active Directory)
   readonly annuaireOuvert = signal(false);
   readonly annuaireTexte = signal('');
@@ -289,10 +283,10 @@ export class UtilisateursListComponent implements OnInit {
       email: state.email.trim() || null,
       telephone: state.telephone.trim() || null,
       matricule: state.matricule.trim() || null,
-      // Ses propres rôles ne se modifient que par un super-administrateur : ils ne sont pas envoyés
-      ...(this.ficheDuCompteConnecte() ? {} : { roles }),
+      // Un admin peut aussi modifier ses propres rôles (décision du 26/11/2026)
+      roles,
     };
-    const avecMotDePasse = state.reset_password.length >= 8 && !this.ficheDuCompteConnecte();
+    const avecMotDePasse = state.reset_password.length >= 8;
     this.adminUsers.update(editId, body).subscribe({
       next: () => {
         if (avecMotDePasse) {
