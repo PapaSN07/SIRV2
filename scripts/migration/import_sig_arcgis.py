@@ -223,6 +223,7 @@ def cle_feeder(nom: str | None) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("kmz", type=Path)
+    parser.add_argument("--correspondances", type=Path, help="classeur des départs manquants validé")
     parser.add_argument("--excel", type=Path, help="export Excel des postes (« POSTES DAKAR.xls ») : unité d'exploitation")
     parser.add_argument("--execute", action="store_true", help="écrire en base (sinon simulation)")
     args = parser.parse_args()
@@ -260,6 +261,12 @@ def main() -> int:
         except ModuleNotFoundError:  # copie du script posée à côté de corriger_feeders_postes.py
             sys.path.insert(0, str(Path(__file__).resolve().parent))
             from corriger_feeders_postes import resoudre_feeder  # type: ignore[no-redef]
+        if args.correspondances:
+            try:
+                from scripts.migration.corriger_feeders_postes import charger_correspondances
+            except ModuleNotFoundError:
+                from corriger_feeders_postes import charger_correspondances  # type: ignore[no-redef]
+            print(f"Correspondances de départs validées : {charger_correspondances(args.correspondances)}")
 
         feeders = session.execute(text(
             "SELECT f.id, f.libelle, f.code, ps.libelle FROM dbo.feeders f"

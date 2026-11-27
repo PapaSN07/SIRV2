@@ -59,6 +59,29 @@ def cle_feeder(nom: str | None) -> str:
     return re.sub(r"[^A-Z0-9]", "", texte)
 
 
+# Correspondances validées « nom relevé → feeder SIRV2 » (classeur des départs manquants, colonne DÉCISION
+# = existant), chargées par charger_correspondances ; consultées en premier par resoudre_feeder
+CORRESPONDANCES: dict[str, int] = {}
+
+
+def charger_correspondances(chemin: Path) -> int:
+    """Lit le classeur des départs manquants : lignes « existant » avec « (id N) » dans la colonne du feeder."""
+    from openpyxl import load_workbook
+
+    feuille = load_workbook(chemin, read_only=True, data_only=True).worksheets[0]
+    lignes = list(feuille.iter_rows(values_only=True))
+    entete = [cle_feeder(str(c or "")) for c in lignes[0]]
+    i_dep = entete.index("DEPARTNOMRELEVE")
+    i_dec = next(i for i, c in enumerate(entete) if c.startswith("DECISION"))
+    i_fee = next(i for i, c in enumerate(entete) if c.startswith("FEEDERSIRV2SI"))
+    for ligne in lignes[1:]:
+        decision = str(ligne[i_dec] or "").strip().lower()
+        trouve = re.search(r"\bid (\d+)\)", str(ligne[i_fee] or ""))
+        if decision == "existant" and trouve and ligne[i_dep]:
+            CORRESPONDANCES[cle_feeder(str(ligne[i_dep]))] = int(trouve.group(1))
+    return len(CORRESPONDANCES)
+
+
 def _sans_tension(cle: str) -> str:
     return re.sub(r"(30KV|66KV|6KV|66|6)$", "", cle)
 
@@ -76,6 +99,8 @@ def resoudre_feeder(
     cle = cle_feeder(nom)
     if not cle:
         return None
+    if cle in CORRESPONDANCES:
+        return CORRESPONDANCES[cle]
     du_ps = feeders_du_ps.get(cle_feeder(poste_source), {})
     for ids in (du_ps.get(cle), par_cle.get(cle)):
         if ids and len(ids) == 1:
@@ -249,6 +274,8 @@ def main() -> int:
                         help="sure : ITD confirmée seulement ; probable : aussi ITD seule, historique, recensement")
     parser.add_argument("--liste-exploitants", type=Path,
                         help="liste des postes des exploitants (.xlsx : SERVICES, POSTES SOURCES, FEEDERS, POSTES)")
+    parser.add_argument("--correspondances", type=Path,
+                        help="classeur des départs manquants validé (DÉCISION = existant → feeder SIRV2)")
     parser.add_argument("--sans-itd", action="store_true",
                         help="ne pas lire la base IndicateursTransportDistribution")
     parser.add_argument("--tous", action="store_true",
@@ -257,6 +284,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.restaurer:
         return restaurer(args.restaurer, args.execute)
+    if args.correspondances:
+        print(f"Correspondances de départs validées : {charger_correspondances(args.correspondances)}")
 
     with get_session() as session:
         feeders = session.execute(
