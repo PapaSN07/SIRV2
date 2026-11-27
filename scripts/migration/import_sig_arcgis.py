@@ -255,20 +255,26 @@ def main() -> int:
                 print("La migration 5f6a7b8c9d0e n'est pas appliquée : alembic upgrade head sur le serveur d'abord.")
                 return 1
             print("(Migration 5f6a7b8c9d0e pas encore appliquée : simulation comme un premier import.)")
-        feeders = session.execute(text("SELECT id, libelle, code FROM dbo.feeders WHERE is_active = 1")).all()
+        from scripts.migration.corriger_feeders_postes import resoudre_feeder
+
+        feeders = session.execute(text(
+            "SELECT f.id, f.libelle, f.code, ps.libelle FROM dbo.feeders f"
+            " LEFT JOIN dbo.postes_sources ps ON ps.id = f.poste_source_id WHERE f.is_active = 1")).all()
         par_cle: dict[str, set[int]] = defaultdict(set)
-        for i, lib, code in feeders:
+        feeders_du_ps: dict[str, dict[str, set[int]]] = defaultdict(lambda: defaultdict(set))
+        for i, lib, code, ps in feeders:
             for nom in (lib, code):
                 if cle_feeder(nom):
                     par_cle[cle_feeder(nom)].add(int(i))
+                    feeders_du_ps[cle_feeder(ps)][cle_feeder(nom)].add(int(i))
 
-        def feeder_id(nom: object) -> int | None:
-            ids = par_cle.get(cle_feeder(str(nom or "")), set())
-            return next(iter(ids)) if len(ids) == 1 else None
+        def feeder_id(nom: object, poste_source: object = None) -> int | None:
+            """Nom du départ ArcGIS → feeder SIRV2 (exact, puis proche dans le poste source)."""
+            return resoudre_feeder(str(nom or ""), str(poste_source or ""), feeders_du_ps, par_cle)
 
-        non_resolus = Counter(str(x["nom_feeder"]) for x in noeuds + troncons if x["nom_feeder"] and feeder_id(x["nom_feeder"]) is None)
         for x in noeuds + troncons:
-            x["feeder_id"] = feeder_id(x["nom_feeder"])
+            x["feeder_id"] = feeder_id(x["nom_feeder"], x.get("poste_source"))
+        non_resolus = Counter(str(x["nom_feeder"]) for x in noeuds + troncons if x["nom_feeder"] and x["feeder_id"] is None)
 
         existants_n = {g: (i, lid) for g, i, lid in session.execute(
             text("SELECT global_id, id, legacy_id FROM dbo.noeuds_sig WHERE global_id IS NOT NULL")).all()} if migre else {}
@@ -342,8 +348,9 @@ def main() -> int:
             else:
                 min_t -= 1
                 session.execute(text(
-                    f"INSERT INTO dbo.troncons_sig (legacy_id, source, global_id, date_chargement, {', '.join(colonnes_t)})"
-                    f" VALUES (:lid, 'arcgis', :global_id, :date_chargement, {', '.join(':' + c for c in colonnes_t)})"),
+                    f"INSERT INTO dbo.troncons_sig (legacy_id, legacy_fid, source, global_id, date_chargement, {', '.join(colonnes_t)})"
+                    # legacy_fid négatif aussi : unicité (legacy_fid, date_chargement) de uq_troncons_sig_fid_chargement
+                    f" VALUES (:lid, :lid, 'arcgis', :global_id, :date_chargement, {', '.join(':' + c for c in colonnes_t)})"),
                     {**t, "lid": min_t})
         for requete in RECALCUL_DERNIER_CHARGEMENT:
             session.execute(text(requete))
