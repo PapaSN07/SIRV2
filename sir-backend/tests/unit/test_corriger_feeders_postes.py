@@ -75,3 +75,7 @@ def test_resoudre_feeder_exact_puis_proche_dans_le_poste_source() -> None:
     assert resoudre_feeder("AIR SENEGAL", "AEROPORT", du_ps, par_cle) == 52
     assert resoudre_feeder("MEDINA", "BEL AIR", du_ps, par_cle) == 4
     assert resoudre_feeder("LFTR", "AEROPORT", du_ps, par_cle) is None
+    # tension ajoutée au nom dans SIRV2 : reconnu si un seul feeder correspond
+    par_cle |= {"POINTE30KV": {259}, "FANN30KV": {129}, "FANN66": {130}}
+    assert resoudre_feeder("POINT E", "UNIVERSITE", du_ps, par_cle) == 259
+    assert resoudre_feeder("FANN", "UNIVERSITE", du_ps, par_cle) is None

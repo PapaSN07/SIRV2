@@ -59,6 +59,10 @@ def cle_feeder(nom: str | None) -> str:
     return re.sub(r"[^A-Z0-9]", "", texte)
 
 
+def _sans_tension(cle: str) -> str:
+    return re.sub(r"(30KV|66KV|6KV|66|6)$", "", cle)
+
+
 def resoudre_feeder(
     nom: str | None,
     poste_source: str | None,
@@ -76,6 +80,11 @@ def resoudre_feeder(
     for ids in (du_ps.get(cle), par_cle.get(cle)):
         if ids and len(ids) == 1:
             return next(iter(ids))
+    # Nom sans la tension que SIRV2 ajoute souvent (« POINT E » / « POINT E 30KV », « LFTR » / « LFTR 30 KV ») :
+    # retenu seulement s'il ne désigne qu'un feeder (FANN 30 KV et FANN 6.6 → aucun)
+    sans_tension = {i for k, ids in par_cle.items() if _sans_tension(k) == cle for i in ids}
+    if len(sans_tension) == 1:
+        return next(iter(sans_tension))
     candidats = [k for k in du_ps if k.startswith(cle) or cle.startswith(k)]
     if len(candidats) != 1:
         candidats = difflib.get_close_matches(cle, list(du_ps), n=2, cutoff=0.85)
