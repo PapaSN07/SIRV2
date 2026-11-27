@@ -255,7 +255,11 @@ def main() -> int:
                 print("La migration 5f6a7b8c9d0e n'est pas appliquée : alembic upgrade head sur le serveur d'abord.")
                 return 1
             print("(Migration 5f6a7b8c9d0e pas encore appliquée : simulation comme un premier import.)")
-        from scripts.migration.corriger_feeders_postes import resoudre_feeder
+        try:
+            from scripts.migration.corriger_feeders_postes import resoudre_feeder
+        except ModuleNotFoundError:  # copie du script posée à côté de corriger_feeders_postes.py
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from corriger_feeders_postes import resoudre_feeder  # type: ignore[no-redef]
 
         feeders = session.execute(text(
             "SELECT f.id, f.libelle, f.code, ps.libelle FROM dbo.feeders f"
